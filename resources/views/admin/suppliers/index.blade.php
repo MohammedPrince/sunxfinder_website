@@ -81,9 +81,6 @@
                 </tbody>
             </table>
         </div>
-        <div class="table-bottom"><span class="table-info">Showing
-                {{ $suppliers->firstItem() ?? 0 }}–{{ $suppliers->lastItem() ?? 0 }} of {{ $suppliers->total() }}</span>
-            <div class="pagination-wrapper">{{ $suppliers->links() }}</div>
-        </div>
+        @include('partials.table-pagination', ['paginator' => $suppliers, 'label' => 'suppliers'])
     </section>
 @endsection

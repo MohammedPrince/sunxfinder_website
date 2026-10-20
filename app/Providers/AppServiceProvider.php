@@ -10,6 +10,7 @@ use App\Models\Project;
 use App\Models\Quote;
 use App\Models\SolarCompany;
 use App\Models\Supplier;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
@@ -32,6 +33,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Schema::defaultStringLength(191);
+
+        // One pagination look for every admin/company list (resources/views/vendor/pagination/sunxfinder.blade.php)
+        Paginator::defaultView('vendor.pagination.sunxfinder');
 
         // Existing admin header counts — unchanged.
         View::composer('admin.partials.header', function ($view) {

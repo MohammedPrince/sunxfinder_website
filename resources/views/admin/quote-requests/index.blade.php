@@ -237,16 +237,6 @@
         </div>
 
         {{-- Pagination --}}
-        <div class="table-bottom">
-            <span class="table-info">
-                Showing {{ $quotes->firstItem() ?? 0 }}
-                to {{ $quotes->lastItem() ?? 0 }}
-                of {{ $quotes->total() }} requests
-            </span>
-
-            <div class="pagination-wrapper">
-                {{ $quotes->links() }}
-            </div>
-        </div>
+        @include('partials.table-pagination', ['paginator' => $quotes, 'label' => 'requests'])
     </section>
 @endsection

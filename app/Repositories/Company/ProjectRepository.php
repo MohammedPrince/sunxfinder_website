@@ -57,7 +57,7 @@ class ProjectRepository
             })
             ->orderByDesc('updated_at')
             ->orderByDesc('id')
-            ->paginate(15)
+            ->paginate(10)
             ->withQueryString();
     }
 

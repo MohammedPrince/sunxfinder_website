@@ -197,16 +197,6 @@
             </table>
         </div>
 
-        <div class="table-bottom">
-            <span class="table-info">
-                Showing {{ $projects->firstItem() ?? 0 }}
-                to {{ $projects->lastItem() ?? 0 }}
-                of {{ $projects->total() }} projects
-            </span>
-
-            <div class="pagination-wrapper">
-                {{ $projects->links() }}
-            </div>
-        </div>
+        @include('partials.table-pagination', ['paginator' => $projects, 'label' => 'projects'])
     </section>
 @endsection

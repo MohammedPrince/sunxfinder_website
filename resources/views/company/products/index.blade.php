@@ -133,15 +133,6 @@
             </table>
         </div>
 
-        <div class="table-bottom">
-            <span class="table-info">
-                Showing {{ $products->firstItem() ?? 0 }}–{{ $products->lastItem() ?? 0 }}
-                of {{ $products->total() }}
-            </span>
-
-            <div class="pagination-wrapper">
-                {{ $products->links() }}
-            </div>
-        </div>
+        @include('partials.table-pagination', ['paginator' => $products, 'label' => 'products'])
     </section>
 @endsection

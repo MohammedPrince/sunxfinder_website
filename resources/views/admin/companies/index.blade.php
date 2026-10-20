@@ -203,17 +203,7 @@
         </div>
 
         {{-- Pagination --}}
-        <div class="table-bottom">
-            <span class="table-info">
-                Showing {{ $companies->firstItem() ?? 0 }}
-                to {{ $companies->lastItem() ?? 0 }}
-                of {{ $companies->total() }} companies
-            </span>
-
-            <div class="pagination-wrapper">
-                {{ $companies->links() }}
-            </div>
-        </div>
+        @include('partials.table-pagination', ['paginator' => $companies, 'label' => 'companies'])
     </section>
 
 @endsection

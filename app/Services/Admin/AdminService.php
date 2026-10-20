@@ -60,7 +60,7 @@ class AdminService
 
     //Customer Managment START
 
-    public function getCustomers(int $perPage = 15)
+    public function getCustomers(int $perPage = 10)
     {
         return $this->adminRepository->getCustomers($perPage);
     }

@@ -131,7 +131,7 @@ class CompanyRepository
             });
         }
 
-        return $query->paginate(15)->withQueryString();
+        return $query->paginate(10)->withQueryString();
     }
 
     public function findForCompany(
@@ -262,7 +262,7 @@ class CompanyRepository
             ->orderByDesc('created_at')
             ->orderByDesc('id');
 
-        return $query->paginate(15)->withQueryString();
+        return $query->paginate(10)->withQueryString();
     }
 
     public function getQuoteRequestMetrics(): array

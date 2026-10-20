@@ -24,9 +24,9 @@ class MainController extends Controller
 
         $verifiedCount = $this->adminService->verifiedCount();
 
-        $pendingCount = $this->adminService->verifiedCount();
+        $pendingCount = $this->adminService->pendingCount();
 
-        $inactiveCount = $this->adminService->verifiedCount();
+        $inactiveCount = $this->adminService->inactiveCount();
 
         return view('admin.companies.index', compact(
             'companies',

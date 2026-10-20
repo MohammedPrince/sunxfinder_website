@@ -271,7 +271,7 @@ class AdminRepository
         }
     }
 
-    public function getCustomers(int $perPage = 15)
+    public function getCustomers(int $perPage = 10)
     {
         return Customer::query()
             ->orderByDesc('created_at')
@@ -436,7 +436,7 @@ class AdminRepository
                 ->withCount('appliances')
                 ->orderBy('sort_order')
                 ->orderBy('name')
-                ->paginate(15);
+                ->paginate(10);
 
             return [
                 'success' => true,
@@ -651,7 +651,7 @@ class AdminRepository
     public function showSuppliers(): array
     {
         try {
-            $suppliers = Supplier::withCount('products')->orderBy('name')->paginate(15);
+            $suppliers = Supplier::withCount('products')->orderBy('name')->paginate(10);
             return ['success' => true, 'message' => 'Suppliers retrieved successfully.', 'suppliers' => $suppliers];
         } catch (Throwable $e) {
             Log::error('Unable to retrieve suppliers.', ['exception' => $e]);
@@ -715,7 +715,7 @@ class AdminRepository
     public function showProducts(): array
     {
         try {
-            $products = Product::with(['supplier', 'specs'])->orderBy('name')->paginate(15);
+            $products = Product::with(['supplier', 'specs'])->orderBy('name')->paginate(10);
             $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
             return ['success' => true, 'message' => 'Products retrieved successfully.', 'products' => $products, 'suppliers' => $suppliers];
         } catch (Throwable $e) {
@@ -820,7 +820,7 @@ class AdminRepository
 
     public function getCompanyCarouselEntries()
     {
-        return CompanyCarousel::with('company')->orderBy('platform')->orderBy('sort_order')->orderByDesc('id')->paginate(15);
+        return CompanyCarousel::with('company')->orderBy('platform')->orderBy('sort_order')->orderByDesc('id')->paginate(10);
     }
 
     public function findCompanyCarouselEntry(int $id): ?CompanyCarousel
@@ -1017,7 +1017,7 @@ class AdminRepository
             ->orderByDesc('created_at')
             ->orderByDesc('id');
 
-        return $query->paginate(15)->withQueryString();
+        return $query->paginate(10)->withQueryString();
     }
 
     public function getQuoteRequestMetrics(): array

@@ -209,17 +209,7 @@
         </div>
 
         {{-- Pagination --}}
-        <div class="table-bottom">
-            <span class="table-info">
-                Showing {{ $customers->firstItem() ?? 0 }}
-                to {{ $customers->lastItem() ?? 0 }}
-                of {{ $customers->total() }} customers
-            </span>
-
-            <div class="pagination-wrapper">
-                {{ $customers->links() }}
-            </div>
-        </div>
+        @include('partials.table-pagination', ['paginator' => $customers, 'label' => 'customers'])
     </section>
 
 @endsection
