@@ -3,10 +3,12 @@
 @endphp
 <header class="header">
     <div class="container nav">
-        <a class="brand" href="{{ url('/') }}"><img src="{{ asset('visitors/images/sunxfinder-logo.png') }}"
-                alt="SunXFinder logo" loading="lazy"
-                onerror="this.style.display='none';this.nextElementSibling.hidden=false"><span class="brand-fallback"
-                hidden>Sun<span>X</span>Finder</span></a>
+        <a class="brand" href="{{ url('/') }}"><picture>
+                <source type="image/webp" srcset="{{ asset_v('visitors/images/sunxfinder-logo.webp') }}">
+                <img src="{{ asset_v('visitors/images/sunxfinder-logo-480.png') }}" alt="SunXFinder logo"
+                    width="240" height="84" fetchpriority="high" decoding="async"
+                    onerror="this.style.display='none';this.closest('a').querySelector('.brand-fallback').hidden=false">
+            </picture><span class="brand-fallback" hidden>Sun<span>X</span>Finder</span></a>
         <button class="menu-toggle" aria-label="Toggle navigation"
             aria-expanded="false"><span></span><span></span><span></span></button>
 

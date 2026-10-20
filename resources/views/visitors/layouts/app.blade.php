@@ -2,6 +2,8 @@
     $currentRoute = request()->route()?->getName();
     $language = request()->query('lang', app()->getLocale());
     $homeUrl = url('/') . '?lang=' . app()->getLocale();
+    $isHome = $currentRoute === 'home';
+    $needsEditor = $currentRoute === 'company.register';
 @endphp
 
 <!doctype html>
@@ -14,29 +16,47 @@
     <meta name="description" content="{{ trans('messages.Find, compare, and connect with trusted solar companies.') }}">
     <title>@yield('title', 'SunXFinder-Solar Solutions')</title>
 
-    <link rel="icon" type="image/png" href="{{ asset('visitors/images/sun.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset_v('visitors/images/sun.png') }}">
+
+    {{-- Logo is above the fold: start downloading it immediately --}}
+    <link rel="preload" as="image" type="image/webp" href="{{ asset_v('visitors/images/sunxfinder-logo.webp') }}"
+        fetchpriority="high">
+
+    {{-- Google Fonts loaded without blocking first render (display=swap shows fallback text meanwhile) --}}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap"
-        rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('visitors/css/sunxfinder.css') }}">
-    <link rel="stylesheet" href="{{ asset('visitors/css/company-profile.css') }}">
-    <link rel="stylesheet" href="{{ asset('main/css/quill.snow.css') }}">
+    <link rel="preload" as="style"
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap">
+    <link rel="stylesheet" media="print" onload="this.media='all'"
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap">
+    <noscript>
+        <link rel="stylesheet"
+            href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap">
+    </noscript>
+
+    <link rel="stylesheet" href="{{ asset_v('visitors/css/sunxfinder.css') }}">
+
+    {{-- Page-specific CSS: the home page doesn't use these, so don't block its render with them --}}
+    @unless ($isHome)
+        <link rel="stylesheet" href="{{ asset_v('visitors/css/company-profile.css') }}">
+    @endunless
+    @if ($needsEditor)
+        <link rel="stylesheet" href="{{ asset_v('main/css/quill.snow.css') }}">
+    @endif
 
     @if ($currentRoute === 'privacy-policy')
         @if ($language === 'ar')
-            <link rel="stylesheet" href="{{ asset('visitors/css/privacy-policy-ar.css') }}">
+            <link rel="stylesheet" href="{{ asset_v('visitors/css/privacy-policy-ar.css') }}">
         @else
-            <link rel="stylesheet" href="{{ asset('visitors/css/privacy-policy.css') }}">
+            <link rel="stylesheet" href="{{ asset_v('visitors/css/privacy-policy.css') }}">
         @endif
     @endif
 
     @if ($currentRoute === 'terms')
         @if ($language === 'ar')
-            <link rel="stylesheet" href="{{ asset('visitors/css/terms-ar.css') }}">
+            <link rel="stylesheet" href="{{ asset_v('visitors/css/terms-ar.css') }}">
         @else
-            <link rel="stylesheet" href="{{ asset('visitors/css/terms.css') }}">
+            <link rel="stylesheet" href="{{ asset_v('visitors/css/terms.css') }}">
         @endif
     @endif
 
@@ -83,8 +103,12 @@
             <div class="container footer-grid">
                 <div>
                     <a class="brand footer-brand" href="{{ url('/') }}">
-                        <img src="{{ asset('images/sunxfinder-logo.png') }}" alt="SunXFinder" width="190" height="56"
-                            onerror="this.style.display='none';this.nextElementSibling.hidden=false">
+                        <picture>
+                            <source type="image/webp" srcset="{{ asset_v('visitors/images/sunxfinder-logo.webp') }}">
+                            <img src="{{ asset_v('visitors/images/sunxfinder-logo-480.png') }}" alt="SunXFinder"
+                                width="240" height="84" loading="lazy" decoding="async"
+                                onerror="this.style.display='none';this.closest('a').querySelector('.brand-fallback').hidden=false">
+                        </picture>
                         <span class="brand-fallback" hidden>Sun<span>X</span>Finder</span>
                     </a>
                     <p>{{ trans('messages.Find. Compare. Connect.') }}<br>
@@ -499,32 +523,49 @@
                         }, 100);
                     });
 
-                    companiesSlider.addEventListener(
-                        'scroll',
-                        updateCompanyControls,
-                        { passive: true }
-                    );
+                    let scrollFrame = null;
+                    companiesSlider.addEventListener('scroll', () => {
+                        if (scrollFrame) return;
+                        scrollFrame = requestAnimationFrame(() => {
+                            scrollFrame = null;
+                            updateCompanyControls();
+                        });
+                    }, { passive: true });
 
+                    // Debounce resize so layout is measured once per resize burst,
+                    // not on every resize event.
+                    let resizeFrame = null;
                     window.addEventListener('resize', () => {
+                        if (resizeFrame) cancelAnimationFrame(resizeFrame);
+                        resizeFrame = requestAnimationFrame(() => {
+                            resizeFrame = null;
+                            updateCompanyControls();
+                            restartAutoplay();
+                        });
+                    }, { passive: true });
+
+                    // Measure the slider only after the page has rendered.
+                    // Calling getBoundingClientRect/scrollWidth while the HTML is still
+                    // being parsed forces a synchronous layout (Lighthouse "Forced reflow").
+                    const initSlider = () => requestAnimationFrame(() => {
                         updateCompanyControls();
                         restartAutoplay();
                     });
 
-                    window.addEventListener('load', () => {
-                        updateCompanyControls();
-                        restartAutoplay();
-                    });
-
-                    updateCompanyControls();
-                    scheduleNextSlide();
+                    if (document.readyState === 'complete') {
+                        initSlider();
+                    } else {
+                        window.addEventListener('load', initSlider, { once: true });
+                    }
                 }
 
 
 
             })();
         </script>
-        <script src="{{ asset('admin/js/admin.js') }}" defer></script>
-        <script src="{{ asset('main/js/quill.js') }}"></script>
+        @if ($needsEditor)
+            <script src="{{ asset_v('main/js/quill.js') }}"></script>
+        @endif
         @yield('scripts')
 </body>
 

@@ -97,6 +97,7 @@ button {
 
 .brand img {
    width: 190px;
+   height: auto;
    max-height: 56px;
    object-fit: contain;
    object-position: left center
@@ -1973,12 +1974,10 @@ body.modal-open {
 
 @keyframes language-pop {
    from {
-      opacity: 0;
       transform: translateY(8px) scale(.98)
    }
 
    to {
-      opacity: 1;
       transform: translateY(0) scale(1)
    }
 }
@@ -2378,12 +2377,10 @@ html[dir="rtl"] .footer-grid>div:not(:first-child) {
 
 @keyframes language-pop {
    from {
-      opacity: 0;
       transform: translateY(8px) scale(.98)
    }
 
    to {
-      opacity: 1;
       transform: translateY(0) scale(1)
    }
 }

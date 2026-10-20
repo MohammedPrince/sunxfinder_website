@@ -22,7 +22,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Global view helpers (asset_v for cache-busted static asset URLs).
+        require_once app_path('helpers.php');
     }
 
     /**
