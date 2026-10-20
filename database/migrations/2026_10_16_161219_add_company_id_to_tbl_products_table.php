@@ -11,7 +11,7 @@ return new class extends Migration {
             $table->foreignId('company_id')
                 ->nullable()
                 ->after('id')
-                ->constrained('companies')
+                ->constrained('tbl_solar_companies')
                 ->restrictOnDelete();
 
             $table->index(['company_id', 'is_active']);
