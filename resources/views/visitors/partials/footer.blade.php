@@ -1,7 +1,7 @@
     <footer class="footer">
         <div class="container footer-grid">
             <div><a class="brand footer-brand" href="{{ url('/') }}"><img
-                        src="{{ asset('images/sunxfinder-logo.png') }}" alt="SunXFinder" loading="lazy"><span
+                        src="{{ asset('images/sunxfinder-logo.png') }}" alt="SunXFinder" loading="lazy"     width="190" height="56"><span
                         class="brand-fallback">Sun<span>X</span>Finder</span></a>
                 <p>Find. Compare. Connect.<br>Helping you discover the right energy partner.</p>
             </div>

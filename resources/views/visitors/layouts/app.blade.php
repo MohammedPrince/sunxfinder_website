@@ -18,7 +18,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('visitors/css/sunxfinder.css') }}">
     <link rel="stylesheet" href="{{ asset('visitors/css/company-profile.css') }}">
@@ -83,7 +83,7 @@
             <div class="container footer-grid">
                 <div>
                     <a class="brand footer-brand" href="{{ url('/') }}">
-                        <img src="{{ asset('images/sunxfinder-logo.png') }}" alt="SunXFinder"
+                        <img src="{{ asset('images/sunxfinder-logo.png') }}" alt="SunXFinder" width="190" height="56"
                             onerror="this.style.display='none';this.nextElementSibling.hidden=false">
                         <span class="brand-fallback" hidden>Sun<span>X</span>Finder</span>
                     </a>

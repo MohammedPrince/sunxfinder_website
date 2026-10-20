@@ -4146,3 +4146,66 @@ html[dir=rtl] .nav-link.active {
     font-size: 12px;
     font-weight: 400;
 }
+
+/* Sidebar layout and mobile navigation scrolling */
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* Navigation sections can scroll when the screen is short */
+.sidebar .side-nav {
+    flex-shrink: 0;
+}
+
+/* Keep sidebar content scrollable, including links outside nav groups */
+.sidebar {
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Keep the account section at the bottom when space permits */
+.sidebar .sidebar-bottom {
+    margin-top: auto;
+    flex-shrink: 0;
+}
+
+/* Mobile sidebar */
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: min(290px, 85vw);
+        height: 100vh;
+        height: 100dvh;
+        z-index: 1050;
+        overflow-x: hidden;
+        overflow-y: auto;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+    .sidebar .brand,
+    .sidebar .sidebar-label,
+    .sidebar .side-nav,
+    .sidebar > .nav-link {
+        flex-shrink: 0;
+    }
+
+    .sidebar .sidebar-bottom {
+        margin-top: auto;
+        padding-bottom: max(20px, env(safe-area-inset-bottom));
+    }
+}
