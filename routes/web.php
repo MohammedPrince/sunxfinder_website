@@ -7,7 +7,20 @@ use App\Http\Controllers\Company\AuthController as CompanyAuthController;
 use App\Http\Controllers\Company\MainController as CompanyMainController;
 use App\Http\Controllers\Company\ProjectController;
 use App\Http\Controllers\WebsiteController as WebSiteController;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
+
+
+//Clear All route
+Route::get('/clear', function () {
+
+    Artisan::call('optimize');
+    Artisan::call('route:clear');
+    Artisan::call('cache:clear');
+    Artisan::call('config:clear');
+
+    return 'Caching, routes, and configuration cleared successfully.';
+})->name('clear');
 
 /*
 |--------------------------------------------------------------------------
@@ -194,7 +207,7 @@ Route::prefix('company')->name('company.')->group(function () {
         //Projects Managment
         Route::get('/projects', [ProjectController::class, 'index'])->name('projects.index');
         Route::get('/projects/{id}', [ProjectController::class, 'show'])->whereNumber('id')->name('projects.show');
-        Route::post('/projects/{id}/progress', [ProjectController::class,'updateProgress',])->whereNumber('id')->name('projects.progress.update');
+        Route::post('/projects/{id}/progress', [ProjectController::class, 'updateProgress',])->whereNumber('id')->name('projects.progress.update');
 
         Route::post('/logout', [CompanyAuthController::class, 'logout',])->name('logout');
     });
