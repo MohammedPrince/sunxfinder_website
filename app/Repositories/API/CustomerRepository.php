@@ -614,6 +614,7 @@ class CustomerRepository
         }
     }
 
+
     public function getCarousels(): array
     {
         if (!$this->helper->isCustomerAuthenticated()) {
@@ -625,35 +626,43 @@ class CustomerRepository
         }
 
         try {
+            $now = now();
+
             $carousels = CompanyCarousel::query()
                 ->where('is_active', true)
-                ->whereIN('platform', ['app', 'both'])
-                ->where(function ($query) {
+                ->whereIn('platform', ['app', 'both'])
+
+                // Carousel schedule
+                ->where(function ($query) use ($now) {
                     $query->whereNull('starts_at')
-                        ->orWhere('starts_at', '<=', now());
+                        ->orWhere('starts_at', '<=', $now);
                 })
-                ->where(function ($query) {
+                ->where(function ($query) use ($now) {
                     $query->whereNull('ends_at')
-                        ->orWhere('ends_at', '>=', now());
+                        ->orWhere('ends_at', '>=', $now);
                 })
+
+                // Only approved, verified, active companies
                 ->whereHas('company', function ($query) {
                     $query->where('status', 'approved')
                         ->where('is_verified', true)
                         ->where('is_active', true);
                 })
+
                 ->with('company')
                 ->orderBy('sort_order')
                 ->orderBy('id')
+                ->limit(3)
                 ->get()
                 ->map(function (CompanyCarousel $carousel): array {
-                    $company = $carousel->company;
-
                     return [
                         'id' => (int) $carousel->id,
                         'sort_order' => (int) $carousel->sort_order,
                         'interval_seconds' => (int) $carousel->interval_seconds,
                         'platform' => $carousel->platform,
-                        'company' => $this->helper->transformCompany($company),
+                        'company' => $this->helper->transformCompany(
+                            $carousel->company
+                        ),
                     ];
                 })
                 ->values()
@@ -676,6 +685,7 @@ class CustomerRepository
             ];
         }
     }
+
 
     public function storeQuote(array $data): array
     {
