@@ -1,0 +1,254 @@
+        .legal-page {
+            --legal-primary: #087fe0;
+            --legal-dark: #102f5e;
+            --legal-muted: #607796;
+            --legal-accent: #ff5100;
+            padding: 70px 20px 90px;
+            background: #f8fbff;
+            color: #102f5e;
+            min-height: 70vh;
+            direction: rtl;
+            text-align: right
+        }
+
+        .legal-container {
+            max-width: 1000px;
+            margin: 0 auto
+        }
+
+        .legal-hero {
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+            padding: 50px 25px;
+            margin-bottom: 35px;
+            border-radius: 22px;
+            background: linear-gradient(135deg, #fff 0%, #f0f7ff 70%, #e7f3ff 100%);
+            border: 1px solid #e0ebf8
+        }
+
+        .legal-hero:before {
+            content: "";
+            position: absolute;
+            top: -90px;
+            left: -55px;
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            background: rgba(8, 127, 224, .06);
+            pointer-events: none
+        }
+
+        .legal-hero:after {
+            content: "";
+            position: absolute;
+            bottom: -75px;
+            right: -45px;
+            width: 170px;
+            height: 170px;
+            border-radius: 50%;
+            background: rgba(255, 81, 0, .06);
+            pointer-events: none
+        }
+
+        .legal-eyebrow {
+            position: relative;
+            z-index: 1;
+            display: inline-block;
+            padding: 8px 15px;
+            margin-bottom: 16px;
+            color: #ff5100;
+            background: #fff;
+            border: 1px solid #ffe0d2;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 700
+        }
+
+        .legal-hero h1 {
+            position: relative;
+            z-index: 1;
+            margin: 0 0 15px;
+            color: #102f5e;
+            font-size: clamp(32px, 5vw, 48px);
+            font-weight: 800;
+            line-height: 1.5
+        }
+
+        .legal-hero p {
+            position: relative;
+            z-index: 1;
+            max-width: 680px;
+            margin: 0 auto;
+            color: #607796;
+            font-size: 16px;
+            line-height: 2
+        }
+
+        .legal-updated {
+            position: relative;
+            z-index: 1;
+            display: block;
+            margin-top: 18px;
+            color: #7a8ca5;
+            font-size: 13px
+        }
+
+        .legal-card {
+            padding: 32px;
+            margin-bottom: 20px;
+            background: #fff;
+            border: 1px solid #e4edf8;
+            border-radius: 18px;
+            box-shadow: 0 8px 28px rgba(16, 47, 94, .035);
+            transition: border-color .25s ease, box-shadow .25s ease
+        }
+
+        .legal-card:hover {
+            border-color: #c9e3ff;
+            box-shadow: 0 12px 32px rgba(16, 47, 94, .07)
+        }
+
+        .legal-card h2 {
+            margin: 0 0 16px;
+            padding-right: 14px;
+            border-right: 4px solid #F44336;
+            color: #9d6313;
+            font-size: 22px;
+            font-weight: 750;
+            line-height: 1.6
+        }
+
+        .legal-card h3 {
+            margin: 22px 0 9px;
+            color: #795548;
+            font-size: 17px;
+            font-weight: 700
+        }
+
+        .legal-card p,
+        .legal-card li {
+            color: #607796;
+            font-size: 15px;
+            line-height: 2
+        }
+
+        .legal-card p {
+            margin: 0 0 12px
+        }
+
+        .legal-card ul {
+            padding-right: 22px;
+            padding-left: 0;
+            margin: 10px 0 0
+        }
+
+        .legal-card li {
+            margin-bottom: 7px
+        }
+
+        .legal-card li::marker {
+            color: #ff5100
+        }
+
+        .legal-contact {
+            padding: 32px;
+            border: 1px solid #173f75;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #102f5e 0%, #123d76 100%);
+            color: #fff;
+            box-shadow: 0 12px 30px rgba(16, 47, 94, .12)
+        }
+
+        .legal-contact h2 {
+            margin: 0 0 12px;
+            color: #fff;
+            font-size: 23px;
+            font-weight: 750
+        }
+
+        .legal-contact p {
+            margin: 0 0 12px;
+            color: #dceaff;
+            line-height: 2
+        }
+
+        .legal-contact a {
+            color: #ffad57;
+            font-weight: 700;
+            text-decoration: none;
+            overflow-wrap: anywhere;
+            direction: ltr;
+            unicode-bidi: embed;
+            display: inline-block
+        }
+
+        .legal-contact a:hover {
+            color: #fff;
+            text-decoration: underline
+        }
+
+        .legal-footer-links {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 22px;
+            margin-top: 30px
+        }
+
+        .legal-footer-links a {
+            color: #087fe0;
+            font-size: 14px;
+            font-weight: 700;
+            text-decoration: none
+        }
+
+        .legal-footer-links a:hover {
+            color: #ff5100;
+            text-decoration: underline
+        }
+
+        @media(max-width:600px) {
+            .legal-page {
+                padding: 35px 14px 55px
+            }
+
+            .legal-hero {
+                padding: 35px 18px;
+                border-radius: 18px
+            }
+
+            .legal-hero p {
+                font-size: 14px
+            }
+
+            .legal-card {
+                padding: 22px 18px;
+                border-radius: 15px
+            }
+
+            .legal-card h2 {
+                font-size: 20px
+            }
+
+            .legal-card h3 {
+                font-size: 16px
+            }
+
+            .legal-card p,
+            .legal-card li {
+                font-size: 14px
+            }
+
+            .legal-contact {
+                padding: 24px 20px
+            }
+
+            .legal-contact h2 {
+                font-size: 21px
+            }
+
+            .legal-footer-links {
+                gap: 18px
+            }
+        }

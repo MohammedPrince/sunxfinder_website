@@ -1,0 +1,366 @@
+<?php
+
+namespace App\Http\Controllers\Company;
+
+use App\Http\Controllers\Controller;
+use App\Services\Company\CompanyService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+
+
+class MainController extends Controller
+{
+    protected $companyService;
+    public function __construct(CompanyService $companyService)
+    {
+        $this->companyService = $companyService;
+    }
+
+    public function index()
+    {
+        $companyId = session('company_id');
+
+        if (!$companyId) {
+            return redirect()
+                ->route('company.login')
+                ->with('error', 'Please log in to continue.');
+        }
+
+        $result = $this->companyService->getCompany($companyId);
+
+        if (!$result['success']) {
+            return redirect()
+                ->route('company.login')
+                ->with('error', $result['message']);
+        }
+
+        $company = $result['company'];
+
+        return view('company.index', compact('company'));
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $company = Auth::guard('company')->user();
+
+        if (!$company) {
+            return redirect()->route('company.login');
+        }
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:191'],
+            'city' => [
+                'required',
+                'string',
+                \Illuminate\Validation\Rule::in([
+                    'Khartoum',
+                    'Port Sudan',
+                    'Atbara',
+                    'Wad Madani',
+                    'Merowe',
+                    'Kassala',
+                    'Al Qadarif',
+                    'Dongola',
+                    'Halfa',
+                ]),
+            ],
+            'license_number' => ['required', 'string', 'max:191'],
+            'description' => ['required', 'string', 'max:5000'],
+            'ar_description' => ['nullable', 'string', 'max:5000'],
+            'services' => ['required', 'string', 'max:3000'],
+            'ar_services' => ['nullable', 'string', 'max:3000'],
+            'phone' => ['required', 'string', 'max:30'],
+            'email' => [
+                'required',
+                'email',
+                'max:191',
+                \Illuminate\Validation\Rule::unique('tbl_solar_companies', 'email')
+                    ->ignore($company->id),
+            ],
+            'social_media' => ['nullable', 'string', 'max:2000'],
+            'logo' => [
+                empty($company->logo_path) ? 'required' : 'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:2048',
+            ],
+            'password' => [
+                'nullable',
+                'string',
+                'min:8',
+                'regex:/[A-Z]/',
+                'regex:/[a-z]/',
+                'regex:/[0-9]/',
+                'regex:/[^A-Za-z0-9]/',
+                'required_with:password_confirmation',
+                'confirmed',
+            ],
+
+            'password_confirmation' => [
+                'nullable',
+                'string',
+                'required_with:password',
+            ],
+            'year_of_exp' => ['required', 'integer', 'min:1'],
+            'number_of_projects' => ['required', 'integer', 'min:1'],
+        ]);
+
+        /*
+         * Keep the current logo unless a new image was uploaded.
+         * The logo file is handled by the controller; database updates
+         * are delegated through AdminService/AdminRepository.
+         */
+        if ($request->hasFile('logo')) {
+            $slug = $company->slug ?: Str::slug($company->name);
+            $directory = public_path("main/images/company/{$slug}");
+
+            if (!File::isDirectory($directory)) {
+                File::makeDirectory($directory, 0755, true);
+            }
+
+            $extension = strtolower(
+                $request->file('logo')->getClientOriginalExtension()
+            );
+
+
+
+            $filename = "{$slug}-slogan.{$extension}";
+
+            // Remove previous versions if the image extension changed.
+            foreach (['jpg', 'jpeg', 'png', 'webp'] as $oldExtension) {
+                $oldFile = $directory . DIRECTORY_SEPARATOR
+                    . "{$slug}-slogan.{$oldExtension}";
+
+                if (File::exists($oldFile) && $oldExtension !== $extension) {
+                    File::delete($oldFile);
+                }
+            }
+
+            $request->file('logo')->move($directory, $filename);
+
+            // Keep the URL format used by the existing company records.
+            $validated['logo_path'] = asset(
+                "main/images/company/{$slug}/{$filename}"
+            );
+        }
+
+        unset($validated['logo']);
+
+        if ($request->filled('password')) {
+            $validated['password'] = \Illuminate\Support\Facades\Hash::make(
+                $request->input('password')
+            );
+        }
+
+
+        $result = $this->companyService->updateCompanyProfile(
+            $company->id,
+            $validated
+        );
+
+        if (!$result['success']) {
+            return back()
+                ->withInput()
+                ->with('error', $result['message']);
+        }
+
+        return redirect()
+            ->route('company.profile')
+            ->with('success', 'Company profile updated successfully.');
+    }
+
+    private function companyId(): int
+    {
+        $companyId = session('company_id');
+
+        abort_unless($companyId && is_numeric($companyId), 403);
+
+        return (int) $companyId;
+    }
+
+    public function showProducts(Request $request)
+    {
+        $products = $this->companyService->list(
+            $this->companyId(),
+            $request->only(['search', 'type'])
+        );
+
+        return view('company.products.index', compact('products'));
+    }
+
+    public function create()
+    {
+        $suppliers = $this->companyService->suppliers();
+
+        return view('company.products.form', [
+            'product' => null,
+            'suppliers' => $suppliers,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $data = $this->validatedData($request);
+
+        $this->companyService->save($this->companyId(), $data);
+
+        return redirect()
+            ->route('company.products.index')
+            ->with('success', 'Product added successfully.');
+    }
+
+    public function edit(int $product)
+    {
+        $companyId = $this->companyId();
+
+        $product = $this->companyService->find($companyId, $product);
+        $suppliers = $this->companyService->suppliers();
+
+        return view('company.products.form', compact(
+            'product',
+            'suppliers'
+        ));
+    }
+
+    public function update(Request $request, int $product)
+    {
+        $data = $this->validatedData($request);
+
+        $this->companyService->save(
+            $this->companyId(),
+            $data,
+            $product
+        );
+
+        return redirect()
+            ->route('company.products.index')
+            ->with('success', 'Product updated successfully.');
+    }
+
+    public function destroy(int $product)
+    {
+        $this->companyService->delete($this->companyId(), $product);
+
+        return redirect()
+            ->route('company.products.index')
+            ->with('success', 'Product deleted successfully.');
+    }
+
+    private function validatedData(Request $request): array
+    {
+        return $request->validate([
+            'supplier_id' => [
+                'required',
+                'integer',
+                'exists:tbl_suppliers,id',
+            ],
+            'name' => ['required', 'string', 'max:150'],
+            'model' => ['nullable', 'string', 'max:100'],
+            'type' => [
+                'required',
+                Rule::in(['inverter', 'solar_panel', 'battery', 'other']),
+            ],
+            'description' => ['nullable', 'string', 'max:3000'],
+            'is_active' => ['sometimes', 'boolean'],
+            'specs' => ['nullable', 'array', 'max:20'],
+            'specs.*.name' => ['nullable', 'string', 'max:100'],
+            'specs.*.value' => ['nullable', 'string', 'max:255'],
+        ]);
+    }
+
+    //Quote Requests Start
+
+    public function quoteRequests(Request $request)
+    {
+        $filters = $request->validate([
+            'status' => [
+                'nullable',
+                'string',
+                'in:pending,accepted,rejected,completed,cancelled',
+            ],
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $quotes = $this->companyService->getQuoteRequests($filters);
+        $metrics = $this->companyService->getQuoteRequestMetrics();
+
+        return view('company.quote-requests.index', compact(
+            'quotes',
+            'metrics',
+            'filters'
+        ));
+    }
+
+    public function quoteRequestDetails(int $id)
+    {
+        $project = null;
+
+        $quote = $this->companyService->getQuoteRequestById($id);
+
+        abort_if(!$quote, 404);
+
+        $companyQuotation = $this->companyService->getCompanyQuotationForQuote($id);
+
+        $competitorPrices = $this->companyService->getCompetitorOfferPrices($id);
+
+        if ($companyQuotation && $companyQuotation->status === 'selected') {
+            $companyId = auth()->guard('company')->id();
+
+            $project = \App\Models\Project::query()
+                ->where('quote_id', $quote->id)
+                ->where('company_id', $companyId)
+                ->first();
+        }
+
+        return view('company.quote-requests.form', compact(
+            'quote',
+            'companyQuotation',
+            'competitorPrices',
+            'project'
+        ));
+    }
+
+    public function submitQuoteOffer(Request $request, int $id)
+    {
+        $validated = $request->validate([
+            'price' => [
+                'required',
+                'numeric',
+                'min:1000',
+                'max:9999999999999',
+            ],
+            'currency' => [
+                'required',
+                'string',
+                'in:SDG,USD',
+            ],
+            'message' => [
+                'required',
+                'string',
+                'max:2000',
+            ],
+            'ar_message' => [
+                'required',
+                'string',
+                'max:2000',
+            ],
+        ], [
+            'price.required' => 'Please enter your total offer price.',
+            'price.numeric' => 'Please enter a valid total price.',
+            'price.min' => 'The total offer price must be at least 1,000.',
+        ]);
+
+        $this->companyService->submitQuoteOffer($id, $validated);
+
+        return redirect()
+            ->route('company.quote-requests.show', $id)
+            ->with('success', 'Your offer has been saved successfully.');
+    }
+
+    //Quote Requests End
+
+
+}
