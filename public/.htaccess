@@ -1,3 +1,9 @@
+# Don't let Apache add a trailing slash to /admin or /company (they are folders)
+# before Laravel sees the request.
+<IfModule mod_dir.c>
+    DirectorySlash Off
+</IfModule>
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
@@ -12,6 +18,11 @@
     # Handle X-XSRF-Token Header
     RewriteCond %{HTTP:x-xsrf-token} .
     RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+
+    # public/admin and public/company are real folders (CSS/JS/images), so Apache
+    # used to answer /admin and /company itself (403 Forbidden / 404) instead of
+    # Laravel. Send those exact URLs to Laravel; files inside them still load normally.
+    RewriteRule ^(admin|company)/?$ index.php [L]
 
     # Redirect Trailing Slashes If Not A Folder...
     RewriteCond %{REQUEST_FILENAME} !-d

@@ -61,12 +61,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/login', [AdminAuthController::class, 'showLogin',])->name('login');
     Route::post('/login', [AdminAuthController::class, 'login',])->middleware('throttle:10,1')->name('login.submit');
 
-    // /admin redirects based on admin authentication
+    // /admin -> dashboard when logged in, otherwise the admin login page
     Route::get('/', function () {
-        if (!auth('admin')->check()) {
-            return redirect()->route('home');
-        }
-        return redirect()->route('admin.dashboard.page');
+        return auth('admin')->check()
+            ? redirect()->route('admin.dashboard.page')
+            : redirect()->route('admin.login');
     })->name('index');
 
     // Protected admin pages
@@ -150,6 +149,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
 */
 
 Route::prefix('company')->name('company.')->group(function () {
+
+    // /company -> dashboard when logged in, otherwise the company login page
+    Route::get('/', function () {
+        return auth('company')->check()
+            ? redirect()->route('company.dashboard')
+            : redirect()->route('company.login');
+    })->name('index');
 
     // Uses the same Blade as the admin login
     Route::get('/login', [CompanyAuthController::class, 'showLogin',])->name('login');
