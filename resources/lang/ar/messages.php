@@ -298,7 +298,7 @@ return [
     "Account security" => "كلمة المرور",
     "Create a strong password for your company account." => "أنشئ كلمة مرور قوية لحساب شركتك.",
     "Password" => "كلمة المرور",
-    "At least 8 characters" => "ثمانية أحرف على الأقل، أحرف كبيرة وصغيرة، أرقام وأحرف خاصة",
+    "At least 5 characters" => "خمس أحرف على الأقل، أحرف كبيرة وصغيرة، أرقام وأحرف خاصة",
     "Confirm password" => "تأكيد كلمة المرور",
     "Re-enter your password" => "أعد إدخال كلمة المرور",
     "By creating an account, you agree that your company information will be reviewed before publication." => "بإنشاء الحساب، فإنك توافق على مراجعة معلومات شركتك قبل نشرها.",

@@ -231,14 +231,16 @@ class WebsiteController extends Controller
             'username' => [
                 'required',
                 'string',
-                'max:191',
+                'max:10',
+                'min:6',
+                'regex:/^[a-zA-Z0-9_]+$/',
                 'unique:tbl_customers,username',
             ],
-            'first_name' => ['required', 'string', 'max:100'],
-            'second_name' => ['required', 'string', 'max:100'],
-            'third_name' => ['required', 'string', 'max:100'],
-            'phone' => ['required', 'string', 'max:30', 'unique:tbl_customers,phone'],
-            'email' => ['required', 'email', 'max:191', 'unique:tbl_customers,email',],
+            'first_name' => ['required', 'string', 'max:10', 'min:3'],
+            'second_name' => ['required', 'string', 'max:10', 'min:3'],
+            'third_name' => ['required', 'string', 'max:10', 'min:3'],
+            'phone' => ['required', 'string', 'max:10', 'min:10', 'unique:tbl_customers,phone'],
+            'email' => ['required', 'email', 'max:100', 'unique:tbl_customers,email',],
             'gender' => ['required', Rule::in(['male', 'female'])],
             'city' => [
                 'required',
@@ -258,7 +260,7 @@ class WebsiteController extends Controller
             'password' => [
                 'required',
                 'string',
-                'min:8',
+                'min:5',
                 'confirmed',
                 'regex:/[a-z]/',      // At least one lowercase letter
                 'regex:/[A-Z]/',      // At least one uppercase letter

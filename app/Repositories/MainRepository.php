@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Throwable;
+use App\Jobs\SendCustomerWelcomeEmail;
+use Illuminate\Support\Facades\Log;
 
 class MainRepository
 {
@@ -117,7 +119,9 @@ class MainRepository
 
             return [
                 'success' => true,
-                'message' => 'Registration submitted successfully.',
+                'message' => app()->getLocale() === 'ar'
+                    ? 'تم تسجيل حساب شركتك بنجاح. يرجى الانتظار حتى تتم الموافقة على الحساب.'
+                    : 'Your company account has been registered successfully. Please wait for approval.',
                 'company' => $company,
             ];
         } catch (Throwable $e) {
@@ -148,23 +152,39 @@ class MainRepository
             $customer->is_active = false;
 
             if ($customer->save()) {
+                Log::info('Customer registered; dispatching welcome email.', [
+                    'customer_id' => $customer->id,
+                    'locale' => app()->getLocale(),
+                ]);
+
+                SendCustomerWelcomeEmail::dispatch(
+                    (int) $customer->id,
+                    app()->getLocale()
+                )->afterCommit();
+
                 return [
                     'success' => true,
-                    'message' => 'Your account has been registered successfully. Please wait for approval.',
+                    'message' => app()->getLocale() === 'ar'
+                        ? 'تم تسجيل حسابك بنجاح. يرجى الانتظار حتى تتم الموافقة على حسابك.'
+                        : 'Your account has been registered successfully. Please wait for approval.',
                     'customer' => $customer,
                 ];
             }
 
             return [
                 'success' => false,
-                'message' => 'Registration could not be completed. Please try again.',
+                'message' => app()->getLocale() === 'ar'
+                    ? 'تعذّر إكمال التسجيل. يرجى المحاولة مرة أخرى.'
+                    : 'Registration could not be completed. Please try again.',
             ];
         } catch (Throwable $e) {
             report($e);
 
             return [
                 'success' => false,
-                'message' => 'Registration could not be completed. Please try again.',
+                'message' => app()->getLocale() === 'ar'
+                    ? 'تعذّر إكمال التسجيل. يرجى المحاولة مرة أخرى.'
+                    : 'Registration could not be completed. Please try again.',
             ];
         }
     }

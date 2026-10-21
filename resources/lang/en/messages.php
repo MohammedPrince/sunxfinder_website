@@ -243,7 +243,7 @@ return [
     "Account security" => "Account security",
     "Create a strong password for your company account." => "Create a strong password for your company account.",
     "Password" => "Password",
-    "At least 8 characters" => "At least 8 characters, UPPER,lower chars, Numbers and special chars",
+    "At least 5 characters" => "At least 5 characters, UPPER,lower chars, Numbers and special chars",
     "Confirm password" => "Confirm password",
     "Re-enter your password" => "Re-enter your password",
     "By creating an account, you agree that your company information will be reviewed before publication." => "By creating an account, you agree that your company information will be reviewed before publication.",
