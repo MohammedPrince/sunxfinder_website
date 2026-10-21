@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="x-apple-disable-message-reformatting">
     <title>Welcome to SunXFinder</title>
+    <link rel="icon" type="image/png" href="{{ asset('admin/images/sun.png') }}">
 </head>
 
 <body style="margin:0;padding:0;background:#f4f6f8;color:#10366b;font-family:Arial,Helvetica,sans-serif;">
@@ -40,7 +41,8 @@
                                         <div style="font-size:34px;line-height:1.16;font-weight:800;color:#10366b;">
                                             Welcome to<br><span style="color:#f15b24;">SunXFinder!</span></div>
                                         <p style="font-size:16px;line-height:1.7;color:#243b60;margin:17px 0 8px;">
-                                            <strong>Hi {{ $customerName ?? 'there' }},</strong></p>
+                                            <strong>Hi {{ $customerName ?? 'there' }},</strong>
+                                        </p>
                                         <p style="font-size:15px;line-height:1.7;color:#243b60;margin:0 0 22px;">Thank
                                             you for creating your account. You’re now part of a growing community that
                                             believes in a cleaner, brighter and more sustainable future.</p>
@@ -136,7 +138,8 @@
                     </tr>
                     <tr>
                         <td style="background:#fff0d8;padding:18px 22px;text-align:center;">
-                            <div style="font-size:18px;font-weight:bold;color:#10366b;">Sun<b style="color:#f15b24;">X</b>Finder</div>
+                            <div style="font-size:18px;font-weight:bold;color:#10366b;">Sun<b
+                                    style="color:#f15b24;">X</b>Finder</div>
                             <div style="font-size:11px;line-height:1.8;color:#526783;margin-top:8px;"><a
                                     href="{{ $privacyUrl ?? url('/privacy-policy') }}" style="color:#526783;">Privacy
                                     Policy</a> &nbsp;|&nbsp; <a href="{{ $termsUrl ?? url('/terms') }}"
