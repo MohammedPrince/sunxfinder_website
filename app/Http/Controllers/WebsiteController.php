@@ -42,8 +42,7 @@ class WebsiteController extends Controller
     {
 
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:200', 'regex:/\A[A-Za-z0-9\s.,&\'()\-]+\z/',],
-
+            'name' => ['required', 'string', 'max:100', 'min:10', 'regex:/\A[A-Za-z0-9\s.,&\'()\-]+\z/',],
             'username' => [
                 'required',
                 'string',
@@ -55,11 +54,11 @@ class WebsiteController extends Controller
             'email' => [
                 'required',
                 'email',
-                'max:191',
+                'max:100',
                 Rule::unique('tbl_solar_companies', 'email'),
             ],
 
-            'phone' => ['required', 'string', 'max:30'],
+            'phone' => ['required', 'string', 'max:12', 'min:10'],
             'city' => ['required', 'string', 'max:100'],
             'services' => ['required', 'string', 'max:5000'],
             'ar_services' => ['required', 'string', 'max:5000'],
@@ -151,7 +150,6 @@ class WebsiteController extends Controller
                 ->with('error', 'Registration could not be completed. Please try again.');
         }
     }
-
     public function showCompany(string $slug)
     {
         $company = $this->mainService->getCompanyBySlug($slug);
@@ -218,7 +216,6 @@ class WebsiteController extends Controller
         ));
     }
 
-
     public function registerCustomer()
     {
         return view('visitors.create-customer-account');
@@ -231,14 +228,14 @@ class WebsiteController extends Controller
             'username' => [
                 'required',
                 'string',
-                'max:10',
+                'max:15',
                 'min:6',
                 'regex:/^[a-zA-Z0-9_]+$/',
                 'unique:tbl_customers,username',
             ],
-            'first_name' => ['required', 'string', 'max:10', 'min:3'],
-            'second_name' => ['required', 'string', 'max:10', 'min:3'],
-            'third_name' => ['required', 'string', 'max:10', 'min:3'],
+            'first_name' => ['required', 'string', 'max:15', 'min:3'],
+            'second_name' => ['required', 'string', 'max:15', 'min:3'],
+            'third_name' => ['required', 'string', 'max:15', 'min:3'],
             'phone' => ['required', 'string', 'max:10', 'min:10', 'unique:tbl_customers,phone'],
             'email' => ['required', 'email', 'max:100', 'unique:tbl_customers,email',],
             'gender' => ['required', Rule::in(['male', 'female'])],
