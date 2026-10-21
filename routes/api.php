@@ -19,6 +19,9 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
 
         // Lookups and catalogue. The app reloads these on every pull to
         // refresh, so they need a higher limit than login.
+
+        Route::post('/main-data', [MainController::class, 'mainData'])->middleware('throttle:60,1');
+
         Route::get('/cities', [MainController::class, 'getCities'])->middleware('throttle:60,1');
         Route::get('/companies', [MainController::class, 'getCompanies'])->middleware('throttle:60,1');
         Route::get('/companies/{id}', [MainController::class, 'getCompany'])->whereNumber('id')->middleware('throttle:60,1');
@@ -36,7 +39,7 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
         Route::post('/profile', [MainController::class, 'updateProfile'])->middleware('throttle:60,1');
 
 
-        Route::get('/project-progress/{projectId}',[MainController::class, 'getProjectProgress'])->whereNumber('projectId')->name('customer.project-progress');
+        Route::get('/project-progress/{projectId}', [MainController::class, 'getProjectProgress'])->whereNumber('projectId')->name('customer.project-progress');
 
 
 

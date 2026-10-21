@@ -18,6 +18,12 @@ class CustomerService
         return $this->customerRepository->login($data);
     }
 
+    public function mainData()
+    {
+        return $this->customerRepository->mainData();
+    }
+
+
     public function createAccount(array $data): array
     {
         return $this->customerRepository->createAccount($data);

@@ -133,6 +133,155 @@ class CustomerRepository
         ];
     }
 
+
+
+    public function mainData(): array
+    {
+        try {
+            // Authentication stays in the Repository.
+            $customer = $this->helper->isCustomerAuthenticated();
+
+            if (!$customer) {
+                return [
+                    'success' => false,
+                    'code' => 401,
+                    'message' => 'Unauthenticated.',
+                ];
+            }
+
+            $customerId = (int) $customer->id;
+
+            // Cities and profile.
+            $citiesResult = $this->getCities();
+
+            if (!($citiesResult['success'] ?? false)) {
+                return [
+                    'success' => false,
+                    'code' => $citiesResult['code'] ?? 500,
+                    'message' => $citiesResult['message'] ?? 'Unable to retrieve cities.',
+                ];
+            }
+
+            $cities = $citiesResult['cities'] ?? [];
+
+
+            $profileResult = $this->getProfile();
+
+            if (!($profileResult['success'] ?? false)) {
+                return [
+                    'success' => false,
+                    'code' => $profileResult['code'] ?? 500,
+                    'message' => $profileResult['message'] ?? 'Unable to retrieve profile.',
+                ];
+            }
+
+            $profile = $profileResult['profile'] ?? null;
+
+            // Services: getServices() returns both languages under data.
+            $servicesResult = $this->getServices();
+
+            if (!($servicesResult['success'] ?? false)) {
+                return [
+                    'success' => false,
+                    'code' => $servicesResult['code'] ?? 500,
+                    'message' => $servicesResult['message']
+                        ?? 'Unable to retrieve services.',
+                ];
+            }
+
+            $services = $servicesResult['data']['services'] ?? [];
+            $servicesAr = $servicesResult['data']['services_ar'] ?? [];
+
+            // Carousels.
+            $carouselsResult = $this->getCarousels();
+
+            if (!($carouselsResult['success'] ?? false)) {
+                return [
+                    'success' => false,
+                    'code' => $carouselsResult['code'] ?? 500,
+                    'message' => $carouselsResult['message']
+                        ?? 'Unable to retrieve carousels.',
+                ];
+            }
+
+            $carousels = $carouselsResult['carousels'] ?? [];
+
+            // Companies: method requires filters and returns a paginated result.
+            $companiesResult = $this->getCompanies([
+                'per_page' => 50,
+                'page' => 1,
+                'sort' => 'newest',
+            ]);
+
+            if (!($companiesResult['success'] ?? false)) {
+                return [
+                    'success' => false,
+                    'code' => $companiesResult['code'] ?? 500,
+                    'message' => $companiesResult['message']
+                        ?? 'Unable to retrieve companies.',
+                ];
+            }
+
+            $companies = $companiesResult['companies'] ?? [];
+
+            // Calculator data.
+            $calculator = $this->appliancesCalculator();
+
+            // Existing quotes: pass filters and preserve the existing quote format.
+            $quotesResult = $this->getMyQuotes([]);
+
+            if (!($quotesResult['success'] ?? false)) {
+                return [
+                    'success' => false,
+                    'code' => $quotesResult['code'] ?? 500,
+                    'message' => $quotesResult['message']
+                        ?? 'Unable to retrieve quote requests.',
+                ];
+            }
+
+            $myQuotes = $quotesResult['quotes'] ?? [];
+
+            // TODO: Replace with your actual customer notification query.
+            $notifications = [
+                'unread_count' => 0,
+                'items' => [],
+            ];
+
+
+
+            return [
+                'success' => true,
+                'code' => 200,
+                'message' => 'Main data loaded.',
+                'profile' => $profile,
+                'cities' => $cities,
+                'services' => $services,
+                'services_ar' => $servicesAr,
+                'carousels' => $carousels,
+                'companies' => $companies,
+                'calculator' => $calculator,
+                'my_quotes' => [
+                    'quotes' => $myQuotes,
+                ],
+                'notifications' => $notifications,
+                'meta' => [
+                    'companies_total' => $companiesResult['meta']['total']
+                        ?? count($companies),
+                    'generated_at' => now()->utc()->toISOString(),
+                ],
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+                'message' => 'Unable to retrieve main data.',
+            ];
+        }
+    }
+
+
     public function createAccount($data): array
     {
         // Check whether the username, phone, or email already exists.
