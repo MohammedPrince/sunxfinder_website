@@ -4,10 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Services\MainService;
 use Illuminate\Http\Request;
-
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Validator;
 
 class WebsiteController extends Controller
 {
@@ -223,8 +223,8 @@ class WebsiteController extends Controller
 
     public function storeCustomer(Request $request)
     {
-
-        $validated = $request->validate([
+        
+        $validator = Validator::make($request->all(), [
             'username' => [
                 'required',
                 'string',
@@ -236,8 +236,19 @@ class WebsiteController extends Controller
             'first_name' => ['required', 'string', 'max:15', 'min:3'],
             'second_name' => ['required', 'string', 'max:15', 'min:3'],
             'third_name' => ['required', 'string', 'max:15', 'min:3'],
-            'phone' => ['required', 'string', 'max:10', 'min:10', 'unique:tbl_customers,phone'],
-            'email' => ['required', 'email', 'max:100', 'unique:tbl_customers,email',],
+            'phone' => [
+                'required',
+                'string',
+                'max:10',
+                'min:10',
+                'unique:tbl_customers,phone',
+            ],
+            'email' => [
+                'required',
+                'email',
+                'max:100',
+                'unique:tbl_customers,email',
+            ],
             'gender' => ['required', Rule::in(['male', 'female'])],
             'city' => [
                 'required',
@@ -259,12 +270,50 @@ class WebsiteController extends Controller
                 'string',
                 'min:5',
                 'confirmed',
-                'regex:/[a-z]/',      // At least one lowercase letter
-                'regex:/[A-Z]/',      // At least one uppercase letter
-                'regex:/[0-9]/',      // At least one number
-                'regex:/[^A-Za-z0-9]/', // At least one special character
+                'regex:/[a-z]/',
+                'regex:/[A-Z]/',
+                'regex:/[0-9]/',
+                'regex:/[^A-Za-z0-9]/',
             ],
         ]);
+
+        if ($validator->fails()) {
+
+            $errors = $validator->errors();
+            $duplicateFields = ['username', 'phone', 'email'];
+            $hasDuplicate = false;
+
+            foreach ($duplicateFields as $field) {
+                if ($errors->has($field)) {
+                    foreach ($errors->get($field) as $message) {
+                        if (str_contains($message, 'already been taken')) {
+                            $hasDuplicate = true;
+                            break 2;
+                        }
+                    }
+                }
+            }
+
+            if ($hasDuplicate) {
+                return back()
+                    ->withInput($request->except([
+                        'password',
+                        'password_confirmation',
+                    ]))
+                    ->withErrors([
+                        'registration' => 'Unable to complete registration. Please review your details and try again.',
+                    ]);
+            }
+
+            return back()
+                ->withInput($request->except([
+                    'password',
+                    'password_confirmation',
+                ]))
+                ->withErrors($errors);
+        }
+
+        $validated = $validator->validated();
 
         $validated['full_name'] = trim(implode(' ', [
             $validated['first_name'],

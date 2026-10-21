@@ -33,7 +33,8 @@
                                 dir="rtl">
                                 <tr>
                                     <td align="right" valign="middle" width="140">
-                                        <img src="https://dev.sunxfinder.com/visitors/images/sun.png" alt="SunXFinder" width="180"
+                                        <img src="https://dev.sunxfinder.com/visitors/images/sunxfinder-logo-email.png"
+                                            alt="SunXFinder" width="180"
                                             style="display:block;border:0;max-width:180px;height:auto;">
                                     </td>
                                     <td align="left" valign="middle"
