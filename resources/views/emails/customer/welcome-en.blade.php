@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="x-apple-disable-message-reformatting">
     <title>Welcome to SunXFinder</title>
-    <link rel="icon" type="image/png" href="{{ asset('admin/images/sun.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('visitors/images/sun.png') }}">
 </head>
 
 <body style="margin:0;padding:0;background:#f4f6f8;color:#10366b;font-family:Arial,Helvetica,sans-serif;">

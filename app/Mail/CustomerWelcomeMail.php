@@ -37,6 +37,9 @@ class CustomerWelcomeMail extends Mailable
             'view' => $view,
         ]);
 
+
+        $baseUrl = rtrim(config('app.url'), '/');
+
         return $this
             ->subject(
                 $isArabic
@@ -46,11 +49,17 @@ class CustomerWelcomeMail extends Mailable
             ->view($view)
             ->with([
                 'customerName' => $this->customerName,
+
+                // Website URL
                 'homeUrl' => $baseUrl,
-                'logoUrl' => $baseUrl . '/visitors/images/sun.png',
+
+                // Public logo URL
+                'logoUrl' => $baseUrl . 'visitors/images/sun.png',
+
                 'supportEmail' => config('mail.from.address'),
-                'privacyUrl' => url('/privacy-policy'),
-                'termsUrl' => url('/terms'),
+                'privacyUrl' => $baseUrl . '/privacy-policy',
+                'termsUrl' => $baseUrl . '/terms',
             ]);
+
     }
 }
