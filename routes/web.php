@@ -214,44 +214,26 @@ Route::prefix('company')->name('company.')->group(function () {
 });
 
 
-/*
-|--------------------------------------------------------------------------
-| Keep your existing public company profile route below
-|--------------------------------------------------------------------------
-*/
 
-// Keep your existing Route::get('/companies/{slug}', ...)
-// demo profile route here.
+Route::get('/email-en', function () {
+    return view('emails.customer.welcome-en', [
+        'customerName' => 'Mohammed',
+        'homeUrl' => url('/'),
+        'supportEmail' => config('mail.from.address'),
+        'privacyUrl' => url('/privacy-policy'),
+        'termsUrl' => url('/terms'),
+        'logoUrl' => asset('visitors/images/sun.png'),
+    ]);
+});
 
+Route::get('/email-ar', function () {
+    return view('emails.customer.welcome-ar', [
+        'customerName' => 'محمد',
+        'homeUrl' => url('/'),
+        'supportEmail' => config('mail.from.address'),
+        'privacyUrl' => url('/privacy-policy'),
+        'termsUrl' => url('/terms'),
+        'logoUrl' => asset('visitors/images/sun.png'),
+    ]);
+});
 
-/* Demo route for the company profile. Replace this sample array with a database lookup. */
-Route::get('/dump-companies/{slug}', function (string $slug) {
-    abort_unless($slug === 'sample-solar-company' || $slug === 'tesla-solar' || $slug === 'noor-solar' || $slug === 'deya-solar', 404);
-
-    $company = [
-        'name' => 'Sample Solar Company',
-        'city' => 'Port Sudan, Sudan',
-        'verified' => false,
-        'rating' => null,
-        'reviews_count' => null,
-        'description' => 'A solar service provider helping customers explore solar power, battery storage, and backup solutions. Replace this description with the company’s approved profile information.',
-        'years_experience' => null,
-        'services' => [
-            'Solar panel supply and installation',
-            'Residential solar systems',
-            'Commercial solar systems',
-            'Battery storage and backup',
-            'Hybrid and off-grid systems',
-            'System maintenance and support',
-        ],
-        'projects' => [],
-        'reviews' => [],
-        'email' => null,
-        'phone' => null,
-        'website' => null,
-        'logo' => null,
-        'cover' => null,
-    ];
-
-    return view('visitors.company-profile', compact('company'));
-})->name('dump-companies.show');
