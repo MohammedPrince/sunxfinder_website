@@ -198,7 +198,7 @@
                             <label for="phone">{{ trans('messages.Phone number') }} <b>*</b></label>
 
                             <input type="tel" id="phone" name="phone" value="{{ old('phone') }}" maxlength="30"
-                                required autocomplete="tel" placeholder="+249...">
+                                required autocomplete="tel" placeholder="09...">
 
                         </div>
 

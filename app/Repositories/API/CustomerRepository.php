@@ -7,17 +7,18 @@ use App\Models\ApplianceGroup;
 use App\Models\CompanyCarousel;
 use App\Models\CompanyQuotation;
 use App\Models\Customer;
+use App\Models\CustomerDeviceToken;
+use App\Models\Project;
+use App\Models\ProjectMilestone;
+use App\Models\ProjectUpdate;
 use App\Models\Quote;
 use App\Models\SolarCompany;
 use Carbon\Carbon;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Throwable;
-use Illuminate\Database\UniqueConstraintViolationException;
-use App\Models\Project;
-use App\Models\ProjectMilestone;
-use App\Models\ProjectUpdate;
 
 
 class CustomerRepository
@@ -132,7 +133,6 @@ class CustomerRepository
             'customerDetails' => $customerDetails,
         ];
     }
-
 
 
     public function mainData(): array
@@ -280,7 +280,6 @@ class CustomerRepository
             ];
         }
     }
-
 
     public function createAccount($data): array
     {
@@ -1426,6 +1425,30 @@ class CustomerRepository
     }
 
 
+    public function saveCustomerDeviceToken(
+        int $customerId,
+        string $token,
+        string $platform,
+        string $lang = 'en',
+        ?string $deviceName = null
+    ): CustomerDeviceToken {
+        $lang = strtolower($lang) === 'ar' ? 'ar' : 'en';
+
+        $tokenHash = hash('sha256', $token);
+
+        return CustomerDeviceToken::updateOrCreate(
+            ['token_hash' => $tokenHash],
+            [
+                'customer_id' => $customerId,
+                'fcm_token' => $token,
+                'platform' => $platform,
+                'lang' => $lang,
+                'device_name' => $deviceName,
+                'last_used_at' => now(),
+            ]
+        );
+    }
+
     public function deleteAccount(): array
     {
         try {
@@ -1485,4 +1508,7 @@ class CustomerRepository
             'message' => 'Logged out successfully.',
         ];
     }
+
+
+
 }

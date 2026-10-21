@@ -4200,12 +4200,56 @@ html[dir=rtl] .nav-link.active {
     .sidebar .brand,
     .sidebar .sidebar-label,
     .sidebar .side-nav,
-    .sidebar > .nav-link {
+    .sidebar>.nav-link {
         flex-shrink: 0;
     }
 
     .sidebar .sidebar-bottom {
         margin-top: auto;
         padding-bottom: max(20px, env(safe-area-inset-bottom));
+    }
+}
+
+.footer-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px 20px;
+}
+
+.footer-bottom-links {
+    display: flex;
+    gap: 20px;
+}
+
+.visitor-counter {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #526783;
+    font-size: 13px;
+}
+
+.visitor-counter__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.visitor-counter__label i {
+    color: #f58220;
+}
+
+.visitor-counter__count {
+    color: #064b96;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 768px) {
+    .footer-bottom {
+        justify-content: center;
+        text-align: center;
     }
 }

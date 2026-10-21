@@ -2,6 +2,7 @@
 
 namespace App\Services\API;
 
+use App\Models\CustomerDeviceToken;
 use App\Repositories\API\CustomerRepository;
 
 class CustomerService
@@ -93,6 +94,22 @@ class CustomerService
     public function getProjectProgress(int $projectId)
     {
         return $this->customerRepository->getProjectProgress($projectId);
+    }
+
+    public function saveCustomerDeviceToken(
+        int $customerId,
+        string $token,
+        string $platform,
+        string $lang = 'en',
+        ?string $deviceName = null
+    ): CustomerDeviceToken {
+        return $this->customerRepository->saveCustomerDeviceToken(
+            $customerId,
+            $token,
+            $platform,
+            $lang,
+            $deviceName
+        );
     }
 
     public function deleteAccount(): array

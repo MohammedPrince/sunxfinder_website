@@ -5,11 +5,14 @@ use App\Models\Appliance;
 use App\Models\ApplianceGroup;
 use App\Models\CompanyCarousel;
 use App\Models\Customer;
+use App\Models\CustomerNotification;
+use App\Models\Notification;
 use App\Models\Product;
 use App\Models\ProductSpec;
 use App\Models\Quote;
 use App\Models\SolarCompany;
 use App\Models\Supplier;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -17,7 +20,8 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Throwable;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Database\Eloquent\Builder;
 
 class AdminRepository
 {
@@ -1040,6 +1044,183 @@ class AdminRepository
     }
 
     //Quote Requests End
+
+    //Notifications Start
+
+    public function publishNotification(array $data): Notification
+    {
+        return Notification::getConnection()->transaction(function () use ($data) {
+            $senderType = $data['sender_type'] ?? 'admin';
+            $senderId = $data['sender_id'] ?? null;
+
+            $audienceType = $data['audience_type'] ?? 'selected';
+
+            if ($senderType === 'company' && $audienceType === 'all') {
+                throw ValidationException::withMessages([
+                    'audience_type' => 'Companies cannot broadcast to all customers.',
+                ]);
+            }
+
+            $customerIds = $audienceType === 'all'
+                ? Customer::query()->pluck('id')->all()
+                : array_values(array_unique(
+                    array_map('intval', $data['customer_ids'] ?? [])
+                ));
+
+            if (empty($customerIds)) {
+                throw ValidationException::withMessages([
+                    'customer_ids' => 'Select at least one customer.',
+                ]);
+            }
+
+            $existingIds = Customer::query()
+                ->whereIn('id', $customerIds)
+                ->pluck('id')
+                ->map(fn($id) => (int) $id)
+                ->all();
+
+            if (count($existingIds) !== count($customerIds)) {
+                throw ValidationException::withMessages([
+                    'customer_ids' => 'One or more selected customers are invalid.',
+                ]);
+            }
+
+            // Company-to-customer eligibility must be checked here
+            // if companies are allowed to send notifications.
+
+            $notification = Notification::create([
+                'sender_type' => $senderType,
+                'sender_id' => $senderId,
+                'type' => $data['type'],
+                'title_en' => $data['title_en'],
+                'title_ar' => $data['title_ar'] ?? null,
+                'message_en' => $data['message_en'],
+                'message_ar' => $data['message_ar'] ?? null,
+                'audience_type' => $audienceType,
+                'status' => 'published',
+                'published_at' => now(),
+            ]);
+
+            $now = now();
+
+            foreach (array_chunk($customerIds, 500) as $chunk) {
+                $rows = array_map(
+                    fn($customerId) => [
+                        'notification_id' => $notification->id,
+                        'customer_id' => $customerId,
+                        'read_at' => null,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ],
+                    $chunk
+                );
+
+                CustomerNotification::insert($rows);
+            }
+
+            return $notification;
+        });
+    }
+
+
+    public function getNotifications(array $filters = []): array
+    {
+        $query = Notification::query()
+            ->withCount('recipients')
+            ->when(
+                !empty($filters['type']),
+                fn(Builder $q) => $q->where('type', $filters['type'])
+            )
+            ->when(
+                !empty($filters['status']),
+                fn(Builder $q) => $q->where('status', $filters['status'])
+            )
+            ->when(!empty($filters['search']), function (Builder $q) use ($filters) {
+                $search = $filters['search'];
+
+                $q->where(function (Builder $subQuery) use ($search) {
+                    $subQuery->where('title_en', 'like', "%{$search}%")
+                        ->orWhere('title_ar', 'like', "%{$search}%")
+                        ->orWhere('message_en', 'like', "%{$search}%")
+                        ->orWhere('message_ar', 'like', "%{$search}%");
+                });
+            });
+
+        $notifications = $query
+            ->latest('created_at')
+            ->paginate(15)
+            ->withQueryString();
+
+        $publishedCount = Notification::where('status', 'published')->count();
+        $draftCount = Notification::where('status', 'draft')->count();
+
+        $recipientCount = DB::table('tbl_customer_notifications')
+            ->count();
+
+        return [
+            'notifications' => $notifications,
+            'publishedCount' => $publishedCount,
+            'draftCount' => $draftCount,
+            'recipientCount' => $recipientCount,
+        ];
+    }
+
+    public function getNotificationFormData(): array
+    {
+        $customers = Customer::query()
+            ->select('id', 'full_name', 'username', 'email', 'phone')
+            ->orderBy('username')
+            ->get();
+
+        return [
+            'customers' => $customers,
+        ];
+    }
+
+
+    public function getNotificationDetails(int $id): array
+    {
+        $notification = Notification::query()
+            ->withCount('recipients')
+            ->find($id);
+
+        if (!$notification) {
+            return [
+                'success' => false,
+                'message' => app()->getLocale() === 'ar'
+                    ? 'الإشعار غير موجود.'
+                    : 'Notification not found.',
+            ];
+        }
+
+        $readCount = CustomerNotification::query()
+            ->where('notification_id', $id)
+            ->whereNotNull('read_at')
+            ->count();
+
+        $unreadCount = max(
+            0,
+            $notification->recipients_count - $readCount
+        );
+
+        $recipients = CustomerNotification::query()
+            ->with('customer:id,full_name,username,email')
+            ->where('notification_id', $id)
+            ->latest('created_at')
+            ->paginate(20)
+            ->withQueryString();
+
+        return [
+            'success' => true,
+            'notification' => $notification,
+            'readCount' => $readCount,
+            'unreadCount' => $unreadCount,
+            'recipients' => $recipients,
+        ];
+    }
+
+
+    //Notifications End
 
 
 }

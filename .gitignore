@@ -5,6 +5,8 @@
 .env.production
 .phpactor.json
 .phpunit.result.cache
+.google-services.json
+.sunxfinder-firebase-adminsdk-fbsvc-254ce6fe28.json
 /.fleet
 /.idea
 /.nova

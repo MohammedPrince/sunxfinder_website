@@ -38,10 +38,9 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
         Route::get('/profile', [MainController::class, 'getProfile'])->middleware('throttle:60,1');
         Route::post('/profile', [MainController::class, 'updateProfile'])->middleware('throttle:60,1');
 
-
         Route::get('/project-progress/{projectId}', [MainController::class, 'getProjectProgress'])->whereNumber('projectId')->name('customer.project-progress');
 
-
+        Route::post('/device-token', [MainController::class, 'saveCustomerDeviceToken'])->middleware('throttle:60,1');
 
         Route::post('/logout', [MainController::class, 'logout']);
 

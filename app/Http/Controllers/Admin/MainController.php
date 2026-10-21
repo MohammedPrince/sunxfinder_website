@@ -693,6 +693,106 @@ class MainController extends Controller
 
     //Quote Requests End
 
+    // Notifications Management Start
+
+    public function notifications(Request $request)
+    {
+        $filters = $request->validate([
+            'type' => [
+                'nullable',
+                'string',
+                Rule::in([
+                    'general',
+                    'quote',
+                    'promotion',
+                    'account',
+                    'support',
+                    'maintenance',
+                ]),
+            ],
+            'status' => ['nullable', Rule::in(['published', 'draft'])],
+            'search' => ['nullable', 'string', 'max:150'],
+        ]);
+
+        $result = $this->adminService->getNotifications($filters);
+
+        return view('admin.notifications.index', [
+            'notifications' => $result['notifications'],
+            'publishedCount' => $result['publishedCount'],
+            'draftCount' => $result['draftCount'],
+            'recipientCount' => $result['recipientCount'],
+        ]);
+    }
+
+    public function createNotification()
+    {
+        $result = $this->adminService->getNotificationFormData();
+
+        return view('admin.notifications.create', [
+            'customers' => $result['customers'],
+        ]);
+    }
+
+    public function storeNotification(Request $request)
+    {
+        $validated = $request->validate([
+            'type' => [
+                'required',
+                Rule::in([
+                    'general',
+                    'quote',
+                    'promotion',
+                    'account',
+                    'support',
+                    'maintenance',
+                ]),
+            ],
+            'audience_type' => ['required', Rule::in(['all', 'selected'])],
+            'customer_ids' => [
+                'required_if:audience_type,selected',
+                'array',
+                'min:1',
+            ],
+            'customer_ids.*' => ['required', 'integer', 'min:1'],
+            'title_en' => ['required', 'string', 'max:180'],
+            'title_ar' => ['nullable', 'string', 'max:180'],
+            'message_en' => ['required', 'string', 'max:5000'],
+            'message_ar' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $result = $this->adminService->publishNotification($validated);
+
+        if (!$result['success']) {
+            return back()
+                ->withInput()
+                ->with('error', $result['message']);
+        }
+
+        return redirect()
+            ->route('admin.notifications.index')
+            ->with('success', $result['message']);
+    }
+
+    public function showNotification(int $notification)
+    {
+        $result = $this->adminService->getNotificationDetails($notification);
+
+        if (!$result['success']) {
+            return redirect()
+                ->route('admin.notifications.index')
+                ->with('error', $result['message']);
+        }
+
+        return view('admin.notifications.show', [
+            'notification' => $result['notification'],
+            'readCount' => $result['readCount'],
+            'unreadCount' => $result['unreadCount'],
+            'recipients' => $result['recipients'],
+        ]);
+    }
+
+    // Notifications Management End
+
 
 
 }

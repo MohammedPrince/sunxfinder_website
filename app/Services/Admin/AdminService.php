@@ -249,6 +249,36 @@ class AdminService
 
     //Quote Requests End
 
+    //Notifications Start
+    public function publishNotification(array $data): array
+    {
+        $notification = $this->adminRepository->publishNotification($data);
+
+        return [
+            'success' => true,
+            'message' => app()->getLocale() === 'ar'
+                ? 'تم إرسال الإشعار بنجاح.'
+                : 'Notification sent successfully.',
+            'notification_id' => $notification->id,
+        ];
+    }
+
+    public function getNotifications(array $filters = []): array
+    {
+        return $this->adminRepository->getNotifications($filters);
+    }
+
+    public function getNotificationFormData(): array
+    {
+        return $this->adminRepository->getNotificationFormData();
+    }
+
+    public function getNotificationDetails(int $id): array
+    {
+        return $this->adminRepository->getNotificationDetails($id);
+    }
+    //Notifications End
+
 
 
 

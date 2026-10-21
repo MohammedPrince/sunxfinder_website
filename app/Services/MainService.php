@@ -54,4 +54,16 @@ class MainService
         return $this->mainRepository->getWebsiteCompanyCarousel();
     }
 
+    public function recordVisitor(string $sessionId): void
+    {
+        $this->mainRepository->recordVisitor($sessionId);
+    }
+
+    public function getVisitorCount(): int
+    {
+        return $this->mainRepository->getVisitorCount();
+    }
+
+
+
 }

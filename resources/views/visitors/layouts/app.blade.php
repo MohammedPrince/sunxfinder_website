@@ -111,40 +111,41 @@
                         </picture>
                         <span class="brand-fallback" hidden>Sun<span>X</span>Finder</span>
                     </a>
-                    <p>{{ trans('messages.Find. Compare. Connect.') }}<br>
+
+                    <p>
+                        {{ trans('messages.Find. Compare. Connect.') }}<br>
                         {{ trans('messages.Helping you discover the right energy partner.') }}
                     </p>
                 </div>
+
                 <div>
                     <strong>{{ trans('messages.Explore') }}</strong>
-
-
                     <a href="{{ $homeUrl }}#how">{{ trans('messages.How it works') }}</a>
-
                     <a href="{{ $homeUrl }}#solutions">{{ trans('messages.Solutions') }}</a>
-
                     <a href="{{ $homeUrl }}#our-compaines">{{ trans('messages.our partners') }}</a>
-
                     <a href="{{ $homeUrl }}#partners">{{ trans('messages.Why SunXFinder') }}</a>
-
                     <a href="{{ $homeUrl }}#faq">{{ trans('messages.FAQ') }}</a>
-
                 </div>
+
                 <div>
                     <strong>{{ trans('messages.For energy seekers') }}</strong>
                     <a href="{{ $homeUrl }}#start">{{ trans('messages.Find solutions') }}</a>
                     <a href="mailto:hello@sunxfinder.com">{{ trans('messages.Need help?') }}</a>
                 </div>
+
                 <div>
                     <strong>{{ trans('messages.For energy companies') }}</strong>
                     <a href="#partners">{{ trans('messages.Join our network') }}</a>
                     <a href="mailto:info@sunxfinder.com">{{ trans('messages.Company inquiries') }}</a>
                 </div>
             </div>
+
             <div class="container footer-bottom">
                 <span>© {{ date('Y') }} SunXFinder. {{ trans('messages.All rights reserved.') }}</span>
+
                 <span>{{ trans('messages.A platform connecting customers with energy providers.') }}</span>
-                <div>
+
+                <div class="footer-bottom-links">
                     <a href="{{ route('privacy-policy', ['lang' => app()->getLocale()]) }}">
                         {{ trans('messages.Privacy') }}
                     </a>
@@ -152,8 +153,20 @@
                         {{ trans('messages.Terms') }}
                     </a>
                 </div>
+
+                <div class="visitor-counter">
+                    <span class="visitor-counter__label">
+                        <i class="fas fa-eye" aria-hidden="true"></i>
+                        {{ app()->getLocale() === 'ar' ? 'إجمالي الزيارات' : 'Total Visitors' }}
+                    </span>
+
+                    <strong class="visitor-counter__count">
+                        {{ number_format($visitorCount ?? 0) }}
+                    </strong>
+                </div>
             </div>
         </footer>
+
 
         <script>
             (() => {

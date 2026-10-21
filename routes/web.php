@@ -145,6 +145,17 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/quote-requests', [MainController::class, 'quoteRequests'])->name('quote-requests.index');
         Route::get('/quote-requests/{id}', [MainController::class, 'quoteRequestDetails'])->whereNumber('id')->name('quote-requests.show');
 
+        //Notifications Managment
+        // Notifications
+        Route::prefix('notifications')->name('notifications.')
+            ->controller(MainController::class)
+            ->group(function () {
+                Route::get('/', 'notifications')->name('index');
+                Route::get('/create', 'createNotification')->name('create');
+                Route::post('/', 'storeNotification')->name('store');
+                Route::get('/{notification}', 'showNotification')->whereNumber('notification')->name('show');
+            });
+
         //Logout route for admin
         Route::post('/logout', [AdminAuthController::class, 'logout',])->name('logout');
 

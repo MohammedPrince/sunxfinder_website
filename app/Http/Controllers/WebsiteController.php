@@ -25,11 +25,16 @@ class WebsiteController extends Controller
         $pendingCount = $this->mainService->pendingCount();
         $inactiveCount = $this->mainService->inactiveCount();
 
+        $sessionId = session()->getId();
+        $this->mainService->recordVisitor($sessionId);
+        $visitorCount = $this->mainService->getVisitorCount();
+
         return view('visitors.home', compact(
             'companies',
             'verifiedCount',
             'pendingCount',
-            'inactiveCount'
+            'inactiveCount',
+            'visitorCount'
         ));
     }
 
@@ -58,7 +63,7 @@ class WebsiteController extends Controller
                 Rule::unique('tbl_solar_companies', 'email'),
             ],
 
-            'phone' => ['required', 'string', 'max:12', 'min:10'],
+            'phone' => ['required', 'string', 'max:10', 'min:10'],
             'city' => ['required', 'string', 'max:100'],
             'services' => ['required', 'string', 'max:5000'],
             'ar_services' => ['required', 'string', 'max:5000'],
@@ -318,7 +323,7 @@ class WebsiteController extends Controller
                 };
 
                 $message = $isArabic
-                    ? "تعذّر إكمال التسجيل. {$fieldName} مستخدم بالفعل. يرجى استخدام قيمة أخرى."
+                    ? "تعذّر إكمال التسجيل. {$fieldName} مستخدم بالفعل. يرجى استخدام إسم أخر."
                     : "Registration could not be completed. The {$fieldName} is already in use. Please use a different one.";
 
                 return back()
@@ -372,5 +377,6 @@ class WebsiteController extends Controller
             ]))
             ->withErrors(['registration' => $result['message']]);
     }
+
 
 }

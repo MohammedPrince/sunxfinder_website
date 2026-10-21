@@ -2,16 +2,17 @@
 
 namespace App\Repositories;
 
+use App\Jobs\SendCustomerWelcomeEmail;
 use App\Models\CompanyCarousel;
 use App\Models\Customer;
 use App\Models\SolarCompany;
+use App\Models\Visitor;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
-use App\Jobs\SendCustomerWelcomeEmail;
-use Illuminate\Support\Facades\Log;
 
 class MainRepository
 {
@@ -213,6 +214,18 @@ class MainRepository
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
+    }
+
+    public function recordVisitor(string $sessionId): void
+    {
+        Visitor::firstOrCreate([
+            'session_id' => $sessionId,
+        ]);
+    }
+
+    public function getVisitorCount(): int
+    {
+        return Visitor::count();
     }
 
 }

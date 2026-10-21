@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Throwable;
 
 
+
 class MainController extends Controller
 {
     protected $customerService;
@@ -95,7 +96,13 @@ class MainController extends Controller
     public function createAccount(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'username' => ['required', 'string', 'max:10', 'min:5'],
+            'username' => [
+                'required',
+                'string',
+                'max:15',
+                'min:6',
+                'regex:/^[a-zA-Z0-9_]+$/',
+            ],
             'first_name' => ['nullable', 'string', 'max:15', 'min:3'],
             'second_name' => ['nullable', 'string', 'max:15', 'min:3'],
             'third_name' => ['nullable', 'string', 'max:15'],
@@ -115,11 +122,53 @@ class MainController extends Controller
             ],
         ]);
 
+        $isArabic = app()->getLocale() === 'ar';
+
         if ($validator->fails()) {
+            $errors = $validator->errors();
+
+            $message = $isArabic
+                ? 'يرجى مراجعة البيانات المدخلة والمحاولة مرة أخرى.'
+                : 'Please review the provided information and try again.';
+
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed.',
-                'errors' => $validator->errors(),
+                'message' => $message,
+                'errors' => $errors,
+            ], 422);
+        }
+
+        // Check duplicates separately to return one generic message.
+        $duplicateField = null;
+
+        if (\DB::table('tbl_customers')->where('username', $request->username)->exists()) {
+            $duplicateField = 'username';
+        } elseif (\DB::table('tbl_customers')->where('phone', $request->phone)->exists()) {
+            $duplicateField = 'phone';
+        } elseif (
+            $request->filled('email') &&
+            \DB::table('tbl_customers')->where('email', $request->email)->exists()
+        ) {
+            $duplicateField = 'email';
+        }
+
+        if ($duplicateField !== null) {
+            $fieldNames = [
+                'username' => $isArabic ? 'اسم المستخدم' : 'username',
+                'phone' => $isArabic ? 'رقم الهاتف' : 'phone number',
+                'email' => $isArabic ? 'البريد الإلكتروني' : 'email address',
+            ];
+
+            $message = $isArabic
+                ? "تعذّر إكمال العملية. {$fieldNames[$duplicateField]} مستخدم بالفعل. يرجى استخدام إسم أخر."
+                : "Unable to complete the operation. The {$fieldNames[$duplicateField]} is already in use. Please use a different one.";
+
+            return response()->json([
+                'success' => false,
+                'message' => $message,
+                'errors' => [
+                    $duplicateField => [$message],
+                ],
             ], 422);
         }
 
@@ -145,7 +194,7 @@ class MainController extends Controller
                 ],
             ], $result['code'] ?? 201);
 
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             report($e);
 
             return response()->json([
@@ -577,6 +626,42 @@ class MainController extends Controller
             'message' => 'Project progress retrieved successfully.',
             'data' => $project,
         ]);
+    }
+
+
+    public function saveCustomerDeviceToken(Request $request)
+    {
+        $validated = $request->validate([
+            'token' => ['required', 'string', 'max:4096'],
+            'platform' => ['required', 'in:android,ios'],
+            'lang' => ['required', 'in:en,ar'],
+            'device_name' => ['nullable', 'string', 'max:150'],
+        ]);
+
+        try {
+            // Resolve the authenticated customer using your existing
+            // authentication flow in MainRepository.
+            $result = $this->customerService->saveCustomerDeviceToken(
+                (int) $request->user()->id,
+                $validated['token'],
+                $validated['platform'],
+                $validated['lang'],
+                $validated['device_name'] ?? null
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Device token saved successfully.',
+            ], 200);
+
+        } catch (Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to save device token.',
+            ], 500);
+        }
     }
 
     public function logout()
