@@ -30,10 +30,11 @@
                         <td style="padding:22px 28px;background:#fff;" align="left">
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                                 <tr>
-                                    <td align="left" valign="middle" width="140"><img
-                                            src="{{ $logoUrl ?? asset('images/email/sunxfinder-logo.png') }}"
-                                            alt="SunXFinder" width="145"
-                                            style="display:block;width:145px;max-width:100%;height:auto;border:0;"></td>
+                                    <td align="left" valign="middle" width="140">
+                                        <img src="{{ $logoUrl }}" alt="SunXFinder" width="180"
+                                            style="display:block;border:0;max-width:180px;height:auto;">
+
+                                    </td>
                                     <td align="right" valign="middle"
                                         style="font-size:14px;line-height:1.7;color:#10366b;font-weight:bold;">Find
                                         Solar Solutions<br><span style="font-weight:normal;">Connect with Trusted

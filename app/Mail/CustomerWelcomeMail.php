@@ -54,7 +54,8 @@ class CustomerWelcomeMail extends Mailable
                 'homeUrl' => $baseUrl,
 
                 // Public logo URL
-                'logoUrl' => $baseUrl . 'visitors/images/sun.png',
+                'logoUrl' => rtrim(config('app.url'), '/')
+                    . '/visitors/images/sun.png',
 
                 'supportEmail' => config('mail.from.address'),
                 'privacyUrl' => $baseUrl . '/privacy-policy',
