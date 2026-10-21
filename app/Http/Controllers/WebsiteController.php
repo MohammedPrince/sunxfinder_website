@@ -223,7 +223,7 @@ class WebsiteController extends Controller
 
     public function storeCustomer(Request $request)
     {
-        
+
         $validator = Validator::make($request->all(), [
             'username' => [
                 'required',
@@ -295,13 +295,39 @@ class WebsiteController extends Controller
             }
 
             if ($hasDuplicate) {
+                $duplicateField = null;
+
+                foreach (['username', 'phone', 'email'] as $field) {
+                    if ($errors->has($field)) {
+                        foreach ($errors->get($field) as $message) {
+                            if (str_contains($message, 'already been taken')) {
+                                $duplicateField = $field;
+                                break 2;
+                            }
+                        }
+                    }
+                }
+
+                $isArabic = app()->getLocale() === 'ar';
+
+                $fieldName = match ($duplicateField) {
+                    'username' => $isArabic ? 'اسم المستخدم' : 'username',
+                    'phone' => $isArabic ? 'رقم الهاتف' : 'phone number',
+                    'email' => $isArabic ? 'البريد الإلكتروني' : 'email address',
+                    default => $isArabic ? 'البيانات المدخلة' : 'provided details',
+                };
+
+                $message = $isArabic
+                    ? "تعذّر إكمال التسجيل. {$fieldName} مستخدم بالفعل. يرجى استخدام قيمة أخرى."
+                    : "Registration could not be completed. The {$fieldName} is already in use. Please use a different one.";
+
                 return back()
                     ->withInput($request->except([
                         'password',
                         'password_confirmation',
                     ]))
                     ->withErrors([
-                        'registration' => 'Unable to complete registration. Please review your details and try again.',
+                        'registration' => $message,
                     ]);
             }
 
