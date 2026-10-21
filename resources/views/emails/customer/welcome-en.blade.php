@@ -9,6 +9,15 @@
     <link rel="icon" type="image/png" href="{{ asset('visitors/images/sun.png') }}">
 </head>
 
+
+@php
+    $emailLocale = $emailLocale ?? app()->getLocale();
+    $emailLocale = $emailLocale === 'ar' ? 'ar' : 'en';
+
+    $privacyUrl = url('/privacy-policy') . '?lang=' . $emailLocale;
+    $termsUrl = url('/terms') . '?lang=' . $emailLocale;
+@endphp
+
 <body style="margin:0;padding:0;background:#f4f6f8;color:#10366b;font-family:Arial,Helvetica,sans-serif;">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your SunXFinder account is ready. Discover trusted
         solar companies and compare offers.</div>
@@ -140,12 +149,19 @@
                         <td style="background:#fff0d8;padding:18px 22px;text-align:center;">
                             <div style="font-size:18px;font-weight:bold;color:#10366b;">Sun<b
                                     style="color:#f15b24;">X</b>Finder</div>
-                            <div style="font-size:11px;line-height:1.8;color:#526783;margin-top:8px;"><a
-                                    href="{{ $privacyUrl ?? url('/privacy-policy') }}" style="color:#526783;">Privacy
-                                    Policy</a> &nbsp;|&nbsp; <a href="{{ $termsUrl ?? url('/terms') }}"
-                                    style="color:#526783;">Terms of Service</a> &nbsp;|&nbsp; <a
-                                    href="mailto:{{ $supportEmail ?? 'support@sunxfinder.com' }}"
-                                    style="color:#526783;">Contact Us</a></div>
+                            <div style="font-size:11px;line-height:1.8;color:#526783;margin-top:8px;">
+                                <a href="{{ $privacyUrl }}" style="color:#526783;">
+                                    {{ $emailLocale === 'ar' ? 'سياسة الخصوصية' : 'Privacy Policy' }}
+                                </a>
+                                &nbsp;|&nbsp;
+                                <a href="{{ $termsUrl }}" style="color:#526783;">
+                                    {{ $emailLocale === 'ar' ? 'شروط الاستخدام' : 'Terms of Service' }}
+                                </a>
+                                &nbsp;|&nbsp;
+                                <a href="mailto:{{ $supportEmail ?? 'support@sunxfinder.com' }}" style="color:#526783;">
+                                    {{ $emailLocale === 'ar' ? 'اتصل بنا' : 'Contact Us' }}
+                                </a>
+                            </div>
                             <div style="font-size:11px;color:#718096;margin-top:5px;">© {{ date('Y') }} SunXFinder. All
                                 rights reserved.</div>
                         </td>
