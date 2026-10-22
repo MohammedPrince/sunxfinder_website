@@ -3,8 +3,10 @@
 namespace App\Providers;
 
 use App\Models\ApplianceGroup;
+use App\Models\AppVersion;
 use App\Models\CompanyCarousel;
 use App\Models\Customer;
+use App\Models\Notification;
 use App\Models\Product;
 use App\Models\Project;
 use App\Models\Quote;
@@ -47,6 +49,7 @@ class AppServiceProvider extends ServiceProvider
                 'productsCount' => Product::count(),
                 'carouselCount' => CompanyCarousel::count(),
                 'quoteCount' => Quote::count(),
+                'appVersionCount' => AppVersion::count(),
             ]);
         });
 
@@ -67,14 +70,15 @@ class AppServiceProvider extends ServiceProvider
 
                 $productsCount = Product::query()->where('company_id', $companyId)->count();
                 $myActiveProjectCount = Project::query()->where('company_id', $companyId)->count();
+                $notificationsCount = Notification::query()->where('sender_id', $companyId)->count();
             }
 
-            
 
             $view->with([
                 'myCompanyQuoteCount' => $myCompanyQuoteCount,
                 'productsCount' => $productsCount,
-                'myActiveProjectCount'=>$myActiveProjectCount,
+                'myActiveProjectCount' => $myActiveProjectCount,
+                'notificationsCount' => $notificationsCount,
             ]);
         });
     }

@@ -87,9 +87,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
     // Protected admin pages
     Route::middleware('admin.auth')->group(function () {
 
-        Route::get('/dashboard', function () {
-            return view('admin.dashboard');
-        })->name('dashboard.page');
+        Route::get('/dashboard', [MainController::class, 'dashboard'])->name('dashboard.page');
 
         //Mange Companies
         Route::get('/companies', [MainController::class, 'index'])->name('companies.index');
@@ -145,12 +143,23 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::delete('/{id}', [MainController::class, 'companyCarouselDestroy'])->whereNumber('id')->name('destroy');
         });
 
+        //App Versions Managment
+        Route::prefix('app-versions')->name('app-versions.')
+            ->controller(MainController::class)
+            ->group(function () {
+                Route::get('/', 'appVersions')->name('index');
+                Route::get('/create', 'createAppVersion')->name('create');
+                Route::post('/', 'storeAppVersion')->name('store');
+                Route::get('/{id}/edit', 'editAppVersion')->whereNumber('id')->name('edit');
+                Route::put('/{id}', 'updateAppVersion')->whereNumber('id')->name('update');
+                Route::delete('/{id}', 'destroyAppVersion')->whereNumber('id')->name('destroy');
+            });
+
         //Quotes Managment
         Route::get('/quote-requests', [MainController::class, 'quoteRequests'])->name('quote-requests.index');
         Route::get('/quote-requests/{id}', [MainController::class, 'quoteRequestDetails'])->whereNumber('id')->name('quote-requests.show');
 
         //Notifications Managment
-        // Notifications
         Route::prefix('notifications')->name('notifications.')
             ->controller(MainController::class)
             ->group(function () {
@@ -192,9 +201,7 @@ Route::prefix('company')->name('company.')->group(function () {
     // Protected company pages
     Route::middleware('company.auth')->group(function () {
 
-        Route::get('/dashboard', function () {
-            return view('company.dashboard');
-        })->name('dashboard');
+        Route::get('/dashboard', [CompanyMainController::class, 'dashboard'])->name('dashboard');
 
         Route::get('/profile', [CompanyMainController::class, 'index'])->name('profile');
 
@@ -222,6 +229,16 @@ Route::prefix('company')->name('company.')->group(function () {
         Route::get('/projects', [ProjectController::class, 'index'])->name('projects.index');
         Route::get('/projects/{id}', [ProjectController::class, 'show'])->whereNumber('id')->name('projects.show');
         Route::post('/projects/{id}/progress', [ProjectController::class, 'updateProgress',])->whereNumber('id')->name('projects.progress.update');
+
+        //Notifications Managment
+        Route::prefix('notifications')->name('notifications.')
+            ->controller(CompanyMainController::class)
+            ->group(function () {
+                Route::get('/', 'notifications')->name('index');
+                Route::get('/create', 'createNotification')->name('create');
+                Route::post('/', 'storeNotification')->name('store');
+                Route::get('/{notification}', 'showNotification')->whereNumber('notification')->name('show');
+            });
 
         Route::post('/logout', [CompanyAuthController::class, 'logout',])->name('logout');
     });

@@ -78,6 +78,7 @@ class MainController extends Controller
                     'calculator' => $result['calculator'],
                     'my_quotes' => $result['my_quotes'],
                     'notifications' => $result['notifications'],
+                    'app_version' => $result['app_version'],
                 ],
                 'meta' => $result['meta'],
             ]);

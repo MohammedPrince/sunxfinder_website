@@ -20,6 +20,11 @@ class CompanyService
         $this->companyRepository = $companyRepository;
     }
 
+    public function getDashboardData(): array
+    {
+        return $this->companyRepository->getDashboardData();
+    }
+
     //Company profile managment START
     public function getCompany(int $id): array
     {
@@ -148,7 +153,35 @@ class CompanyService
         return $this->companyRepository->getCompetitorOfferPrices($quoteId);
     }
 
-
-
     //Quote Requests End
+
+    //Notifications Start
+    public function publishNotification(array $data): array
+    {
+        $notification = $this->companyRepository->publishNotification($data);
+
+        return [
+            'success' => true,
+            'message' => app()->getLocale() === 'ar'
+                ? 'تم إرسال الإشعار بنجاح.'
+                : 'Notification sent successfully.',
+            'notification_id' => $notification->id,
+        ];
+    }
+
+    public function getNotifications(array $filters = []): array
+    {
+        return $this->companyRepository->getNotifications($filters);
+    }
+
+    public function getNotificationFormData(): array
+    {
+        return $this->companyRepository->getNotificationFormData();
+    }
+
+    public function getNotificationDetails(int $id): array
+    {
+        return $this->companyRepository->getNotificationDetails($id);
+    }
+    //Notifications End
 }

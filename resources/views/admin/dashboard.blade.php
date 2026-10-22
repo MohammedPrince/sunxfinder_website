@@ -1,64 +1,163 @@
 @extends('admin.layouts.app')
-@section('title', 'Dashboard') @section('breadcrumb', 'Dashboard')
-@section('eyebrow', 'SUNXFINDER MARKETPLACE') @section('page-title', 'Dashboard overview')
+@section('title', 'Dashboard')
+@section('breadcrumb', 'Dashboard')
+@section('eyebrow', 'SUNXFINDER MARKETPLACE')
+@section('page-title', 'Dashboard overview')
 @section('page-description', 'Here is what is happening across your solar marketplace today.')
-@section('page-actions')<button class="btn btn-light"
-        data-demo-toast="Connect report export to your reporting endpoint.">↓ Export report</button><a class="btn btn-primary"
-    href="{{ route('admin.companies.index') }}">＋ Manage companies</a>@endsection
+@section('page-actions')
+    <a class="btn btn-light" href="{{ route('admin.quote-requests.index') }}">Quote requests</a>
+    <a class="btn btn-primary" href="{{ route('admin.companies.index') }}">＋ Manage companies</a>
+@endsection
+
 @section('content')
+    @php
+        $statusClasses = [
+            'approved' => 'pill-green',
+            'pending' => 'pill-yellow',
+            'rejected' => 'pill-red',
+        ];
+
+        $activityMax = max(1, collect($activity)->max(fn($day) => max($day['requests'], $day['companies'])));
+        $barHeight = fn(int $value) => $value > 0 ? max(4, (int) round($value / $activityMax * 100)) : 0;
+
+        $percentOf = fn(int $part, int $total) => $total > 0 ? (int) round($part / $total * 100) : 0;
+
+        // Company verification donut: approved, pending, then rejected / other.
+        $approvedShare = $percentOf($companies['approved'], $companies['total']);
+        $pendingShare = $percentOf($companies['pending'], $companies['total']);
+        $otherShare = $companies['total'] > 0 ? 100 - $approvedShare - $pendingShare : 0;
+        $donutBackground = $companies['total'] > 0
+            ? "conic-gradient(#1da875 0 {$approvedShare}%, var(--orange) {$approvedShare}% " .
+                ($approvedShare + $pendingShare) .
+                '%, #e6ebf0 ' .
+                ($approvedShare + $pendingShare) .
+                '% 100%)'
+            : '#e6ebf0';
+    @endphp
+
     <section class="stats-grid">
         <article class="stat-card">
-            <div class="stat-top"><span>Total companies</span><span class="stat-icon blue">◫</span></div>
-            <div class="stat-value">128</div>
-            <div class="stat-foot"><b class="positive">↗ 12.8%</b> vs last month</div>
-            <div class="mini-bars"><i style="height:30%"></i><i style="height:45%"></i><i style="height:38%"></i><i
-                    style="height:68%"></i><i style="height:56%"></i><i style="height:90%"></i></div>
+            <div class="stat-top">
+                <span>Total companies</span>
+                <span class="stat-icon blue">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                        <path d="M9 21V7h6v14" />
+                    </svg>
+                </span>
+            </div>
+            <div class="stat-value">{{ number_format($companies['total']) }}</div>
+            <div class="stat-foot">
+                @include('admin.partials.dashboard-change', ['change' => $companies['change']])
+                {{ number_format($companies['new_this_month']) }} new this month
+            </div>
+            <div class="mini-bars" title="New companies per day, last 7 days">
+                @foreach ($activity as $day)
+                    <i style="height:{{ max(8, $barHeight($day['companies'])) }}%"></i>
+                @endforeach
+            </div>
         </article>
+
         <article class="stat-card">
-            <div class="stat-top"><span>Pending verification</span><span class="stat-icon orange">◷</span></div>
-            <div class="stat-value">14</div>
-            <div class="stat-foot"><b class="warning">Needs attention</b></div>
-            <div class="stat-progress"><span style="width:42%"></span></div><small>Companies awaiting review</small>
+            <div class="stat-top">
+                <span>Pending verification</span>
+                <span class="stat-icon orange">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 7v5l3 2" />
+                    </svg>
+                </span>
+            </div>
+            <div class="stat-value">{{ number_format($companies['pending']) }}</div>
+            <div class="stat-foot">
+                @if ($companies['pending'] > 0)
+                    <b class="warning">Needs attention</b>
+                @else
+                    <b class="positive">All reviewed</b>
+                @endif
+            </div>
+            <div class="stat-progress">
+                <span style="width:{{ $pendingShare }}%"></span>
+            </div>
+            <small>Companies awaiting review</small>
         </article>
+
         <article class="stat-card">
-            <div class="stat-top"><span>Quote requests</span><span class="stat-icon purple">⇄</span></div>
-            <div class="stat-value">356</div>
-            <div class="stat-foot"><b class="positive">↗ 8.2%</b> vs last month</div>
-            <div class="sparkline">▁▃▂▅▄▆▅█</div>
+            <div class="stat-top">
+                <span>Quote requests</span>
+                <span class="stat-icon purple">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M7 7h11l-3-3" />
+                        <path d="M17 17H6l3 3" />
+                    </svg>
+                </span>
+            </div>
+            <div class="stat-value">{{ number_format($quotes['total']) }}</div>
+            <div class="stat-foot">
+                @include('admin.partials.dashboard-change', ['change' => $quotes['change']])
+                {{ number_format($quotes['pending']) }} pending
+            </div>
+            <div class="mini-bars purple-bars" title="Quote requests per day, last 7 days">
+                @foreach ($activity as $day)
+                    <i style="height:{{ max(8, $barHeight($day['requests'])) }}%"></i>
+                @endforeach
+            </div>
         </article>
+
         <article class="stat-card">
-            <div class="stat-top"><span>Active customers</span><span class="stat-icon green">♙</span></div>
-            <div class="stat-value">2,481</div>
-            <div class="stat-foot"><b class="positive">↗ 18.4%</b> vs last month</div>
-            <div class="stat-progress green-progress"><span style="width:72%"></span></div><small>Strong growth this
-                month</small>
+            <div class="stat-top">
+                <span>Active customers</span>
+                <span class="stat-icon green">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="10" cy="7" r="4" />
+                    </svg>
+                </span>
+            </div>
+            <div class="stat-value">{{ number_format($customers['active']) }}</div>
+            <div class="stat-foot">
+                @include('admin.partials.dashboard-change', ['change' => $customers['change']])
+                of {{ number_format($customers['total']) }} accounts
+            </div>
+            <div class="stat-progress green-progress">
+                <span style="width:{{ $percentOf($customers['active'], $customers['total']) }}%"></span>
+            </div>
+            <small>Active share of all customer accounts</small>
         </article>
     </section>
+
     <section class="content-grid">
         <article class="panel">
             <div class="panel-heading">
                 <div>
                     <h2>Marketplace activity</h2>
-                    <p>Illustrative weekly activity overview</p>
-                </div><select class="select-control">
-                    <option>Last 7 days</option>
-                    <option>Last 30 days</option>
-                </select>
+                    <p>New quote requests and companies, last 7 days</p>
+                </div>
             </div>
-            <div class="chart-legend"><span>● Quote requests</span><span class="orange-text">● New companies</span></div>
+            <div class="chart-legend">
+                <span>● Quote requests</span>
+                <span class="orange-text">● New companies</span>
+            </div>
             <div class="simple-chart">
-                <div class="chart-col"><i style="height:48%"></i><b style="height:25%"></b></div>
-                <div class="chart-col"><i style="height:66%"></i><b style="height:35%"></b></div>
-                <div class="chart-col"><i style="height:57%"></i><b style="height:29%"></b></div>
-                <div class="chart-col"><i style="height:78%"></i><b style="height:43%"></b></div>
-                <div class="chart-col"><i style="height:63%"></i><b style="height:38%"></b></div>
-                <div class="chart-col"><i style="height:90%"></i><b style="height:52%"></b></div>
-                <div class="chart-col"><i style="height:74%"></i><b style="height:44%"></b></div>
+                @foreach ($activity as $day)
+                    <div class="chart-col"
+                        title="{{ $day['date'] }}: {{ $day['requests'] }} requests, {{ $day['companies'] }} companies">
+                        <i style="height:{{ $barHeight($day['requests']) }}%"></i>
+                        <b style="height:{{ $barHeight($day['companies']) }}%"></b>
+                    </div>
+                @endforeach
             </div>
             <div class="chart-days">
-                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+                @foreach ($activity as $day)
+                    <span>{{ $day['label'] }}</span>
+                @endforeach
             </div>
         </article>
+
         <article class="panel">
             <div class="panel-heading">
                 <div>
@@ -67,26 +166,38 @@
                 </div>
             </div>
             <div class="donut-area">
-                <div class="donut">
-                    <div><strong>128</strong><small>Companies</small></div>
+                <div class="donut" style="background:{{ $donutBackground }}">
+                    <div><strong>{{ number_format($companies['total']) }}</strong><small>Companies</small></div>
                 </div>
             </div>
             <div class="status-list">
-                <div><span>● Verified</span><strong>86 <small>67%</small></strong></div>
-                <div><span class="orange-text">● Pending</span><strong>14 <small>11%</small></strong></div>
-                <div><span class="gray-text">● Draft / inactive</span><strong>28 <small>22%</small></strong></div>
-            </div><a class="text-link" href="{{ route('admin.companies.index') }}">Review companies →</a>
+                <div>
+                    <span class="positive">● Approved</span>
+                    <strong>{{ number_format($companies['approved']) }} <small>{{ $approvedShare }}%</small></strong>
+                </div>
+                <div>
+                    <span class="orange-text">● Pending</span>
+                    <strong>{{ number_format($companies['pending']) }} <small>{{ $pendingShare }}%</small></strong>
+                </div>
+                <div>
+                    <span class="gray-text">● Rejected / other</span>
+                    <strong>{{ number_format($companies['other']) }} <small>{{ $otherShare }}%</small></strong>
+                </div>
+            </div>
+            <a class="text-link" href="{{ route('admin.companies.index') }}">Review companies →</a>
         </article>
     </section>
+
     <section class="panel table-panel">
         <div class="panel-heading">
             <div>
                 <h2>Recently added companies</h2>
                 <p>Latest providers joining SunXFinder</p>
-            </div><a class="text-link" href="{{ route('admin.companies.index') }}">View all →</a>
+            </div>
+            <a class="text-link" href="{{ route('admin.companies.index') }}">View all →</a>
         </div>
         <div class="table-responsive">
-            <table class="data-table js-data-table">
+            <table class="data-table">
                 <thead>
                     <tr>
                         <th>Company</th>
@@ -98,39 +209,48 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td>
-                            <div class="company-cell"><span class="company-avatar solar">S</span><span><strong>Solar Horizon
-                                        Co.</strong><small>SF-00128</small></span></div>
-                        </td>
-                        <td>Khartoum</td>
-                        <td>Oct 11, 2026</td>
-                        <td><span class="pill pill-green">Active</span></td>
-                        <td><span class="verify verified">✓ Verified</span></td>
-                        <td><a class="row-action" href="{{ route('admin.companies.index') }}">View ↗</a></td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <div class="company-cell"><span class="company-avatar sun">R</span><span><strong>Renewable
-                                        Future</strong><small>SF-00127</small></span></div>
-                        </td>
-                        <td>Port Sudan</td>
-                        <td>Oct 10, 2026</td>
-                        <td><span class="pill pill-green">Active</span></td>
-                        <td><span class="verify pending">◷ Pending</span></td>
-                        <td><a class="row-action" href="{{ route('admin.companies.index') }}">Review ↗</a></td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <div class="company-cell"><span class="company-avatar blue-bg">E</span><span><strong>EcoPower
-                                        Solutions</strong><small>SF-00126</small></span></div>
-                        </td>
-                        <td>Wad Madani</td>
-                        <td>Oct 09, 2026</td>
-                        <td><span class="pill pill-yellow">Under review</span></td>
-                        <td><span class="verify pending">◷ Pending</span></td>
-                        <td><a class="row-action" href="{{ route('admin.companies.index') }}">Review ↗</a></td>
-                    </tr>
+                    @forelse ($latestCompanies as $company)
+                        <tr>
+                            <td>
+                                <div class="company-cell">
+                                    <span class="company-avatar solar">{{ strtoupper(substr($company->name, 0, 1)) }}</span>
+                                    <span>
+                                        <strong>{{ $company->name }}</strong>
+                                        <small>SF-{{ str_pad((string) $company->id, 5, '0', STR_PAD_LEFT) }}</small>
+                                    </span>
+                                </div>
+                            </td>
+                            <td>{{ $company->city ?: '—' }}</td>
+                            <td>{{ $company->created_at?->format('M d, Y') ?? '—' }}</td>
+                            <td>
+                                <span class="pill {{ $statusClasses[$company->status] ?? 'pill-yellow' }}">
+                                    {{ ucfirst($company->status) }}
+                                </span>
+                                @if (!$company->is_active)
+                                    <small class="gray-text">Inactive</small>
+                                @endif
+                            </td>
+                            <td>
+                                @if ($company->is_verified)
+                                    <span class="verify verified">✓ Verified</span>
+                                @else
+                                    <span class="verify pending">◷ Unverified</span>
+                                @endif
+                            </td>
+                            <td>
+                                <a class="row-action" href="{{ route('admin.companies.edit', $company->id) }}">
+                                    {{ $company->status === 'pending' ? 'Review' : 'View' }} ↗
+                                </a>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6" class="dashboard-empty">
+                                <strong>No companies yet.</strong>
+                                New providers will appear here as soon as they register.
+                            </td>
+                        </tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>

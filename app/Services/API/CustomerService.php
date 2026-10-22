@@ -119,12 +119,12 @@ class CustomerService
         return $this->customerRepository->getCustomerNotifications($filters);
     }
 
-    public function markNotificationAsRead($notificationId)
+    public function markNotificationAsRead($notificationId): array
     {
         return $this->customerRepository->markNotificationAsRead($notificationId);
     }
 
-    public function markAllNotificationsAsRead()
+    public function markAllNotificationsAsRead(): array
     {
         return $this->customerRepository->markAllNotificationsAsRead();
     }

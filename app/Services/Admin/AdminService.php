@@ -2,6 +2,7 @@
 
 namespace App\Services\Admin;
 
+use App\Models\AppVersion;
 use App\Models\Quote;
 use App\Repositories\Admin\AdminRepository;
 
@@ -12,6 +13,11 @@ class AdminService
     public function __construct(AdminRepository $adminRepository)
     {
         $this->adminRepository = $adminRepository;
+    }
+
+    public function getDashboardData(): array
+    {
+        return $this->adminRepository->getDashboardData();
     }
 
     //Compaines Managment Start
@@ -230,6 +236,35 @@ class AdminService
     }
 
     //Company Carousel End
+
+    //App Versions Start
+
+    public function getAppVersions()
+    {
+        return $this->adminRepository->getAppVersions();
+    }
+
+    public function findAppVersion(int $id): ?AppVersion
+    {
+        return $this->adminRepository->findAppVersion($id);
+    }
+
+    public function createAppVersion(array $data): array
+    {
+        return $this->adminRepository->createAppVersion($data);
+    }
+
+    public function updateAppVersion(int $id, array $data): array
+    {
+        return $this->adminRepository->updateAppVersion($id, $data);
+    }
+
+    public function deleteAppVersion(int $id): array
+    {
+        return $this->adminRepository->deleteAppVersion($id);
+    }
+
+    //App Versions End
 
     //Quote Requests Start
     public function getQuoteRequests(array $filters = [])

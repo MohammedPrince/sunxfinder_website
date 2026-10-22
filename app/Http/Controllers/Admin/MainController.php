@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AppVersion;
 use App\Models\Customer;
 use App\Models\Product;
 use App\Services\Admin\AdminService;
@@ -16,6 +17,13 @@ class MainController extends Controller
     public function __construct(AdminService $adminService)
     {
         $this->adminService = $adminService;
+    }
+
+    public function dashboard()
+    {
+        $result = $this->adminService->getDashboardData();
+
+        return view('admin.dashboard', $result);
     }
 
     public function index()
@@ -659,6 +667,92 @@ class MainController extends Controller
     }
     //Company Carousel End
 
+    //App Versions Start
+
+    public function appVersions()
+    {
+        $versions = $this->adminService->getAppVersions();
+
+        // Only one version row per platform; hide "Add" once both exist.
+        $missingPlatforms = array_diff_key(
+            AppVersion::PLATFORMS,
+            $versions->keyBy('platform')->all()
+        );
+
+        return view('admin.app-versions.index', compact('versions', 'missingPlatforms'));
+    }
+
+    public function createAppVersion()
+    {
+        return view('admin.app-versions.form', ['version' => null]);
+    }
+
+    public function storeAppVersion(Request $request)
+    {
+        $data = $this->validatedAppVersion($request);
+
+        $result = $this->adminService->createAppVersion($data);
+
+        return $result['success']
+            ? redirect()->route('admin.app-versions.index')->with('success', $result['message'])
+            : back()->withInput()->with('error', $result['message']);
+    }
+
+    public function editAppVersion(int $id)
+    {
+        $version = $this->adminService->findAppVersion($id);
+
+        abort_if(!$version, 404);
+
+        return view('admin.app-versions.form', compact('version'));
+    }
+
+    public function updateAppVersion(Request $request, int $id)
+    {
+        $data = $this->validatedAppVersion($request, $id);
+
+        $result = $this->adminService->updateAppVersion($id, $data);
+
+        return $result['success']
+            ? redirect()->route('admin.app-versions.index')->with('success', $result['message'])
+            : back()->withInput()->with('error', $result['message']);
+    }
+
+    public function destroyAppVersion(int $id)
+    {
+        $result = $this->adminService->deleteAppVersion($id);
+
+        return redirect()->route('admin.app-versions.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    private function validatedAppVersion(Request $request, ?int $ignoreId = null): array
+    {
+        $data = $request->validate([
+            'platform' => [
+                'required',
+                Rule::in(array_keys(AppVersion::PLATFORMS)),
+                Rule::unique('tbl_app_versions', 'platform')->ignore($ignoreId)->whereNull('deleted_at'),
+            ],
+            // e.g. 1.6, 1.6.2, 2.0.0.1
+            'minimum_version' => ['required', 'string', 'max:20', 'regex:/^\d+(\.\d+){0,3}$/'],
+            'app_url' => ['required', 'url:https', 'max:500'],
+            'force_update' => ['nullable', 'boolean'],
+            'description_en' => ['nullable', 'string', 'max:500'],
+            'description_ar' => ['nullable', 'string', 'max:500'],
+        ], [
+            'platform.unique' => 'A version for this platform already exists. Edit it instead.',
+            'minimum_version.regex' => 'Use numbers separated by dots, e.g. 1.6.2.',
+            'app_url.url' => 'Enter a valid https:// store link.',
+        ]);
+
+        $data['force_update'] = $request->boolean('force_update');
+
+        return $data;
+    }
+
+    //App Versions End
+
     //Quote Requests Start
 
     public function quoteRequests(Request $request)
@@ -693,7 +787,7 @@ class MainController extends Controller
 
     //Quote Requests End
 
-    // Notifications Management Start
+      // Notifications Management Start
 
     public function notifications(Request $request)
     {

@@ -4,6 +4,7 @@ namespace App\Repositories\API;
 
 use App\Helpers\Helper;
 use App\Models\ApplianceGroup;
+use App\Models\AppVersion;
 use App\Models\CompanyCarousel;
 use App\Models\CompanyQuotation;
 use App\Models\Customer;
@@ -272,6 +273,7 @@ class CustomerRepository
                     'quotes' => $myQuotes,
                 ],
                 'notifications' => $notifications,
+                'app_version' => $this->getAppVersions($customerId),
                 'meta' => [
                     'companies_total' => $companiesResult['meta']['total']
                         ?? count($companies),
@@ -287,6 +289,63 @@ class CustomerRepository
                 'message' => 'Unable to retrieve main data.',
             ];
         }
+    }
+
+    /**
+     * Minimum supported app version per platform, managed from the admin panel.
+     * A platform without a configured version is returned as null.
+     * "desc" follows the language of the customer's most recently used device.
+     */
+    private function getAppVersions(int $customerId): array
+    {
+        $deviceLang = CustomerDeviceToken::query()
+            ->where('customer_id', $customerId)
+            ->orderByDesc('last_used_at')
+            ->value('lang');
+
+        $lang = strtolower($deviceLang ?? 'en') === 'ar' ? 'ar' : 'en';
+
+        $defaultDesc = [
+            'en' => [
+                'force' => 'A new version of SunXFinder is required. Please update the app to continue.',
+                'optional' => 'A new version of SunXFinder is available. Update now for the latest features and fixes.',
+            ],
+            'ar' => [
+                'force' => 'يلزم تحديث تطبيق SunXFinder إلى الإصدار الجديد للمتابعة.',
+                'optional' => 'يتوفر إصدار جديد من تطبيق SunXFinder. حدّث الآن للحصول على أحدث الميزات والإصلاحات.',
+            ],
+        ];
+
+        $versions = AppVersion::query()
+            ->get([
+                'platform',
+                'minimum_version',
+                'app_url',
+                'force_update',
+                'description_en',
+                'description_ar',
+                'updated_at',
+            ])
+            ->keyBy('platform');
+
+        $result = [];
+
+        foreach (array_keys(AppVersion::PLATFORMS) as $platform) {
+            $version = $versions->get($platform);
+
+            $result[$platform] = $version ? [
+                'minimum_version' => $version->minimum_version,
+                'app_url' => $version->app_url,
+                'force_update' => $version->force_update,
+                'lang' => $lang,
+                // Admin message in the device language, or the default when left empty.
+                'desc' => $version->{"description_{$lang}"}
+                    ?: $defaultDesc[$lang][$version->force_update ? 'force' : 'optional'],
+                'updated_at' => $version->updated_at?->toISOString(),
+            ] : null;
+        }
+
+        return $result;
     }
 
     public function createAccount($data): array
@@ -1539,7 +1598,7 @@ class CustomerRepository
         ];
     }
 
-    public function markNotificationAsRead($notificationId)
+    public function markNotificationAsRead($notificationId): array
     {
 
         $customer = $this->helper->isCustomerAuthenticated();
@@ -1589,7 +1648,7 @@ class CustomerRepository
         ];
     }
 
-    public function markAllNotificationsAsRead()
+    public function markAllNotificationsAsRead(): array
     {
 
         $customer = $this->helper->isCustomerAuthenticated();

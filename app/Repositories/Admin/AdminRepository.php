@@ -4,6 +4,7 @@ namespace App\Repositories\Admin;
 
 use App\Models\Appliance;
 use App\Models\ApplianceGroup;
+use App\Models\AppVersion;
 use App\Models\CompanyCarousel;
 use App\Models\Customer;
 use App\Models\CustomerNotification;
@@ -34,6 +35,95 @@ class AdminRepository
     {
         //
     }
+
+    //Dashboard Start
+
+    public function getDashboardData(): array
+    {
+        $thisMonth = now()->startOfMonth();
+        $lastMonth = now()->subMonthNoOverflow()->startOfMonth();
+
+        // Percentage change of records created this month against last month.
+        $monthlyChange = function (string $modelClass) use ($thisMonth, $lastMonth): ?int {
+            $current = $modelClass::query()->where('created_at', '>=', $thisMonth)->count();
+            $previous = $modelClass::query()
+                ->whereBetween('created_at', [$lastMonth, $thisMonth])
+                ->count();
+
+            return $previous > 0
+                ? (int) round(($current - $previous) / $previous * 100)
+                : null;
+        };
+
+        $companyCounts = SolarCompany::query()
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $companies = [
+            'total' => (int) $companyCounts->sum(),
+            'approved' => (int) ($companyCounts['approved'] ?? 0),
+            'pending' => (int) ($companyCounts['pending'] ?? 0),
+            'new_this_month' => SolarCompany::query()->where('created_at', '>=', $thisMonth)->count(),
+            'change' => $monthlyChange(SolarCompany::class),
+        ];
+        // Rejected and any other non-approved, non-pending status.
+        $companies['other'] = $companies['total'] - $companies['approved'] - $companies['pending'];
+
+        $quotes = [
+            'total' => Quote::query()->count(),
+            'pending' => Quote::query()->where('status', 'pending')->count(),
+            'change' => $monthlyChange(Quote::class),
+        ];
+
+        $customers = [
+            'total' => $this->customerAccountCount(),
+            'active' => $this->activeCustomerAccountCount(),
+            'change' => $monthlyChange(Customer::class),
+        ];
+
+        // Daily activity for the last 7 days, including today.
+        $start = now()->subDays(6)->startOfDay();
+
+        $perDay = fn(string $modelClass) => $modelClass::query()
+            ->where('created_at', '>=', $start)
+            ->selectRaw('DATE(created_at) as day, COUNT(*) as total')
+            ->groupBy('day')
+            ->pluck('total', 'day');
+
+        $requestsPerDay = $perDay(Quote::class);
+        $companiesPerDay = $perDay(SolarCompany::class);
+
+        $activity = [];
+
+        for ($i = 0; $i < 7; $i++) {
+            $date = $start->copy()->addDays($i);
+            $key = $date->toDateString();
+
+            $activity[] = [
+                'label' => $date->format('D'),
+                'date' => $date->format('d M'),
+                'requests' => (int) ($requestsPerDay[$key] ?? 0),
+                'companies' => (int) ($companiesPerDay[$key] ?? 0),
+            ];
+        }
+
+        $latestCompanies = SolarCompany::query()
+            ->latest('created_at')
+            ->latest('id')
+            ->limit(5)
+            ->get(['id', 'name', 'username', 'city', 'status', 'is_verified', 'is_active', 'created_at']);
+
+        return [
+            'companies' => $companies,
+            'quotes' => $quotes,
+            'customers' => $customers,
+            'activity' => $activity,
+            'latestCompanies' => $latestCompanies,
+        ];
+    }
+
+    //Dashboard End
 
     //Compaines Managment Start
 
@@ -972,6 +1062,103 @@ class AdminRepository
         $entry->ends_at = $data['ends_at'] ?? null;
     }
 
+    //App Versions Start
+
+    public function getAppVersions()
+    {
+        return AppVersion::query()
+            ->with('creator:id,username')
+            ->orderBy('platform')
+            ->get();
+    }
+
+    public function findAppVersion(int $id): ?AppVersion
+    {
+        return AppVersion::find($id);
+    }
+
+    public function createAppVersion(array $data): array
+    {
+        try {
+            $version = new AppVersion();
+            $this->assignAppVersionFields($version, $data);
+            $version->created_by = auth('admin')->id();
+            $version->save();
+
+            return [
+                'success' => true,
+                'message' => AppVersion::PLATFORMS[$version->platform] . ' app version saved successfully.',
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'message' => 'Unable to save the app version. Please try again.',
+            ];
+        }
+    }
+
+    public function updateAppVersion(int $id, array $data): array
+    {
+        try {
+            $version = AppVersion::find($id);
+
+            if (!$version) {
+                return ['success' => false, 'message' => 'App version not found.'];
+            }
+
+            $this->assignAppVersionFields($version, $data);
+            $version->save();
+
+            return [
+                'success' => true,
+                'message' => AppVersion::PLATFORMS[$version->platform] . ' app version updated successfully.',
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'message' => 'Unable to update the app version. Please try again.',
+            ];
+        }
+    }
+
+    public function deleteAppVersion(int $id): array
+    {
+        try {
+            $version = AppVersion::find($id);
+
+            if (!$version) {
+                return ['success' => false, 'message' => 'App version not found.'];
+            }
+
+            $version->delete();
+
+            return ['success' => true, 'message' => 'App version deleted successfully.'];
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'message' => 'Unable to delete the app version. Please try again.',
+            ];
+        }
+    }
+
+    private function assignAppVersionFields(AppVersion $version, array $data): void
+    {
+        $version->platform = $data['platform'];
+        $version->minimum_version = $data['minimum_version'];
+        $version->app_url = $data['app_url'];
+        $version->force_update = (bool) ($data['force_update'] ?? false);
+        $version->description_en = $data['description_en'] ?? null;
+        $version->description_ar = $data['description_ar'] ?? null;
+    }
+
+    //App Versions End
+
     // Call from your existing public/mobile home-data repository/service.
     public function getCompanyCarouselForPlatform(string $platform)
     {
@@ -1051,7 +1238,6 @@ class AdminRepository
     //Quote Requests End
 
     //Notifications Start
-
 
     public function publishNotification(array $data): Notification
     {

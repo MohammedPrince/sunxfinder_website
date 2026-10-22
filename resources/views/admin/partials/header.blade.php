@@ -1,8 +1,11 @@
 <aside class="sidebar" id="adminSidebar">
-    <a class="brand" href="{{ route('admin.dashboard.page') }}"><span class="brand-mark"><img
-                src="{{ asset('admin/images/profile_pic.png') }}" alt="SunXFinder"></span><span
-            class="brand-copy"><strong>Sun<b style="color: #fc5202">X</b>Finder</strong><small>ADMIN
-                CONSOLE</small></span></a>
+    <div class="brand"><a class="brand-mark" href="{{ route('admin.dashboard.page') }}"><img
+                src="{{ asset('admin/images/profile_pic.png') }}" alt="SunXFinder"></a><span
+            class="brand-copy"><a href="https://sunxfinder.com" target="_blank" rel="noopener"><strong>Sun<b
+                        style="color: #fc5202">X</b>Finder</strong></a><a
+                href="{{ route('admin.dashboard.page') }}"><small>ADMIN CONSOLE</small></a></span></div>
+    {{-- Only the links scroll; brand and account box stay in place --}}
+    <div class="sidebar-scroll">
     <div class="sidebar-label">WORKSPACE</div>
     <nav class="side-nav">
         <a class="nav-link {{ request()->routeIs('admin.dashboard.page') ? 'active' : '' }}"
@@ -116,6 +119,22 @@
             <span class="nav-count warm">{{ $carouselCount ?? 0 }}</span>
         </a>
 
+        <a class="nav-link {{ request()->routeIs('admin.app-versions.*') ? 'active' : '' }}"
+            href="{{ route('admin.app-versions.index') }}">
+            <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="6" y="2" width="12" height="20" rx="2.5" />
+                    <path d="M11 18h2" />
+                    <path d="M12 7v6" />
+                    <path d="m9.5 10.5 2.5 2.5 2.5-2.5" />
+                </svg>
+            </span>
+            <span>App Versions</span>
+
+            <span class="nav-count warm">{{ $appVersionCount ?? 0 }}</span>
+        </a>
+
         <div class="sidebar-label">QUOTES</div>
 
         <a class="nav-link {{ request()->routeIs('admin.quote-requests.*') ? 'active' : '' }}"
@@ -162,6 +181,7 @@
                 class="nav-icon">↗</span>View website</a><a class="nav-link" href="#"
             data-demo-toast="Connect this item to your settings page."><span class="nav-icon">⚙</span>Settings</a>
     </nav>
+    </div>
     <div class="sidebar-bottom">
         <div class="sidebar-status"><i class="status-dot"></i><span><strong>System operational</strong><small>All
                     services look good</small></span></div>

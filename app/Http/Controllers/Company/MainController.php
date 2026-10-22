@@ -19,6 +19,13 @@ class MainController extends Controller
         $this->companyService = $companyService;
     }
 
+    public function dashboard()
+    {
+        $result = $this->companyService->getDashboardData();
+
+        return view('company.dashboard', $result);
+    }
+
     public function index()
     {
         $companyId = session('company_id');
@@ -55,7 +62,7 @@ class MainController extends Controller
             'city' => [
                 'required',
                 'string',
-                \Illuminate\Validation\Rule::in([
+                Rule::in([
                     'Khartoum',
                     'Port Sudan',
                     'Atbara',
@@ -77,7 +84,7 @@ class MainController extends Controller
                 'required',
                 'email',
                 'max:191',
-                \Illuminate\Validation\Rule::unique('tbl_solar_companies', 'email')
+                Rule::unique('tbl_solar_companies', 'email')
                     ->ignore($company->id),
             ],
             'social_media' => ['nullable', 'string', 'max:2000'],
@@ -361,6 +368,107 @@ class MainController extends Controller
     }
 
     //Quote Requests End
+
+    //Notifications Managment End
+    public function notifications(Request $request)
+    {
+        $filters = $request->validate([
+            'type' => [
+                'nullable',
+                'string',
+                Rule::in([
+                    'general',
+                    'quote',
+                    'promotion',
+                    'account',
+                    'support',
+                    'maintenance',
+                ]),
+            ],
+            'status' => ['nullable', Rule::in(['published', 'draft'])],
+            'search' => ['nullable', 'string', 'max:150'],
+        ]);
+
+        $result = $this->companyService->getNotifications($filters);
+
+        return view('company.notifications.index', [
+            'notifications' => $result['notifications'],
+            'publishedCount' => $result['publishedCount'],
+            'draftCount' => $result['draftCount'],
+            'recipientCount' => $result['recipientCount'],
+        ]);
+    }
+
+    public function createNotification()
+    {
+        $result = $this->companyService->getNotificationFormData();
+
+        return view('company.notifications.create', [
+            'customers' => $result['customers'],
+        ]);
+    }
+
+    public function storeNotification(Request $request)
+    {
+        $validated = $request->validate([
+            'type' => [
+                'required',
+                Rule::in([
+                    'general',
+                    'quote',
+                    'promotion',
+                    'account',
+                    'support',
+                    'maintenance',
+                ]),
+            ],
+            'audience_type' => ['required', Rule::in(['all', 'selected'])],
+            'customer_ids' => [
+                'required_if:audience_type,selected',
+                'array',
+                'min:1',
+            ],
+            'customer_ids.*' => ['required', 'integer', 'min:1'],
+            'title_en' => ['required', 'string', 'max:180'],
+            'title_ar' => ['nullable', 'string', 'max:180'],
+            'message_en' => ['required', 'string', 'max:5000'],
+            'message_ar' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $result = $this->companyService->publishNotification($validated);
+
+        if (!$result['success']) {
+            return back()
+                ->withInput()
+                ->with('error', $result['message']);
+        }
+
+        return redirect()
+            ->route('company.notifications.index')
+            ->with('success', $result['message']);
+    }
+    public function showNotification(int $notification)
+    {
+        $result = $this->companyService->getNotificationDetails($notification);
+
+        if (!$result['success']) {
+            return redirect()
+                ->route('company.notifications.index')
+                ->with('error', $result['message']);
+        }
+
+        return view('company.notifications.show', [
+            'notification' => $result['notification'],
+            'readCount' => $result['readCount'],
+            'unreadCount' => $result['unreadCount'],
+            'recipients' => $result['recipients'],
+        ]);
+    }
+
+    //Notifications Managment Start
+
+
+
 
 
 }

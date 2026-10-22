@@ -1,8 +1,15 @@
 <aside class="sidebar" id="adminSidebar">
-    <a class="brand" href="{{ route('company.dashboard') }}"><span class="brand-mark"><img
-                src="{{ asset('admin/images/sunxfinder-logo.png') }}" alt="SunXFinder"></span><span
-            class="brand-copy"><strong>Sun<b
-                    style="color: #fc5202">X</b>Finder</strong><small>{{ auth('company')->user()->name ?? 'SunXFinder' }}</small></span></a>
+    @php
+        $brandCompanyName = auth('company')->user()->name ?? 'SunXFinder';
+    @endphp
+    <div class="brand company-brand"><a class="brand-mark" href="{{ route('company.dashboard') }}"><img
+                src="{{ asset('admin/images/sunxfinder-logo.png') }}" alt="SunXFinder"></a><span
+            class="brand-copy"><a href="{{ route('company.dashboard') }}"><strong
+                    title="{{ $brandCompanyName }}">{{ $brandCompanyName }}</strong></a><a
+                href="https://sunxfinder.com" target="_blank" rel="noopener"><small>Sun<b
+                        style="color: #fc5202">X</b>Finder</small></a></span></div>
+    {{-- Only the links scroll; brand and account box stay in place --}}
+    <div class="sidebar-scroll">
     <div class="sidebar-label">WORKSPACE</div>
     <nav class="side-nav">
         <a class="nav-link {{ request()->routeIs('company.dashboard') ? 'active' : '' }}"
@@ -48,6 +55,7 @@
 
             <span class="nav-count warm">{{ $productsCount ?? 0 }}</span>
         </a>
+
 
     </nav>
     <div class="sidebar-label">QUOTES</div>
@@ -100,6 +108,23 @@
         <span class="nav-count warm">{{ $myActiveProjectCount ?? 0 }}</span>
     </a>
 
+
+    <a class="nav-link {{ request()->routeIs('company.notifications.*') ? 'active' : '' }}"
+        href="{{ route('company.notifications.index') }}">
+        <span class="nav-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+                <path d="M10 21h4" />
+                <path d="M12 2v1" />
+            </svg>
+        </span>
+
+        <span>Push Notifications</span>
+
+        <span class="nav-count warm">{{ $notificationsCount ?? 0 }}</span>
+    </a>
+
     <div class="sidebar-label">SYSTEM</div>
 
     <nav class="side-nav">
@@ -113,6 +138,7 @@
             Settings
         </a> --}}
     </nav>
+    </div>
 
     @php
         $companyUser = auth('company')->user();
