@@ -44,4 +44,5 @@ class Customer extends Authenticatable
     {
         return $this->hasMany(CustomerDeviceToken::class, 'customer_id');
     }
+
 }

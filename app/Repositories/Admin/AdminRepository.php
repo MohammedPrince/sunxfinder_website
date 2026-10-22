@@ -1094,14 +1094,12 @@ class AdminRepository
 
                     $customerIds = $audienceType === 'all'
                         ? Customer::query()
+                            ->whereHas('deviceTokens')
                             ->pluck('id')
                             ->map(fn($id) => (int) $id)
                             ->all()
                         : array_values(array_unique(
-                            array_map(
-                                'intval',
-                                $data['customer_ids'] ?? []
-                            )
+                            array_map('intval', $data['customer_ids'] ?? [])
                         ));
 
                     Log::info('SunXFinder notification: recipients resolved', [
