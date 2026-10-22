@@ -114,6 +114,11 @@ class CustomerService
         );
     }
 
+    public function getCustomerNotifications(array $filters = []): array
+    {
+        return $this->customerRepository->getCustomerNotifications($filters);
+    }
+
     public function deleteAccount(): array
     {
         return $this->customerRepository->deleteAccount();

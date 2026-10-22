@@ -665,6 +665,20 @@ class MainController extends Controller
         }
     }
 
+
+    public function getNotifications(Request $request)
+    {
+        $result = $this->customerService->getCustomerNotifications(
+            $request->query()
+        );
+
+        return response()->json([
+            'status' => 'success',
+            'code' => 200,
+            'data' => $result,
+        ], 200);
+    }
+
     public function logout()
     {
 

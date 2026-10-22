@@ -8,6 +8,7 @@ use App\Models\CompanyCarousel;
 use App\Models\CompanyQuotation;
 use App\Models\Customer;
 use App\Models\CustomerDeviceToken;
+use App\Models\CustomerNotification;
 use App\Models\Project;
 use App\Models\ProjectMilestone;
 use App\Models\ProjectUpdate;
@@ -1463,6 +1464,81 @@ class CustomerRepository
             ['token_hash' => $tokenHash],
             $values
         );
+    }
+
+    public function getCustomerNotifications(array $filters = []): array
+    {
+        // Resolve the authenticated customer in the repository.
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        if (!$customer) {
+            return [
+                'success' => false,
+                'code' => 401,
+                'message' => 'Unauthenticated.',
+
+            ];
+        }
+
+        $customerId = $customer->id;
+
+        $query = CustomerNotification::query()
+            ->with('notification')
+            ->where('customer_id', $customerId)
+            ->whereHas('notification', function ($query) {
+                $query->where('status', 'published');
+            });
+
+        $unreadCount = (clone $query)
+            ->whereNull('read_at')
+            ->count();
+
+        $perPage = min(
+            max((int) ($filters['per_page'] ?? 20), 1),
+            100
+        );
+
+        $recipients = $query
+            ->latest('created_at')
+            ->paginate($perPage);
+
+        $notifications = $recipients->getCollection()
+            ->map(function (CustomerNotification $recipient) {
+                $notification = $recipient->notification;
+
+                if (!$notification) {
+                    return null;
+                }
+
+                return [
+                    'id' => $notification->id,
+                    'type' => $notification->type,
+                    'title' => $notification->title_en,
+                    'ar_title' => $notification->title_ar,
+                    'body' => $notification->message_en,
+                    'ar_body' => $notification->message_ar,
+
+                    'read' => $recipient->read_at !== null,
+                    'created_at' => $recipient->created_at
+                        ? $recipient->created_at->utc()->format(
+                            'Y-m-d\TH:i:s\Z'
+                        )
+                        : null,
+                ];
+            })
+            ->filter()
+            ->values();
+
+        return [
+            'unread_count' => $unreadCount,
+            'notifications' => $notifications->all(),
+            'pagination' => [
+                'current_page' => $recipients->currentPage(),
+                'last_page' => $recipients->lastPage(),
+                'per_page' => $recipients->perPage(),
+                'total' => $recipients->total(),
+            ],
+        ];
     }
 
     public function deleteAccount(): array
