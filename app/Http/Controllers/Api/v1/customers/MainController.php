@@ -51,7 +51,6 @@ class MainController extends Controller
         ], $result['code']);
     }
 
-
     public function mainData(): JsonResponse
     {
         try {
@@ -274,35 +273,6 @@ class MainController extends Controller
 
         return response()->json($result, $result['code']);
     }
-
-
-    // public function mainData()
-    // {
-
-    //     $result = $this->customerService->mainData();
-
-    //     if (!$result['success']) {
-    //         return response()->json([
-    //             'status' => 'error',
-    //             'code' => $result['code'],
-    //             'error' => $result['message'],
-    //         ], $result['code']);
-    //     }
-
-    //     return response()->json([
-    //         'status' => 'success',
-    //         'code' => 200,
-    //         'message' => 'Main Data Retrieved Successfully',
-    //         'data' => [
-    //             'studentDetails' => $result['studentDetails'],
-    //             'semesterResult' => $result['semesterResult'],
-    //             'feeDetails' => $result['feeDetails'],
-    //             'timetable' => $result['timetable'],
-    //             'appStatus' => $result['appStatus'],
-    //             'appVersion' => $result['appVersion'],
-    //         ],
-    //     ]);
-    // }
 
     public function getCities()
     {
@@ -568,7 +538,6 @@ class MainController extends Controller
         ], $httpCode);
     }
 
-
     public function rejectOffer(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -627,7 +596,6 @@ class MainController extends Controller
         ]);
     }
 
-
     public function saveCustomerDeviceToken(Request $request)
     {
         $validated = $request->validate([
@@ -678,6 +646,58 @@ class MainController extends Controller
             'data' => $result,
         ], 200);
     }
+
+        //Read One
+    public function markNotificationAsRead($notificationId)
+    {
+        $result = $this->customerService->markNotificationAsRead($notificationId);
+
+        if ($result['success']) {
+
+            return response()->json([
+                'status' => 'success',
+                'code' => $result['code'],
+                'message' => $result['message'],
+                'data' => [
+                    'notificationDetails' => $result['notificationDetails'],
+                    'unread_count' => $result['unread_count'],
+                ],
+            ], $result['code']);
+
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'code' => $result['code'],
+            'error' => $result['message'],
+        ], $result['code']);
+    }
+
+    //Read All
+    public function markAllNotificationsAsRead()
+    {
+        $result = $this->customerService->markAllNotificationsAsRead();
+
+        if ($result['success']) {
+
+            return response()->json([
+                'status' => 'success',
+                'code' => $result['code'],
+                'message' => $result['message'],
+                'data' => [
+                    'notificationDetails' => $result['notificationDetails'],
+                ],
+            ], $result['code']);
+
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'code' => $result['code'],
+            'error' => $result['message'],
+        ], $result['code']);
+    }
+
 
     public function logout()
     {

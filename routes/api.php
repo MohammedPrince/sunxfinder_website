@@ -41,8 +41,9 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
         Route::get('/project-progress/{projectId}', [MainController::class, 'getProjectProgress'])->whereNumber('projectId')->name('customer.project-progress');
 
         Route::post('/device-token', [MainController::class, 'saveCustomerDeviceToken'])->middleware('throttle:60,1');
-
         Route::get('/notifications', [MainController::class, 'getNotifications'])->middleware('throttle:60,1');
+        Route::post('/notifications/{id}/read', [MainController::class, 'markNotificationAsRead']);
+        Route::post('/notifications/read-all', [MainController::class, 'markAllNotificationsAsRead']);
 
         Route::post('/logout', [MainController::class, 'logout']);
 

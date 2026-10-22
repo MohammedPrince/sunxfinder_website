@@ -119,6 +119,16 @@ class CustomerService
         return $this->customerRepository->getCustomerNotifications($filters);
     }
 
+    public function markNotificationAsRead($notificationId)
+    {
+        return $this->customerRepository->markNotificationAsRead($notificationId);
+    }
+
+    public function markAllNotificationsAsRead()
+    {
+        return $this->customerRepository->markAllNotificationsAsRead();
+    }
+
     public function deleteAccount(): array
     {
         return $this->customerRepository->deleteAccount();

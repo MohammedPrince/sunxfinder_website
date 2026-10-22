@@ -1389,7 +1389,6 @@ class CustomerRepository
         }
     }
 
-
     public function getProjectProgress(int $projectId): Project|array|null
     {
         $customer = $this->helper->isCustomerAuthenticated();
@@ -1431,7 +1430,6 @@ class CustomerRepository
             ])
             ->first();
     }
-
 
     public function saveCustomerDeviceToken(
         int $customerId,
@@ -1540,6 +1538,90 @@ class CustomerRepository
             ],
         ];
     }
+
+    public function markNotificationAsRead($notificationId)
+    {
+
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        if (!$customer) {
+            return [
+                'success' => false,
+                'code' => 401,
+                'message' => 'Unauthenticated.',
+
+            ];
+        }
+
+
+        $customerID = $customer->id;
+
+        $notification = CustomerNotification::query()->where('id', $notificationId)->where('customer_id', $customerID)->first();
+
+        if (!$notification) {
+            return [
+                'success' => false,
+                'code' => 404,
+                'message' => 'Notification not found',
+            ];
+        }
+
+        // Mark as read
+        if (is_null($notification->read_at)) {
+            $notification->update([
+                'read_at' => now(),
+            ]);
+        }
+
+        // Get remaining unread count
+        $unreadCount = CustomerNotification::query()->where('customer_id', $customerID)->whereNull('read_at')->count();
+
+        return [
+            'success' => true,
+            'code' => 200,
+            'message' => 'Notification marked as read successfully',
+            'notificationDetails' => [
+                'id' => $notification->id,
+                'is_read' => true,
+                'read_at' => $notification->fresh()->read_at?->toISOString(),
+            ],
+            'unread_count' => $unreadCount,
+        ];
+    }
+
+    public function markAllNotificationsAsRead()
+    {
+
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        if (!$customer) {
+            return [
+                'success' => false,
+                'code' => 401,
+                'message' => 'Unauthenticated.',
+
+            ];
+        }
+
+        $customerID = $customer->id;
+
+        // Mark all unread notifications as read
+        $updatedCount = CustomerNotification::query()->where('customer_id', $customerID)->whereNull('read_at')
+            ->update([
+                'read_at' => now(),
+            ]);
+
+        return [
+            'success' => true,
+            'code' => 200,
+            'message' => 'All notifications marked as read successfully',
+            'notificationDetails' => [
+                'updated_count' => $updatedCount,
+                'unread_count' => 0,
+            ],
+        ];
+    }
+
 
     public function deleteAccount(): array
     {
