@@ -101,14 +101,16 @@ class CustomerService
         string $token,
         string $platform,
         string $lang = 'en',
-        ?string $deviceName = null
+        ?string $deviceName = null,
+        ?bool $isActive = null
     ): CustomerDeviceToken {
         return $this->customerRepository->saveCustomerDeviceToken(
             $customerId,
             $token,
             $platform,
             $lang,
-            $deviceName
+            $deviceName,
+            $isActive
         );
     }
 

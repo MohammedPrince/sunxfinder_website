@@ -139,7 +139,7 @@
             <span class="nav-count warm">{{ $quoteCount ?? 0 }}</span>
         </a>
 
-         <a class="nav-link {{ request()->routeIs('admin.quote-notifications.*') ? 'active' : '' }}"
+        <a class="nav-link {{ request()->routeIs('admin.quote-notifications.*') ? 'active' : '' }}"
             href="{{ route('admin.notifications.index') }}">
             <span class="nav-icon">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"

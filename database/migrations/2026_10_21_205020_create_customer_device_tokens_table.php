@@ -17,6 +17,7 @@ return new class extends Migration {
             $table->string('platform', 20)->default('android');
             $table->string('device_name', 150)->nullable();
             $table->string('lang', 5)->default('en')->nullable();
+            $table->boolean('is_active')->default(true);
             $table->timestamp('last_used_at')->nullable();
             $table->timestamps();
 

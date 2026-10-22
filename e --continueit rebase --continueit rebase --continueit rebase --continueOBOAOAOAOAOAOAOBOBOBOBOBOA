@@ -1,0 +1,74 @@
+[33mcommit 573cc6a7f7e0d30767d24065cbda1efd96a93a6f[m
+Author: MohammedPrince <mohammed.beng@gmail.com>
+Date:   Wed Oct 21 23:34:52 2026 +0200
+
+    Notifications for admin
+
+[1mdiff --git a/.gitignore b/.gitignore[m
+[1mindex 398865f..b71b1ea 100644[m
+[1m--- a/.gitignore[m
+[1m+++ b/.gitignore[m
+[36m@@ -5,8 +5,6 @@[m
+ .env.production[m
+ .phpactor.json[m
+ .phpunit.result.cache[m
+[31m-.google-services.json[m
+[31m-.sunxfinder-firebase-adminsdk-fbsvc-254ce6fe28.json[m
+ /.fleet[m
+ /.idea[m
+ /.nova[m
+[1mdiff --git a/google-services.json b/google-services.json[m
+[1mdeleted file mode 100644[m
+[1mindex a2515e1..0000000[m
+[1m--- a/google-services.json[m
+[1m+++ /dev/null[m
+[36m@@ -1,29 +0,0 @@[m
+[31m-{[m
+[31m-  "project_info": {[m
+[31m-    "project_number": "777964366666",[m
+[31m-    "project_id": "sunxfinder",[m
+[31m-    "storage_bucket": "sunxfinder.firebasestorage.app"[m
+[31m-  },[m
+[31m-  "client": [[m
+[31m-    {[m
+[31m-      "client_info": {[m
+[31m-        "mobilesdk_app_id": "1:777964366666:android:fd0482c7e85747a04b2fb3",[m
+[31m-        "android_client_info": {[m
+[31m-          "package_name": "com.sunxfinder.app"[m
+[31m-        }[m
+[31m-      },[m
+[31m-      "oauth_client": [],[m
+[31m-      "api_key": [[m
+[31m-        {[m
+[31m-          "current_key": "AIzaSyAXsOPulxtdhM6i8HgObD9bpNCp0NDYX4I"[m
+[31m-        }[m
+[31m-      ],[m
+[31m-      "services": {[m
+[31m-        "appinvite_service": {[m
+[31m-          "other_platform_oauth_client": [][m
+[31m-        }[m
+[31m-      }[m
+[31m-    }[m
+[31m-  ],[m
+[31m-  "configuration_version": "1"[m
+[31m-}[m
+\ No newline at end of file[m
+[1mdiff --git a/sunxfinder-firebase-adminsdk-fbsvc-254ce6fe28.json b/sunxfinder-firebase-adminsdk-fbsvc-254ce6fe28.json[m
+[1mdeleted file mode 100644[m
+[1mindex 15b183e..0000000[m
+[1m--- a/sunxfinder-firebase-adminsdk-fbsvc-254ce6fe28.json[m
+[1m+++ /dev/null[m
+[36m@@ -1,13 +0,0 @@[m
+[31m-{[m
+[31m-  "type": "service_account",[m
+[31m-  "project_id": "sunxfinder",[m
+[31m-  "private_key_id": "254ce6fe28ec208cdb91d43c67b511aa37a5aefa",[m
+[31m-  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDJ9xWotmBQUALz\njk6ut600fkL2VvmWJostm7d74y8ynaZKrFhlwx2ABlVyri7FmIBWxvcClrN6JFnY\nhpj7PjKyppPwVeiueMaILaF20XvQSpT2GdJgV7ie1Jp7FxKOntqVZMzSGW7Z6R72\nxw+kcvciIezvePm5qq9H68S6Eo3E1x2zFB7kQ2p3GsgSNkjqnUsXC7tHgw3KsBU3\nN5qMo+bkFX7Qxe6X8QgGENuOhbhYlBy/6xSlElK2u8dvnO5EyBt96jnUl8VZ93WK\nodxj7p0EeGYjPAgmT9EPxJwOroiWlcoiwX1iyUh0CcwB89veMbQ3Eb4QveYinpZx\nYxC0Jn4DAgMBAAECggEAJEkSqJ2fnz5I0XZTV5ujcEdxA24r6Fijb73G0OjHvYnK\nayccuKe+AJbiujhmKdUU1cJodZwawcqPI9JG4PjTRfqcoLTmmZYUYToFhOHtI0aL\nDc4k2G9aOZsL6CqEiIAs2GNkUykDm/4AtKid/Fc1ZHoA5iNvhnaOiFbpIN8dfmwv\nsiKoDuwcWcQp5MRazRjpw0iSXBJ8N0aVzepT6f9QmIyA7FnLpB6aC+GgGM+UEWlP\n3lX8uxsi/Zzksl1ej+0W5cnAEaqoIFNvccp41I0kgxnnmaPGx1fACb2E13ikoue8\n12A4jZI940d7DYwHXdyCNV4L1LdvhpTCh+ZA7/e2gQKBgQD1+E8Iu4qI1eo6HvPG\n7st/Hq/9N4QqRwxK8FyvPbuW0VlGBgNw1h4CoHW7e1YdVaEIeHjAVVWZiSpsSP+T\nsOJzWOGXo6zuofFQl8SRhYbhIC/DopcYODWcd5OOfN9FJj3dcMz+UTeqvMZiVeGi\n6Ev0vzbDbfh5Zpn+nd3WypRUgwKBgQDSM2hzc6x4v9huXFrQT1YcMYhESHDloN2A\nlSUVofTgqOeFfWAkVaRnIIoBB2XlzcsOokQBu9R2oalD8lW3Qcvf7+HnSeTU5JUq\n4+LVgWeifey3bZnfU9qUkwbUFY4UMVEBW7x4En9PbwdavCA0VPd0hswiyZMenY0k\nAPGlUAP4gQKBgH8LQ/cktsc6hgKDHjKwAFemSAwn8pHLpKPIRncVEaEyfEPYs0pC\nrbl5m5W8fJwmMEipwOTGrrHg0RKhGbD0+eHOFKc4GQggiP2xhgwLxcDd2Q3ZGuWd\nksNAV+yOvtt+hxGrQ5ZP6Mq9OlJsPWDhTuoZIXYLhP1fa0bBz2UzuS11AoGAcAON\nKdj+k+pH/6efjVp53NRYdWrVHsk2wIq6FGkWAZKArhY94Z7x2TLx19KFbozYJJg7\n/WCGvCEx/k9pdhrN9ivzCjnKg9i71PtTqcsn2uOX/beeQ/B/jqU7AlHqQMB3Fm44\nZRQWW9Ii7StLThfpNmOO7QrWJ3519DW8kAev1gECgYBZAA0RytEiatnXQ49uwdKg\nLCE0S5I+NHPTgZtZ1aORTRpTFdJd+ZdeVVmDOpvVg+fpkUSICMAA8r+Vpd1lipMY\n1XjmUOlgy17D+4FaO6ERdHnpKDF83mANXpiW0PSYsu1ZSq91DOCJe3XEMHqnSgSx\nRQqfBbYqNt3LPFUE/1WsXA==\n-----END PRIVATE KEY-----\n",[m
+[31m-  "client_email": "firebase-adminsdk-fbsvc@sunxfinder.iam.gserviceaccount.com",[m
+[31m-  "client_id": "103163062174198811923",[m
+[31m-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",[m
+[31m-  "token_uri": "https://oauth2.googleapis.com/token",[m
+[31m-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",[m
+[31m-  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40sunxfinder.iam.gserviceaccount.com",[m
+[31m-  "universe_domain": "googleapis.com"[m
+[31m-}[m

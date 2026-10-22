@@ -208,7 +208,6 @@ class MainController extends Controller
         }
     }
 
-
     public function getProfile()
     {
         $result = $this->customerService->getProfile();
@@ -636,6 +635,7 @@ class MainController extends Controller
             'platform' => ['required', 'in:android,ios'],
             'lang' => ['required', 'in:en,ar'],
             'device_name' => ['nullable', 'string', 'max:150'],
+            'is_active' => ['sometimes', 'boolean'],
         ]);
 
         try {
@@ -646,7 +646,8 @@ class MainController extends Controller
                 $validated['token'],
                 $validated['platform'],
                 $validated['lang'],
-                $validated['device_name'] ?? null
+                $validated['device_name'] ?? null,
+                $request->has('is_active') ? $request->boolean('is_active') : null
             );
 
             return response()->json([

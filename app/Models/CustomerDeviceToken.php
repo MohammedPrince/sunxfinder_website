@@ -16,14 +16,25 @@ class CustomerDeviceToken extends Model
         'platform',
         'lang',
         'device_name',
+        'is_active',
         'last_used_at',
+    ];
+
+    protected $attributes = [
+        'is_active' => true,
     ];
 
     protected function casts(): array
     {
         return [
+            'is_active' => 'boolean',
             'last_used_at' => 'datetime',
         ];
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
     }
 
     public function customer(): BelongsTo
