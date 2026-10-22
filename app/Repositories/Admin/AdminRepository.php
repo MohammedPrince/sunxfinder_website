@@ -1052,106 +1052,236 @@ class AdminRepository
 
     //Notifications Start
 
+
     public function publishNotification(array $data): Notification
     {
-        $result = (new Notification())
-            ->getConnection()
-            ->transaction(function () use ($data) {
-                $senderType = $data['sender_type'] ?? 'admin';
-                $senderId = $data['sender_id'] ?? null;
-                $audienceType = $data['audience_type'] ?? 'selected';
+        $startedAt = microtime(true);
 
-                if ($senderType === 'company' && $audienceType === 'all') {
-                    throw ValidationException::withMessages([
-                        'audience_type' =>
-                            'Companies cannot broadcast to all customers.',
+        $context = [
+            'sender_type' => $data['sender_type'] ?? 'admin',
+            'audience_type' => $data['audience_type'] ?? 'selected',
+        ];
+
+        Log::info('SunXFinder notification: process started', $context);
+
+        try {
+            $result = (new Notification())
+                ->getConnection()
+                ->transaction(function () use ($data, $context) {
+                    Log::info('SunXFinder notification: transaction started', $context);
+
+                    $senderType = $data['sender_type'] ?? 'admin';
+                    $senderId = $data['sender_id'] ?? null;
+                    $audienceType = $data['audience_type'] ?? 'selected';
+
+                    if ($senderType === 'company' && $audienceType === 'all') {
+                        Log::warning(
+                            'SunXFinder notification: company broadcast rejected',
+                            $context
+                        );
+
+                        throw ValidationException::withMessages([
+                            'audience_type' =>
+                                'Companies cannot broadcast to all customers.',
+                        ]);
+                    }
+
+                    Log::info('SunXFinder notification: resolving recipients', [
+                        ...$context,
+                        'provided_customer_count' =>
+                            count($data['customer_ids'] ?? []),
                     ]);
-                }
 
-                $customerIds = $audienceType === 'all'
-                    ? Customer::query()
+                    $customerIds = $audienceType === 'all'
+                        ? Customer::query()
+                            ->pluck('id')
+                            ->map(fn($id) => (int) $id)
+                            ->all()
+                        : array_values(array_unique(
+                            array_map(
+                                'intval',
+                                $data['customer_ids'] ?? []
+                            )
+                        ));
+
+                    Log::info('SunXFinder notification: recipients resolved', [
+                        ...$context,
+                        'customer_count' => count($customerIds),
+                    ]);
+
+                    if (empty($customerIds)) {
+                        Log::warning(
+                            'SunXFinder notification: no recipients selected',
+                            $context
+                        );
+
+                        throw ValidationException::withMessages([
+                            'customer_ids' => 'Select at least one customer.',
+                        ]);
+                    }
+
+                    $existingIds = Customer::query()
+                        ->whereIn('id', $customerIds)
                         ->pluck('id')
                         ->map(fn($id) => (int) $id)
-                        ->all()
-                    : array_values(array_unique(
-                        array_map('intval', $data['customer_ids'] ?? [])
-                    ));
+                        ->all();
 
-                if (empty($customerIds)) {
-                    throw ValidationException::withMessages([
-                        'customer_ids' => 'Select at least one customer.',
+                    if (count($existingIds) !== count($customerIds)) {
+                        Log::warning(
+                            'SunXFinder notification: invalid customer IDs',
+                            [
+                                ...$context,
+                                'requested_count' => count($customerIds),
+                                'valid_count' => count($existingIds),
+                            ]
+                        );
+
+                        throw ValidationException::withMessages([
+                            'customer_ids' =>
+                                'One or more selected customers are invalid.',
+                        ]);
+                    }
+
+                    Log::info('SunXFinder notification: creating notification');
+
+                    $notification = Notification::create([
+                        'sender_type' => $senderType,
+                        'sender_id' => $senderId,
+                        'type' => $data['type'],
+                        'title_en' => $data['title_en'],
+                        'title_ar' => $data['title_ar'] ?? null,
+                        'message_en' => $data['message_en'],
+                        'message_ar' => $data['message_ar'] ?? null,
+                        'audience_type' => $audienceType,
+                        'status' => 'published',
+                        'published_at' => now(),
                     ]);
-                }
 
-                $existingIds = Customer::query()
-                    ->whereIn('id', $customerIds)
-                    ->pluck('id')
-                    ->map(fn($id) => (int) $id)
-                    ->all();
-
-                if (count($existingIds) !== count($customerIds)) {
-                    throw ValidationException::withMessages([
-                        'customer_ids' =>
-                            'One or more selected customers are invalid.',
-                    ]);
-                }
-
-                // Add company-to-customer eligibility checks here if needed.
-    
-                $notification = Notification::create([
-                    'sender_type' => $senderType,
-                    'sender_id' => $senderId,
-                    'type' => $data['type'],
-                    'title_en' => $data['title_en'],
-                    'title_ar' => $data['title_ar'] ?? null,
-                    'message_en' => $data['message_en'],
-                    'message_ar' => $data['message_ar'] ?? null,
-                    'audience_type' => $audienceType,
-                    'status' => 'published',
-                    'published_at' => now(),
-                ]);
-
-                $now = now();
-
-                foreach (array_chunk($customerIds, 500) as $chunk) {
-                    $rows = array_map(
-                        fn($customerId) => [
+                    Log::info(
+                        'SunXFinder notification: notification created',
+                        [
                             'notification_id' => $notification->id,
-                            'customer_id' => $customerId,
-                            'read_at' => null,
-                            'created_at' => $now,
-                            'updated_at' => $now,
-                        ],
-                        $chunk
+                            ...$context,
+                        ]
                     );
 
-                    CustomerNotification::insert($rows);
-                }
+                    $now = now();
+                    $insertedCount = 0;
 
-                return [
-                    'notification' => $notification,
-                    'customerIds' => $customerIds,
-                ];
-            });
+                    foreach (array_chunk($customerIds, 500) as $chunk) {
+                        $rows = array_map(
+                            fn($customerId) => [
+                                'notification_id' => $notification->id,
+                                'customer_id' => $customerId,
+                                'read_at' => null,
+                                'created_at' => $now,
+                                'updated_at' => $now,
+                            ],
+                            $chunk
+                        );
 
-        // Unpack the transaction result.
+                        CustomerNotification::insert($rows);
+                        $insertedCount += count($rows);
+                    }
+
+                    Log::info(
+                        'SunXFinder notification: recipient records inserted',
+                        [
+                            'notification_id' => $notification->id,
+                            'recipient_count' => $insertedCount,
+                        ]
+                    );
+
+                    return [
+                        'notification' => $notification,
+                        'customerIds' => $customerIds,
+                    ];
+                });
+
+            Log::info('SunXFinder notification: transaction committed', [
+                'notification_id' => $result['notification']->id,
+                'customer_count' => count($result['customerIds']),
+            ]);
+        } catch (Throwable $e) {
+            Log::error('SunXFinder notification: database/process failure', [
+                ...$context,
+                'exception_class' => get_class($e),
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            throw $e;
+        }
+
         $notification = $result['notification'];
         $customerIds = $result['customerIds'];
 
-        // Send pushes only after the database transaction commits.
-        $devices = CustomerDeviceToken::query()
-            ->whereIn('customer_id', $customerIds)
-            ->get([
-                'customer_id',
-                'fcm_token',
-                'lang',
+        Log::info('SunXFinder notification: looking up device tokens', [
+            'notification_id' => $notification->id,
+            'customer_count' => count($customerIds),
+        ]);
+
+        try {
+            $devices = CustomerDeviceToken::query()
+                ->whereIn('customer_id', $customerIds)
+                ->get([
+                    'id',
+                    'customer_id',
+                    'fcm_token',
+                    'lang',
+                    'platform',
+                ]);
+
+            Log::info('SunXFinder notification: device tokens loaded', [
+                'notification_id' => $notification->id,
+                'device_count' => $devices->count(),
+                'customer_count_with_devices' =>
+                    $devices->pluck('customer_id')->unique()->count(),
+            ]);
+        } catch (Throwable $e) {
+            Log::error('SunXFinder notification: device lookup failed', [
+                'notification_id' => $notification->id,
+                'exception_class' => get_class($e),
+                'error' => $e->getMessage(),
             ]);
 
+            throw $e;
+        }
+
         if ($devices->isEmpty()) {
+            Log::warning('SunXFinder notification: no device tokens found', [
+                'notification_id' => $notification->id,
+                'customer_count' => count($customerIds),
+            ]);
+
             return $notification;
         }
 
-        $messaging = app(Messaging::class);
+        try {
+            Log::info('SunXFinder notification: initializing Firebase messaging', [
+                'notification_id' => $notification->id,
+            ]);
+
+            $messaging = app(Messaging::class);
+
+            Log::info('SunXFinder notification: Firebase messaging initialized', [
+                'notification_id' => $notification->id,
+            ]);
+        } catch (Throwable $e) {
+            Log::critical('SunXFinder notification: Firebase initialization failed', [
+                'notification_id' => $notification->id,
+                'exception_class' => get_class($e),
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            throw $e;
+        }
+
+        $successCount = 0;
+        $failureCount = 0;
 
         foreach ($devices as $device) {
             $lang = strtolower($device->lang ?? 'en') === 'ar'
@@ -1166,6 +1296,22 @@ class AdminRepository
                 ? ($notification->message_ar ?: $notification->message_en)
                 : $notification->message_en;
 
+            // Never log the actual FCM token.
+            $tokenFingerprint = substr(
+                hash('sha256', $device->fcm_token),
+                0,
+                12
+            );
+
+            Log::info('SunXFinder notification: sending push', [
+                'notification_id' => $notification->id,
+                'device_id' => $device->id,
+                'customer_id' => $device->customer_id,
+                'platform' => $device->platform ?? null,
+                'lang' => $lang,
+                'token_fingerprint' => $tokenFingerprint,
+            ]);
+
             try {
                 $message = CloudMessage::new()
                     ->toToken($device->fcm_token)
@@ -1178,18 +1324,45 @@ class AdminRepository
                         'lang' => $lang,
                     ]);
 
-                $messaging->send($message);
-            } catch (Throwable $e) {
-                Log::warning('SunXFinder push notification failed.', [
+                $sendResult = $messaging->send($message);
+
+                $successCount++;
+
+                Log::info('SunXFinder notification: Firebase accepted push', [
                     'notification_id' => $notification->id,
+                    'device_id' => $device->id,
                     'customer_id' => $device->customer_id,
+                    'token_fingerprint' => $tokenFingerprint,
+                    'firebase_result_type' => get_debug_type($sendResult),
+                ]);
+            } catch (Throwable $e) {
+                $failureCount++;
+
+                Log::error('SunXFinder notification: push failed', [
+                    'notification_id' => $notification->id,
+                    'device_id' => $device->id,
+                    'customer_id' => $device->customer_id,
+                    'token_fingerprint' => $tokenFingerprint,
+                    'exception_class' => get_class($e),
                     'error' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
                 ]);
             }
         }
 
+        Log::info('SunXFinder notification: delivery process completed', [
+            'notification_id' => $notification->id,
+            'device_count' => $devices->count(),
+            'firebase_accepted_count' => $successCount,
+            'failed_count' => $failureCount,
+            'duration_ms' => round((microtime(true) - $startedAt) * 1000),
+        ]);
+
         return $notification;
     }
+
+
     public function getNotifications(array $filters = []): array
     {
         $query = Notification::query()
