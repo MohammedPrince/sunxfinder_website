@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AppVersion;
+use App\Repositories\Admin\AdminRepository;
 use App\Models\Customer;
 use App\Models\Product;
+use App\Models\SolarCompany;
 use App\Services\Admin\AdminService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -25,6 +27,52 @@ class MainController extends Controller
 
         return view('admin.dashboard', $result);
     }
+
+    //Reports Start
+
+    public function reports(Request $request)
+    {
+        $filters = $this->validatedReportFilters($request);
+
+        $report = $this->adminService->getReportsData($filters);
+
+        return view('admin.reports.index', array_merge($report, [
+            'presets' => AdminRepository::REPORT_PRESETS,
+            'stalledDays' => AdminRepository::REPORT_STALLED_DAYS,
+        ]));
+    }
+
+    public function exportReport(Request $request, string $section)
+    {
+        abort_unless(in_array($section, ['companies', 'quote_requests', 'customers'], true), 404);
+
+        $export = $this->adminService->getReportExport($section, $this->validatedReportFilters($request));
+
+        return response()->streamDownload(function () use ($export) {
+            $out = fopen('php://output', 'w');
+
+            // UTF-8 BOM so Excel shows Arabic names correctly.
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, $export['headers']);
+
+            foreach ($export['rows'] as $row) {
+                fputcsv($out, $row);
+            }
+
+            fclose($out);
+        }, $export['filename'], ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    private function validatedReportFilters(Request $request): array
+    {
+        return $request->validate([
+            'preset' => ['nullable', Rule::in(array_keys(AdminRepository::REPORT_PRESETS))],
+            'from' => ['nullable', 'date', 'required_if:preset,custom'],
+            'to' => ['nullable', 'date', 'required_if:preset,custom'],
+        ]);
+    }
+
+    //Reports End
 
     public function index()
     {
@@ -73,7 +121,7 @@ class MainController extends Controller
             'password' => ['required', 'string', 'min:8'],
             'description' => ['nullable', 'string'],
             'ar_description' => ['nullable', 'string'],
-            'status' => ['required', 'in:pending,approved,rejected'],
+            'status' => ['required', Rule::in(SolarCompany::EDITABLE_STATUSES)],
             'is_verified' => ['required', 'boolean'],
             'is_active' => ['required', 'boolean'],
             'year_of_exp' => ['required', 'integer', 'min:1'],
@@ -119,9 +167,9 @@ class MainController extends Controller
     public function updateCompany(Request $request, int $id)
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:200'],
-            'username' => ['required', 'string', 'max:191'],
-            'email' => ['nullable', 'email', 'max:191'],
+            'name' => ['required', 'string', 'max:100'],
+            'username' => ['required', 'string', 'max:100'],
+            'email' => ['nullable', 'email', 'max:50'],
             'phone' => ['nullable', 'string', 'max:30'],
             'city' => ['nullable', 'string', 'max:100'],
             'license_number' => ['required', 'string', 'max:191'],
@@ -129,8 +177,8 @@ class MainController extends Controller
             'ar_services' => ['required', 'string', 'max:5000'],
             'description' => ['nullable', 'string'],
             'ar_description' => ['nullable', 'string'],
-            'password' => ['nullable', 'string', 'min:8'],
-            'status' => ['required', Rule::in(['pending', 'approved', 'rejected'])],
+            'password' => ['nullable', 'string', 'min:5'],
+            'status' => ['required', Rule::in(SolarCompany::EDITABLE_STATUSES)],
             'is_verified' => ['required', 'boolean'],
             'is_active' => ['required', 'boolean'],
             'year_of_exp' => ['required', 'integer', 'min:1'],
@@ -238,14 +286,38 @@ class MainController extends Controller
         $activeCount = $this->adminService->activeCustomerAccountCount();
         $pendingCount = $this->adminService->pendingCustomerAccountCount();
         $inactiveCount = $this->adminService->inactiveCustomerAccountCount();
+        $signedInCount = $this->adminService->signedInCustomerCount();
 
         return view('admin.customers.index', compact(
             'customers',
             'totalCount',
             'activeCount',
             'pendingCount',
-            'inactiveCount'
+            'inactiveCount',
+            'signedInCount'
         ));
+    }
+
+    // Sign one customer out of the app (from the edit page)
+    public function signOutCustomer(int $id)
+    {
+        $result = $this->adminService->signOutCustomer($id);
+
+        $redirect = $result['success']
+            ? redirect()->route('admin.customers.edit', $id)
+            : redirect()->route('admin.customers.index');
+
+        return $redirect->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    // Sign every customer out of the app
+    public function forceLogoutCustomers()
+    {
+        $result = $this->adminService->forceLogoutAllCustomers();
+
+        return redirect()
+            ->route('admin.customers.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
     // Show the customer edit form
@@ -883,6 +955,14 @@ class MainController extends Controller
             'unreadCount' => $result['unreadCount'],
             'recipients' => $result['recipients'],
         ]);
+    }
+
+    public function destroyNotification(int $notification)
+    {
+        $result = $this->adminService->deleteNotification($notification);
+
+        return redirect()->route('admin.notifications.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
     // Notifications Management End

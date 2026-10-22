@@ -14,6 +14,13 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
     Route::post('/login', [MainController::class, 'login'])->middleware('throttle:5,1');
     Route::post('/register', [MainController::class, 'createAccount'])->middleware('throttle:5,1');
 
+    // Forgot password (no token): send code -> verify code -> set new password
+    Route::prefix('password')->group(function () {
+        Route::post('/forgot', [MainController::class, 'forgotPassword'])->middleware('throttle:customer-password-forgot');
+        Route::post('/verify-otp', [MainController::class, 'verifyPasswordResetOtp'])->middleware('throttle:customer-password-verify');
+        Route::post('/reset', [MainController::class, 'resetPassword'])->middleware('throttle:customer-password-reset');
+    });
+
     // Protected routes: valid Sanctum token required
     Route::middleware('auth:sanctum')->group(function () {
 
@@ -48,10 +55,5 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
         Route::post('/logout', [MainController::class, 'logout']);
 
 
-        // Add private customer routes here:
-        // Route::put('/profile', ...);
-        // Route::get('/saved-companies', ...);
-        // Route::get('/quotes', ...);
-        // Route::get('/notifications', ...);
     });
 });

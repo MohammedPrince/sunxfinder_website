@@ -1,152 +1,150 @@
 <?php
 
-
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
-use App\Http\Controllers\Admin\MainController as MainController;
+use App\Http\Controllers\Admin\MainController;
 use App\Http\Controllers\Company\AuthController as CompanyAuthController;
 use App\Http\Controllers\Company\MainController as CompanyMainController;
 use App\Http\Controllers\Company\ProjectController;
-use App\Http\Controllers\WebsiteController as WebSiteController;
+use App\Http\Controllers\WebsiteController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
-
-
-//Clear All route
-Route::get('/clear', function () {
-
-    Artisan::call('optimize');
-    Artisan::call('route:clear');
-    Artisan::call('cache:clear');
-    Artisan::call('config:clear');
-
-    return 'Caching, routes, and configuration cleared successfully.';
-})->name('clear');
 
 /*
 |--------------------------------------------------------------------------
 | Public website
 |--------------------------------------------------------------------------
 */
-Route::get('/', [WebSiteController::class, 'index'])->name('home');
-Route::get('/companies/{slug}', [WebSiteController::class, 'showCompany'])->name('company-profile.show');
 
-//Test Push notifications
-Route::get('/push', [WebSiteController::class, 'testPush'])->name('testPush');
+Route::controller(WebsiteController::class)->group(function () {
+    Route::get('/', 'index')->name('home');
+    Route::get('/companies/{slug}', 'showCompany')->name('company-profile.show');
 
+    // Customer sign-up
+    Route::get('/create-customer-account', 'registerCustomer')->name('customer.register');
+    Route::post('/create-customer-account', 'storeCustomer')->name('customer.register.store');
 
-Route::middleware('guest:company')->group(function () {
-    Route::get('/create-company-account', [WebSiteController::class, 'registerCompany'])->name('company.register');
-    Route::post('/create-company-account', [WebSiteController::class, 'storeCompany'])->name('company.register.store');
+    // Company sign-up (hidden from logged-in companies)
+    Route::middleware('guest:company')->group(function () {
+        Route::get('/create-company-account', 'registerCompany')->name('company.register');
+        Route::post('/create-company-account', 'storeCompany')->name('company.register.store');
+    });
 });
 
-//Company, Customers Accounts
-Route::get('/create-customer-account', [WebSiteController::class, 'registerCustomer'])->name('customer.register');
-Route::post('/create-customer-account', [WebSiteController::class, 'storeCustomer'])->name('customer.register.store');
-
-Route::get('/terms', function (\Illuminate\Http\Request $request) {
-    $lang = $request->query('lang', app()->getLocale());
-
-    return view(
-        $lang === 'ar'
-        ? 'visitors.terms-ar'
-        : 'visitors.terms'
-    );
+// Legal pages: ?lang=ar shows the Arabic version
+Route::get('/terms', function (Request $request) {
+    return view($request->query('lang', app()->getLocale()) === 'ar' ? 'visitors.terms-ar' : 'visitors.terms');
 })->name('terms');
 
-Route::get('/privacy-policy', function (\Illuminate\Http\Request $request) {
-    $lang = $request->query('lang', app()->getLocale());
-
-    return view(
-        $lang === 'ar'
-        ? 'visitors.privacy-policy-ar'
-        : 'visitors.privacy-policy'
-    );
+Route::get('/privacy-policy', function (Request $request) {
+    return view($request->query('lang', app()->getLocale()) === 'ar' ? 'visitors.privacy-policy-ar' : 'visitors.privacy-policy');
 })->name('privacy-policy');
-
 
 /*
 |--------------------------------------------------------------------------
-| Admin authentication
+| Admin panel
 |--------------------------------------------------------------------------
 */
 
-
 Route::prefix('admin')->name('admin.')->group(function () {
 
-    // Public admin login page
-    Route::get('/login', [AdminAuthController::class, 'showLogin',])->name('login');
-    Route::post('/login', [AdminAuthController::class, 'login',])->middleware('throttle:10,1')->name('login.submit');
-
-    // /admin -> dashboard when logged in, otherwise the admin login page
+    // /admin -> dashboard when logged in, otherwise the login page
     Route::get('/', function () {
         return auth('admin')->check()
             ? redirect()->route('admin.dashboard.page')
             : redirect()->route('admin.login');
     })->name('index');
 
-    // Protected admin pages
+    // Authentication
+    Route::controller(AdminAuthController::class)->group(function () {
+        Route::get('/login', 'showLogin')->name('login');
+        Route::post('/login', 'login')->middleware('throttle:10,1')->name('login.submit');
+
+        // Forgot password: email check + OTP, then reset page
+        Route::post('/forgot-password', 'checkResetEmail')->middleware('throttle:password-email')->name('password.email');
+        Route::get('/reset-password', 'showResetPassword')->name('password.reset');
+        Route::post('/reset-password', 'resetPassword')->middleware('throttle:password-update')->name('password.update');
+        Route::post('/reset-password/resend', 'resendResetOtp')->middleware('throttle:password-resend')->name('password.resend');
+    });
+
     Route::middleware('admin.auth')->group(function () {
 
-        Route::get('/dashboard', [MainController::class, 'dashboard'])->name('dashboard.page');
+        Route::post('/logout', [AdminAuthController::class, 'logout'])->name('logout');
 
-        //Mange Companies
-        Route::get('/companies', [MainController::class, 'index'])->name('companies.index');
+        Route::controller(MainController::class)->group(function () {
 
-        //Add new company route
-        Route::get('/companies/create', [MainController::class, 'createCompany',])->name('companies.create');
-        Route::post('/companies', [MainController::class, 'addNewCompany',])->name('companies.store');
-        // Update company using the same form
-        Route::get('/companies/{id}/edit', [MainController::class, 'editCompany'])->whereNumber('id')->name('companies.edit');
-        Route::put('/companies/{id}', [MainController::class, 'updateCompany'])->whereNumber('id')->name('companies.update');
-        // Delete company
-        Route::delete('/companies/{id}', [MainController::class, 'deleteCompany'])->whereNumber('id')->name('companies.destroy');
+            Route::get('/dashboard', 'dashboard')->name('dashboard.page');
 
+            // Reports (date range via ?preset=30d or ?preset=custom&from=&to=)
+            Route::prefix('reports')->name('reports.')->group(function () {
+                Route::get('/', 'reports')->name('index');
+                Route::get('/export/{section}', 'exportReport')->whereIn('section', ['companies', 'quote_requests', 'customers'])->name('export');
+            });
 
-        //Manage Customers
-        Route::get('/customers', [MainController::class, 'showCustomers',])->name('customers.index');
-        Route::get('/customers/create', [MainController::class, 'createCustomer'])->name('customers.create');
-        Route::post('/customers', [MainController::class, 'storeCustomer'])->name('customers.store');
-        Route::get('/customers/{id}/edit', [MainController::class, 'editCustomer'])->name('customers.edit');
-        Route::put('/customers/{id}', [MainController::class, 'updateCustomer'])->name('customers.update');
-        Route::delete('/customers/{id}', [MainController::class, 'destroyCustomer'])->name('customers.destroy');
+            // Solar companies
+            Route::prefix('companies')->name('companies.')->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/create', 'createCompany')->name('create');
+                Route::post('/', 'addNewCompany')->name('store');
+                Route::get('/{id}/edit', 'editCompany')->whereNumber('id')->name('edit');
+                Route::put('/{id}', 'updateCompany')->whereNumber('id')->name('update');
+                Route::delete('/{id}', 'deleteCompany')->whereNumber('id')->name('destroy');
+            });
 
-        //Manage Appliance Groups and Items
-        Route::get('/calculator-groups', [MainController::class, 'showApplianceGroups'])->name('calculator-groups.index');
-        Route::get('/calculator-groups/create', [MainController::class, 'createApplianceGroup'])->name('calculator-groups.create');
-        Route::post('/calculator-groups', [MainController::class, 'storeApplianceGroup'])->name('calculator-groups.store');
-        Route::get('/calculator-groups/{id}/edit', [MainController::class, 'editApplianceGroup'])->name('calculator-groups.edit');
-        Route::put('/calculator-groups/{id}', [MainController::class, 'updateApplianceGroup'])->name('calculator-groups.update');
-        Route::delete('/calculator-groups/{id}', [MainController::class, 'destroyApplianceGroup'])->name('calculator-groups.destroy');
+            // Customers
+            Route::prefix('customers')->name('customers.')->group(function () {
+                Route::get('/', 'showCustomers')->name('index');
+                Route::get('/create', 'createCustomer')->name('create');
+                Route::post('/', 'storeCustomer')->name('store');
+                Route::get('/{id}/edit', 'editCustomer')->whereNumber('id')->name('edit');
+                Route::put('/{id}', 'updateCustomer')->whereNumber('id')->name('update');
+                Route::delete('/{id}', 'destroyCustomer')->whereNumber('id')->name('destroy');
+                Route::post('/{id}/sign-out', 'signOutCustomer')->whereNumber('id')->name('sign-out');
+                Route::post('/force-logout', 'forceLogoutCustomers')->name('force-logout');
+            });
 
-        //Supplier and Products Managment Start
-        Route::get('/suppliers', [MainController::class, 'showSuppliers'])->name('suppliers.index');
-        Route::get('/suppliers/create', [MainController::class, 'createSupplier'])->name('suppliers.create');
-        Route::post('/suppliers', [MainController::class, 'storeSupplier'])->name('suppliers.store');
-        Route::get('/suppliers/{id}/edit', [MainController::class, 'editSupplier'])->name('suppliers.edit');
-        Route::put('/suppliers/{id}', [MainController::class, 'updateSupplier'])->name('suppliers.update');
-        Route::delete('/suppliers/{id}', [MainController::class, 'destroySupplier'])->name('suppliers.destroy');
+            // Suppliers
+            Route::prefix('suppliers')->name('suppliers.')->group(function () {
+                Route::get('/', 'showSuppliers')->name('index');
+                Route::get('/create', 'createSupplier')->name('create');
+                Route::post('/', 'storeSupplier')->name('store');
+                Route::get('/{id}/edit', 'editSupplier')->whereNumber('id')->name('edit');
+                Route::put('/{id}', 'updateSupplier')->whereNumber('id')->name('update');
+                Route::delete('/{id}', 'destroySupplier')->whereNumber('id')->name('destroy');
+            });
 
-        Route::get('/products', [MainController::class, 'showProducts'])->name('products.index');
-        Route::get('/products/create', [MainController::class, 'createProduct'])->name('products.create');
-        Route::post('/products', [MainController::class, 'storeProduct'])->name('products.store');
-        Route::get('/products/{id}/edit', [MainController::class, 'editProduct'])->name('products.edit');
-        Route::put('/products/{id}', [MainController::class, 'updateProduct'])->name('products.update');
-        Route::delete('/products/{id}', [MainController::class, 'destroyProduct'])->name('products.destroy');
+            // Products catalog
+            Route::prefix('products')->name('products.')->group(function () {
+                Route::get('/', 'showProducts')->name('index');
+                Route::get('/create', 'createProduct')->name('create');
+                Route::post('/', 'storeProduct')->name('store');
+                Route::get('/{id}/edit', 'editProduct')->whereNumber('id')->name('edit');
+                Route::put('/{id}', 'updateProduct')->whereNumber('id')->name('update');
+                Route::delete('/{id}', 'destroyProduct')->whereNumber('id')->name('destroy');
+            });
 
-        //Company Carousel Managment
-        Route::prefix('company-carousel')->name('company-carousel.')->group(function () {
-            Route::get('/', [MainController::class, 'companyCarouselIndex'])->name('index');
-            Route::get('/create', [MainController::class, 'companyCarouselCreate'])->name('create');
-            Route::post('/', [MainController::class, 'companyCarouselStore'])->name('store');
-            Route::get('/{id}/edit', [MainController::class, 'companyCarouselEdit'])->whereNumber('id')->name('edit');
-            Route::put('/{id}', [MainController::class, 'companyCarouselUpdate'])->whereNumber('id')->name('update');
-            Route::delete('/{id}', [MainController::class, 'companyCarouselDestroy'])->whereNumber('id')->name('destroy');
-        });
+            // Calculator appliance groups
+            Route::prefix('calculator-groups')->name('calculator-groups.')->group(function () {
+                Route::get('/', 'showApplianceGroups')->name('index');
+                Route::get('/create', 'createApplianceGroup')->name('create');
+                Route::post('/', 'storeApplianceGroup')->name('store');
+                Route::get('/{id}/edit', 'editApplianceGroup')->whereNumber('id')->name('edit');
+                Route::put('/{id}', 'updateApplianceGroup')->whereNumber('id')->name('update');
+                Route::delete('/{id}', 'destroyApplianceGroup')->whereNumber('id')->name('destroy');
+            });
 
-        //App Versions Managment
-        Route::prefix('app-versions')->name('app-versions.')
-            ->controller(MainController::class)
-            ->group(function () {
+            // Company carousel
+            Route::prefix('company-carousel')->name('company-carousel.')->group(function () {
+                Route::get('/', 'companyCarouselIndex')->name('index');
+                Route::get('/create', 'companyCarouselCreate')->name('create');
+                Route::post('/', 'companyCarouselStore')->name('store');
+                Route::get('/{id}/edit', 'companyCarouselEdit')->whereNumber('id')->name('edit');
+                Route::put('/{id}', 'companyCarouselUpdate')->whereNumber('id')->name('update');
+                Route::delete('/{id}', 'companyCarouselDestroy')->whereNumber('id')->name('destroy');
+            });
+
+            // Mobile app versions
+            Route::prefix('app-versions')->name('app-versions.')->group(function () {
                 Route::get('/', 'appVersions')->name('index');
                 Route::get('/create', 'createAppVersion')->name('create');
                 Route::post('/', 'storeAppVersion')->name('store');
@@ -155,116 +153,138 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::delete('/{id}', 'destroyAppVersion')->whereNumber('id')->name('destroy');
             });
 
-        //Quotes Managment
-        Route::get('/quote-requests', [MainController::class, 'quoteRequests'])->name('quote-requests.index');
-        Route::get('/quote-requests/{id}', [MainController::class, 'quoteRequestDetails'])->whereNumber('id')->name('quote-requests.show');
+            // Quote requests (read-only for admin)
+            Route::prefix('quote-requests')->name('quote-requests.')->group(function () {
+                Route::get('/', 'quoteRequests')->name('index');
+                Route::get('/{id}', 'quoteRequestDetails')->whereNumber('id')->name('show');
+            });
 
-        //Notifications Managment
-        Route::prefix('notifications')->name('notifications.')
-            ->controller(MainController::class)
-            ->group(function () {
+            // Push notifications
+            Route::prefix('notifications')->name('notifications.')->group(function () {
                 Route::get('/', 'notifications')->name('index');
                 Route::get('/create', 'createNotification')->name('create');
                 Route::post('/', 'storeNotification')->name('store');
                 Route::get('/{notification}', 'showNotification')->whereNumber('notification')->name('show');
+                Route::delete('/{notification}', 'destroyNotification')->whereNumber('notification')->name('destroy');
             });
-
-        //Logout route for admin
-        Route::post('/logout', [AdminAuthController::class, 'logout',])->name('logout');
-
-
+        });
     });
 });
 
-
-
 /*
 |--------------------------------------------------------------------------
-| Solar company authentication
+| Solar company panel
 |--------------------------------------------------------------------------
 */
 
 Route::prefix('company')->name('company.')->group(function () {
 
-    // /company -> dashboard when logged in, otherwise the company login page
+    // /company -> dashboard when logged in, otherwise the login page
     Route::get('/', function () {
         return auth('company')->check()
             ? redirect()->route('company.dashboard')
             : redirect()->route('company.login');
     })->name('index');
 
-    // Uses the same Blade as the admin login
-    Route::get('/login', [CompanyAuthController::class, 'showLogin',])->name('login');
-    // Process company credentials
-    Route::post('/login', [CompanyAuthController::class, 'login',])->middleware('throttle:10,1')->name('login.submit');
+    // Authentication (same Blade as the admin login)
+    Route::controller(CompanyAuthController::class)->group(function () {
+        Route::get('/login', 'showLogin')->name('login');
+        Route::post('/login', 'login')->middleware('throttle:10,1')->name('login.submit');
 
-    // Protected company pages
+        // Forgot password: email check + OTP, then reset page
+        Route::post('/forgot-password', 'checkResetEmail')->middleware('throttle:password-email')->name('password.email');
+        Route::get('/reset-password', 'showResetPassword')->name('password.reset');
+        Route::post('/reset-password', 'resetPassword')->middleware('throttle:password-update')->name('password.update');
+        Route::post('/reset-password/resend', 'resendResetOtp')->middleware('throttle:password-resend')->name('password.resend');
+    });
+
     Route::middleware('company.auth')->group(function () {
 
-        Route::get('/dashboard', [CompanyMainController::class, 'dashboard'])->name('dashboard');
+        Route::post('/logout', [CompanyAuthController::class, 'logout'])->name('logout');
 
-        Route::get('/profile', [CompanyMainController::class, 'index'])->name('profile');
+        Route::controller(CompanyMainController::class)->group(function () {
 
-        Route::put('/company/profile', [CompanyMainController::class, 'updateProfile'])->name('profile.update');
+            Route::get('/dashboard', 'dashboard')->name('dashboard');
 
-        Route::get('/products', [CompanyMainController::class, 'showProducts',])->name('products.index');
+            // Reports (date range via ?preset=30d or ?preset=custom&from=&to=)
+            Route::prefix('reports')->name('reports.')->group(function () {
+                Route::get('/', 'reports')->name('index');
+                Route::get('/export/{section}', 'exportReport')->whereIn('section', ['offers', 'projects', 'customers'])->name('export');
+            });
 
-        Route::get('/products/create', [CompanyMainController::class, 'create',])->name('products.create');
+            // Company profile
+            Route::get('/profile', 'index')->name('profile');
+            Route::put('/profile', 'updateProfile')->name('profile.update');
 
-        Route::post('/products', [CompanyMainController::class, 'store',])->name('products.store');
+            // Products
+            Route::prefix('products')->name('products.')->group(function () {
+                Route::get('/', 'showProducts')->name('index');
+                Route::get('/create', 'create')->name('create');
+                Route::post('/', 'store')->name('store');
+                Route::get('/{product}/edit', 'edit')->whereNumber('product')->name('edit');
+                Route::put('/{product}', 'update')->whereNumber('product')->name('update');
+                Route::delete('/{product}', 'destroy')->whereNumber('product')->name('destroy');
+            });
 
-        Route::get('/products/{product}/edit', [CompanyMainController::class, 'edit',])->name('products.edit');
+            // Quote requests and offers
+            Route::prefix('quote-requests')->name('quote-requests.')->group(function () {
+                Route::get('/', 'quoteRequests')->name('index');
+                Route::get('/{id}', 'quoteRequestDetails')->whereNumber('id')->name('show');
+                Route::post('/{id}/offer', 'submitQuoteOffer')->whereNumber('id')->name('offer.store');
+            });
 
-        Route::put('/products/{product}', [CompanyMainController::class, 'update',])->name('products.update');
-
-        Route::delete('/products/{product}', [CompanyMainController::class, 'destroy',])->name('products.destroy');
-
-        //Quotes Managment
-        Route::get('/quote-requests', [CompanyMainController::class, 'quoteRequests'])->name('quote-requests.index');
-        Route::get('/quote-requests/{id}', [CompanyMainController::class, 'quoteRequestDetails'])->whereNumber('id')->name('quote-requests.show');
-
-        Route::post('/quote-requests/{id}/offer', [CompanyMainController::class, 'submitQuoteOffer'])->whereNumber('id')->name('quote-requests.offer.store');
-
-        //Projects Managment
-        Route::get('/projects', [ProjectController::class, 'index'])->name('projects.index');
-        Route::get('/projects/{id}', [ProjectController::class, 'show'])->whereNumber('id')->name('projects.show');
-        Route::post('/projects/{id}/progress', [ProjectController::class, 'updateProgress',])->whereNumber('id')->name('projects.progress.update');
-
-        //Notifications Managment
-        Route::prefix('notifications')->name('notifications.')
-            ->controller(CompanyMainController::class)
-            ->group(function () {
+            // Push notifications
+            Route::prefix('notifications')->name('notifications.')->group(function () {
                 Route::get('/', 'notifications')->name('index');
                 Route::get('/create', 'createNotification')->name('create');
                 Route::post('/', 'storeNotification')->name('store');
                 Route::get('/{notification}', 'showNotification')->whereNumber('notification')->name('show');
+                Route::delete('/{notification}', 'destroyNotification')->whereNumber('notification')->name('destroy');
             });
+        });
 
-        Route::post('/logout', [CompanyAuthController::class, 'logout',])->name('logout');
+        // Projects (offers accepted by customers)
+        Route::controller(ProjectController::class)->prefix('projects')->name('projects.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/{id}', 'show')->whereNumber('id')->name('show');
+            Route::post('/{id}/progress', 'updateProgress')->whereNumber('id')->name('progress.update');
+        });
     });
 });
 
+/*
+|--------------------------------------------------------------------------
+| Maintenance
+|--------------------------------------------------------------------------
+*/
 
+// Clear cached config, routes, views and app cache. Admins only.
+Route::get('/clear', function () {
+    Artisan::call('optimize:clear');
 
-Route::get('/email-en', function () {
-    return view('emails.customer.welcome-en', [
-        'customerName' => 'Mohammed',
+    return 'Caching, routes, and configuration cleared successfully.';
+})->middleware('admin.auth')->name('clear');
+
+/*
+|--------------------------------------------------------------------------
+| Local development only (not registered on production)
+|--------------------------------------------------------------------------
+*/
+
+if (app()->isLocal()) {
+    // Test push notifications
+    Route::get('/push', [WebsiteController::class, 'testPush'])->name('testPush');
+
+    // Preview the customer welcome emails
+    $welcomeEmailData = fn(string $customerName) => [
+        'customerName' => $customerName,
         'homeUrl' => url('/'),
         'supportEmail' => config('mail.from.address'),
         'privacyUrl' => url('/privacy-policy'),
         'termsUrl' => url('/terms'),
         'logoUrl' => asset('visitors/images/sun.png'),
-    ]);
-});
+    ];
 
-Route::get('/email-ar', function () {
-    return view('emails.customer.welcome-ar', [
-        'customerName' => 'محمد',
-        'homeUrl' => url('/'),
-        'supportEmail' => config('mail.from.address'),
-        'privacyUrl' => url('/privacy-policy'),
-        'termsUrl' => url('/terms'),
-        'logoUrl' => asset('visitors/images/sun.png'),
-    ]);
-});
-
+    Route::get('/email-en', fn() => view('emails.customer.welcome-en', $welcomeEmailData('Mohammed')));
+    Route::get('/email-ar', fn() => view('emails.customer.welcome-ar', $welcomeEmailData('محمد')));
+}

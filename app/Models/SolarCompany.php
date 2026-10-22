@@ -15,6 +15,12 @@ class SolarCompany extends Authenticatable
 
     protected $guard = 'company';
 
+    /** Allowed values of tbl_solar_companies.status (enum). "deleted" is set when an admin deletes the company. */
+    public const STATUSES = ['pending', 'approved', 'rejected', 'deleted'];
+
+    /** Statuses an admin can pick in the company form. */
+    public const EDITABLE_STATUSES = ['pending', 'approved', 'rejected'];
+
     protected $fillable = [
         'name',
         'slug',

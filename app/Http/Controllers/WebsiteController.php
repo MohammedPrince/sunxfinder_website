@@ -31,13 +31,15 @@ class WebsiteController extends Controller
         $sessionId = session()->getId();
         $this->mainService->recordVisitor($sessionId);
         $visitorCount = $this->mainService->getVisitorCount();
+        $appLinks = $this->mainService->getAppDownloadLinks();
 
         return view('visitors.home', compact(
             'companies',
             'verifiedCount',
             'pendingCount',
             'inactiveCount',
-            'visitorCount'
+            'visitorCount',
+            'appLinks'
         ));
     }
 
@@ -226,7 +228,10 @@ class WebsiteController extends Controller
 
     public function registerCustomer()
     {
-        return view('visitors.create-customer-account');
+        // Store links for the "account created" message.
+        $appLinks = $this->mainService->getAppDownloadLinks();
+
+        return view('visitors.create-customer-account', compact('appLinks'));
     }
 
     public function storeCustomer(Request $request)
@@ -288,34 +293,14 @@ class WebsiteController extends Controller
         if ($validator->fails()) {
 
             $errors = $validator->errors();
-            $duplicateFields = ['username', 'phone', 'email'];
-            $hasDuplicate = false;
 
-            foreach ($duplicateFields as $field) {
-                if ($errors->has($field)) {
-                    foreach ($errors->get($field) as $message) {
-                        if (str_contains($message, 'already been taken')) {
-                            $hasDuplicate = true;
-                            break 2;
-                        }
-                    }
-                }
-            }
+            // Find a field that failed its "unique" rule. Checked by rule name,
+            // so it works whatever the language of the error messages.
+            $failedRules = $validator->failed();
+            $duplicateField = collect(['username', 'phone', 'email'])
+                ->first(fn($field) => isset($failedRules[$field]['Unique']));
 
-            if ($hasDuplicate) {
-                $duplicateField = null;
-
-                foreach (['username', 'phone', 'email'] as $field) {
-                    if ($errors->has($field)) {
-                        foreach ($errors->get($field) as $message) {
-                            if (str_contains($message, 'already been taken')) {
-                                $duplicateField = $field;
-                                break 2;
-                            }
-                        }
-                    }
-                }
-
+            if ($duplicateField) {
                 $isArabic = app()->getLocale() === 'ar';
 
                 $fieldName = match ($duplicateField) {
@@ -326,7 +311,7 @@ class WebsiteController extends Controller
                 };
 
                 $message = $isArabic
-                    ? "تعذّر إكمال التسجيل. {$fieldName} مستخدم بالفعل. يرجى استخدام إسم أخر."
+                    ? "تعذّر إكمال التسجيل. {$fieldName} مستخدم بالفعل. يرجى استخدام قيمة أخرى."
                     : "Registration could not be completed. The {$fieldName} is already in use. Please use a different one.";
 
                 return back()

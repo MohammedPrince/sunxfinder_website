@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    // SMS for OTP codes. Keep disabled until a provider is connected:
+    // the API then only offers the "email" channel.
+    'sms' => [
+        'enabled' => env('SMS_ENABLED', false),
+        'driver' => env('SMS_DRIVER', 'log'),
+    ],
+
 ];

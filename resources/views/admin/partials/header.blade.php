@@ -20,6 +20,19 @@
                 </svg>
             </span>Dashboard</a>
 
+        <a class="nav-link {{ request()->routeIs('admin.reports.*') ? 'active' : '' }}"
+            href="{{ route('admin.reports.index') }}">
+            <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 3v18h18" />
+                    <path d="M7 15v2" />
+                    <path d="M11 11v6" />
+                    <path d="M15 7v10" />
+                    <path d="M19 12v5" />
+                </svg>
+            </span>Reports</a>
+
         <div class="sidebar-label">MANAGEMENT</div>
         <a class="nav-link {{ request()->routeIs('admin.companies.*') ? 'active' : '' }}"
             href="{{ route('admin.companies.index') }}">
@@ -171,7 +184,7 @@
 
             <span>Push Notifications</span>
 
-            {{-- <span class="nav-count warm">{{ $quoteCount ?? 0 }}</span> --}}
+            <span class="nav-count warm">{{ $notificationsCount ?? 0 }}</span>
         </a>
 
 
@@ -209,11 +222,22 @@
         </div>
     </div>
 </aside>
-<header class="topbar"><button class="icon-button mobile-menu" id="sidebarToggle"
-        aria-label="Toggle navigation">☰</button>
-    <div class="breadcrumb"><span>SunXFinder</span><span>/</span><strong>@yield('breadcrumb', 'Overview')</strong></div>
-    <div class="topbar-right"><span class="topbar-date" id="todayDate"></span><button class="icon-button"
-            data-demo-toast="You are all caught up." aria-label="Notifications">♧</button>
-        <div class="topbar-avatar"> {{ strtoupper(substr($adminUser->username ?? 'SA', 0, 2)) }}</div>
-    </div>
-</header>
+@include('partials.topbar', [
+    'userName' => $adminUser?->name ?: ($adminUser?->username ?? 'SunXFinder Admin'),
+    'userInitials' => strtoupper(substr($adminUser->username ?? 'SA', 0, 2)),
+    'roleLabel' => 'Administrator',
+    'userEmail' => $adminUser->email ?? null,
+    'quickActions' => [
+        ['label' => 'Add a company', 'url' => route('admin.companies.create'), 'hint' => 'Register a solar company'],
+        ['label' => 'Add a customer', 'url' => route('admin.customers.create'), 'hint' => 'Create a customer account'],
+        ['label' => 'Add a product', 'url' => route('admin.products.create'), 'hint' => 'List a product in the catalog'],
+        ['label' => 'Send a notification', 'url' => route('admin.notifications.create'), 'hint' => 'Push a message to the app'],
+        ['label' => 'Publish an app version', 'url' => route('admin.app-versions.create'), 'hint' => 'Android or iOS release'],
+    ],
+    'accountLinks' => [
+        ['label' => 'Dashboard', 'url' => route('admin.dashboard.page')],
+        ['label' => 'Reports', 'url' => route('admin.reports.index')],
+        ['label' => 'View website', 'url' => url('/'), 'external' => true],
+    ],
+    'logoutRoute' => 'admin.logout',
+])

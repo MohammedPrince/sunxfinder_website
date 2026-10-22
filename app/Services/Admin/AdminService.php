@@ -20,6 +20,36 @@ class AdminService
         return $this->adminRepository->getDashboardData();
     }
 
+    public function getTopbarData(): array
+    {
+        return $this->adminRepository->getTopbarData();
+    }
+
+    public function getReportsData(array $filters): array
+    {
+        return $this->adminRepository->getReportsData($filters);
+    }
+
+    public function getReportExport(string $section, array $filters): array
+    {
+        return $this->adminRepository->getReportExport($section, $filters);
+    }
+
+    public function adminEmailExists(string $email): bool
+    {
+        return $this->adminRepository->adminEmailExists($email);
+    }
+
+    public function sendPasswordResetOtp(string $email, string $locale = 'en'): array
+    {
+        return $this->adminRepository->sendPasswordResetOtp($email, $locale);
+    }
+
+    public function resetPasswordWithOtp(string $email, string $code, string $password): array
+    {
+        return $this->adminRepository->resetPasswordWithOtp($email, $code, $password);
+    }
+
     //Compaines Managment Start
 
     public function getCompanies()
@@ -110,6 +140,21 @@ class AdminService
     public function deleteCustomer(int $id): array
     {
         return $this->adminRepository->deleteCustomer($id);
+    }
+
+    public function signedInCustomerCount(): int
+    {
+        return $this->adminRepository->signedInCustomerCount();
+    }
+
+    public function signOutCustomer(int $id): array
+    {
+        return $this->adminRepository->signOutCustomer($id);
+    }
+
+    public function forceLogoutAllCustomers(): array
+    {
+        return $this->adminRepository->forceLogoutAllCustomers();
     }
 
     //Customer Managment End
@@ -311,6 +356,11 @@ class AdminService
     public function getNotificationDetails(int $id): array
     {
         return $this->adminRepository->getNotificationDetails($id);
+    }
+
+    public function deleteNotification(int $id): array
+    {
+        return $this->adminRepository->deleteNotification($id);
     }
     //Notifications End
 

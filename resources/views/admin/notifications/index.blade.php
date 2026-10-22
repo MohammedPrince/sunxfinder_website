@@ -80,7 +80,7 @@
         <div class="table-responsive">
             <table class="data-table js-data-table">
                 <thead>
-                    <tr><th>Notification</th><th>Type</th><th>Audience</th><th>Recipients</th><th>Status</th><th>Published</th><th>Actions</th></tr>
+                    <tr><th>Notification</th><th>Type</th><th>Audience</th><th>Recipients</th><th>Status</th><th>Published</th><th>Published by</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                     @forelse ($notifications as $notification)
@@ -115,6 +115,21 @@
                             <td><span class="pill {{ $statusClass }}" data-status="{{ $notification->status }}">{{ ucfirst($notification->status) }}</span></td>
                             <td>{{ $notification->published_at?->format('M d, Y H:i') ?? '—' }}</td>
                             <td>
+                                @if ($notification->sender_type === 'company')
+                                    @if ($notification->senderCompany)
+                                        <a href="{{ route('admin.companies.edit', $notification->sender_id) }}">
+                                            <strong>{{ $notification->senderLabel() }}</strong>
+                                        </a>
+                                    @else
+                                        <strong>{{ $notification->senderLabel() }}</strong>
+                                    @endif
+                                    <small class="cell-note">Company</small>
+                                @else
+                                    <strong>{{ $notification->senderLabel() }}</strong>
+                                    <small class="cell-note">SunXFinder team</small>
+                                @endif
+                            </td>
+                            <td>
                                 <div class="company-actions">
                                     <a href="{{ route('admin.notifications.show', $notification->id) }}"
                                         class="row-action row-action-icon" title="View notification"
@@ -125,11 +140,27 @@
                                             <circle cx="12" cy="12" r="3"/>
                                         </svg>
                                     </a>
+                                    <form action="{{ route('admin.notifications.destroy', $notification->id) }}" method="POST"
+                                        class="company-delete-form"
+                                        onsubmit="return confirm('Delete this notification? Customers will no longer see it in the app.');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="row-action row-action-icon row-action-delete"
+                                            title="Delete notification" aria-label="Delete notification {{ $notification->title_en }}">
+                                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                                                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <path d="M3 6h18" />
+                                                <path d="M8 6V4h8v2" />
+                                                <path d="m19 6-1 14H6L5 6" />
+                                                <path d="M10 11v5M14 11v5" />
+                                            </svg>
+                                        </button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="text-center">No notifications found.
+                        <tr><td colspan="8" class="text-center">No notifications found.
                             <a href="{{ route('admin.notifications.create') }}">Send your first notification</a>
                         </td></tr>
                     @endforelse

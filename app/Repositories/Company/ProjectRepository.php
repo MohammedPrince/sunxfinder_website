@@ -48,9 +48,10 @@ class ProjectRepository
                         $quoteQuery->where('service_needed', 'like', "%{$search}%");
                     })
                         ->orWhereHas('customer', function ($customerQuery) use ($search) {
+                            // tbl_customers has full_name/username, not name.
                             $customerQuery
-                                ->where('name', 'like', "%{$search}%")
-                                ->orWhere('full_name', 'like', "%{$search}%")
+                                ->where('full_name', 'like', "%{$search}%")
+                                ->orWhere('username', 'like', "%{$search}%")
                                 ->orWhere('email', 'like', "%{$search}%");
                         });
                 });

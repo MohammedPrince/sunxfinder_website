@@ -720,6 +720,93 @@ class MainController extends Controller
         }
     }
 
+    //Password Reset (public) Start
+
+    // Step 1: phone + email -> 6-digit code sent by email (SMS when enabled).
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'phone' => ['required', 'string', 'min:9', 'max:15'],
+            'email' => ['required', 'email', 'max:191'],
+            'channel' => ['nullable', 'in:email,sms'],
+            'lang' => ['nullable', 'in:en,ar'],
+        ]);
+
+        $data['channel'] = $data['channel'] ?? 'email';
+        $data['lang'] = $this->passwordResetLang($request);
+
+        return $this->passwordResetResponse($this->customerService->forgotPassword($data));
+    }
+
+    // Step 2: phone + email + code -> reset_token (valid 10 minutes).
+    public function verifyPasswordResetOtp(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'phone' => ['required', 'string', 'min:9', 'max:15'],
+            'email' => ['required', 'email', 'max:191'],
+            'otp' => ['required', 'digits:6'],
+            'lang' => ['nullable', 'in:en,ar'],
+        ]);
+
+        $data['lang'] = $this->passwordResetLang($request);
+
+        return $this->passwordResetResponse($this->customerService->verifyPasswordResetOtp($data));
+    }
+
+    // Step 3: phone + email + reset_token + new password -> done, log in again.
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'phone' => ['required', 'string', 'min:9', 'max:15'],
+            'email' => ['required', 'email', 'max:191'],
+            'reset_token' => ['required', 'string', 'size:64'],
+            // Same rules as registration.
+            'password' => [
+                'required',
+                'string',
+                'min:5',
+                'confirmed',
+                'regex:/[A-Z]/',
+                'regex:/[a-z]/',
+                'regex:/[0-9]/',
+                'regex:/[^A-Za-z0-9]/',
+            ],
+            'lang' => ['nullable', 'in:en,ar'],
+        ]);
+
+        $data['lang'] = $this->passwordResetLang($request);
+
+        return $this->passwordResetResponse($this->customerService->resetPassword($data));
+    }
+
+    private function passwordResetLang(Request $request): string
+    {
+        $lang = $request->input('lang') ?? substr((string) $request->header('Accept-Language'), 0, 2);
+
+        return $lang === 'ar' ? 'ar' : 'en';
+    }
+
+    private function passwordResetResponse(array $result): JsonResponse
+    {
+        if ($result['success']) {
+            return response()->json(array_filter([
+                'status' => 'success',
+                'code' => $result['code'],
+                'message' => $result['message'],
+                'data' => $result['data'] ?? null,
+            ], fn($value) => $value !== null), $result['code']);
+        }
+
+        return response()->json(array_merge([
+            'status' => 'error',
+            'code' => $result['code'],
+            'reason' => $result['reason'],
+            'error' => $result['message'],
+        ], $result['extra'] ?? []), $result['code']);
+    }
+
+    //Password Reset End
+
     public function deleteAccount()
     {
         $result = $this->customerService->deleteAccount();

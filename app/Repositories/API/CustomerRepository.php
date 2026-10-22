@@ -9,6 +9,7 @@ use App\Models\CompanyCarousel;
 use App\Models\CompanyQuotation;
 use App\Models\Customer;
 use App\Models\CustomerDeviceToken;
+use App\Repositories\OtpRepository;
 use App\Models\CustomerNotification;
 use App\Models\Project;
 use App\Models\ProjectMilestone;
@@ -27,9 +28,12 @@ class CustomerRepository
 {
     protected Helper $helper;
 
-    public function __construct(Helper $helper)
+    protected OtpRepository $otpRepository;
+
+    public function __construct(Helper $helper, OtpRepository $otpRepository)
     {
         $this->helper = $helper;
+        $this->otpRepository = $otpRepository;
     }
 
     public function login(array $data): array
@@ -107,6 +111,9 @@ class CustomerRepository
         $customer->tokens()->delete();
 
         $expiresAt = Carbon::now()->addYear();
+
+        // Shown in the admin customers list. Not in $fillable on purpose.
+        $customer->forceFill(['last_login_at' => now()])->saveQuietly();
 
         $token = $customer->createToken(
             'sunxfinder-customer-mobile-app',
@@ -1742,6 +1749,241 @@ class CustomerRepository
         ];
     }
 
+    //Password Reset (public, no token) Start
 
+    /**
+     * Step 1: phone + email must belong to the same active customer; send a 6-digit code.
+     */
+    public function forgotPassword(array $data): array
+    {
+        $lang = $data['lang'];
+        $channel = $data['channel'];
+
+        if (!in_array($channel, OtpRepository::availableChannels(), true)) {
+            return $this->passwordResetError(422, 'channel_unavailable', $lang, [
+                'available_channels' => OtpRepository::availableChannels(),
+            ]);
+        }
+
+        $found = $this->findCustomerForPasswordReset($data['phone'], $data['email'], $lang);
+
+        if (!$found['success']) {
+            return $found;
+        }
+
+        $customer = $found['customer'];
+
+        $sent = $this->otpRepository->sendPasswordResetCode(
+            'customer',
+            strtolower($customer->email),
+            (string) ($customer->full_name ?: $customer->username),
+            'customer',
+            $lang,
+            $channel,
+            $customer->phone
+        );
+
+        if (!$sent['success']) {
+            return $this->passwordResetError(503, $sent['reason'], $lang);
+        }
+
+        return [
+            'success' => true,
+            'code' => 200,
+            'message' => $this->passwordResetMessage($channel === 'sms' ? 'code_sent_sms' : 'code_sent_email', $lang),
+            'data' => [
+                'channel' => $channel,
+                'sent_to' => $channel === 'sms'
+                    ? $this->maskPhone($customer->phone)
+                    : $this->maskEmail($customer->email),
+                'otp_length' => 6,
+                'expires_in' => OtpRepository::EXPIRES_SECONDS,
+                'available_channels' => OtpRepository::availableChannels(),
+            ],
+        ];
+    }
+
+    /**
+     * Step 2: check the code; a correct code is exchanged for a reset token.
+     */
+    public function verifyPasswordResetOtp(array $data): array
+    {
+        $lang = $data['lang'];
+
+        $found = $this->findCustomerForPasswordReset($data['phone'], $data['email'], $lang);
+
+        if (!$found['success']) {
+            return $found;
+        }
+
+        $email = strtolower($found['customer']->email);
+
+        $check = $this->otpRepository->verifyPasswordResetCode('customer', $email, $data['otp']);
+
+        if (!$check['success']) {
+            return $this->passwordResetError(422, $check['reason'], $lang, array_filter([
+                'attempts_remaining' => $check['attempts_remaining'] ?? null,
+            ], fn($value) => $value !== null));
+        }
+
+        $this->otpRepository->consume($check['otp']);
+
+        $token = $this->otpRepository->issueResetToken('customer', $email);
+
+        return [
+            'success' => true,
+            'code' => 200,
+            'message' => $this->passwordResetMessage('code_verified', $lang),
+            'data' => [
+                'reset_token' => $token['token'],
+                'expires_in' => OtpRepository::RESET_TOKEN_EXPIRES_SECONDS,
+            ],
+        ];
+    }
+
+    /**
+     * Step 3: set the new password with the reset token. Signs the customer out everywhere.
+     */
+    public function resetPassword(array $data): array
+    {
+        $lang = $data['lang'];
+
+        $found = $this->findCustomerForPasswordReset($data['phone'], $data['email'], $lang);
+
+        if (!$found['success']) {
+            return $found;
+        }
+
+        $customer = $found['customer'];
+        $email = strtolower($customer->email);
+
+        $check = $this->otpRepository->verifyResetToken('customer', $email, $data['reset_token']);
+
+        if (!$check['success']) {
+            return $this->passwordResetError(422, $check['reason'], $lang);
+        }
+
+        // The "hashed" cast hashes the new password.
+        $customer->password = $data['password'];
+        $customer->save();
+
+        // Revoking the Sanctum tokens signs the app out on every device; it must log in again.
+        $customer->tokens()->delete();
+
+        $this->otpRepository->consume($check['otp']);
+
+        return [
+            'success' => true,
+            'code' => 200,
+            'message' => $this->passwordResetMessage('password_reset', $lang),
+        ];
+    }
+
+    private function findCustomerForPasswordReset(string $phone, string $email, string $lang): array
+    {
+        $customer = Customer::query()
+            ->whereRaw('LOWER(email) = ?', [strtolower(trim($email))])
+            ->first();
+
+        // Phones are stored as 0XXXXXXXXX or +249XXXXXXXXX: compare the last 9 digits.
+        $lastDigits = fn(?string $value) => substr(preg_replace('/\D/', '', (string) $value), -9);
+
+        if (!$customer || $lastDigits($customer->phone) === '' || $lastDigits($customer->phone) !== $lastDigits($phone)) {
+            return $this->passwordResetError(404, 'account_not_found', $lang);
+        }
+
+        if (!$customer->is_active) {
+            return $this->passwordResetError(403, 'account_inactive', $lang);
+        }
+
+        return ['success' => true, 'customer' => $customer];
+    }
+
+    private function passwordResetError(int $code, string $reason, string $lang, array $extra = []): array
+    {
+        return [
+            'success' => false,
+            'code' => $code,
+            'reason' => $reason,
+            'message' => $this->passwordResetMessage($reason, $lang),
+            'extra' => $extra,
+        ];
+    }
+
+    private function passwordResetMessage(string $key, string $lang): string
+    {
+        $messages = [
+            'code_sent_email' => [
+                'en' => 'We sent a 6-digit code to your email. It expires in 1 minute.',
+                'ar' => 'أرسلنا رمزاً من 6 أرقام إلى بريدك الإلكتروني. تنتهي صلاحيته خلال دقيقة واحدة.',
+            ],
+            'code_sent_sms' => [
+                'en' => 'We sent a 6-digit code to your phone. It expires in 1 minute.',
+                'ar' => 'أرسلنا رمزاً من 6 أرقام إلى هاتفك. تنتهي صلاحيته خلال دقيقة واحدة.',
+            ],
+            'code_verified' => [
+                'en' => 'Code verified. You can now set a new password.',
+                'ar' => 'تم التحقق من الرمز. يمكنك الآن تعيين كلمة مرور جديدة.',
+            ],
+            'password_reset' => [
+                'en' => 'Your password has been reset. Please log in with your new password.',
+                'ar' => 'تمت إعادة تعيين كلمة المرور. يرجى تسجيل الدخول بكلمة المرور الجديدة.',
+            ],
+            'account_not_found' => [
+                'en' => 'No account matches this phone number and email.',
+                'ar' => 'لا يوجد حساب مطابق لرقم الهاتف والبريد الإلكتروني.',
+            ],
+            'account_inactive' => [
+                'en' => 'This account is inactive. Please contact support.',
+                'ar' => 'هذا الحساب غير نشط. يرجى التواصل مع الدعم.',
+            ],
+            'channel_unavailable' => [
+                'en' => 'SMS is not available yet. Please use email.',
+                'ar' => 'الرسائل النصية غير متاحة حالياً. يرجى استخدام البريد الإلكتروني.',
+            ],
+            'send_failed' => [
+                'en' => 'We could not send the code right now. Please try again in a moment.',
+                'ar' => 'تعذّر إرسال الرمز حالياً. يرجى المحاولة بعد قليل.',
+            ],
+            'no_active_code' => [
+                'en' => 'No active code was found. Please request a new code.',
+                'ar' => 'لا يوجد رمز صالح. يرجى طلب رمز جديد.',
+            ],
+            'expired' => [
+                'en' => 'This code has expired. Please request a new code.',
+                'ar' => 'انتهت صلاحية الرمز. يرجى طلب رمز جديد.',
+            ],
+            'too_many_attempts' => [
+                'en' => 'Too many incorrect attempts. Please request a new code.',
+                'ar' => 'محاولات خاطئة كثيرة. يرجى طلب رمز جديد.',
+            ],
+            'incorrect_code' => [
+                'en' => 'The code is incorrect.',
+                'ar' => 'الرمز غير صحيح.',
+            ],
+            'invalid_reset_token' => [
+                'en' => 'Your reset session has expired. Please request a new code.',
+                'ar' => 'انتهت جلسة إعادة التعيين. يرجى طلب رمز جديد.',
+            ],
+        ];
+
+        return $messages[$key][$lang] ?? $messages[$key]['en'] ?? $key;
+    }
+
+    private function maskEmail(string $email): string
+    {
+        [$name, $domain] = array_pad(explode('@', $email, 2), 2, '');
+
+        return mb_substr($name, 0, 2) . str_repeat('*', max(3, mb_strlen($name) - 2)) . '@' . $domain;
+    }
+
+    private function maskPhone(?string $phone): string
+    {
+        $phone = (string) $phone;
+
+        return substr($phone, 0, 3) . str_repeat('*', max(0, strlen($phone) - 5)) . substr($phone, -2);
+    }
+
+    //Password Reset End
 
 }

@@ -94,6 +94,7 @@
                         <th>Gender</th>
                         <th>City</th>
                         <th>Joined</th>
+                        <th>Last login</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
@@ -133,6 +134,22 @@
                             {{-- Registration date --}}
                             <td>
                                 {{ $customer->created_at?->format('M d, Y') ?? '—' }}
+                            </td>
+
+                            {{-- Last app login --}}
+                            <td>
+                                @if ($customer->last_login_at)
+                                    <span title="{{ $customer->last_login_at->format('M d, Y H:i') }}">
+                                        {{ $customer->last_login_at->format('M d, Y') }}
+                                    </span>
+                                    <small class="cell-note">{{ $customer->last_login_at->diffForHumans() }}</small>
+                                @else
+                                    <span class="cell-note">Never</span>
+                                @endif
+
+                                @if ($customer->tokens_count)
+                                    <small class="cell-note signed-in-note">● Signed in on app</small>
+                                @endif
                             </td>
 
                             {{-- Account status --}}
@@ -199,7 +216,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="text-center">
+                            <td colspan="9" class="text-center">
                                 No customers found.
                             </td>
                         </tr>
@@ -210,6 +227,26 @@
 
         {{-- Pagination --}}
         @include('partials.table-pagination', ['paginator' => $customers, 'label' => 'customers'])
+    </section>
+
+    {{-- Sign every customer out of the app --}}
+    <section class="panel danger-zone">
+        <div class="danger-zone-row">
+            <div>
+                <h2>Force logout all customers</h2>
+                <p>
+                    Signs every customer out of the mobile app. They must log in again, and push notifications
+                    stop until they do. Use it after a security issue or a major app change.
+                    <strong>{{ number_format($signedInCount) }}</strong>
+                    {{ $signedInCount === 1 ? 'customer is' : 'customers are' }} signed in right now.
+                </p>
+            </div>
+            <form action="{{ route('admin.customers.force-logout') }}" method="POST"
+                onsubmit="return confirm('Sign ALL customers out of the app? Everyone will have to log in again.');">
+                @csrf
+                <button type="submit" class="btn btn-danger" @disabled($signedInCount === 0)>Force logout all</button>
+            </form>
+        </div>
     </section>
 
 @endsection

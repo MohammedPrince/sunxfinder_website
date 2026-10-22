@@ -25,6 +25,36 @@ class CompanyService
         return $this->companyRepository->getDashboardData();
     }
 
+    public function getTopbarData(): array
+    {
+        return $this->companyRepository->getTopbarData();
+    }
+
+    public function getCompanyReportsData(array $filters): array
+    {
+        return $this->companyRepository->getCompanyReportsData($filters);
+    }
+
+    public function getCompanyReportExport(string $section, array $filters): array
+    {
+        return $this->companyRepository->getCompanyReportExport($section, $filters);
+    }
+
+    public function companyEmailExists(string $email): bool
+    {
+        return $this->companyRepository->companyEmailExists($email);
+    }
+
+    public function sendPasswordResetOtp(string $email, string $locale = 'en'): array
+    {
+        return $this->companyRepository->sendPasswordResetOtp($email, $locale);
+    }
+
+    public function resetPasswordWithOtp(string $email, string $code, string $password): array
+    {
+        return $this->companyRepository->resetPasswordWithOtp($email, $code, $password);
+    }
+
     //Company profile managment START
     public function getCompany(int $id): array
     {
@@ -182,6 +212,11 @@ class CompanyService
     public function getNotificationDetails(int $id): array
     {
         return $this->companyRepository->getNotificationDetails($id);
+    }
+
+    public function deleteNotification(int $id): array
+    {
+        return $this->companyRepository->deleteNotification($id);
     }
     //Notifications End
 }

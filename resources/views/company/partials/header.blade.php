@@ -23,6 +23,17 @@
                     <rect x="3" y="16" width="7" height="5" rx="1.5" />
                 </svg>
             </span>Dashboard</a>
+        <a class="nav-link {{ request()->routeIs('company.reports.*') ? 'active' : '' }}"
+            href="{{ route('company.reports.index') }}"><span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 3v18h18" />
+                    <path d="M7 15v2" />
+                    <path d="M11 11v6" />
+                    <path d="M15 7v10" />
+                    <path d="M19 12v5" />
+                </svg>
+            </span>Reports</a>
 
     </nav>
     <div class="sidebar-label">MANGMENT</div>
@@ -179,27 +190,38 @@
     </div>
 </aside>
 
-<header class="topbar">
+@php
+    // Account badge: approval first, then verification.
+    $accountBadge = match (true) {
+        ($topbar['accountStatus'] ?? null) === 'pending' => ['Waiting for approval', 'pill-orange'],
+        ($topbar['accountStatus'] ?? 'approved') !== 'approved' => [ucfirst($topbar['accountStatus']), 'pill-red'],
+        !empty($topbar['isVerified']) => ['Verified company', 'pill-green'],
+        default => ['Not verified yet', 'pill-blue'],
+    };
 
-    <button class="icon-button mobile-menu" id="sidebarToggle" aria-label="Toggle navigation">
-        ☰
-    </button>
+    $companyAccountLinks = [
+        ['label' => 'Company profile', 'url' => route('company.profile')],
+        ['label' => 'Reports', 'url' => route('company.reports.index')],
+    ];
 
-    <div class="breadcrumb">
-        <span>SunXFinder</span>
-        <span>/</span>
-        <strong>@yield('breadcrumb', 'Overview')</strong>
-    </div>
+    if (!empty($topbar['publicProfileUrl'])) {
+        $companyAccountLinks[] = ['label' => 'See your public page', 'url' => $topbar['publicProfileUrl'], 'external' => true];
+    }
+@endphp
 
-    <div class="topbar-right">
-        <span class="topbar-date" id="todayDate"></span>
-
-        <button class="icon-button" data-demo-toast="You are all caught up." aria-label="Notifications">
-            ♧
-        </button>
-
-        <div class="topbar-avatar">
-            {{ $companyInitials }}
-        </div>
-    </div>
-</header>
+@include('partials.topbar', [
+    'userName' => $companyDisplayName,
+    'greetingName' => $companyDisplayName,
+    'userInitials' => $companyInitials,
+    'roleLabel' => 'Company account',
+    'userEmail' => $companyUser->email ?? null,
+    'accountBadge' => $accountBadge,
+    'quickActions' => [
+        ['label' => 'Find new requests', 'url' => route('company.quote-requests.index', ['status' => 'pending']), 'hint' => 'Open requests you can send an offer on'],
+        ['label' => 'Update a project', 'url' => route('company.projects.index', ['status' => 'in_progress']), 'hint' => 'Post progress for your customers'],
+        ['label' => 'Add a product', 'url' => route('company.products.create'), 'hint' => 'Show it on your company page'],
+        ['label' => 'Send a notification', 'url' => route('company.notifications.create'), 'hint' => 'Message your customers'],
+    ],
+    'accountLinks' => $companyAccountLinks,
+    'logoutRoute' => 'company.logout',
+])

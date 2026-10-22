@@ -19,19 +19,22 @@
     <link rel="icon" type="image/png" href="{{ asset_v('visitors/images/sun.png') }}">
 
     {{-- Logo is above the fold: start downloading it immediately --}}
-    <link rel="preload" as="image" type="image/webp" href="{{ asset_v('visitors/images/sunxfinder-logo.webp') }}"
+    <link rel="preload" as="image" type="image/webp" href="{{ asset_v('visitors/images/logo-128.webp') }}"
         fetchpriority="high">
 
-    {{-- Google Fonts loaded without blocking first render (display=swap shows fallback text meanwhile) --}}
+    {{-- Google Fonts loaded without blocking first render (display=swap shows fallback text meanwhile).
+         Arabic pages also load Cairo, since DM Sans has no Arabic letters. --}}
+    @php
+        $fontsUrl = 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800'
+            . (app()->getLocale() === 'ar' ? '&family=Cairo:wght@400;600;700;800' : '')
+            . '&display=swap';
+    @endphp
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preload" as="style"
-        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap">
-    <link rel="stylesheet" media="print" onload="this.media='all'"
-        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap">
+    <link rel="preload" as="style" href="{{ $fontsUrl }}">
+    <link rel="stylesheet" media="print" onload="this.media='all'" href="{{ $fontsUrl }}">
     <noscript>
-        <link rel="stylesheet"
-            href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap">
+        <link rel="stylesheet" href="{{ $fontsUrl }}">
     </noscript>
 
     <link rel="stylesheet" href="{{ asset_v('visitors/css/sunxfinder.css') }}">
@@ -92,7 +95,7 @@
             </section>
         </div>
 
-        <div class="announcement"><i></i>{{ trans('messages.A smarter way to find your energy partner') }}</div>
+        <div class="announcement"><i></i>{{ trans('messages.Free for customers: get offers from verified solar companies') }}</div>
         @include('visitors.partials.header')
 
         <main>
@@ -102,40 +105,39 @@
         <footer class="footer">
             <div class="container footer-grid">
                 <div>
-                    <a class="brand footer-brand" href="{{ url('/') }}">
+                    <a class="brand footer-brand" href="{{ $homeUrl }}">
                         <picture>
-                            <source type="image/webp" srcset="{{ asset_v('visitors/images/sunxfinder-logo.webp') }}">
-                            <img src="{{ asset_v('visitors/images/sunxfinder-logo-480.png') }}" alt="SunXFinder"
-                                width="240" height="84" loading="lazy" decoding="async"
+                            <source type="image/webp"
+                                srcset="{{ asset_v('visitors/images/logo-128.webp') }} 1x, {{ asset_v('visitors/images/logo-256.webp') }} 2x">
+                            <img src="{{ asset_v('visitors/images/logo-128.png') }}" alt="SunXFinder"
+                                width="88" height="88" loading="lazy" decoding="async"
                                 onerror="this.style.display='none';this.closest('a').querySelector('.brand-fallback').hidden=false">
                         </picture>
                         <span class="brand-fallback" hidden>Sun<span>X</span>Finder</span>
                     </a>
 
-                    <p>
-                        {{ trans('messages.Find. Compare. Connect.') }}<br>
-                        {{ trans('messages.Helping you discover the right energy partner.') }}
-                    </p>
+                    <p class="footer-slogan">{{ trans('messages.Find. Compare. Connect.') }}</p>
+                    <p>{{ trans('messages.The easy way to find, compare and choose a solar company.') }}</p>
                 </div>
 
                 <div>
                     <strong>{{ trans('messages.Explore') }}</strong>
                     <a href="{{ $homeUrl }}#how">{{ trans('messages.How it works') }}</a>
                     <a href="{{ $homeUrl }}#solutions">{{ trans('messages.Solutions') }}</a>
-                    <a href="{{ $homeUrl }}#our-compaines">{{ trans('messages.our partners') }}</a>
-                    <a href="{{ $homeUrl }}#partners">{{ trans('messages.Why SunXFinder') }}</a>
+                    <a href="{{ $homeUrl }}#companies">{{ trans('messages.Companies') }}</a>
                     <a href="{{ $homeUrl }}#faq">{{ trans('messages.FAQ') }}</a>
                 </div>
 
                 <div>
-                    <strong>{{ trans('messages.For energy seekers') }}</strong>
-                    <a href="{{ $homeUrl }}#start">{{ trans('messages.Find solutions') }}</a>
+                    <strong>{{ trans('messages.For customers') }}</strong>
+                    <a href="{{ route('customer.register', ['lang' => app()->getLocale()]) }}">{{ trans('messages.Get free offers') }}</a>
                     <a href="mailto:hello@sunxfinder.com">{{ trans('messages.Need help?') }}</a>
                 </div>
 
                 <div>
-                    <strong>{{ trans('messages.For energy companies') }}</strong>
-                    <a href="#partners">{{ trans('messages.Join our network') }}</a>
+                    <strong>{{ trans('messages.For companies') }}</strong>
+                    <a href="{{ route('company.register', ['lang' => app()->getLocale()]) }}">{{ trans('messages.Join as a company') }}</a>
+                    <a href="{{ route('company.login') }}">{{ trans('messages.Company login') }}</a>
                     <a href="mailto:info@sunxfinder.com">{{ trans('messages.Company inquiries') }}</a>
                 </div>
             </div>
@@ -143,7 +145,6 @@
             <div class="container footer-bottom">
                 <span>© {{ date('Y') }} SunXFinder. {{ trans('messages.All rights reserved.') }}</span>
 
-                <span>{{ trans('messages.A platform connecting customers with energy providers.') }}</span>
 
                 <div class="footer-bottom-links">
                     <a href="{{ route('privacy-policy', ['lang' => app()->getLocale()]) }}">
@@ -156,8 +157,7 @@
 
                 <div class="visitor-counter">
                     <span class="visitor-counter__label">
-                        <i class="fas fa-eye" aria-hidden="true"></i>
-                        {{ app()->getLocale() === 'ar' ? 'إجمالي الزيارات' : 'Total Visitors' }}
+                        {{ trans('messages.Total visitors') }}
                     </span>
 
                     <strong class="visitor-counter__count">

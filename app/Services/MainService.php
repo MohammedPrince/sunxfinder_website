@@ -54,6 +54,11 @@ class MainService
         return $this->mainRepository->getWebsiteCompanyCarousel();
     }
 
+    public function getAppDownloadLinks(): array
+    {
+        return $this->mainRepository->getAppDownloadLinks();
+    }
+
     public function recordVisitor(string $sessionId): void
     {
         $this->mainRepository->recordVisitor($sessionId);

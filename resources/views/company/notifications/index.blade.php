@@ -125,6 +125,22 @@
                                             <circle cx="12" cy="12" r="3"/>
                                         </svg>
                                     </a>
+                                    <form action="{{ route('company.notifications.destroy', $notification->id) }}" method="POST"
+                                        class="company-delete-form"
+                                        onsubmit="return confirm('Delete this notification? Customers will no longer see it in the app.');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="row-action row-action-icon row-action-delete"
+                                            title="Delete notification" aria-label="Delete notification {{ $notification->title_en }}">
+                                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                                                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <path d="M3 6h18" />
+                                                <path d="M8 6V4h8v2" />
+                                                <path d="m19 6-1 14H6L5 6" />
+                                                <path d="M10 11v5M14 11v5" />
+                                            </svg>
+                                        </button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>

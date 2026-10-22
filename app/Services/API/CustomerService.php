@@ -140,4 +140,19 @@ class CustomerService
         return $this->customerRepository->logout();
     }
 
+    public function forgotPassword(array $data): array
+    {
+        return $this->customerRepository->forgotPassword($data);
+    }
+
+    public function verifyPasswordResetOtp(array $data): array
+    {
+        return $this->customerRepository->verifyPasswordResetOtp($data);
+    }
+
+    public function resetPassword(array $data): array
+    {
+        return $this->customerRepository->resetPassword($data);
+    }
+
 }

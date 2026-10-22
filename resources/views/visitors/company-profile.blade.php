@@ -7,7 +7,7 @@
             @if ($companyCover) style="--company-cover:url('{{ $companyCover }}')" @endif>
 
             <div class="container company-cover-inner" style="direction:ltr">
-                <a class="company-back-link" href="{{ url('/') }}#our-compaines">
+                <a class="company-back-link" href="{{ url('/') }}?lang={{ app()->getLocale() }}#companies">
                     ← {{ trans('messages.Back to companies') }}
                 </a>
 

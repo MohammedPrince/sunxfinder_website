@@ -5,39 +5,51 @@
 @section('breadcrumb', 'Active Projects')
 @section('eyebrow', 'PROJECT MANAGEMENT')
 @section('page-title', 'Active Projects')
-@section('page-description', 'Track installation milestones and keep customers informed.')
+@section('page-description', 'Installations for customers who accepted your offer. Keep each one moving and the customer informed.')
 
 @section('content')
     @php
         $statusLabels = [
-            'accepted' => 'Accepted',
-            'in_progress' => 'On Progress',
+            'accepted' => 'Not started',
+            'in_progress' => 'In progress',
             'completed' => 'Completed',
         ];
 
         $statusClasses = [
-            'accepted' => 'pill-blue',
-            'in_progress' => 'pill-yellow',
+            'accepted' => 'pill-orange',
+            'in_progress' => 'pill-blue',
             'completed' => 'pill-green',
         ];
     @endphp
 
+    @include('partials.page-guide', [
+        'key' => 'company-projects',
+        'title' => 'How projects work',
+        'intro' => 'A project is created automatically when a customer accepts your offer.',
+        'steps' => [
+            '<strong>Start installation</strong> when your team is ready. Until then the project shows as "Not started".',
+            '<strong>Update milestones</strong> as each phase is done. Progress is calculated for you.',
+            '<strong>Confirm customer handover</strong> as the last step. The project then closes at 100%.',
+        ],
+        'note' => 'Every update you save (with its message) is shown to the customer in the app.',
+    ])
+
     <div class="metrics-strip">
         <div>
-            <small>Total projects</small>
-            <strong>{{ number_format($metrics['total']) }}</strong>
+            <small>Not started</small>
+            <strong class="{{ $metrics['accepted'] ? 'warning' : '' }}">{{ number_format($metrics['accepted']) }}</strong>
         </div>
         <div>
-            <small>Accepted</small>
-            <strong>{{ number_format($metrics['accepted']) }}</strong>
-        </div>
-        <div>
-            <small>On progress</small>
+            <small>In progress</small>
             <strong>{{ number_format($metrics['in_progress']) }}</strong>
         </div>
         <div>
             <small>Completed</small>
             <strong>{{ number_format($metrics['completed']) }}</strong>
+        </div>
+        <div>
+            <small>Total projects</small>
+            <strong>{{ number_format($metrics['total']) }}</strong>
         </div>
     </div>
 
@@ -48,8 +60,8 @@
     <section class="panel table-panel">
         <div class="panel-heading table-toolbar">
             <div>
-                <h2>Project management</h2>
-                <p>Projects created from offers accepted by customers.</p>
+                <h2>Your projects</h2>
+                <p>Most recently updated first. The "Next step" column tells you what to do.</p>
             </div>
 
             <form method="GET"
@@ -71,7 +83,8 @@
                     class="table-search"
                     value="{{ request('search') }}"
                     maxlength="100"
-                    placeholder="Search projects..."
+                    placeholder="Customer, service or #ID"
+                    aria-label="Search projects"
                 >
 
                 <button type="submit" class="btn btn-light">Search</button>
@@ -95,7 +108,7 @@
                         <th>Progress</th>
                         <th>Status</th>
                         <th>Last update</th>
-                        <th>Details</th>
+                        <th>Next step</th>
                     </tr>
                 </thead>
 
@@ -106,10 +119,8 @@
                             $quote = $project->quote;
                             $offer = $project->companyQuotation;
 
-                            $customerName = $customer?->name
-                                ?? $customer?->full_name
-                                ?? $customer?->customer_name
-                                ?? 'Customer #' . $project->customer_id;
+                            $customerName = $customer?->full_name
+                                ?: ($customer?->username ?: 'Customer #' . $project->customer_id);
 
                             $reference = '#Q-' . str_pad(
                                 (string) $project->quote_id,
@@ -117,24 +128,32 @@
                                 '0',
                                 STR_PAD_LEFT
                             );
+
+                            // 99% means every installation phase is done and only the handover is left.
+                            [$nextLabel, $nextClass] = match (true) {
+                                $project->status === 'accepted' => ['Start installation', 'pill-orange'],
+                                $project->status === 'in_progress' && $project->progress_percent >= 99 => ['Confirm handover', 'pill-green'],
+                                $project->status === 'in_progress' => ['Update progress', 'pill-blue'],
+                                default => ['View project', 'pill-green'],
+                            };
+
+                            $idleDays = (int) $project->updated_at?->diffInDays(now());
                         @endphp
 
                         <tr>
                             <td>
-                                <strong>{{ $reference }}</strong>
-                                <small style="display:block">
-                                    Project #{{ $project->id }}
-                                </small>
+                                <strong>Project #{{ $project->id }}</strong>
+                                <small class="cell-note">Request {{ $reference }}</small>
                             </td>
 
                             <td>
                                 <div class="person-cell">
                                     <span class="person-avatar">
-                                        {{ strtoupper(substr($customerName, 0, 1)) }}
+                                        {{ strtoupper(mb_substr($customerName, 0, 1)) }}
                                     </span>
                                     <span>
                                         <strong>{{ $customerName }}</strong>
-                                        <small>{{ $customer?->email ?? 'No email' }}</small>
+                                        <small>{{ $customer?->city ?: ($customer?->phone ?? 'No contact details') }}</small>
                                     </span>
                                 </div>
                             </td>
@@ -153,12 +172,10 @@
                             </td>
 
                             <td style="min-width:130px">
-                                <div style="display:flex;justify-content:space-between;gap:8px">
-                                    <small>Completion</small>
-                                    <strong>{{ $project->progress_percent }}%</strong>
-                                </div>
-                                <div style="height:7px;background:#e8edf4;border-radius:10px;overflow:hidden;margin-top:7px">
-                                    <div style="height:100%;width:{{ $project->progress_percent }}%;background:#ff5a0a;border-radius:10px"></div>
+                                <strong>{{ $project->progress_percent }}%</strong>
+                                <div class="mini-progress mini-progress-lg"
+                                    role="progressbar" aria-valuenow="{{ $project->progress_percent }}" aria-valuemin="0" aria-valuemax="100">
+                                    <span style="width: {{ $project->progress_percent }}%"></span>
                                 </div>
                             </td>
 
@@ -170,26 +187,24 @@
 
                             <td>
                                 {{ $project->updated_at?->format('d M Y') ?? '—' }}
-                                <small style="display:block">
-                                    {{ $project->updated_at?->format('H:i') }}
-                                </small>
+                                @if ($project->status !== 'completed' && $idleDays >= \App\Support\ReportPeriod::STALLED_DAYS)
+                                    <span class="pill pill-red" title="No update for {{ $idleDays }} days">{{ $idleDays }} days idle</span>
+                                @else
+                                    <small class="cell-note">{{ $project->updated_at?->diffForHumans() }}</small>
+                                @endif
                             </td>
 
                             <td>
-                                <a href="{{ route('company.projects.show', $project->id) }}"
-                                   class="row-action">
-                                    Manage &rarr;
+                                <a href="{{ route('company.projects.show', $project->id) }}" class="pill {{ $nextClass }} next-step-link">
+                                    {{ $nextLabel }} →
                                 </a>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" style="text-align:center;padding:40px 16px">
+                            <td colspan="8" class="dashboard-empty">
                                 <strong>No projects found.</strong>
-                                <p>
-                                    Projects will appear here after a customer accepts
-                                    one of your offers.
-                                </p>
+                                Projects appear here after a customer accepts one of your offers.
                             </td>
                         </tr>
                     @endforelse

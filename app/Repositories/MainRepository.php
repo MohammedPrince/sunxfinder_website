@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Jobs\SendCustomerWelcomeEmail;
+use App\Models\AppVersion;
 use App\Models\CompanyCarousel;
 use App\Models\Customer;
 use App\Models\SolarCompany;
@@ -188,6 +189,16 @@ class MainRepository
                     : 'Registration could not be completed. Please try again.',
             ];
         }
+    }
+
+    /** Store links of the customer app, keyed by platform (android / ios). Empty when none is set. */
+    public function getAppDownloadLinks(): array
+    {
+        return AppVersion::query()
+            ->whereNotNull('app_url')
+            ->where('app_url', '!=', '')
+            ->pluck('app_url', 'platform')
+            ->all();
     }
 
     public function getWebsiteCompanyCarousel(): Collection

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Company;
 
 use App\Http\Controllers\Controller;
 use App\Services\Company\CompanyService;
+use App\Support\ReportPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
@@ -25,6 +26,50 @@ class MainController extends Controller
 
         return view('company.dashboard', $result);
     }
+
+    //Reports Start
+
+    public function reports(Request $request)
+    {
+        $report = $this->companyService->getCompanyReportsData($this->validatedReportFilters($request));
+
+        return view('company.reports.index', array_merge($report, [
+            'presets' => ReportPeriod::PRESETS,
+            'stalledDays' => ReportPeriod::STALLED_DAYS,
+        ]));
+    }
+
+    public function exportReport(Request $request, string $section)
+    {
+        abort_unless(in_array($section, ['offers', 'projects', 'customers'], true), 404);
+
+        $export = $this->companyService->getCompanyReportExport($section, $this->validatedReportFilters($request));
+
+        return response()->streamDownload(function () use ($export) {
+            $out = fopen('php://output', 'w');
+
+            // UTF-8 BOM so Excel shows Arabic names correctly.
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, $export['headers']);
+
+            foreach ($export['rows'] as $row) {
+                fputcsv($out, $row);
+            }
+
+            fclose($out);
+        }, $export['filename'], ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    private function validatedReportFilters(Request $request): array
+    {
+        return $request->validate([
+            'preset' => ['nullable', Rule::in(array_keys(ReportPeriod::PRESETS))],
+            'from' => ['nullable', 'date', 'required_if:preset,custom'],
+            'to' => ['nullable', 'date', 'required_if:preset,custom'],
+        ]);
+    }
+
+    //Reports End
 
     public function index()
     {
@@ -463,6 +508,14 @@ class MainController extends Controller
             'unreadCount' => $result['unreadCount'],
             'recipients' => $result['recipients'],
         ]);
+    }
+
+    public function destroyNotification(int $notification)
+    {
+        $result = $this->companyService->deleteNotification($notification);
+
+        return redirect()->route('company.notifications.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
     //Notifications Managment Start

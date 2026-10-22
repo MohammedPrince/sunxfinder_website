@@ -52,6 +52,30 @@ class Quote extends Model
     }
 
     /**
+     * Where this request stands, in plain words, for list badges and the journey tracker.
+     * Uses the loaded "project" relation and the offer count when available.
+     *
+     * @return array{key: string, label: string, class: string}
+     */
+    public function stage(?int $offersCount = null): array
+    {
+        $offersCount ??= $this->company_quotations_count
+            ?? ($this->relationLoaded('companyQuotations') ? $this->companyQuotations->count() : 0);
+
+        $project = $this->relationLoaded('project') ? $this->project : null;
+
+        return match (true) {
+            $this->status === 'cancelled' => ['key' => 'cancelled', 'label' => 'Cancelled by customer', 'class' => 'pill-purple'],
+            $this->status === 'rejected' => ['key' => 'rejected', 'label' => 'Rejected', 'class' => 'pill-red'],
+            $this->status === 'completed' || $project?->status === 'completed' => ['key' => 'completed', 'label' => 'Completed', 'class' => 'pill-green'],
+            $project?->status === 'in_progress' => ['key' => 'installing', 'label' => 'Installation in progress', 'class' => 'pill-blue'],
+            $this->status === 'accepted' || $project !== null => ['key' => 'accepted', 'label' => 'Offer accepted · not started', 'class' => 'pill-orange'],
+            $offersCount > 0 => ['key' => 'comparing', 'label' => 'Customer comparing offers', 'class' => 'pill-yellow'],
+            default => ['key' => 'waiting', 'label' => 'Waiting for offers', 'class' => 'pill-orange'],
+        };
+    }
+
+    /**
      * Requests a company can see: assigned to it, open to all companies,
      * or requests it has already submitted an offer on.
      */

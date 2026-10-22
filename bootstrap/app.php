@@ -23,6 +23,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'json.res' => JsonRes::class,
         ]);
 
+        // A logged-in company opening a guest-only page (e.g. company sign-up) goes to
+        // its dashboard. Without this Laravel falls back to the home page, which looks
+        // like the link does nothing.
+        $middleware->redirectUsersTo(fn() => auth('company')->check()
+            ? route('company.dashboard')
+            : route('home'));
+
         // Apply locale handling to web routes only.
         $middleware->web(append: [
             SetLocale::class,

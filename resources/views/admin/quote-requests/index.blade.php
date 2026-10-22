@@ -4,7 +4,7 @@
 @section('breadcrumb', 'Quote requests')
 @section('eyebrow', 'CUSTOMER ENQUIRIES')
 @section('page-title', 'Quote requests')
-@section('page-description', 'Track customer enquiries and help them connect with solar providers.')
+@section('page-description', 'Every solar quote request customers sent from the app, and how far each one has gone.')
 
 @section('page-actions')
     <a href="{{ route('admin.quote-requests.index', request()->query()) }}" class="btn btn-light">
@@ -21,15 +21,20 @@
             'completed' => 'Completed',
             'cancelled' => 'Cancelled',
         ];
-
-        $statusClasses = [
-            'pending' => 'pill-yellow',
-            'accepted' => 'pill-orange',
-            'rejected' => 'pill-red',
-            'completed' => 'pill-green',
-            'cancelled' => 'pill-purple',
-        ];
     @endphp
+
+    @include('partials.page-guide', [
+        'key' => 'admin-quote-requests',
+        'title' => 'How quote requests work',
+        'intro' => 'Customers describe the solar system they need in the app. Companies then compete with price offers, and the customer chooses one.',
+        'steps' => [
+            '<strong>Request sent</strong>: the customer submits their energy needs. It is either open to all companies or sent to one company.',
+            '<strong>Offers</strong>: approved companies send a total price. The customer compares them in the app.',
+            '<strong>Offer accepted</strong>: the customer picks one offer. A project is created for that company.',
+            '<strong>Installation → Completed</strong>: the company updates progress until handover to the customer.',
+        ],
+        'note' => 'Admins can follow every request here. Watch "Waiting for offers": those customers have not heard from any company yet.',
+    ])
 
     {{-- Summary metrics --}}
     <div class="metrics-strip">
@@ -39,7 +44,12 @@
         </div>
 
         <div>
-            <small>Pending</small>
+            <small>Waiting for offers</small>
+            <strong class="{{ $metrics['awaiting_offers'] ? 'warning' : '' }}">{{ number_format($metrics['awaiting_offers']) }}</strong>
+        </div>
+
+        <div>
+            <small>Open (pending)</small>
             <strong>{{ number_format($metrics['pending']) }}</strong>
         </div>
 
@@ -59,11 +69,11 @@
         <div class="panel-heading table-toolbar">
             <div>
                 <h2>Customer enquiries</h2>
-                <p>Latest solar quote requests from the database</p>
+                <p>Newest first. Open a request to see every offer and the project.</p>
             </div>
 
             <form method="GET" action="{{ route('admin.quote-requests.index') }}" class="table-filters">
-                <select name="status" class="select-control">
+                <select name="status" class="select-control" aria-label="Request status">
                     <option value="">All statuses</option>
 
                     @foreach ($statusLabels as $value => $label)
@@ -74,7 +84,7 @@
                 </select>
 
                 <input class="table-search" type="search" name="search" value="{{ request('search') }}"
-                    placeholder="Search requests..." maxlength="100">
+                    placeholder="Customer, company, service or #ID" maxlength="100" aria-label="Search requests">
 
                 <button type="submit" class="btn btn-light">
                     Search
@@ -94,12 +104,12 @@
                     <tr>
                         <th>Request</th>
                         <th>Customer</th>
-                        <th>Location</th>
                         <th>Service</th>
                         <th>Load estimate</th>
                         <th>Received</th>
+                        <th>Offers</th>
                         <th>Company</th>
-                        <th>Status</th>
+                        <th>Stage</th>
                         <th>Details</th>
                     </tr>
                 </thead>
@@ -109,112 +119,78 @@
                         @php
                             $customer = $quote->customer;
                             $company = $quote->company;
+                            $project = $quote->project;
+                            $stage = $quote->stage();
 
-                            $customerName = $customer?->name
-                                ?? $customer?->full_name
-                                ?? $customer?->customer_name
-                                ?? 'Customer #' . $quote->customer_id;
+                            $customerName = $customer?->full_name
+                                ?: ($customer?->username ?: 'Customer #' . $quote->customer_id);
 
-                            $customerEmail = $customer?->email ?? 'No email';
-                            $customerCity = $customer?->city ?? '—';
+                            $systemType = null;
 
-                            $status = $quote->status;
-                            $statusLabel = $statusLabels[$status] ?? ucfirst($status);
-                            $statusClass = $statusClasses[$status] ?? 'pill-blue';
-
-                            $summary = $quote->estimated_load ?? '';
-                            $systemType = '—';
-
-                            if (
-                                preg_match(
-                                    '/System type:\s*([^\r\n]+)/i',
-                                    $summary,
-                                    $matches
-                                )
-                            ) {
+                            if (preg_match('/System type:\s*([^\r\n]+)/i', $quote->estimated_load ?? '', $matches)) {
                                 $systemType = trim($matches[1]);
                             }
                         @endphp
 
                         <tr>
-                            {{-- Request reference --}}
                             <td>
-                                <strong>
-                                    #Q-{{ str_pad($quote->id, 5, '0', STR_PAD_LEFT) }}
-                                </strong>
-
-                                <small style="display:block;color:var(--text-muted, #73818c);margin-top:4px">
-                                    {{ $company ? 'Company quote' : 'Open quote' }}
-                                </small>
+                                <strong>#Q-{{ str_pad($quote->id, 5, '0', STR_PAD_LEFT) }}</strong>
+                                <small class="cell-note">{{ $quote->company_id && !$project ? 'Sent to one company' : 'Open to all companies' }}</small>
                             </td>
 
-                            {{-- Customer --}}
                             <td>
                                 <div class="person-cell">
-                                    <span class="person-avatar">
-                                        {{ strtoupper(substr($customerName, 0, 1)) }}
-                                    </span>
-
+                                    <span class="person-avatar">{{ strtoupper(mb_substr($customerName, 0, 1)) }}</span>
                                     <span>
                                         <strong>{{ $customerName }}</strong>
-                                        <small>{{ $customerEmail }}</small>
+                                        <small>{{ $customer?->city ?: 'City not set' }}</small>
                                     </span>
                                 </div>
                             </td>
 
-                            {{-- Customer location --}}
-                            <td>
-                                {{ $customerCity }}
-                            </td>
-
-                            {{-- Service and system type --}}
                             <td>
                                 <strong>{{ $quote->service_needed }}</strong>
-
-                                <small style="display:block;margin-top:4px;color:var(--text-muted, #73818c)">
-                                    {{ $systemType }}
-                                </small>
-                            </td>
-
-                            {{-- Energy estimates --}}
-                            <td>
-                                <strong>
-                                    {{ $quote->daily_load ?: '—' }}
-                                </strong>
-
-                                <small style="display:block;margin-top:4px">
-                                    Peak: {{ $quote->peak_load ?: '—' }}
-                                </small>
-                            </td>
-
-                            {{-- Received --}}
-                            <td>
-                                {{ $quote->created_at?->format('M d, Y') ?? '—' }}
-
-                                <small style="display:block;margin-top:4px">
-                                    {{ $quote->created_at?->format('H:i') }}
-                                </small>
-                            </td>
-
-                            {{-- Assigned company --}}
-                            <td>
-                                @if ($company)
-                                    <strong>{{ $company->name }}</strong>
-                                @else
-                                    <span class="pill pill-orange">
-                                        Waiting
-                                    </span>
+                                @if ($systemType)
+                                    <small class="cell-note">{{ $systemType }}</small>
                                 @endif
                             </td>
 
-                            {{-- Quote status --}}
                             <td>
-                                <span class="pill {{ $statusClass }}">
-                                    {{ $statusLabel }}
-                                </span>
+                                <strong>{{ $quote->daily_load ?: '—' }}</strong>
+                                <small class="cell-note">Peak: {{ $quote->peak_load ?: '—' }}</small>
                             </td>
 
-                            {{-- Open dedicated details page --}}
+                            <td>
+                                {{ $quote->created_at?->format('M d, Y') ?? '—' }}
+                                <small class="cell-note">{{ $quote->created_at?->diffForHumans() }}</small>
+                            </td>
+
+                            <td>
+                                @if ($quote->company_quotations_count > 0)
+                                    <strong>{{ $quote->company_quotations_count }}</strong>
+                                @else
+                                    <span class="gray-text">None</span>
+                                @endif
+                            </td>
+
+                            <td>
+                                @if ($company)
+                                    <strong>{{ $company->name }}</strong>
+                                    <small class="cell-note">{{ $project ? 'Chosen by customer' : 'Requested directly' }}</small>
+                                @else
+                                    <span class="gray-text">Not chosen yet</span>
+                                @endif
+                            </td>
+
+                            <td style="min-width:150px">
+                                <span class="pill {{ $stage['class'] }}">{{ $stage['label'] }}</span>
+                                @if ($project && $project->status !== 'completed')
+                                    <div class="mini-progress" title="{{ $project->progress_percent }}% complete">
+                                        <span style="width: {{ $project->progress_percent }}%"></span>
+                                    </div>
+                                @endif
+                            </td>
+
                             <td>
                                 <a href="{{ route('admin.quote-requests.show', $quote->id) }}" class="row-action">
                                     View ↗
@@ -223,12 +199,9 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" style="text-align:center;padding:40px 16px">
+                            <td colspan="9" class="dashboard-empty">
                                 <strong>No quote requests found.</strong>
-
-                                <p>
-                                    Try changing the search text or status filter.
-                                </p>
+                                Try changing the search text or status filter.
                             </td>
                         </tr>
                     @endforelse
@@ -236,7 +209,6 @@
             </table>
         </div>
 
-        {{-- Pagination --}}
         @include('partials.table-pagination', ['paginator' => $quotes, 'label' => 'requests'])
     </section>
 @endsection

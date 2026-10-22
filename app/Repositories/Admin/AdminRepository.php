@@ -2,6 +2,8 @@
 
 namespace App\Repositories\Admin;
 
+use App\Models\Admin;
+use App\Repositories\OtpRepository;
 use App\Models\Appliance;
 use App\Models\ApplianceGroup;
 use App\Models\AppVersion;
@@ -15,6 +17,8 @@ use App\Models\Quote;
 use App\Models\SolarCompany;
 use App\Models\Supplier;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use App\Support\ReportPeriod;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -31,10 +35,62 @@ use Kreait\Firebase\Messaging\Notification as FcmNotification;
 
 class AdminRepository
 {
-    public function __construct()
+    protected OtpRepository $otpRepository;
+
+    public function __construct(OtpRepository $otpRepository)
     {
-        //
+        $this->otpRepository = $otpRepository;
     }
+
+    //Password Recovery Start
+
+    public function adminEmailExists(string $email): bool
+    {
+        return Admin::query()->where('email', $email)->exists();
+    }
+
+    public function sendPasswordResetOtp(string $email, string $locale = 'en'): array
+    {
+        $admin = Admin::query()->where('email', $email)->first();
+
+        if (!$admin) {
+            return ['success' => false, 'message' => 'No administrator account is registered with this email.'];
+        }
+
+        return $this->otpRepository->sendPasswordResetCode(
+            'admin',
+            $email,
+            (string) $admin->username,
+            'administrator',
+            $locale
+        );
+    }
+
+    public function resetPasswordWithOtp(string $email, string $code, string $password): array
+    {
+        $check = $this->otpRepository->verifyPasswordResetCode('admin', $email, $code);
+
+        if (!$check['success']) {
+            return $check;
+        }
+
+        $admin = Admin::query()->where('email', $email)->first();
+
+        if (!$admin) {
+            return ['success' => false, 'message' => 'No administrator account is registered with this email.'];
+        }
+
+        // The "hashed" cast hashes the new password; a new remember token signs out other devices.
+        $admin->password = $password;
+        $admin->setRememberToken(Str::random(60));
+        $admin->save();
+
+        $this->otpRepository->consume($check['otp']);
+
+        return ['success' => true, 'message' => 'Your password has been reset. Sign in with your new password.'];
+    }
+
+    //Password Recovery End
 
     //Dashboard Start
 
@@ -123,7 +179,635 @@ class AdminRepository
         ];
     }
 
+    /**
+     * Top bar: items that need an admin's action, plus today's activity.
+     * Runs on every admin page, so it only does a few count queries.
+     */
+    public function getTopbarData(): array
+    {
+        $today = now()->startOfDay();
+
+        $attention = [
+            [
+                'label' => 'Companies waiting for approval',
+                'hint' => 'Review their details and approve or reject.',
+                'count' => SolarCompany::query()->where('status', 'pending')->count(),
+                'url' => route('admin.companies.index'),
+                'tone' => 'orange',
+            ],
+            [
+                'label' => 'Requests with no offers yet',
+                'hint' => 'Customers waiting for a company to answer.',
+                'count' => Quote::query()->where('status', 'pending')->doesntHave('companyQuotations')->count(),
+                'url' => route('admin.quote-requests.index', ['status' => 'pending']),
+                'tone' => 'blue',
+            ],
+            [
+                'label' => 'Projects idle for ' . ReportPeriod::STALLED_DAYS . '+ days',
+                'hint' => 'No progress update from the company.',
+                'count' => $this->idleProjectsQuery()->count(),
+                'url' => route('admin.reports.index') . '#stalled-projects',
+                'tone' => 'red',
+            ],
+        ];
+
+        return [
+            'attention' => $attention,
+            'attentionTotal' => array_sum(array_column($attention, 'count')),
+            'today' => [
+                ['label' => 'New requests', 'count' => Quote::query()->where('created_at', '>=', $today)->count()],
+                ['label' => 'New customers', 'count' => Customer::query()->where('created_at', '>=', $today)->count()],
+                ['label' => 'New companies', 'count' => SolarCompany::query()->where('created_at', '>=', $today)->count()],
+            ],
+        ];
+    }
+
+    /** Open projects whose last update (or the project itself) is older than the stalled limit. */
+    private function idleProjectsQuery()
+    {
+        $lastUpdate = DB::table('tbl_project_updates')
+            ->whereNull('deleted_at')
+            ->selectRaw('project_id, MAX(created_at) as last_update_at')
+            ->groupBy('project_id');
+
+        return DB::table('tbl_projects as p')
+            ->leftJoinSub($lastUpdate, 'u', 'u.project_id', '=', 'p.id')
+            ->whereNull('p.deleted_at')
+            ->whereIn('p.status', ['accepted', 'in_progress'])
+            ->whereRaw('COALESCE(u.last_update_at, p.updated_at) < ?', [now()->subDays(ReportPeriod::STALLED_DAYS)]);
+    }
+
     //Dashboard End
+
+    //Reports Start
+
+    public const REPORT_PRESETS = ReportPeriod::PRESETS;
+
+    public const REPORT_STALLED_DAYS = ReportPeriod::STALLED_DAYS;
+
+    /**
+     * Everything on the Reports page for one date range.
+     * "Period" figures use records created in the range; "current" figures are the state right now.
+     */
+    public function getReportsData(array $filters): array
+    {
+        $period = $this->resolveReportPeriod($filters);
+        $from = $period['from'];
+        $to = $period['to'];
+
+        return [
+            'period' => $period,
+            'kpis' => $this->reportKpis($period),
+            'trend' => $this->reportTrend($from, $to, $period['days']),
+            'quotes' => $this->reportQuotes($from, $to),
+            'offers' => $this->reportOffers($from, $to),
+            'companyPerformance' => $this->reportCompanyPerformance($from, $to),
+            'projects' => $this->reportProjects($from, $to),
+            'customers' => $this->reportCustomers($from, $to),
+            'companies' => $this->reportCompanies($from, $to),
+            'catalog' => $this->reportCatalog(),
+            'notifications' => $this->reportNotifications($from, $to),
+        ];
+    }
+
+    /**
+     * Rows for a CSV download of one report section.
+     */
+    public function getReportExport(string $section, array $filters): array
+    {
+        $period = $this->resolveReportPeriod($filters);
+        $from = $period['from'];
+        $to = $period['to'];
+        $suffix = $from->format('Y-m-d') . '_to_' . $to->format('Y-m-d');
+
+        if ($section === 'companies') {
+            return [
+                'filename' => "company-performance_{$suffix}.csv",
+                'headers' => ['Company', 'City', 'Status', 'Verified', 'Offers', 'Selected', 'Not selected', 'Withdrawn', 'Win rate %', 'Avg offer (SDG)', 'Avg response (hours)', 'Active projects', 'Completed projects', 'Avg progress %', 'Products'],
+                'rows' => array_map(fn($c) => [
+                    $c['name'], $c['city'], $c['status'], $c['is_verified'] ? 'Yes' : 'No', $c['offers'], $c['selected'],
+                    $c['not_selected'], $c['withdrawn'], $c['win_rate'] ?? '', $c['avg_price_sdg'] ?? '',
+                    $c['avg_response_hours'] ?? '', $c['active_projects'], $c['completed_projects'],
+                    $c['avg_progress'] ?? '', $c['products'],
+                ], $this->reportCompanyPerformance($from, $to)),
+            ];
+        }
+
+        if ($section === 'quote_requests') {
+            $offers = DB::table('tbl_company_quotations')
+                ->whereNull('deleted_at')
+                ->selectRaw('quote_id, COUNT(*) as offers')
+                ->groupBy('quote_id');
+
+            $rows = DB::table('tbl_quote_requests as q')
+                ->leftJoin('tbl_customers as c', 'c.id', '=', 'q.customer_id')
+                ->leftJoinSub($offers, 'o', 'o.quote_id', '=', 'q.id')
+                ->leftJoin('tbl_company_quotations as s', function ($join) {
+                    $join->on('s.quote_id', '=', 'q.id')->where('s.status', 'selected')->whereNull('s.deleted_at');
+                })
+                ->leftJoin('tbl_solar_companies as sc', 'sc.id', '=', 's.company_id')
+                ->whereNull('q.deleted_at')
+                ->whereBetween('q.created_at', [$from, $to])
+                ->orderBy('q.created_at')
+                ->get([
+                    'q.id', 'q.created_at', 'c.full_name', 'c.username', 'c.city', 'q.service_needed', 'q.status',
+                    'o.offers', 'sc.name as selected_company', 's.price as selected_price', 's.currency as selected_currency',
+                ]);
+
+            return [
+                'filename' => "quote-requests_{$suffix}.csv",
+                'headers' => ['Request', 'Received', 'Customer', 'City', 'Service', 'Status', 'Offers', 'Selected company', 'Selected price', 'Currency'],
+                'rows' => $rows->map(fn($r) => [
+                    '#Q-' . str_pad((string) $r->id, 5, '0', STR_PAD_LEFT), $r->created_at,
+                    $r->full_name ?: $r->username, $r->city, $r->service_needed, $r->status, (int) $r->offers,
+                    $r->selected_company, $r->selected_price, $r->selected_currency,
+                ])->all(),
+            ];
+        }
+
+        // New customers in the period (no contact details in exports).
+        $requests = DB::table('tbl_quote_requests')
+            ->whereNull('deleted_at')
+            ->selectRaw('customer_id, COUNT(*) as requests')
+            ->groupBy('customer_id');
+
+        $rows = DB::table('tbl_customers as c')
+            ->leftJoinSub($requests, 'r', 'r.customer_id', '=', 'c.id')
+            ->whereNull('c.deleted_at')
+            ->whereBetween('c.created_at', [$from, $to])
+            ->orderBy('c.created_at')
+            ->get(['c.id', 'c.full_name', 'c.username', 'c.city', 'c.gender', 'c.status', 'c.is_active', 'c.created_at', 'r.requests']);
+
+        return [
+            'filename' => "new-customers_{$suffix}.csv",
+            'headers' => ['ID', 'Name', 'Username', 'City', 'Gender', 'Status', 'Active', 'Joined', 'Quote requests'],
+            'rows' => $rows->map(fn($r) => [
+                $r->id, $r->full_name, $r->username, $r->city, $r->gender, $r->status,
+                $r->is_active ? 'Yes' : 'No', $r->created_at, (int) $r->requests,
+            ])->all(),
+        ];
+    }
+
+    private function resolveReportPeriod(array $filters): array
+    {
+        return ReportPeriod::resolve($filters, fn() => $this->reportFirstRecordDate());
+    }
+
+    private function reportFirstRecordDate(): Carbon
+    {
+        $dates = array_filter([
+            DB::table('tbl_solar_companies')->min('created_at'),
+            DB::table('tbl_customers')->min('created_at'),
+            DB::table('tbl_quote_requests')->min('created_at'),
+        ]);
+
+        return $dates ? Carbon::parse(min($dates))->startOfDay() : now()->startOfYear();
+    }
+
+    private function reportCount(string $table, string $column, $from, $to, ?callable $scope = null): int
+    {
+        $query = DB::table($table)->whereNull('deleted_at')->whereBetween($column, [$from, $to]);
+
+        if ($scope) {
+            $scope($query);
+        }
+
+        return $query->count();
+    }
+
+    private function reportKpis(array $period): array
+    {
+        $definitions = [
+            'quote_requests' => ['Quote requests', 'tbl_quote_requests', 'created_at', null],
+            'offers' => ['Offers submitted', 'tbl_company_quotations', 'created_at', null],
+            'offers_selected' => ['Offers selected', 'tbl_company_quotations', 'created_at', fn($q) => $q->where('status', 'selected')],
+            'projects_started' => ['Projects started', 'tbl_projects', 'created_at', null],
+            'projects_completed' => ['Projects completed', 'tbl_projects', 'completed_at', null],
+            'new_customers' => ['New customers', 'tbl_customers', 'created_at', null],
+            'new_companies' => ['New companies', 'tbl_solar_companies', 'created_at', null],
+            'notifications_sent' => ['Notifications sent', 'tbl_notifications', 'published_at', fn($q) => $q->where('status', 'published')],
+        ];
+
+        $kpis = [];
+
+        foreach ($definitions as $key => [$label, $table, $column, $scope]) {
+            $current = $this->reportCount($table, $column, $period['from'], $period['to'], $scope);
+            $previous = $period['previous_from']
+                ? $this->reportCount($table, $column, $period['previous_from'], $period['previous_to'], $scope)
+                : null;
+
+            $kpis[$key] = [
+                'label' => $label,
+                'value' => $current,
+                'previous' => $previous,
+                'change' => ($previous !== null && $previous > 0)
+                    ? (int) round(($current - $previous) / $previous * 100)
+                    : null,
+            ];
+        }
+
+        // Share of the period's requests that ended with an accepted offer.
+        $requests = $kpis['quote_requests']['value'];
+        $won = $this->reportCount('tbl_quote_requests', 'created_at', $period['from'], $period['to'],
+            fn($q) => $q->whereIn('status', ['accepted', 'completed']));
+
+        $kpis['conversion'] = [
+            'label' => 'Request conversion',
+            'value' => $requests > 0 ? (int) round($won / $requests * 100) : 0,
+            'suffix' => '%',
+            'previous' => null,
+            'change' => null,
+            'hint' => "{$won} of {$requests} requests accepted an offer",
+        ];
+
+        return $kpis;
+    }
+
+    private function reportTrend(Carbon $from, Carbon $to, int $days): array
+    {
+        // Daily buckets for up to ~2 months, monthly beyond that.
+        $monthly = $days > 62;
+        $format = $monthly ? '%Y-%m' : '%Y-%m-%d';
+
+        $series = [
+            'requests' => 'tbl_quote_requests',
+            'offers' => 'tbl_company_quotations',
+            'customers' => 'tbl_customers',
+            'companies' => 'tbl_solar_companies',
+        ];
+
+        $counts = [];
+
+        foreach ($series as $key => $table) {
+            $counts[$key] = DB::table($table)
+                ->whereNull('deleted_at')
+                ->whereBetween('created_at', [$from, $to])
+                ->selectRaw("DATE_FORMAT(created_at, '{$format}') as bucket, COUNT(*) as total")
+                ->groupBy('bucket')
+                ->pluck('total', 'bucket');
+        }
+
+        $buckets = [];
+        $cursor = $monthly ? $from->copy()->startOfMonth() : $from->copy()->startOfDay();
+
+        while ($cursor->lessThanOrEqualTo($to)) {
+            $key = $monthly ? $cursor->format('Y-m') : $cursor->format('Y-m-d');
+
+            $buckets[] = [
+                'label' => $monthly ? $cursor->format('M Y') : $cursor->format('d M'),
+                'short' => $monthly ? $cursor->format('M') : $cursor->format('d'),
+                'requests' => (int) ($counts['requests'][$key] ?? 0),
+                'offers' => (int) ($counts['offers'][$key] ?? 0),
+                'customers' => (int) ($counts['customers'][$key] ?? 0),
+                'companies' => (int) ($counts['companies'][$key] ?? 0),
+            ];
+
+            $monthly ? $cursor->addMonth() : $cursor->addDay();
+        }
+
+        return [
+            'monthly' => $monthly,
+            'buckets' => $buckets,
+            'max' => max(1, collect($buckets)->max(fn($b) => max($b['requests'], $b['offers']))),
+        ];
+    }
+
+    private function reportQuotes(Carbon $from, Carbon $to): array
+    {
+        $base = fn() => DB::table('tbl_quote_requests as q')
+            ->whereNull('q.deleted_at')
+            ->whereBetween('q.created_at', [$from, $to]);
+
+        $offerSummary = DB::table('tbl_company_quotations')
+            ->whereNull('deleted_at')
+            ->selectRaw('quote_id, COUNT(*) as offers, MIN(created_at) as first_offer_at')
+            ->groupBy('quote_id');
+
+        $coverage = $base()
+            ->leftJoinSub($offerSummary, 'o', 'o.quote_id', '=', 'q.id')
+            ->selectRaw('COUNT(*) as total')
+            ->selectRaw('SUM(CASE WHEN o.offers > 0 THEN 1 ELSE 0 END) as with_offers')
+            ->selectRaw('AVG(COALESCE(o.offers, 0)) as avg_offers')
+            ->selectRaw('AVG(TIMESTAMPDIFF(MINUTE, q.created_at, o.first_offer_at)) as avg_minutes_to_first_offer')
+            ->first();
+
+        $total = (int) $coverage->total;
+
+        // Current backlog: pending requests that no company has answered yet (any date).
+        $backlogQuery = DB::table('tbl_quote_requests as q')
+            ->leftJoin('tbl_customers as c', 'c.id', '=', 'q.customer_id')
+            ->whereNull('q.deleted_at')
+            ->where('q.status', 'pending')
+            ->whereNotExists(function ($sub) {
+                $sub->from('tbl_company_quotations as o')
+                    ->whereColumn('o.quote_id', 'q.id')
+                    ->whereNull('o.deleted_at');
+            });
+
+        return [
+            'total' => $total,
+            'by_status' => $base()->selectRaw('q.status as k, COUNT(*) as n')->groupBy('k')->orderByDesc('n')->pluck('n', 'k')->all(),
+            'by_service' => $base()
+                ->selectRaw("COALESCE(NULLIF(TRIM(q.service_needed), ''), 'Not specified') as k, COUNT(*) as n")
+                ->groupBy('k')->orderByDesc('n')->limit(8)->pluck('n', 'k')->all(),
+            'by_city' => $base()
+                ->leftJoin('tbl_customers as c', 'c.id', '=', 'q.customer_id')
+                ->selectRaw("COALESCE(NULLIF(TRIM(c.city), ''), 'Unknown') as k, COUNT(*) as n")
+                ->groupBy('k')->orderByDesc('n')->limit(8)->pluck('n', 'k')->all(),
+            'with_offers' => (int) $coverage->with_offers,
+            'with_offers_rate' => $total > 0 ? (int) round($coverage->with_offers / $total * 100) : 0,
+            'avg_offers' => round((float) $coverage->avg_offers, 1),
+            'avg_hours_to_first_offer' => $coverage->avg_minutes_to_first_offer !== null
+                ? round($coverage->avg_minutes_to_first_offer / 60, 1)
+                : null,
+            'backlog_count' => (clone $backlogQuery)->count(),
+            'backlog' => $backlogQuery
+                ->orderBy('q.created_at')
+                ->limit(10)
+                ->get(['q.id', 'q.created_at', 'q.service_needed', 'c.full_name', 'c.username', 'c.city'])
+                ->map(fn($r) => [
+                    'id' => $r->id,
+                    'customer' => $r->full_name ?: ($r->username ?: '—'),
+                    'city' => $r->city ?: '—',
+                    'service' => $r->service_needed ?: '—',
+                    'created_at' => Carbon::parse($r->created_at),
+                    'age_hours' => (int) Carbon::parse($r->created_at)->diffInHours(now()),
+                ])->all(),
+        ];
+    }
+
+    private function reportOffers(Carbon $from, Carbon $to): array
+    {
+        $base = fn() => DB::table('tbl_company_quotations')
+            ->whereNull('deleted_at')
+            ->whereBetween('created_at', [$from, $to]);
+
+        $byStatus = $base()->selectRaw('status as k, COUNT(*) as n')->groupBy('k')->orderByDesc('n')->pluck('n', 'k')->all();
+
+        $selected = (int) ($byStatus['selected'] ?? 0);
+        $decided = $selected + (int) ($byStatus['not_selected'] ?? 0);
+
+        return [
+            'total' => array_sum($byStatus),
+            'by_status' => $byStatus,
+            'win_rate' => $decided > 0 ? (int) round($selected / $decided * 100) : null,
+            'prices' => $base()
+                ->selectRaw('currency, COUNT(*) as n, AVG(price) as avg_price, MIN(price) as min_price, MAX(price) as max_price')
+                ->selectRaw("AVG(CASE WHEN status = 'selected' THEN price END) as avg_selected_price")
+                ->selectRaw("SUM(CASE WHEN status = 'selected' THEN price ELSE 0 END) as selected_value")
+                ->groupBy('currency')
+                ->orderByDesc('n')
+                ->get()
+                ->map(fn($r) => [
+                    'currency' => $r->currency,
+                    'count' => (int) $r->n,
+                    'avg' => (float) $r->avg_price,
+                    'min' => (float) $r->min_price,
+                    'max' => (float) $r->max_price,
+                    'avg_selected' => $r->avg_selected_price !== null ? (float) $r->avg_selected_price : null,
+                    'selected_value' => (float) $r->selected_value,
+                ])->all(),
+        ];
+    }
+
+    private function reportCompanyPerformance(Carbon $from, Carbon $to): array
+    {
+        $offers = DB::table('tbl_company_quotations as o')
+            ->join('tbl_quote_requests as q', 'q.id', '=', 'o.quote_id')
+            ->whereNull('o.deleted_at')
+            ->whereBetween('o.created_at', [$from, $to])
+            ->selectRaw('o.company_id, COUNT(*) as offers')
+            ->selectRaw("SUM(o.status = 'selected') as selected")
+            ->selectRaw("SUM(o.status = 'not_selected') as not_selected")
+            ->selectRaw("SUM(o.status = 'withdrawn') as withdrawn")
+            ->selectRaw("AVG(CASE WHEN o.currency = 'SDG' THEN o.price END) as avg_price_sdg")
+            ->selectRaw('AVG(TIMESTAMPDIFF(MINUTE, q.created_at, o.created_at)) as avg_response_minutes')
+            ->groupBy('o.company_id');
+
+        $projects = DB::table('tbl_projects')
+            ->whereNull('deleted_at')
+            ->selectRaw('company_id')
+            ->selectRaw("SUM(status IN ('accepted', 'in_progress')) as active_projects")
+            ->selectRaw("SUM(status = 'completed') as completed_projects")
+            ->selectRaw("AVG(CASE WHEN status IN ('accepted', 'in_progress') THEN progress_percent END) as avg_progress")
+            ->groupBy('company_id');
+
+        $products = DB::table('tbl_products')
+            ->whereNull('deleted_at')
+            ->selectRaw('company_id, COUNT(*) as products')
+            ->groupBy('company_id');
+
+        return DB::table('tbl_solar_companies as sc')
+            ->leftJoinSub($offers, 'o', 'o.company_id', '=', 'sc.id')
+            ->leftJoinSub($projects, 'p', 'p.company_id', '=', 'sc.id')
+            ->leftJoinSub($products, 'pr', 'pr.company_id', '=', 'sc.id')
+            ->whereNull('sc.deleted_at')
+            ->get([
+                'sc.id', 'sc.name', 'sc.city', 'sc.status', 'sc.is_verified', 'sc.is_active',
+                'o.offers', 'o.selected', 'o.not_selected', 'o.withdrawn', 'o.avg_price_sdg', 'o.avg_response_minutes',
+                'p.active_projects', 'p.completed_projects', 'p.avg_progress', 'pr.products',
+            ])
+            ->map(function ($r) {
+                $selected = (int) $r->selected;
+                $decided = $selected + (int) $r->not_selected;
+
+                return [
+                    'id' => $r->id,
+                    'name' => $r->name,
+                    'city' => $r->city ?: '—',
+                    'status' => $r->status,
+                    'is_verified' => (bool) $r->is_verified,
+                    'is_active' => (bool) $r->is_active,
+                    'offers' => (int) $r->offers,
+                    'selected' => $selected,
+                    'not_selected' => (int) $r->not_selected,
+                    'withdrawn' => (int) $r->withdrawn,
+                    'win_rate' => $decided > 0 ? (int) round($selected / $decided * 100) : null,
+                    'avg_price_sdg' => $r->avg_price_sdg !== null ? round((float) $r->avg_price_sdg, 2) : null,
+                    'avg_response_hours' => $r->avg_response_minutes !== null ? round($r->avg_response_minutes / 60, 1) : null,
+                    'active_projects' => (int) $r->active_projects,
+                    'completed_projects' => (int) $r->completed_projects,
+                    'avg_progress' => $r->avg_progress !== null ? (int) round($r->avg_progress) : null,
+                    'products' => (int) $r->products,
+                ];
+            })
+            ->sortBy([
+                ['selected', 'desc'],
+                ['offers', 'desc'],
+                ['name', 'asc'],
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function reportProjects(Carbon $from, Carbon $to): array
+    {
+        $current = DB::table('tbl_projects')->whereNull('deleted_at');
+
+        $completedInPeriod = DB::table('tbl_projects')
+            ->whereNull('deleted_at')
+            ->whereNotNull('completed_at')
+            ->whereBetween('completed_at', [$from, $to]);
+
+        $avgCompletionHours = (clone $completedInPeriod)
+            ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, COALESCE(accepted_at, created_at), completed_at)) as hours')
+            ->value('hours');
+
+        $lastUpdate = DB::table('tbl_project_updates')
+            ->whereNull('deleted_at')
+            ->selectRaw('project_id, MAX(created_at) as last_update_at')
+            ->groupBy('project_id');
+
+        $stalledBefore = now()->subDays(self::REPORT_STALLED_DAYS);
+
+        $stalled = DB::table('tbl_projects as p')
+            ->leftJoinSub($lastUpdate, 'u', 'u.project_id', '=', 'p.id')
+            ->leftJoin('tbl_solar_companies as sc', 'sc.id', '=', 'p.company_id')
+            ->leftJoin('tbl_customers as c', 'c.id', '=', 'p.customer_id')
+            ->whereNull('p.deleted_at')
+            ->whereIn('p.status', ['accepted', 'in_progress'])
+            ->whereRaw('COALESCE(u.last_update_at, p.updated_at) < ?', [$stalledBefore])
+            ->orderByRaw('COALESCE(u.last_update_at, p.updated_at)')
+            ->limit(10)
+            ->get(['p.id', 'p.quote_id', 'p.status', 'p.progress_percent', 'sc.name as company', 'c.full_name', 'c.username', DB::raw('COALESCE(u.last_update_at, p.updated_at) as last_activity_at')])
+            ->map(fn($r) => [
+                'id' => $r->id,
+                'quote_id' => $r->quote_id,
+                'status' => $r->status,
+                'progress' => (int) $r->progress_percent,
+                'company' => $r->company ?: '—',
+                'customer' => $r->full_name ?: ($r->username ?: '—'),
+                'idle_days' => (int) Carbon::parse($r->last_activity_at)->diffInDays(now()),
+            ])->all();
+
+        return [
+            'by_status' => (clone $current)->selectRaw('status as k, COUNT(*) as n')->groupBy('k')->orderByDesc('n')->pluck('n', 'k')->all(),
+            'total' => (clone $current)->count(),
+            'started_in_period' => DB::table('tbl_projects')->whereNull('deleted_at')->whereBetween('created_at', [$from, $to])->count(),
+            'completed_in_period' => (clone $completedInPeriod)->count(),
+            'avg_completion_days' => $avgCompletionHours !== null ? round($avgCompletionHours / 24, 1) : null,
+            'avg_active_progress' => (int) round((float) (clone $current)->whereIn('status', ['accepted', 'in_progress'])->avg('progress_percent')),
+            'milestones' => DB::table('tbl_project_milestones as m')
+                ->join('tbl_projects as p', 'p.id', '=', 'm.project_id')
+                ->whereNull('m.deleted_at')
+                ->whereNull('p.deleted_at')
+                ->selectRaw('m.status as k, COUNT(*) as n')
+                ->groupBy('k')->orderByDesc('n')->pluck('n', 'k')->all(),
+            'updates_in_period' => DB::table('tbl_project_updates')->whereNull('deleted_at')->whereBetween('created_at', [$from, $to])->count(),
+            'stalled' => $stalled,
+        ];
+    }
+
+    private function reportCustomers(Carbon $from, Carbon $to): array
+    {
+        $all = fn() => DB::table('tbl_customers')->whereNull('deleted_at');
+        $total = $all()->count();
+
+        $devices = DB::table('tbl_customer_device_tokens');
+        $appUsers = (clone $devices)->distinct()->count('customer_id');
+
+        $requestsInPeriod = DB::table('tbl_quote_requests')
+            ->whereNull('deleted_at')
+            ->whereBetween('created_at', [$from, $to])
+            ->selectRaw("customer_id, COUNT(*) as requests, SUM(status IN ('accepted', 'completed')) as accepted")
+            ->groupBy('customer_id');
+
+        $customersWithRequests = (clone $requestsInPeriod)->get()->count();
+
+        return [
+            'total' => $total,
+            'active' => $all()->where('is_active', true)->count(),
+            'new_in_period' => $all()->whereBetween('created_at', [$from, $to])->count(),
+            'by_status' => $all()->selectRaw('status as k, COUNT(*) as n')->groupBy('k')->orderByDesc('n')->pluck('n', 'k')->all(),
+            'by_city' => $all()->selectRaw("COALESCE(NULLIF(TRIM(city), ''), 'Unknown') as k, COUNT(*) as n")->groupBy('k')->orderByDesc('n')->limit(8)->pluck('n', 'k')->all(),
+            'by_gender' => $all()->selectRaw("COALESCE(gender, 'Not set') as k, COUNT(*) as n")->groupBy('k')->orderByDesc('n')->pluck('n', 'k')->all(),
+            'without_email' => $all()->where(fn($q) => $q->whereNull('email')->orWhere('email', ''))->count(),
+            'app_users' => $appUsers,
+            'app_users_rate' => $total > 0 ? (int) round($appUsers / $total * 100) : 0,
+            'by_platform' => (clone $devices)->selectRaw("COALESCE(platform, 'Unknown') as k, COUNT(*) as n")->groupBy('k')->orderByDesc('n')->pluck('n', 'k')->all(),
+            'by_lang' => (clone $devices)->selectRaw("COALESCE(lang, 'en') as k, COUNT(*) as n")->groupBy('k')->orderByDesc('n')->pluck('n', 'k')->all(),
+            'notifications_enabled' => (clone $devices)->where('is_active', true)->distinct()->count('customer_id'),
+            'with_requests_in_period' => $customersWithRequests,
+            'top_requesters' => DB::table('tbl_customers as c')
+                ->joinSub($requestsInPeriod, 'r', 'r.customer_id', '=', 'c.id')
+                ->whereNull('c.deleted_at')
+                ->orderByDesc('r.requests')
+                ->orderBy('c.full_name')
+                ->limit(10)
+                ->get(['c.id', 'c.full_name', 'c.username', 'c.city', 'r.requests', 'r.accepted'])
+                ->map(fn($r) => [
+                    'id' => $r->id,
+                    'name' => $r->full_name ?: $r->username,
+                    'city' => $r->city ?: '—',
+                    'requests' => (int) $r->requests,
+                    'accepted' => (int) $r->accepted,
+                ])->all(),
+        ];
+    }
+
+    private function reportCompanies(Carbon $from, Carbon $to): array
+    {
+        $all = fn() => DB::table('tbl_solar_companies')->whereNull('deleted_at');
+
+        $withProducts = DB::table('tbl_products')->whereNull('deleted_at')->distinct()->pluck('company_id');
+
+        return [
+            'total' => $all()->count(),
+            'new_in_period' => $all()->whereBetween('created_at', [$from, $to])->count(),
+            'by_status' => $all()->selectRaw('status as k, COUNT(*) as n')->groupBy('k')->orderByDesc('n')->pluck('n', 'k')->all(),
+            'verified' => $all()->where('is_verified', true)->count(),
+            'active' => $all()->where('is_active', true)->count(),
+            'by_city' => $all()->selectRaw("COALESCE(NULLIF(TRIM(city), ''), 'Unknown') as k, COUNT(*) as n")->groupBy('k')->orderByDesc('n')->limit(8)->pluck('n', 'k')->all(),
+            'approved_without_products' => $all()->where('status', 'approved')->whereNotIn('id', $withProducts)->count(),
+            'in_carousel' => DB::table('tbl_company_carousels')->whereNull('deleted_at')->where('is_active', true)->distinct()->count('company_id'),
+        ];
+    }
+
+    private function reportCatalog(): array
+    {
+        $products = fn() => DB::table('tbl_products')->whereNull('tbl_products.deleted_at');
+
+        return [
+            'products' => $products()->count(),
+            'active_products' => $products()->where('is_active', true)->count(),
+            'by_type' => $products()->selectRaw('type as k, COUNT(*) as n')->groupBy('k')->orderByDesc('n')->pluck('n', 'k')->all(),
+            'by_supplier' => $products()
+                ->join('tbl_suppliers as s', 's.id', '=', 'tbl_products.supplier_id')
+                ->whereNull('s.deleted_at')
+                ->selectRaw('s.name as k, COUNT(*) as n')
+                ->groupBy('k')->orderByDesc('n')->limit(8)->pluck('n', 'k')->all(),
+            'suppliers' => DB::table('tbl_suppliers')->whereNull('deleted_at')->count(),
+            'active_suppliers' => DB::table('tbl_suppliers')->whereNull('deleted_at')->where('is_active', true)->count(),
+            'companies_with_products' => $products()->distinct()->count('company_id'),
+        ];
+    }
+
+    private function reportNotifications(Carbon $from, Carbon $to): array
+    {
+        $sent = fn() => DB::table('tbl_notifications')
+            ->whereNull('deleted_at')
+            ->where('status', 'published')
+            ->whereBetween('published_at', [$from, $to]);
+
+        $deliveries = DB::table('tbl_customer_notifications as cn')
+            ->joinSub($sent()->select('id'), 'n', 'n.id', '=', 'cn.notification_id')
+            ->whereNull('cn.deleted_at')
+            ->selectRaw('COUNT(*) as recipients, SUM(cn.read_at IS NOT NULL) as read_count')
+            ->first();
+
+        $recipients = (int) $deliveries->recipients;
+
+        return [
+            'sent' => $sent()->count(),
+            'by_sender' => $sent()->selectRaw('sender_type as k, COUNT(*) as n')->groupBy('k')->orderByDesc('n')->pluck('n', 'k')->all(),
+            'by_type' => $sent()->selectRaw('type as k, COUNT(*) as n')->groupBy('k')->orderByDesc('n')->pluck('n', 'k')->all(),
+            'recipients' => $recipients,
+            'read' => (int) $deliveries->read_count,
+            'read_rate' => $recipients > 0 ? (int) round($deliveries->read_count / $recipients * 100) : null,
+        ];
+    }
+
+    //Reports End
 
     //Compaines Managment Start
 
@@ -308,6 +992,8 @@ class AdminRepository
                 ];
             }
 
+            // Keep the status in step with the soft delete.
+            $company->forceFill(['status' => 'deleted'])->save();
             $company->delete();
 
             return [
@@ -373,10 +1059,79 @@ class AdminRepository
     public function getCustomers(int $perPage = 10)
     {
         return Customer::query()
+            // tokens_count > 0 means the customer is signed in on the app.
+            ->withCount('tokens')
             ->orderByDesc('created_at')
             ->latest()
             ->paginate($perPage);
 
+    }
+
+    /** Customers with at least one valid app token (signed in on a device). */
+    public function signedInCustomerCount(): int
+    {
+        return Customer::query()->has('tokens')->count();
+    }
+
+    /**
+     * Signs a customer out of the app: revokes the API tokens (the next request gets 401)
+     * and stops push notifications to their devices until they sign in again.
+     */
+    public function signOutCustomer(int $id): array
+    {
+        $customer = Customer::query()->find($id);
+
+        if (!$customer) {
+            return ['success' => false, 'message' => 'Customer not found.'];
+        }
+
+        $revoked = $this->revokeCustomerSessions($customer->id);
+        $name = $customer->full_name ?: $customer->username;
+
+        return [
+            'success' => true,
+            'message' => $revoked
+                ? "{$name} was signed out of the app."
+                : "{$name} was not signed in on any device.",
+        ];
+    }
+
+    /** Signs every customer out of the app. They must log in again. */
+    public function forceLogoutAllCustomers(): array
+    {
+        try {
+            $customers = Customer::query()->has('tokens')->count();
+
+            DB::table('personal_access_tokens')
+                ->where('tokenable_type', Customer::class)
+                ->delete();
+
+            CustomerDeviceToken::query()->update(['is_active' => false]);
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to sign customers out. Please try again.'];
+        }
+
+        return [
+            'success' => true,
+            'message' => $customers
+                ? "{$customers} customer" . ($customers === 1 ? ' was' : 's were') . ' signed out of the app.'
+                : 'No customers were signed in.',
+        ];
+    }
+
+    /** Deletes the customer's API tokens and turns off their device push tokens. Returns tokens removed. */
+    private function revokeCustomerSessions(int $customerId): int
+    {
+        $revoked = DB::table('personal_access_tokens')
+            ->where('tokenable_type', Customer::class)
+            ->where('tokenable_id', $customerId)
+            ->delete();
+
+        CustomerDeviceToken::query()->where('customer_id', $customerId)->update(['is_active' => false]);
+
+        return $revoked;
     }
 
     public function customerAccountCount(): int
@@ -404,7 +1159,13 @@ class AdminRepository
     public function getCustomerById(int $id): array
     {
         try {
-            $customer = Customer::find($id);
+            $customer = Customer::query()
+                // For the "App access" panel on the edit page.
+                ->withCount([
+                    'tokens',
+                    'deviceTokens as active_devices_count' => fn($q) => $q->where('is_active', true),
+                ])
+                ->find($id);
 
             if (!$customer) {
                 return [
@@ -500,6 +1261,9 @@ class AdminRepository
                     'message' => 'Unable to delete the customer.',
                 ];
             }
+
+            // A deleted account must not stay signed in on the app.
+            $this->revokeCustomerSessions($customer->id);
 
             // Soft delete: automatically sets deleted_at.
             if (!$customer->delete()) {
@@ -1183,7 +1947,12 @@ class AdminRepository
     public function getQuoteRequests(array $filters = []): LengthAwarePaginator
     {
         $query = Quote::query()
-            ->with(['customer', 'company'])
+            ->with([
+                'customer',
+                'company',
+                'project:id,quote_id,company_id,status,progress_percent',
+            ])
+            ->withCount('companyQuotations')
             ->when(!empty($filters['status']), function ($query) use ($filters) {
                 $query->where('status', $filters['status']);
             })
@@ -1200,8 +1969,10 @@ class AdminRepository
                         ->orWhere('estimated_load', 'like', "%{$search}%")
                         ->orWhere('message', 'like', "%{$search}%")
                         ->orWhereHas('customer', function ($customerQuery) use ($search) {
+                            // tbl_customers has full_name/username, not name.
                             $customerQuery
-                                ->where('name', 'like', "%{$search}%")
+                                ->where('full_name', 'like', "%{$search}%")
+                                ->orWhere('username', 'like', "%{$search}%")
                                 ->orWhere('email', 'like', "%{$search}%")
                                 ->orWhere('phone', 'like', "%{$search}%");
                         })
@@ -1223,6 +1994,8 @@ class AdminRepository
         return [
             'total' => (clone $query)->count(),
             'pending' => (clone $query)->where('status', 'pending')->count(),
+            // Pending requests no company has answered yet.
+            'awaiting_offers' => (clone $query)->where('status', 'pending')->doesntHave('companyQuotations')->count(),
             'in_progress' => (clone $query)->where('status', 'accepted')->count(),
             'completed' => (clone $query)->where('status', 'completed')->count(),
         ];
@@ -1231,7 +2004,15 @@ class AdminRepository
     public function getQuoteRequestById(int $id): ?Quote
     {
         return Quote::query()
-            ->with(['customer', 'company'])
+            ->with([
+                'customer',
+                'company',
+                // Every offer received, cheapest first, with the company that sent it.
+                'companyQuotations' => fn($q) => $q->with('company:id,name,city,phone,is_verified')->orderBy('price'),
+                'project.milestones',
+                'project.updates',
+            ])
+            ->withCount('companyQuotations')
             ->find($id);
     }
 
@@ -1551,6 +2332,7 @@ class AdminRepository
     {
         $query = Notification::query()
             ->withCount('recipients')
+            ->with(['senderCompany:id,name', 'senderAdmin:id,username'])
             ->when(
                 !empty($filters['type']),
                 fn(Builder $q) => $q->where('type', $filters['type'])
@@ -1587,6 +2369,30 @@ class AdminRepository
             'draftCount' => $draftCount,
             'recipientCount' => $recipientCount,
         ];
+    }
+
+    /**
+     * Soft-deletes a notification (admin or company sent) and its customer copies,
+     * so it also disappears from the app and from unread counts.
+     */
+    public function deleteNotification(int $id): array
+    {
+        $notification = Notification::query()->find($id);
+
+        if (!$notification) {
+            return ['success' => false, 'message' => 'Notification not found.'];
+        }
+
+        try {
+            CustomerNotification::query()->where('notification_id', $notification->id)->delete();
+            $notification->delete();
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to delete the notification. Please try again.'];
+        }
+
+        return ['success' => true, 'message' => 'Notification deleted. Customers no longer see it in the app.'];
     }
 
     public function getNotificationFormData(): array
