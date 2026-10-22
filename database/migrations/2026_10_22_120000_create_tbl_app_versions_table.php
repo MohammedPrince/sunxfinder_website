@@ -23,10 +23,9 @@ return new class extends Migration {
 
             $table->timestamps();
 
-            $table->foreign('created_by')
-                ->references('id')
-                ->on('tbl_admins')
-                ->nullOnDelete();
+            // Plain index, not a foreign key: tbl_admins is MyISAM on some servers,
+            // and MySQL cannot reference a MyISAM table (errno 150).
+            $table->index('created_by');
         });
     }
 
