@@ -8,6 +8,9 @@ use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
+use Kreait\Firebase\Messaging\CloudMessage;
+use Kreait\Firebase\Messaging\Notification as FcmNotification;
+use Kreait\Firebase\Contract\Messaging;
 
 class WebsiteController extends Controller
 {
@@ -379,4 +382,25 @@ class WebsiteController extends Controller
     }
 
 
+    //Test Push Notifications
+    public function testPush(Messaging $messaging)
+    {
+        $token = 'fb0CWo-WSYCaZL00Q1Bwp0:APA91bEiHmF6MsgrHQDBqxOz3Qa7Zb4U9FX6wJWVw9_KGRHBB4RuD3MXuAzpdUNcLjYGJmHHpzGuLrzUEE5wEiVH0makP2ubr8jfnNZuUKz7srYq6qxFnTs';
+
+        $message = CloudMessage::new()
+            ->toToken($token)
+            ->withNotification(
+                FcmNotification::create(
+                    'SunXFinder Test',
+                    'Your push notifications are working!'
+                )
+            );
+
+        $result = $messaging->send($message);
+
+        return response()->json([
+            'success' => true,
+            'message_id' => $result,
+        ]);
+    }
 }

@@ -139,19 +139,14 @@
             <span class="nav-count warm">{{ $quoteCount ?? 0 }}</span>
         </a>
 
-        <a class="nav-link {{ request()->routeIs('admin.quote-notifications.*') ? 'active' : '' }}"
+        <a class="nav-link {{ request()->routeIs('admin.notifications.*') ? 'active' : '' }}"
             href="{{ route('admin.notifications.index') }}">
             <span class="nav-icon">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M6 2.75h8l5 5V21a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V4.75a2 2 0 0 1 2-2z" />
-                    <path d="M14 2.75v5h5" />
-                    <path d="M8 12h8" />
-                    <path d="M8 15h4" />
-                    <circle cx="16" cy="17" r="3.5" />
-                    <path d="M16 14.8v4.4" />
-                    <path
-                        d="M17.3 15.8c-.3-.4-.7-.6-1.3-.6-.7 0-1.2.4-1.2.9 0 1.3 2.4.7 2.4 1.9 0 .5-.5.9-1.2.9-.6 0-1.1-.2-1.4-.6" />
+                    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+                    <path d="M10 21h4" />
+                    <path d="M12 2v1" />
                 </svg>
             </span>
 

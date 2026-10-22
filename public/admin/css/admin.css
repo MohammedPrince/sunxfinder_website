@@ -4253,3 +4253,28 @@ html[dir=rtl] .nav-link.active {
         text-align: center;
     }
 }
+
+.notification-form-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 0.65fr);
+    gap: 24px;
+    width: 100%;
+}
+
+.notification-form-grid>* {
+    min-width: 0;
+}
+
+.notification-form-grid .form-control,
+.notification-form-grid select,
+.notification-form-grid textarea {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+@media (max-width: 900px) {
+    .notification-form-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

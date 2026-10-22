@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\CustomerDeviceToken;
 
 class Customer extends Authenticatable
 {
@@ -36,5 +38,10 @@ class Customer extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
         ];
+    }
+
+    public function deviceTokens(): HasMany
+    {
+        return $this->hasMany(CustomerDeviceToken::class, 'customer_id');
     }
 }

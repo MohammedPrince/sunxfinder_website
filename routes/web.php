@@ -30,6 +30,10 @@ Route::get('/clear', function () {
 Route::get('/', [WebSiteController::class, 'index'])->name('home');
 Route::get('/companies/{slug}', [WebSiteController::class, 'showCompany'])->name('company-profile.show');
 
+//Test Push notifications
+Route::get('/push', [WebSiteController::class, 'testPush'])->name('testPush');
+
+
 Route::middleware('guest:company')->group(function () {
     Route::get('/create-company-account', [WebSiteController::class, 'registerCompany'])->name('company.register');
     Route::post('/create-company-account', [WebSiteController::class, 'storeCompany'])->name('company.register.store');

@@ -177,16 +177,6 @@ class CustomerRepository
 
             $profile = $profileResult['profile'] ?? null;
 
-            // Notifications toggle follows the customer's most recently used device token.
-            if (is_array($profile)) {
-                $customer = $this->helper->isCustomerAuthenticated();
-
-                $profile['notifications'] = (bool) CustomerDeviceToken::query()
-                    ->where('customer_id', $customer->id)
-                    ->orderByDesc('last_used_at')
-                    ->value('is_active');
-            }
-
             // Services: getServices() returns both languages under data.
             $servicesResult = $this->getServices();
 
@@ -251,8 +241,17 @@ class CustomerRepository
 
             $myQuotes = $quotesResult['quotes'] ?? [];
 
+            // Notifications toggle follows the customer's most recently used device token.
+            $customer = $this->helper->isCustomerAuthenticated();
+
+            $notificationsEnabled = (bool) CustomerDeviceToken::query()
+                ->where('customer_id', $customer->id)
+                ->orderByDesc('last_used_at')
+                ->value('is_active');
+
             // TODO: Replace with your actual customer notification query.
             $notifications = [
+                'enabled' => $notificationsEnabled,
                 'unread_count' => 0,
                 'items' => [],
             ];

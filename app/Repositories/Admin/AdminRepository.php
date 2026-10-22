@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Repositories\Admin;
+
 use App\Models\Appliance;
 use App\Models\ApplianceGroup;
 use App\Models\CompanyCarousel;
@@ -22,6 +23,10 @@ use Illuminate\Validation\Rule;
 use Throwable;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Database\Eloquent\Builder;
+use App\Models\CustomerDeviceToken;
+use Kreait\Firebase\Contract\Messaging;
+use Kreait\Firebase\Messaging\CloudMessage;
+use Kreait\Firebase\Messaging\Notification as FcmNotification;
 
 class AdminRepository
 {
@@ -1049,80 +1054,142 @@ class AdminRepository
 
     public function publishNotification(array $data): Notification
     {
-        return Notification::getConnection()->transaction(function () use ($data) {
-            $senderType = $data['sender_type'] ?? 'admin';
-            $senderId = $data['sender_id'] ?? null;
+        $result = (new Notification())
+            ->getConnection()
+            ->transaction(function () use ($data) {
+                $senderType = $data['sender_type'] ?? 'admin';
+                $senderId = $data['sender_id'] ?? null;
+                $audienceType = $data['audience_type'] ?? 'selected';
 
-            $audienceType = $data['audience_type'] ?? 'selected';
+                if ($senderType === 'company' && $audienceType === 'all') {
+                    throw ValidationException::withMessages([
+                        'audience_type' =>
+                            'Companies cannot broadcast to all customers.',
+                    ]);
+                }
 
-            if ($senderType === 'company' && $audienceType === 'all') {
-                throw ValidationException::withMessages([
-                    'audience_type' => 'Companies cannot broadcast to all customers.',
+                $customerIds = $audienceType === 'all'
+                    ? Customer::query()
+                        ->pluck('id')
+                        ->map(fn($id) => (int) $id)
+                        ->all()
+                    : array_values(array_unique(
+                        array_map('intval', $data['customer_ids'] ?? [])
+                    ));
+
+                if (empty($customerIds)) {
+                    throw ValidationException::withMessages([
+                        'customer_ids' => 'Select at least one customer.',
+                    ]);
+                }
+
+                $existingIds = Customer::query()
+                    ->whereIn('id', $customerIds)
+                    ->pluck('id')
+                    ->map(fn($id) => (int) $id)
+                    ->all();
+
+                if (count($existingIds) !== count($customerIds)) {
+                    throw ValidationException::withMessages([
+                        'customer_ids' =>
+                            'One or more selected customers are invalid.',
+                    ]);
+                }
+
+                // Add company-to-customer eligibility checks here if needed.
+    
+                $notification = Notification::create([
+                    'sender_type' => $senderType,
+                    'sender_id' => $senderId,
+                    'type' => $data['type'],
+                    'title_en' => $data['title_en'],
+                    'title_ar' => $data['title_ar'] ?? null,
+                    'message_en' => $data['message_en'],
+                    'message_ar' => $data['message_ar'] ?? null,
+                    'audience_type' => $audienceType,
+                    'status' => 'published',
+                    'published_at' => now(),
                 ]);
-            }
 
-            $customerIds = $audienceType === 'all'
-                ? Customer::query()->pluck('id')->all()
-                : array_values(array_unique(
-                    array_map('intval', $data['customer_ids'] ?? [])
-                ));
+                $now = now();
 
-            if (empty($customerIds)) {
-                throw ValidationException::withMessages([
-                    'customer_ids' => 'Select at least one customer.',
-                ]);
-            }
+                foreach (array_chunk($customerIds, 500) as $chunk) {
+                    $rows = array_map(
+                        fn($customerId) => [
+                            'notification_id' => $notification->id,
+                            'customer_id' => $customerId,
+                            'read_at' => null,
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ],
+                        $chunk
+                    );
 
-            $existingIds = Customer::query()
-                ->whereIn('id', $customerIds)
-                ->pluck('id')
-                ->map(fn($id) => (int) $id)
-                ->all();
+                    CustomerNotification::insert($rows);
+                }
 
-            if (count($existingIds) !== count($customerIds)) {
-                throw ValidationException::withMessages([
-                    'customer_ids' => 'One or more selected customers are invalid.',
-                ]);
-            }
+                return [
+                    'notification' => $notification,
+                    'customerIds' => $customerIds,
+                ];
+            });
 
-            // Company-to-customer eligibility must be checked here
-            // if companies are allowed to send notifications.
+        // Unpack the transaction result.
+        $notification = $result['notification'];
+        $customerIds = $result['customerIds'];
 
-            $notification = Notification::create([
-                'sender_type' => $senderType,
-                'sender_id' => $senderId,
-                'type' => $data['type'],
-                'title_en' => $data['title_en'],
-                'title_ar' => $data['title_ar'] ?? null,
-                'message_en' => $data['message_en'],
-                'message_ar' => $data['message_ar'] ?? null,
-                'audience_type' => $audienceType,
-                'status' => 'published',
-                'published_at' => now(),
+        // Send pushes only after the database transaction commits.
+        $devices = CustomerDeviceToken::query()
+            ->whereIn('customer_id', $customerIds)
+            ->get([
+                'customer_id',
+                'fcm_token',
+                'lang',
             ]);
 
-            $now = now();
-
-            foreach (array_chunk($customerIds, 500) as $chunk) {
-                $rows = array_map(
-                    fn($customerId) => [
-                        'notification_id' => $notification->id,
-                        'customer_id' => $customerId,
-                        'read_at' => null,
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ],
-                    $chunk
-                );
-
-                CustomerNotification::insert($rows);
-            }
-
+        if ($devices->isEmpty()) {
             return $notification;
-        });
+        }
+
+        $messaging = app(Messaging::class);
+
+        foreach ($devices as $device) {
+            $lang = strtolower($device->lang ?? 'en') === 'ar'
+                ? 'ar'
+                : 'en';
+
+            $title = $lang === 'ar'
+                ? ($notification->title_ar ?: $notification->title_en)
+                : $notification->title_en;
+
+            $body = $lang === 'ar'
+                ? ($notification->message_ar ?: $notification->message_en)
+                : $notification->message_en;
+
+            try {
+                $message = CloudMessage::new()
+                    ->toToken($device->fcm_token)
+                    ->withNotification(
+                        FcmNotification::create($title, $body)
+                    )
+                    ->withData([
+                        'notification_id' => (string) $notification->id,
+                        'type' => (string) $notification->type,
+                        'lang' => $lang,
+                    ]);
+
+                $messaging->send($message);
+            } catch (Throwable $e) {
+                Log::warning('SunXFinder push notification failed.', [
+                    'notification_id' => $notification->id,
+                    'customer_id' => $device->customer_id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $notification;
     }
-
-
     public function getNotifications(array $filters = []): array
     {
         $query = Notification::query()
@@ -1168,7 +1235,8 @@ class AdminRepository
     public function getNotificationFormData(): array
     {
         $customers = Customer::query()
-            ->select('id', 'full_name', 'username', 'email', 'phone')
+            ->whereHas('deviceTokens')
+            ->select('id', 'full_name', 'username', 'phone')
             ->orderBy('username')
             ->get();
 
@@ -1204,7 +1272,10 @@ class AdminRepository
         );
 
         $recipients = CustomerNotification::query()
-            ->with('customer:id,full_name,username,email')
+            ->with([
+                'customer:id,full_name,phone',
+                'customer.deviceTokens:id,customer_id,fcm_token,lang,platform',
+            ])
             ->where('notification_id', $id)
             ->latest('created_at')
             ->paginate(20)

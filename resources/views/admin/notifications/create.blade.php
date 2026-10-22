@@ -1,7 +1,7 @@
 @extends('admin.layouts.app')
 
 @section('title', 'Send Notification')
-@section('breadcrumb', 'Notifications / Send notification')
+
 @section('eyebrow', 'CUSTOMER COMMUNICATION')
 @section('page-title', 'Send Notification')
 @section('page-description', 'Compose a bilingual announcement and choose which customers should receive it.')
