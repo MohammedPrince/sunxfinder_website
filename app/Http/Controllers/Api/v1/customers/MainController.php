@@ -124,6 +124,10 @@ class MainController extends Controller
                 'regex:/[0-9]/',
                 'regex:/[^A-Za-z0-9]/',
             ],
+            'fcm_token' => ['nullable', 'string', 'max:255'],
+            'platform' => ['nullable', 'in:android,ios'],
+            'device_name' => ['nullable', 'string', 'max:150'],
+            'lang' => ['nullable', 'in:en,ar'],
         ]);
 
         $isArabic = app()->getLocale() === 'ar';
@@ -145,13 +149,13 @@ class MainController extends Controller
         // Check duplicates separately to return one generic message.
         $duplicateField = null;
 
-        if (\DB::table('tbl_customers')->where('username', $request->username)->exists()) {
+        if (\DB::table('tbl_customers')->where('username', $request->username)->where('is_active', 1)->exists()) {
             $duplicateField = 'username';
-        } elseif (\DB::table('tbl_customers')->where('phone', $request->phone)->exists()) {
+        } elseif (\DB::table('tbl_customers')->where('phone', $request->phone)->where('is_active', 1)->exists()) {
             $duplicateField = 'phone';
         } elseif (
             $request->filled('email') &&
-            \DB::table('tbl_customers')->where('email', $request->email)->exists()
+            \DB::table('tbl_customers')->where('email', $request->email)->where('is_active', 1)->exists()
         ) {
             $duplicateField = 'email';
         }
@@ -714,7 +718,7 @@ class MainController extends Controller
         ], 200);
     }
 
-        //Read One
+    //Read One
     public function markNotificationAsRead($notificationId)
     {
         $result = $this->customerService->markNotificationAsRead($notificationId);

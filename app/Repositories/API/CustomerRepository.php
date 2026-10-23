@@ -430,6 +430,27 @@ class CustomerRepository
             ];
         }
 
+        // Save the phone's FCM token with the new customer_id, so pushes
+        // (e.g. "account approved") reach the customer before their first login.
+        $deviceTokenSaved = false;
+
+        if (!empty($data['fcm_token'])) {
+            try {
+                $this->saveCustomerDeviceToken(
+                    (int) $customer->id,
+                    $data['fcm_token'],
+                    $data['platform'] ?? 'android',
+                    $data['lang'] ?? 'en',
+                    $data['device_name'] ?? null
+                );
+
+                $deviceTokenSaved = true;
+            } catch (Throwable $e) {
+                // The account exists; a token problem must not fail sign-up.
+                report($e);
+            }
+        }
+
         $customerAccount = [
             'username' => $customer->username,
             'full_name' => $customer->full_name,
@@ -441,6 +462,7 @@ class CustomerRepository
             'gender' => $customer->gender,
             'city' => $customer->city,
             'address' => $customer->address,
+            'device_token_saved' => $deviceTokenSaved,
         ];
 
         return [
