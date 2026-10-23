@@ -19,6 +19,11 @@
     RewriteCond %{HTTP:x-xsrf-token} .
     RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
 
+    # App Links / Universal Links verification files are Laravel routes. cPanel often
+    # creates a real public/.well-known folder (for SSL); route these two files to
+    # Laravel first so they always answer 200 with JSON and never redirect.
+    RewriteRule ^\.well-known/(assetlinks\.json|apple-app-site-association)$ index.php [L]
+
     # public/admin and public/company are real folders (CSS/JS/images), so Apache
     # used to answer /admin and /company itself (403 Forbidden / 404) instead of
     # Laravel. Send those exact URLs to Laravel; files inside them still load normally.

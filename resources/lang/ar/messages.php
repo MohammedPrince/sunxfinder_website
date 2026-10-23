@@ -507,6 +507,13 @@ return [
     'Subject' => 'الموضوع',
     'Message' => 'الرسالة',
     'Send message' => 'إرسال الرسالة',
+    // Open in App (company page)
+    'Open in App' => 'افتح في التطبيق',
+    'Opening the SunXFinder app…' => 'جارٍ فتح تطبيق SunXFinder…',
+    'If the app did not open, choose an option below.' => 'إذا لم يُفتح التطبيق، اختر أحد الخيارات أدناه.',
+    'Get the app' => 'حمّل التطبيق',
+    'Continue on website' => 'المتابعة على الموقع',
+
     'e.g. Mohammed Ahmed' => 'مثال: محمد أحمد',
     'e.g. name@example.com' => 'مثال: name@example.com',
     'e.g. 0912345678' => 'مثال: 0912345678',

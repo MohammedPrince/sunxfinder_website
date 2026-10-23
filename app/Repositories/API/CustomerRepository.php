@@ -781,6 +781,22 @@ class CustomerRepository
         }
     }
 
+    /** Same as getCompany(), looked up by the slug from a website "Open in App" link. */
+    public function getCompanyBySlug(string $slug): array
+    {
+        $id = $this->helper->visibleCompanies()->where('slug', $slug)->value('id');
+
+        if (!$id) {
+            return [
+                'success' => false,
+                'code' => 404,
+                'message' => 'Company not found.',
+            ];
+        }
+
+        return $this->getCompany((int) $id);
+    }
+
     public function getCompany(int $id): array
     {
         try {

@@ -54,6 +54,11 @@ class CustomerService
         return $this->customerRepository->getCompany($id);
     }
 
+    public function getCompanyBySlug(string $slug): array
+    {
+        return $this->customerRepository->getCompanyBySlug($slug);
+    }
+
     public function getServices()
     {
         return $this->customerRepository->getServices();

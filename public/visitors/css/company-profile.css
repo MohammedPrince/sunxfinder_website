@@ -180,6 +180,21 @@
     background: rgba(255, 255, 255, .08);
 }
 
+/* Desktop "View services": orange outline, fills orange on hover */
+.company-profile-actions .btn-services {
+    border: 1.5px solid #fc5202;
+    color: #fc5202;
+    background: #fff;
+    font-weight: 700;
+    transition: background .2s, color .2s;
+}
+
+.company-profile-actions .btn-services:hover,
+.company-profile-actions .btn-services:focus-visible {
+    background: #fc5202;
+    color: #fff;
+}
+
 .company-profile-content {
     background: #f6f8fb;
 }

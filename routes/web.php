@@ -20,6 +20,14 @@ Route::controller(WebsiteController::class)->group(function () {
     Route::get('/', 'index')->name('home');
     Route::get('/companies/{slug}', 'showCompany')->name('company-profile.show');
 
+    // "Open in App": opens the company in the mobile app, or falls back to the store/website.
+    // Also the App Link / Universal Link path the app registers for.
+    Route::get('/open/companies/{slug}', 'openCompanyInApp')->name('app.company');
+
+    // Domain verification files for Android App Links and iOS Universal Links
+    Route::get('/.well-known/assetlinks.json', 'androidAssetLinks')->name('app.assetlinks');
+    Route::get('/.well-known/apple-app-site-association', 'appleAppSiteAssociation')->name('app.aasa');
+
     // Home page "Contact us" form (emails info@sunxfinder.com)
     Route::post('/contact', 'sendContactMessage')->middleware('throttle:5,1')->name('contact.send');
 

@@ -32,6 +32,8 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
         Route::get('/cities', [MainController::class, 'getCities'])->middleware('throttle:60,1');
         Route::get('/companies', [MainController::class, 'getCompanies'])->middleware('throttle:60,1');
         Route::get('/companies/{id}', [MainController::class, 'getCompany'])->whereNumber('id')->middleware('throttle:60,1');
+        // For "Open in App" links from the website: sunxfinder://company/{slug}
+        Route::get('/companies/slug/{slug}', [MainController::class, 'getCompanyBySlug'])->where('slug', '[A-Za-z0-9-]+')->middleware('throttle:60,1');
         Route::get('/services', [MainController::class, 'getServices'])->middleware('throttle:60,1');
         Route::get('/carousels', [MainController::class, 'getCarousels'])->middleware('throttle:60,1');
         Route::get('/calculator-items', [MainController::class, 'appliancesCalculator'])->middleware('throttle:60,1');

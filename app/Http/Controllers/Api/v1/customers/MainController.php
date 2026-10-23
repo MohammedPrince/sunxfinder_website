@@ -364,6 +364,29 @@ class MainController extends Controller
         ], $result['code']);
     }
 
+    /** Company by slug, for "Open in App" links (sunxfinder://company/{slug}). Same payload as /companies/{id}. */
+    public function getCompanyBySlug(string $slug)
+    {
+        $result = $this->customerService->getCompanyBySlug($slug);
+
+        if ($result['success']) {
+            return response()->json([
+                'status' => 'success',
+                'code' => $result['code'],
+                'message' => $result['message'],
+                'data' => [
+                    'company' => $result['company'],
+                ],
+            ], $result['code']);
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'code' => $result['code'],
+            'error' => $result['message'],
+        ], $result['code']);
+    }
+
     public function getServices()
     {
         $result = $this->customerService->getServices();

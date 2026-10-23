@@ -44,6 +44,89 @@ class WebsiteController extends Controller
         ));
     }
 
+    /**
+     * "Open in App" for a company page. When the app is installed and App/Universal
+     * Links are set up, the phone opens the app before this page even loads. Otherwise
+     * this page tries the app's link scheme and falls back to the store or the website.
+     */
+    public function openCompanyInApp(Request $request, string $slug)
+    {
+        $company = $this->mainService->getCompanyBySlug($slug);
+
+        abort_if(!$company, 404);
+
+        $app = config('services.mobile_app');
+        $storeLinks = $this->mainService->getAppDownloadLinks();
+        $userAgent = (string) $request->userAgent();
+
+        $platform = match (true) {
+            (bool) preg_match('/android/i', $userAgent) => 'android',
+            (bool) preg_match('/iphone|ipad|ipod/i', $userAgent) => 'ios',
+            default => 'other',
+        };
+
+        $profileUrl = route('company-profile.show', ['slug' => $company->slug, 'lang' => app()->getLocale()]);
+        $storeUrl = $storeLinks[$platform] ?? null;
+        $fallbackUrl = $storeUrl ?: $profileUrl;
+
+        // sunxfinder://company/{slug}
+        $schemeUrl = $app['scheme'] . '://company/' . rawurlencode($company->slug);
+
+        // Android Chrome opens the app if installed, otherwise goes to the fallback by itself.
+        $intentUrl = 'intent://company/' . rawurlencode($company->slug) . '#Intent;scheme=' . $app['scheme']
+            . ($app['android_package'] ? ';package=' . $app['android_package'] : '')
+            . ';S.browser_fallback_url=' . rawurlencode($fallbackUrl) . ';end';
+
+        return view('visitors.open-in-app', compact(
+            'company',
+            'platform',
+            'schemeUrl',
+            'intentUrl',
+            'storeUrl',
+            'profileUrl'
+        ));
+    }
+
+    /** Android App Links verification. Empty until ANDROID_PACKAGE_NAME is set. */
+    public function androidAssetLinks()
+    {
+        $app = config('services.mobile_app');
+
+        $fingerprints = collect(explode(',', (string) $app['android_sha256']))
+            ->map(fn($fingerprint) => strtoupper(trim($fingerprint)))
+            ->filter()
+            ->values()
+            ->all();
+
+        $statements = $app['android_package'] && $fingerprints
+            ? [[
+                'relation' => ['delegate_permission/common.handle_all_urls'],
+                'target' => [
+                    'namespace' => 'android_app',
+                    'package_name' => $app['android_package'],
+                    'sha256_cert_fingerprints' => $fingerprints,
+                ],
+            ]]
+            : [];
+
+        return response()->json($statements, 200, [], JSON_UNESCAPED_SLASHES);
+    }
+
+    /** iOS Universal Links verification. Lists no apps until IOS_APP_ID is set. */
+    public function appleAppSiteAssociation()
+    {
+        $appId = config('services.mobile_app.ios_app_id');
+
+        return response()->json([
+            'applinks' => [
+                'details' => $appId ? [[
+                    'appIDs' => [$appId],
+                    'components' => [['/' => '/open/*', 'comment' => 'Open in App links']],
+                ]] : [],
+            ],
+        ], 200, [], JSON_UNESCAPED_SLASHES);
+    }
+
     /** Home page "Contact us" form: emails the message to info@sunxfinder.com. */
     public function sendContactMessage(Request $request)
     {

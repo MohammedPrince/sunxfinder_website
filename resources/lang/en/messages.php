@@ -453,6 +453,13 @@ return [
     'Subject' => 'Subject',
     'Message' => 'Message',
     'Send message' => 'Send message',
+    // Open in App (company page)
+    'Open in App' => 'Open in App',
+    'Opening the SunXFinder app…' => 'Opening the SunXFinder app…',
+    'If the app did not open, choose an option below.' => 'If the app did not open, choose an option below.',
+    'Get the app' => 'Get the app',
+    'Continue on website' => 'Continue on website',
+
     'e.g. Mohammed Ahmed' => 'e.g. Mohammed Ahmed',
     'e.g. name@example.com' => 'e.g. name@example.com',
     'e.g. 0912345678' => 'e.g. 0912345678',

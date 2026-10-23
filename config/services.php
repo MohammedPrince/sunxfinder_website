@@ -42,6 +42,18 @@ return [
         'driver' => env('SMS_DRIVER', 'log'),
     ],
 
+    // "Open in App" deep links (website company page -> mobile app).
+    // The app opens sunxfinder://company/{slug} and https://<site>/open/companies/{slug}.
+    'mobile_app' => [
+        'scheme' => env('APP_DEEP_LINK_SCHEME', 'sunxfinder'),
+        // Android App Links (/.well-known/assetlinks.json)
+        'android_package' => env('ANDROID_PACKAGE_NAME'),
+        // Comma-separated SHA-256 signing certificate fingerprints (Play Console > App integrity)
+        'android_sha256' => env('ANDROID_SHA256_FINGERPRINTS'),
+        // iOS Universal Links (/.well-known/apple-app-site-association): "TEAMID.bundle.id"
+        'ios_app_id' => env('IOS_APP_ID'),
+    ],
+
     // Push notification sound. The file must be bundled in the mobile app:
     // Android res/raw/<sound>.wav (and a channel with that sound), iOS <sound>.wav.
     'fcm' => [

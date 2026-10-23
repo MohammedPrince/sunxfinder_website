@@ -3,8 +3,8 @@
 @section('content')
 
     <div class="company-profile-page">
-        <section class="company-cover {{ $companyCover ? 'has-cover' : '' }}"
-            @if ($companyCover) style="--company-cover:url('{{ $companyCover }}')" @endif>
+        <section class="company-cover {{ $companyCover ? 'has-cover' : '' }}" @if ($companyCover)
+        style="--company-cover:url('{{ $companyCover }}')" @endif>
 
             <div class="container company-cover-inner" style="direction:ltr">
                 <a class="company-back-link" href="{{ url('/') }}?lang={{ app()->getLocale() }}#companies">
@@ -59,7 +59,7 @@
                     </div>
 
                     <div class="company-profile-actions" dir="ltr">
-                        @if ($companyEmail)
+                        {{-- @if ($companyEmail)
                             <a class="btn btn-primary"
                                 href="mailto:{{ $companyEmail }}?subject={{ rawurlencode('Solar project inquiry - ' . $companyName) }}">
                                 {{ trans('messages.Contact company') }}
@@ -69,9 +69,24 @@
                                 href="mailto:hello@sunxfinder.com?subject={{ rawurlencode('Contact request for ' . $companyName) }}">
                                 {{ trans('messages.Request contact') }}
                             </a>
+                        @endif --}}
+
+                        @php $isMobileDevice = (bool) preg_match('/android|iphone|ipad|ipod/i', (string) request()->userAgent()); @endphp
+
+                        {{-- Phones and tablets only: open this company in the SunXFinder app --}}
+                        @if ($isMobileDevice)
+                            <a class="btn btn-quiet" href="{{ route('app.company', ['slug' => $company->slug]) }}">
+                                📱 {{ trans('messages.Open in App') }}
+                            </a>
+
+                            {{-- Laptops/PCs: no app button, so "View services" is the orange second action --}}
+                            <a class="btn btn-quiet {{ $isMobileDevice ? '' : 'btn-services' }}" href="#company-services">
+                                {{ trans('messages.View services') }}
+                            </a>
                         @endif
 
-                        <a class="btn btn-quiet" href="#company-services">
+                        {{-- Laptops/PCs: no app button, so "View services" is the orange second action --}}
+                        <a class="btn btn-quiet {{ $isMobileDevice ? '' : 'btn-services' }}" href="#company-services">
                             {{ trans('messages.View services') }}
                         </a>
                     </div>
@@ -87,7 +102,8 @@
                     <section class="profile-panel" id="company-about">
                         <span class="eyebrow">{{ trans('messages.COMPANY OVERVIEW') }}</span>
                         <h2 style="text-align:left;"> <em>{{ $companyName }}</em></h2>
-                        <p class="company-about-copy">{!! \Mews\Purifier\Facades\Purifier::clean($companyDescription) !!}</p>
+                        <p class="company-about-copy">{!! \Mews\Purifier\Facades\Purifier::clean($companyDescription) !!}
+                        </p>
                         <div class="company-facts">
                             <div class="company-fact"><span class="fact-icon">☀</span>
                                 <div>
@@ -122,7 +138,7 @@
                         @endif
                     </section>
 
-                   
+
                     <section class="profile-panel" id="company-products">
                         <span class="eyebrow">
                             {{ trans('messages.PRODUCT CATALOG') }}
@@ -135,9 +151,9 @@
                                 @foreach ($companyProducts as $product)
                                     <article class="company-product-card">
                                         <div class="company-product-icon" aria-hidden="true">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28"
-                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-                                                stroke-linecap="round" stroke-linejoin="round">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"
+                                                fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+                                                stroke-linejoin="round">
                                                 <path d="m21 8-9-5-9 5" />
                                                 <path d="m3 8 9 5 9-5" />
                                                 <path d="M12 13v9" />
@@ -192,7 +208,7 @@
                             </p>
                         @endif
                     </section>
-                
+
 
                     <section class="profile-panel" id="company-reviews">
                         <span class="eyebrow">{{ trans('messages.CUSTOMER FEEDBACK') }}</span>
@@ -244,17 +260,18 @@
                         @if ($companyWebsite)
                             <div class="contact-detail">
                                 <div><small>{{ trans('messages.Website') }}</small><a href="{{ $companyWebsite }}"
-                                        target="_blank"
-                                        rel="noopener noreferrer">{{ trans('messages.Visit website') }}</a>
+                                        target="_blank" rel="noopener noreferrer">{{ trans('messages.Visit website') }}</a>
                                 </div>
                             </div>
                         @endif
 
                         {{-- <a class="btn btn-primary contact-full-btn"
-                            href="mailto:{{ $companyEmail ?: 'hello@sunxfinder.com' }}?subject={{ rawurlencode('Solar project inquiry - ' . $companyName) }}">{{ trans('messages.Send an inquiry') }}
+                            href="mailto:{{ $companyEmail ?: 'hello@sunxfinder.com' }}?subject={{ rawurlencode('Solar project inquiry - ' . $companyName) }}">{{
+                            trans('messages.Send an inquiry') }}
                         </a>
                         <p class="company-disclaimer">
-                            {{ trans('messages.Contact details are provided for project inquiries. Confirm scope, pricing, and terms directly with the company.') }}
+                            {{ trans('messages.Contact details are provided for project inquiries. Confirm scope, pricing,
+                            and terms directly with the company.') }}
                         </p> --}}
 
                         {{-- Company Social Media Links --}}
@@ -299,8 +316,7 @@
                                             @endphp
 
                                             @if ($host && in_array(strtolower($host), $allowedHosts, true))
-                                                <a href="{{ $url }}" target="_blank" rel="noopener noreferrer"
-                                                    class="company-social-link">
+                                                <a href="{{ $url }}" target="_blank" rel="noopener noreferrer" class="company-social-link">
                                                     {{ ucfirst(str_replace('www.', '', $host)) }}
                                                     <span aria-hidden="true">↗</span>
                                                 </a>
