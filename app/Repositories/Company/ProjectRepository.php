@@ -2,6 +2,7 @@
 
 namespace App\Repositories\Company;
 
+use App\Helpers\Helper;
 use App\Models\Project;
 use App\Models\ProjectMilestone;
 use App\Models\ProjectUpdate;
@@ -12,6 +13,10 @@ use Illuminate\Support\Facades\DB;
 
 class ProjectRepository
 {
+    public function __construct(private Helper $helper)
+    {
+    }
+
     private function authenticatedCompanyId(): int
     {
         $company = Auth::guard('company')->user();
@@ -99,8 +104,9 @@ class ProjectRepository
     public function updateProgress(int $projectId, array $data): Project
     {
         $companyId = $this->authenticatedCompanyId();
+        $oldStatus = null;
 
-        return DB::transaction(function () use ($projectId, $companyId, $data) {
+        $project = DB::transaction(function () use ($projectId, $companyId, $data, &$oldStatus) {
             $project = Project::query()
                 ->where('company_id', $companyId)
                 ->whereKey($projectId)
@@ -393,6 +399,13 @@ class ProjectRepository
                 'updates',
             ]);
         });
+
+        // "Start Installation" pressed: notify the customer after commit.
+        if ($oldStatus === 'accepted' && $project->status === 'in_progress') {
+            $this->helper->notifyCustomerInstallationStarted($project);
+        }
+
+        return $project;
     }
 
 

@@ -1505,7 +1505,7 @@ class CompanyRepository
             ]);
 
             try {
-                $message = CloudMessage::new()
+                $message = Helper::withNotificationSound(CloudMessage::new())
                     ->toToken($device->fcm_token)
                     ->withNotification(
                         FcmNotification::create($title, $body)

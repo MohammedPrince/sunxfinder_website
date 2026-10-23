@@ -7,7 +7,10 @@ use Illuminate\Support\Str;
 use App\Models\Product;
 use App\Models\ProductSpec;
 use App\Models\CompanyQuotation;
+use App\Models\CustomerDeviceToken;
+use App\Models\Project;
 use App\Repositories\Company\CompanyRepository;
+use Kreait\Firebase\Messaging\CloudMessage;
 use Throwable;
 
 
@@ -196,7 +199,7 @@ class Helper
 
     /**
      * Builds the push title/body for a customer in the app language.
-     * Supported types: offer_new, offer_updated. $price is shown as given
+     * Supported types: offer_new, offer_updated, start_installation. $price is shown as given
      * (e.g. "1,500 SDG").
      */
     public function notificationsTemplate($customer_id, $lang, $type, $price = null): array
@@ -235,6 +238,16 @@ class Helper
                         : 'تم تحديث عرض السعر على طلبك.',
                 ],
             ],
+            'start_installation' => [
+                'en' => [
+                    'title' => 'Installation started',
+                    'body' => 'The installation of your solar system has started. You can follow its progress in the app.',
+                ],
+                'ar' => [
+                    'title' => 'بدأ التركيب',
+                    'body' => 'بدأ تركيب نظامك الشمسي. يمكنك متابعة مراحل التقدم من التطبيق.',
+                ],
+            ],
         ];
 
         $template = $templates[$type][$lang] ?? [
@@ -268,15 +281,70 @@ class Helper
 
         $price = number_format((float) $quotation->price) . ' ' . $quotation->currency;
 
-        $en = $this->notificationsTemplate($quotation->customer_id, 'en', $type, $price);
-        $ar = $this->notificationsTemplate($quotation->customer_id, 'ar', $type, $price);
+        $this->notifyCustomer((int) $quotation->customer_id, $type, $price);
+    }
+
+    /**
+     * Push notification to the customer that installation has started.
+     * Skipped when the customer has no device token registered.
+     */
+    public function notifyCustomerInstallationStarted(Project $project): void
+    {
+        if (!$project->customer_id) {
+            return;
+        }
+
+        $hasToken = CustomerDeviceToken::query()
+            ->where('customer_id', $project->customer_id)
+            ->exists();
+
+        if (!$hasToken) {
+            return;
+        }
+
+        $this->notifyCustomer((int) $project->customer_id, 'start_installation');
+    }
+
+    /**
+     * Adds the SunXFinder notification sound to a push message.
+     * Android plays it through the channel; iOS needs the file extension.
+     */
+    public static function withNotificationSound(CloudMessage $message): CloudMessage
+    {
+        $sound = config('services.fcm.sound');
+
+        return $message
+            ->withAndroidConfig([
+                'priority' => 'high',
+                'notification' => [
+                    'sound' => $sound,
+                    'channel_id' => config('services.fcm.android_channel_id'),
+                ],
+            ])
+            ->withApnsConfig([
+                'payload' => [
+                    'aps' => [
+                        'sound' => $sound . '.wav',
+                    ],
+                ],
+            ]);
+    }
+
+    /**
+     * Saves the notification for the customer and pushes it to their devices,
+     * each in its own app language. A failed push never throws.
+     */
+    public function notifyCustomer(int $customerId, string $type, $price = null): void
+    {
+        $en = $this->notificationsTemplate($customerId, 'en', $type, $price);
+        $ar = $this->notificationsTemplate($customerId, 'ar', $type, $price);
 
         try {
             // Resolved here, not injected: CompanyRepository already depends on Helper.
             app(CompanyRepository::class)->publishNotification([
                 'type' => $type,
                 'audience_type' => 'selected',
-                'customer_ids' => [(int) $quotation->customer_id],
+                'customer_ids' => [$customerId],
                 'title_en' => $en['title'],
                 'message_en' => $en['body'],
                 'title_ar' => $ar['title'],

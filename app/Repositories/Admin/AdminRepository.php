@@ -31,6 +31,7 @@ use Illuminate\Database\Eloquent\Builder;
 use App\Models\CustomerDeviceToken;
 use Kreait\Firebase\Contract\Messaging;
 use Kreait\Firebase\Messaging\CloudMessage;
+use App\Helpers\Helper;
 use Kreait\Firebase\Messaging\Notification as FcmNotification;
 
 class AdminRepository
@@ -2286,7 +2287,7 @@ class AdminRepository
             ]);
 
             try {
-                $message = CloudMessage::new()
+                $message = Helper::withNotificationSound(CloudMessage::new())
                     ->toToken($device->fcm_token)
                     ->withNotification(
                         FcmNotification::create($title, $body)

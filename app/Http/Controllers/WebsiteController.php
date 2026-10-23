@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\Helper;
 use App\Services\MainService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -372,7 +373,7 @@ class WebsiteController extends Controller
     {
         $token = 'fb0CWo-WSYCaZL00Q1Bwp0:APA91bEiHmF6MsgrHQDBqxOz3Qa7Zb4U9FX6wJWVw9_KGRHBB4RuD3MXuAzpdUNcLjYGJmHHpzGuLrzUEE5wEiVH0makP2ubr8jfnNZuUKz7srYq6qxFnTs';
 
-        $message = CloudMessage::new()
+        $message = Helper::withNotificationSound(CloudMessage::new())
             ->toToken($token)
             ->withNotification(
                 FcmNotification::create(

@@ -42,4 +42,11 @@ return [
         'driver' => env('SMS_DRIVER', 'log'),
     ],
 
+    // Push notification sound. The file must be bundled in the mobile app:
+    // Android res/raw/<sound>.wav (and a channel with that sound), iOS <sound>.wav.
+    'fcm' => [
+        'sound' => env('FCM_SOUND', 'sunxfinder_soft_notification'),
+        'android_channel_id' => env('FCM_ANDROID_CHANNEL_ID', 'sunxfinder_notifications'),
+    ],
+
 ];
