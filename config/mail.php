@@ -147,6 +147,9 @@ return [
         'name' => env('MAIL_RESET_FROM_NAME', env('MAIL_FROM_NAME', 'SunXFinder')),
     ],
 
+    // Inbox that receives the website "Contact us" form.
+    'contact_address' => env('MAIL_CONTACT_ADDRESS', 'info@sunxfinder.com'),
+
     // No-reply sender for offer decision emails (see the "offer" mailer).
     'offer_from' => [
         'address' => env('MAIL_OFFER_FROM_ADDRESS', 'offer@sunxfinder.com'),

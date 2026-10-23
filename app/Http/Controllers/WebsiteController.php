@@ -44,6 +44,46 @@ class WebsiteController extends Controller
         ));
     }
 
+    /** Home page "Contact us" form: emails the message to info@sunxfinder.com. */
+    public function sendContactMessage(Request $request)
+    {
+        // Back to the form on the home page, in the visitor's language.
+        $backToForm = route('home', ['lang' => app()->getLocale()]) . '#contact';
+
+        $validator = Validator::make($request->all(), [
+            'name' => ['required', 'string', 'min:2', 'max:100'],
+            'email' => ['required', 'email', 'max:150'],
+            'phone' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+\s()-]+$/'],
+            'sender_type' => ['required', Rule::in(['customer', 'company', 'other'])],
+            'subject' => ['required', 'string', 'min:3', 'max:150'],
+            'message' => ['required', 'string', 'min:10', 'max:3000'],
+            // Honeypot: hidden from people, filled in by spam bots.
+            'website' => ['nullable', 'max:0'],
+        ], [], [
+            'name' => trans('messages.Full name'),
+            'email' => trans('messages.Email address'),
+            'phone' => trans('messages.Phone number'),
+            'sender_type' => trans('messages.I am a'),
+            'subject' => trans('messages.Subject'),
+            'message' => trans('messages.Message'),
+        ]);
+
+        if ($validator->fails()) {
+            // A filled honeypot is a bot: pretend it worked.
+            if ($validator->errors()->has('website')) {
+                return redirect()->to($backToForm)->with('contact_success', true);
+            }
+
+            return redirect()->to($backToForm)->withErrors($validator, 'contact')->withInput();
+        }
+
+        $result = $this->mainService->sendContactMessage($validator->validated());
+
+        return $result['success']
+            ? redirect()->to($backToForm)->with('contact_success', true)
+            : redirect()->to($backToForm)->withInput()->with('contact_error', true);
+    }
+
     public function registerCompany()
     {
         return view('visitors.create-company-account');

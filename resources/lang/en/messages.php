@@ -433,4 +433,26 @@ return [
     //Others
     'username' => 'Username',
 
+    // Home page: Contact us
+    'Contact us' => 'Contact us',
+    'We are here to help' => 'We are here to help',
+    'Have a question about a quote, a company or your account? Send us a message and our team will get back to you by email.' => 'Have a question about a quote, a company or your account? Send us a message and our team will get back to you by email.',
+    'Email us' => 'Email us',
+    'We usually reply within 1 business day.' => 'We usually reply within 1 business day.',
+    'You can write in Arabic or English.' => 'You can write in Arabic or English.',
+    'Thank you! Your message has been sent.' => 'Thank you! Your message has been sent.',
+    'We will reply to your email as soon as possible.' => 'We will reply to your email as soon as possible.',
+    'Your message could not be sent.' => 'Your message could not be sent.',
+    'Please try again, or email us directly at' => 'Please try again, or email us directly at',
+    'Please check the highlighted fields.' => 'Please check the highlighted fields.',
+    'Full name' => 'Full name',
+    'optional' => 'optional',
+    'I am a' => 'I am a',
+    'Customer / homeowner' => 'Customer / homeowner',
+    'Solar company' => 'Solar company',
+    'Other' => 'Other',
+    'Subject' => 'Subject',
+    'Message' => 'Message',
+    'Send message' => 'Send message',
+
 ];

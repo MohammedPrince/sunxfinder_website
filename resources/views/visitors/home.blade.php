@@ -401,6 +401,131 @@
         </div>
     </section>
 
+    {{-- ============ Contact us ============ --}}
+    @php
+        $contactEmail = config('mail.contact_address', 'info@sunxfinder.com');
+        $contactErrors = $errors->getBag('contact');
+    @endphp
+    <section class="hx-section hx-contact" id="contact">
+        <div class="container hx-contact-grid">
+            <div class="hx-contact-info">
+                <span class="hx-kicker">{{ __('messages.Contact us') }}</span>
+                <h2>{{ __('messages.We are here to help') }}</h2>
+                <p>{{ __('messages.Have a question about a quote, a company or your account? Send us a message and our team will get back to you by email.') }}</p>
+
+                <a class="hx-contact-card" href="mailto:{{ $contactEmail }}">
+                    <span class="hx-contact-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="5" width="18" height="14" rx="2" />
+                            <path d="m3 7 9 6 9-6" />
+                        </svg>
+                    </span>
+                    <span>
+                        <small>{{ __('messages.Email us') }}</small>
+                        <strong dir="ltr">{{ $contactEmail }}</strong>
+                    </span>
+                </a>
+
+                <ul class="hx-contact-points">
+                    <li>{{ __('messages.We usually reply within 1 business day.') }}</li>
+                    <li>{{ __('messages.You can write in Arabic or English.') }}</li>
+                </ul>
+            </div>
+
+            <div class="hx-contact-form-card">
+                @if (session('contact_success'))
+                    <div class="hx-contact-alert hx-contact-alert-success" role="status">
+                        <strong>{{ __('messages.Thank you! Your message has been sent.') }}</strong>
+                        <span>{{ __('messages.We will reply to your email as soon as possible.') }}</span>
+                    </div>
+                @elseif (session('contact_error'))
+                    <div class="hx-contact-alert hx-contact-alert-error" role="alert">
+                        <strong>{{ __('messages.Your message could not be sent.') }}</strong>
+                        <span>{{ __('messages.Please try again, or email us directly at') }} <a href="mailto:{{ $contactEmail }}" dir="ltr">{{ $contactEmail }}</a>.</span>
+                    </div>
+                @elseif ($contactErrors->any())
+                    <div class="hx-contact-alert hx-contact-alert-error" role="alert">
+                        <strong>{{ __('messages.Please check the highlighted fields.') }}</strong>
+                    </div>
+                @endif
+
+                <form method="POST" action="{{ route('contact.send', ['lang' => $locale]) }}" class="hx-contact-form" novalidate>
+                    @csrf
+
+                    {{-- Honeypot: hidden from people, bots fill it in. --}}
+                    <div class="hx-contact-hp" aria-hidden="true">
+                        <label for="contact_website">Website</label>
+                        <input type="text" id="contact_website" name="website" tabindex="-1" autocomplete="off">
+                    </div>
+
+                    <div class="hx-contact-row">
+                        <div class="hx-field {{ $contactErrors->has('name') ? 'has-error' : '' }}">
+                            <label for="contact_name">{{ __('messages.Full name') }} <b>*</b></label>
+                            <input id="contact_name" type="text" name="name" value="{{ old('name') }}" maxlength="100"
+                                autocomplete="name" required>
+                            @if ($contactErrors->has('name'))
+                                <small>{{ $contactErrors->first('name') }}</small>
+                            @endif
+                        </div>
+
+                        <div class="hx-field {{ $contactErrors->has('email') ? 'has-error' : '' }}">
+                            <label for="contact_email">{{ __('messages.Email address') }} <b>*</b></label>
+                            <input id="contact_email" type="email" name="email" value="{{ old('email') }}" maxlength="150"
+                                autocomplete="email" dir="ltr" required>
+                            @if ($contactErrors->has('email'))
+                                <small>{{ $contactErrors->first('email') }}</small>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="hx-contact-row">
+                        <div class="hx-field {{ $contactErrors->has('phone') ? 'has-error' : '' }}">
+                            <label for="contact_phone">{{ __('messages.Phone number') }} <span>({{ __('messages.optional') }})</span></label>
+                            <input id="contact_phone" type="tel" name="phone" value="{{ old('phone') }}" maxlength="20"
+                                autocomplete="tel" dir="ltr">
+                            @if ($contactErrors->has('phone'))
+                                <small>{{ $contactErrors->first('phone') }}</small>
+                            @endif
+                        </div>
+
+                        <div class="hx-field {{ $contactErrors->has('sender_type') ? 'has-error' : '' }}">
+                            <label for="contact_sender_type">{{ __('messages.I am a') }} <b>*</b></label>
+                            <select id="contact_sender_type" name="sender_type" required>
+                                @foreach (['customer' => __('messages.Customer / homeowner'), 'company' => __('messages.Solar company'), 'other' => __('messages.Other')] as $value => $label)
+                                    <option value="{{ $value }}" @selected(old('sender_type', 'customer') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            @if ($contactErrors->has('sender_type'))
+                                <small>{{ $contactErrors->first('sender_type') }}</small>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="hx-field {{ $contactErrors->has('subject') ? 'has-error' : '' }}">
+                        <label for="contact_subject">{{ __('messages.Subject') }} <b>*</b></label>
+                        <input id="contact_subject" type="text" name="subject" value="{{ old('subject') }}" maxlength="150" required>
+                        @if ($contactErrors->has('subject'))
+                            <small>{{ $contactErrors->first('subject') }}</small>
+                        @endif
+                    </div>
+
+                    <div class="hx-field {{ $contactErrors->has('message') ? 'has-error' : '' }}">
+                        <label for="contact_message">{{ __('messages.Message') }} <b>*</b></label>
+                        <textarea id="contact_message" name="message" rows="5" maxlength="3000" required>{{ old('message') }}</textarea>
+                        @if ($contactErrors->has('message'))
+                            <small>{{ $contactErrors->first('message') }}</small>
+                        @endif
+                    </div>
+
+                    <button type="submit" class="hx-btn hx-btn-primary hx-contact-submit">
+                        {{ __('messages.Send message') }}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
+
     {{-- ============ Final call to action ============ --}}
     <section class="hx-final" id="start">
         <div class="container hx-final-panel">

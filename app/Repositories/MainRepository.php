@@ -4,6 +4,8 @@ namespace App\Repositories;
 
 use App\Helpers\Helper;
 use App\Jobs\SendCustomerWelcomeEmail;
+use App\Mail\ContactMessageMail;
+use Illuminate\Support\Facades\Mail;
 use App\Models\AppVersion;
 use App\Models\CompanyCarousel;
 use App\Models\Customer;
@@ -205,6 +207,39 @@ class MainRepository
     }
 
     /** Store links of the customer app, keyed by platform (android / ios). Empty when none is set. */
+    /**
+     * Emails a website "Contact us" message to info@sunxfinder.com (queued, so the
+     * visitor doesn't wait on SMTP). Reply-To is the visitor's email.
+     */
+    public function sendContactMessage(array $data): array
+    {
+        $senderTypes = [
+            'customer' => 'Customer / homeowner',
+            'company' => 'Solar company',
+            'other' => 'Other',
+        ];
+
+        try {
+            Mail::to(config('mail.contact_address'))->queue(new ContactMessageMail([
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'phone' => $data['phone'] ?? null,
+                'sender_type_label' => $senderTypes[$data['sender_type']] ?? 'Other',
+                'subject' => $data['subject'],
+                'message' => $data['message'],
+                'lang' => app()->getLocale(),
+                'ip' => request()->ip(),
+                'sent_at' => now()->format('d M Y, H:i'),
+            ]));
+
+            return ['success' => true];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false];
+        }
+    }
+
     public function getAppDownloadLinks(): array
     {
         return AppVersion::query()

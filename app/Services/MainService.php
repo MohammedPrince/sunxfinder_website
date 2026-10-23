@@ -65,6 +65,11 @@ class MainService
         return $this->mainRepository->getWebsiteCompanyCarousel();
     }
 
+    public function sendContactMessage(array $data): array
+    {
+        return $this->mainRepository->sendContactMessage($data);
+    }
+
     public function getAppDownloadLinks(): array
     {
         return $this->mainRepository->getAppDownloadLinks();

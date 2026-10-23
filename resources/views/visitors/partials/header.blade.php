@@ -28,6 +28,8 @@
 
             <a href="{{ $homeUrl }}#faq">{{ trans('messages.FAQ') }}</a>
 
+            <a href="{{ $homeUrl }}#contact">{{ trans('messages.Contact us') }}</a>
+
             <a class="btn btn-primary nav-cta" href="{{ route('customer.register', ['lang' => app()->getLocale()]) }}">
                 {{ trans('messages.Get free offers') }}
             </a>

@@ -20,6 +20,9 @@ Route::controller(WebsiteController::class)->group(function () {
     Route::get('/', 'index')->name('home');
     Route::get('/companies/{slug}', 'showCompany')->name('company-profile.show');
 
+    // Home page "Contact us" form (emails info@sunxfinder.com)
+    Route::post('/contact', 'sendContactMessage')->middleware('throttle:5,1')->name('contact.send');
+
     // Customer sign-up
     Route::get('/create-customer-account', 'registerCustomer')->name('customer.register');
     Route::post('/create-customer-account', 'storeCustomer')->name('customer.register.store');

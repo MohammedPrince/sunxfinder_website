@@ -487,4 +487,26 @@ return [
     //Others
     'username' => 'إسم المستخدم',
 
+    // Home page: Contact us
+    'Contact us' => 'تواصل معنا',
+    'We are here to help' => 'نحن هنا لمساعدتك',
+    'Have a question about a quote, a company or your account? Send us a message and our team will get back to you by email.' => 'لديك سؤال عن عرض سعر أو شركة أو حسابك؟ أرسل لنا رسالة وسيرد عليك فريقنا عبر البريد الإلكتروني.',
+    'Email us' => 'راسلنا عبر البريد',
+    'We usually reply within 1 business day.' => 'نرد عادةً خلال يوم عمل واحد.',
+    'You can write in Arabic or English.' => 'يمكنك الكتابة بالعربية أو الإنجليزية.',
+    'Thank you! Your message has been sent.' => 'شكراً لك! تم إرسال رسالتك.',
+    'We will reply to your email as soon as possible.' => 'سنرد على بريدك الإلكتروني في أقرب وقت ممكن.',
+    'Your message could not be sent.' => 'تعذّر إرسال رسالتك.',
+    'Please try again, or email us directly at' => 'يرجى المحاولة مرة أخرى، أو مراسلتنا مباشرة على',
+    'Please check the highlighted fields.' => 'يرجى مراجعة الحقول المحددة.',
+    'Full name' => 'الاسم الكامل',
+    'optional' => 'اختياري',
+    'I am a' => 'أنا',
+    'Customer / homeowner' => 'عميل / صاحب منزل',
+    'Solar company' => 'شركة طاقة شمسية',
+    'Other' => 'أخرى',
+    'Subject' => 'الموضوع',
+    'Message' => 'الرسالة',
+    'Send message' => 'إرسال الرسالة',
+
 ];

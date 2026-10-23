@@ -923,3 +923,234 @@ html[lang="ar"] .hx-kicker {
       transform: none;
    }
 }
+
+/* ---------- Contact us ---------- */
+
+.hx-contact {
+   background: linear-gradient(180deg, #fff 0%, #fffaf4 100%);
+}
+
+.hx-contact-grid {
+   display: grid;
+   grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+   gap: 48px;
+   align-items: start;
+}
+
+.hx-contact-info h2 {
+   margin: 12px 0 12px;
+   font-family: Manrope, Cairo, "DM Sans", sans-serif;
+   font-size: clamp(28px, 3.2vw, 38px);
+   line-height: 1.15;
+   letter-spacing: -0.02em;
+   color: var(--hx-navy);
+}
+
+.hx-contact-info > p {
+   margin: 0 0 24px;
+   font-size: 16px;
+   line-height: 1.7;
+   color: var(--hx-muted);
+}
+
+.hx-contact-card {
+   display: flex;
+   align-items: center;
+   gap: 14px;
+   padding: 16px 18px;
+   border: 2px solid var(--hx-line);
+   border-radius: var(--hx-radius);
+   background: #fff;
+   transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.hx-contact-card:hover,
+.hx-contact-card:focus-visible {
+   border-color: var(--hx-orange);
+   box-shadow: 0 12px 26px rgba(252, 82, 2, 0.12);
+   transform: translateY(-2px);
+   outline: none;
+}
+
+.hx-contact-icon {
+   display: grid;
+   place-items: center;
+   flex: 0 0 48px;
+   height: 48px;
+   border-radius: 14px;
+   background: var(--hx-orange-soft);
+   color: var(--hx-orange);
+}
+
+.hx-contact-card small {
+   display: block;
+   color: var(--hx-muted);
+   font-size: 13px;
+}
+
+.hx-contact-card strong {
+   display: block;
+   color: var(--hx-navy);
+   font-size: 18px;
+   word-break: break-all;
+}
+
+.hx-contact-points {
+   margin: 20px 0 0;
+   padding: 0;
+   list-style: none;
+   color: var(--hx-muted);
+   font-size: 14px;
+}
+
+.hx-contact-points li {
+   position: relative;
+   padding-inline-start: 26px;
+   margin-bottom: 10px;
+}
+
+.hx-contact-points li::before {
+   content: "✓";
+   position: absolute;
+   inset-inline-start: 0;
+   color: var(--hx-green);
+   font-weight: 700;
+}
+
+.hx-contact-form-card {
+   padding: 28px;
+   border: 1px solid var(--hx-line);
+   border-radius: 22px;
+   background: #fff;
+   box-shadow: 0 24px 60px rgba(11, 45, 92, 0.08);
+}
+
+.hx-contact-form {
+   display: grid;
+   gap: 16px;
+}
+
+.hx-contact-row {
+   display: grid;
+   grid-template-columns: 1fr 1fr;
+   gap: 16px;
+}
+
+.hx-field {
+   display: grid;
+   gap: 6px;
+}
+
+.hx-field label {
+   color: var(--hx-navy);
+   font-size: 14px;
+   font-weight: 700;
+}
+
+.hx-field label b {
+   color: var(--hx-orange);
+}
+
+.hx-field label span {
+   color: var(--hx-muted);
+   font-weight: 400;
+   font-size: 12px;
+}
+
+.hx-field input,
+.hx-field select,
+.hx-field textarea {
+   width: 100%;
+   padding: 12px 14px;
+   border: 1.5px solid #d6e1ee;
+   border-radius: 12px;
+   background: #fff;
+   color: var(--hx-ink);
+   font: inherit;
+   font-size: 15px;
+   transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.hx-field textarea {
+   resize: vertical;
+   min-height: 130px;
+}
+
+.hx-field input:focus,
+.hx-field select:focus,
+.hx-field textarea:focus {
+   border-color: var(--hx-orange);
+   box-shadow: 0 0 0 4px rgba(252, 82, 2, 0.12);
+   outline: none;
+}
+
+.hx-field.has-error input,
+.hx-field.has-error select,
+.hx-field.has-error textarea {
+   border-color: #d93025;
+}
+
+.hx-field small {
+   color: #d93025;
+   font-size: 13px;
+}
+
+.hx-contact-submit {
+   justify-self: start;
+   min-width: 200px;
+}
+
+.hx-contact-alert {
+   display: grid;
+   gap: 4px;
+   margin-bottom: 18px;
+   padding: 14px 16px;
+   border-radius: 14px;
+   font-size: 14px;
+}
+
+.hx-contact-alert-success {
+   background: var(--hx-green-soft);
+   color: #1d6b27;
+}
+
+.hx-contact-alert-error {
+   background: #fdecea;
+   color: #a5281c;
+}
+
+.hx-contact-alert a {
+   color: inherit;
+   font-weight: 700;
+   text-decoration: underline;
+}
+
+/* Honeypot: off-screen for people, still in the form for bots. */
+.hx-contact-hp {
+   position: absolute;
+   left: -9999px;
+   width: 1px;
+   height: 1px;
+   overflow: hidden;
+}
+
+@media (max-width: 1000px) {
+   .hx-contact-grid {
+      grid-template-columns: 1fr;
+      gap: 32px;
+   }
+}
+
+@media (max-width: 760px) {
+   .hx-contact-row {
+      grid-template-columns: 1fr;
+   }
+
+   .hx-contact-form-card {
+      padding: 20px;
+   }
+
+   .hx-contact-submit {
+      justify-self: stretch;
+   }
+}
