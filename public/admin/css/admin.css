@@ -5971,3 +5971,56 @@ html[dir=rtl] .topbar-dropdown {
         grid-template-columns: 1fr;
     }
 }
+
+/* ===== Activity logs toolbar: filters on their own row, wrapping ===== */
+.log-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+}
+
+.log-filters {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+}
+
+.log-filters .select-control,
+.log-filters .table-search,
+.log-filters .btn {
+    height: 36px;
+    box-sizing: border-box;
+}
+
+.log-filters .table-search {
+    flex: 1 1 220px;
+    min-width: 0;
+}
+
+.log-date-range {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #8d99a7;
+    font-size: 11px;
+}
+
+.log-date-range .select-control {
+    width: 140px;
+    padding: 6px 8px;
+}
+
+.log-scope-note {
+    margin: 0 19px 12px;
+}
+
+@media (max-width: 760px) {
+    .log-filters > *,
+    .log-date-range .select-control {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+
+    .log-date-range {
+        flex-wrap: nowrap;
+    }
+}

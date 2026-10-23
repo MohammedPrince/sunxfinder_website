@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\AppVersion;
 use App\Repositories\Admin\AdminRepository;
 use App\Models\Customer;
@@ -1035,6 +1036,75 @@ class MainController extends Controller
     }
 
     //Settings End
+
+    //Activity Logs Start
+
+    public function activityLogs(Request $request)
+    {
+        $filters = $this->validatedActivityLogFilters($request);
+
+        $logs = $this->adminService->getActivityLogs($filters);
+        $metrics = $this->adminService->getActivityLogMetrics();
+
+        return view('admin.logs.index', compact('logs', 'metrics', 'filters'));
+    }
+
+    public function showActivityLog(int $id)
+    {
+        $log = $this->adminService->getActivityLogById($id);
+
+        abort_if(!$log, 404);
+
+        return view('admin.logs.show', compact('log'));
+    }
+
+    public function exportActivityLogs(Request $request)
+    {
+        $logs = $this->adminService->activityLogsForExport($this->validatedActivityLogFilters($request));
+
+        return response()->streamDownload(function () use ($logs) {
+            $out = fopen('php://output', 'w');
+
+            // UTF-8 BOM so Excel shows Arabic names correctly.
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['ID', 'Date', 'Actor type', 'Actor', 'Action', 'Category', 'Record', 'Description', 'IP address', 'Method', 'URL']);
+
+            foreach ($logs as $log) {
+                fputcsv($out, [
+                    $log->id,
+                    $log->created_at?->format('Y-m-d H:i:s'),
+                    ActivityLog::ACTOR_TYPES[$log->actor_type] ?? $log->actor_type,
+                    $log->actor_name,
+                    ActivityLog::ACTIONS[$log->action] ?? $log->action,
+                    ActivityLog::CATEGORIES[$log->category] ?? $log->category,
+                    $log->subject_type ? "{$log->subject_type} #{$log->subject_id} {$log->subject_label}" : '',
+                    $log->description,
+                    $log->ip_address,
+                    $log->method,
+                    $log->url,
+                ]);
+            }
+
+            fclose($out);
+        }, 'activity-logs-' . now()->format('Y-m-d') . '.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    private function validatedActivityLogFilters(Request $request): array
+    {
+        return $request->validate([
+            'actor_type' => ['nullable', Rule::in(array_keys(ActivityLog::ACTOR_TYPES))],
+            'actor_id' => ['nullable', 'integer', 'min:1'],
+            'action' => ['nullable', Rule::in(array_keys(ActivityLog::ACTIONS))],
+            'category' => ['nullable', Rule::in(array_keys(ActivityLog::CATEGORIES))],
+            'subject_type' => ['nullable', 'string', 'max:60', 'alpha'],
+            'subject_id' => ['nullable', 'integer', 'min:1'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+    }
+
+    //Activity Logs End
 
       // Notifications Management Start
 

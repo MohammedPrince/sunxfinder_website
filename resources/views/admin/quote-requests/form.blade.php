@@ -322,7 +322,7 @@
                 </div>
 
                 <div class="quote-detail">
-                    <span>Service needed</span>
+                    <span>Quote name</span>
                     <strong>{{ $quote->quote_name }}</strong>
                 </div>
 
@@ -363,6 +363,8 @@
                 </div>
             </div>
 
+            {{-- Devices and watts from the app calculator --}}
+            @include('partials.quote-appliances', ['quote' => $quote])
 
             {{-- Estimated load summary --}}
             @php

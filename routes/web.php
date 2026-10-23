@@ -193,6 +193,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
             // App settings (open quote limit, ...)
             Route::get('/settings', 'settings')->name('settings.index');
             Route::put('/settings', 'updateSettings')->name('settings.update');
+
+            // Activity logs (admins, companies and customers). Admin only.
+            Route::prefix('activity-logs')->name('logs.')->group(function () {
+                Route::get('/', 'activityLogs')->name('index');
+                Route::get('/export', 'exportActivityLogs')->name('export');
+                Route::get('/{id}', 'showActivityLog')->whereNumber('id')->name('show');
+            });
         });
     });
 });

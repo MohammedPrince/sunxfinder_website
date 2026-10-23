@@ -56,8 +56,8 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
         Route::post('/notifications/{id}/read', [MainController::class, 'markNotificationAsRead']);
         Route::post('/notifications/read-all', [MainController::class, 'markAllNotificationsAsRead']);
 
+        Route::post('/delete-account', [MainController::class, 'deleteAccount']);
         Route::post('/logout', [MainController::class, 'logout']);
-
 
     });
 });

@@ -22,6 +22,7 @@ use App\Models\RatingQuestion;
 use App\Models\RatingValue;
 use App\Models\Setting;
 use App\Models\SolarCompany;
+use App\Support\ActivityLogger;
 use Carbon\Carbon;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -63,6 +64,11 @@ class CustomerRepository
         if (RateLimiter::tooManyAttempts($rateLimitKey, 3)) {
             $seconds = RateLimiter::availableIn($rateLimitKey);
 
+            ActivityLogger::log('login_blocked', "App sign-in locked for \"{$username}\" after too many attempts", null, [
+                'username' => $username,
+                'retry_after_seconds' => $seconds,
+            ], ActivityLogger::guest($username), 'auth');
+
             return [
                 'success' => false,
                 'code' => 429,
@@ -78,6 +84,11 @@ class CustomerRepository
         if (!$customer) {
             RateLimiter::hit($rateLimitKey, 300);
 
+            ActivityLogger::log('login_failed', "Failed app sign-in: unknown username \"{$username}\"", null, [
+                'username' => $username,
+                'reason' => 'unknown_username',
+            ], ActivityLogger::guest($username), 'auth');
+
             return [
                 'success' => false,
                 'code' => 401,
@@ -90,6 +101,10 @@ class CustomerRepository
         }
 
         if (!$customer->is_active) {
+            ActivityLogger::log('login_blocked', "App sign-in blocked: account is {$customer->status}", $customer, [
+                'status' => $customer->status,
+            ], ActivityLogger::actorFor($customer), 'auth');
+
             return [
                 'success' => false,
                 'code' => 403,
@@ -99,6 +114,10 @@ class CustomerRepository
 
         if (!Hash::check($password, $customer->password)) {
             RateLimiter::hit($rateLimitKey, 300);
+
+            ActivityLogger::log('login_failed', 'Failed app sign-in: wrong password', $customer, [
+                'reason' => 'wrong_password',
+            ], ActivityLogger::actorFor($customer), 'auth');
 
             return [
                 'success' => false,
@@ -126,6 +145,8 @@ class CustomerRepository
             ['*'],
             $expiresAt
         );
+
+        ActivityLogger::log('login', 'Signed in to the mobile app', $customer, [], ActivityLogger::actorFor($customer), 'auth');
 
         $customerDetails = [
             'id' => $customer->id,
@@ -1108,6 +1129,7 @@ class CustomerRepository
                 $quote->estimated_load = $data['estimated_load'];
                 $quote->peak_load = $data['peak_load'];
                 $quote->daily_load = $data['daily_load'];
+                $quote->appliances_ids = ($data['appliances_ids'] ?? null) ?: null;
                 $quote->message = $data['message'];
                 $quote->status = 'pending';
 
@@ -1127,6 +1149,7 @@ class CustomerRepository
                     'quote_name' => $quote->quote_name,
                     'service_needed' => $quote->quote_name,
                     'estimated_load' => $quote->estimated_load,
+                    'appliances_ids' => $quote->appliances_ids,
                     'message' => $quote->message,
                     'status' => $quote->status,
                     'created_at' => $quote->created_at,
@@ -1272,6 +1295,7 @@ class CustomerRepository
                         'estimated_load' => $quote->estimated_load,
                         'daily_load' => $quote->daily_load,
                         'peak_load' => $quote->peak_load,
+                        'appliances_ids' => $quote->appliances_ids,
                         'message' => $quote->message,
 
                         // Overall customer quote-request status.
@@ -2076,7 +2100,6 @@ class CustomerRepository
         ];
     }
 
-
     public function deleteAccount(): array
     {
         try {
@@ -2090,11 +2113,11 @@ class CustomerRepository
                 ];
             }
 
-            // Revoke all API tokens belonging to this customer.
-            $customer->tokens()->delete();
+            // Soft deletes the account with all its quotes, offers, projects,
+            // notifications and ratings, and signs out every device.
+            $counts = $this->helper->softDeleteCustomerData($customer);
 
-            // Soft-delete the customer account, if SoftDeletes is enabled.
-            $customer->delete();
+            ActivityLogger::log('account_deleted', 'Customer deleted their own account from the app', $customer, $counts, ActivityLogger::actorFor($customer), 'customers');
 
             return [
                 'success' => true,
@@ -2129,6 +2152,8 @@ class CustomerRepository
         if ($token) {
             $token->delete();
         }
+
+        ActivityLogger::log('logout', 'Signed out of the mobile app', $customer, [], ActivityLogger::actorFor($customer), 'auth');
 
         return [
             'success' => true,

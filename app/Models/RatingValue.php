@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 
 class RatingValue extends Model
 {
+    use LogsActivity;
+
     protected $table = 'tbl_rating_values';
 
     /** The question answer scale is fixed at 1-4; admin only renames labels. */

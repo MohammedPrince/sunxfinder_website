@@ -2,8 +2,10 @@
 
 namespace App\Repositories\Admin;
 
+use App\Models\ActivityLog;
 use App\Models\Admin;
 use App\Repositories\OtpRepository;
+use App\Support\ActivityLogger;
 use App\Models\Appliance;
 use App\Models\ApplianceGroup;
 use App\Models\AppVersion;
@@ -1279,41 +1281,10 @@ class AdminRepository
                 ];
             }
 
-            // Everything is soft deleted (deleted_at set) in one transaction,
-            // so nothing is lost and a failure leaves the customer untouched.
-            $counts = DB::transaction(function () use ($customer) {
-                $customer->status = 'deleted';
-                $customer->is_active = false;
-                $customer->save();
+            // Soft deletes the customer and all their data, and signs them out.
+            $counts = app(Helper::class)->softDeleteCustomerData($customer);
 
-                $quoteIds = Quote::query()->where('customer_id', $customer->id)->pluck('id');
-
-                $projectIds = Project::query()
-                    ->where('customer_id', $customer->id)
-                    ->orWhereIn('quote_id', $quoteIds)
-                    ->pluck('id');
-
-                // Builder delete() on SoftDeletes models only sets deleted_at.
-                ProjectMilestone::query()->whereIn('project_id', $projectIds)->delete();
-                ProjectUpdate::query()->whereIn('project_id', $projectIds)->delete();
-                $projects = Project::query()->whereIn('id', $projectIds)->delete();
-
-                // Company offers on this customer's requests.
-                $offers = CompanyQuotation::query()->whereIn('quote_id', $quoteIds)->delete();
-                $quotes = Quote::query()->whereIn('id', $quoteIds)->delete();
-
-                CustomerNotification::query()->where('customer_id', $customer->id)->delete();
-
-                // Ratings have no soft delete: hide them so they leave company averages.
-                Rating::query()->where('customer_id', $customer->id)->update(['is_visible' => false]);
-
-                $customer->delete();
-
-                return compact('quotes', 'offers', 'projects');
-            });
-
-            // A deleted account must not stay signed in on the app.
-            $this->revokeCustomerSessions($customer->id);
+            ActivityLogger::log('account_deleted', "Admin deleted customer \"{$customer->username}\" with all their data", $customer, $counts, null, 'customers');
 
             return [
                 'success' => true,
@@ -2778,4 +2749,76 @@ class AdminRepository
     }
 
     //Settings End
+
+    //Activity Logs Start
+
+    public function getActivityLogs(array $filters = []): LengthAwarePaginator
+    {
+        return $this->activityLogsQuery($filters)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(25)
+            ->withQueryString();
+    }
+
+    /** Same filters as the list, oldest first, streamed for the CSV export. */
+    public function activityLogsForExport(array $filters = [])
+    {
+        return $this->activityLogsQuery($filters)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->cursor();
+    }
+
+    public function getActivityLogById(int $id): ?ActivityLog
+    {
+        return ActivityLog::find($id);
+    }
+
+    public function getActivityLogMetrics(): array
+    {
+        $today = now()->startOfDay();
+        $todayLogs = ActivityLog::query()->where('created_at', '>=', $today);
+
+        $byActor = (clone $todayLogs)
+            ->selectRaw('actor_type, COUNT(*) as n')
+            ->groupBy('actor_type')
+            ->pluck('n', 'actor_type');
+
+        return [
+            'today' => (clone $todayLogs)->count(),
+            'logins_today' => (clone $todayLogs)->where('action', 'login')->count(),
+            'failed_today' => (clone $todayLogs)->whereIn('action', ['login_failed', 'login_blocked'])->count(),
+            'deletions_today' => (clone $todayLogs)->whereIn('action', ['deleted', 'force_deleted', 'account_deleted'])->count(),
+            'by_actor' => collect(ActivityLog::ACTOR_TYPES)
+                ->mapWithKeys(fn($label, $type) => [$type => (int) ($byActor[$type] ?? 0)])
+                ->all(),
+            'total' => ActivityLog::query()->count(),
+        ];
+    }
+
+    private function activityLogsQuery(array $filters)
+    {
+        return ActivityLog::query()
+            ->when(!empty($filters['actor_type']), fn($q) => $q->where('actor_type', $filters['actor_type']))
+            ->when(!empty($filters['actor_id']), fn($q) => $q->where('actor_id', (int) $filters['actor_id']))
+            ->when(!empty($filters['action']), fn($q) => $q->where('action', $filters['action']))
+            ->when(!empty($filters['category']), fn($q) => $q->where('category', $filters['category']))
+            ->when(!empty($filters['subject_type']), fn($q) => $q->where('subject_type', $filters['subject_type']))
+            ->when(!empty($filters['subject_id']), fn($q) => $q->where('subject_id', (int) $filters['subject_id']))
+            ->when(!empty($filters['from']), fn($q) => $q->where('created_at', '>=', Carbon::parse($filters['from'])->startOfDay()))
+            ->when(!empty($filters['to']), fn($q) => $q->where('created_at', '<=', Carbon::parse($filters['to'])->endOfDay()))
+            ->when(!empty($filters['search']), function ($query) use ($filters) {
+                $search = trim($filters['search']);
+
+                $query->where(function ($q) use ($search) {
+                    $q->where('description', 'like', "%{$search}%")
+                        ->orWhere('actor_name', 'like', "%{$search}%")
+                        ->orWhere('subject_label', 'like', "%{$search}%")
+                        ->orWhere('ip_address', 'like', "%{$search}%");
+                });
+            });
+    }
+
+    //Activity Logs End
 }

@@ -15,9 +15,9 @@ class EnsureAdminAuthenticated
     ): Response {
         $guard = Auth::guard('admin');
 
-        // Logged-out visitors go to the public homepage.
+        // Logged-out visitors go to the admin login.
         if (!$guard->check()) {
-            return redirect()->route('home');
+            return redirect()->route('admin.login');
         }
 
         $admin = $guard->user();
@@ -29,7 +29,11 @@ class EnsureAdminAuthenticated
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return redirect()->route('home');
+            return redirect()
+                ->route('admin.login')
+                ->withErrors([
+                    'login' => 'Your administrator account is inactive.',
+                ]);
         }
 
         return $next($request);

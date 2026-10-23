@@ -24,7 +24,6 @@ class CustomerService
         return $this->customerRepository->mainData();
     }
 
-
     public function createAccount(array $data): array
     {
         return $this->customerRepository->createAccount($data);
@@ -69,7 +68,6 @@ class CustomerService
     {
         return $this->customerRepository->getCarousels();
     }
-
 
     public function storeQuote(array $data): array
     {
@@ -139,17 +137,6 @@ class CustomerService
         return $this->customerRepository->markAllNotificationsAsRead();
     }
 
-    public function deleteAccount(): array
-    {
-        return $this->customerRepository->deleteAccount();
-    }
-
-
-    public function logout()
-    {
-        return $this->customerRepository->logout();
-    }
-
     public function forgotPassword(array $data): array
     {
         return $this->customerRepository->forgotPassword($data);
@@ -163,6 +150,16 @@ class CustomerService
     public function resetPassword(array $data): array
     {
         return $this->customerRepository->resetPassword($data);
+    }
+
+    public function deleteAccount(): array
+    {
+        return $this->customerRepository->deleteAccount();
+    }
+
+    public function logout()
+    {
+        return $this->customerRepository->logout();
     }
 
 }

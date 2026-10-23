@@ -443,6 +443,11 @@ class MainController extends Controller
             $request->merge(['quote_name' => $request->input('service_needed')]);
         }
 
+        // appliances_ids may arrive as a JSON array; store it as a string.
+        if (is_array($request->input('appliances_ids'))) {
+            $request->merge(['appliances_ids' => json_encode(array_values($request->input('appliances_ids')))]);
+        }
+
         $validator = Validator::make($request->all(), [
             'company_id' => ['present', 'nullable', 'integer', 'min:1'],
             'quote_name' => ['required', 'string', 'max:100'],
@@ -450,6 +455,8 @@ class MainController extends Controller
             'peak_load' => ['required', 'string', 'max:255'],
             'daily_load' => ['required', 'string', 'max:255'],
             'message' => ['present', 'nullable', 'string', 'max:5000'],
+            // Devices from the calculator (tbl_appliances ids), e.g. "1,4,4,9" or "1:2,4:1".
+            'appliances_ids' => ['nullable', 'string', 'max:1000'],
         ]);
 
         if ($validator->fails()) {
@@ -472,6 +479,7 @@ class MainController extends Controller
             'estimated_load' => $validated['estimated_load'],
             'peak_load' => $validated['peak_load'],
             'daily_load' => $validated['daily_load'],
+            'appliances_ids' => isset($validated['appliances_ids']) ? trim($validated['appliances_ids']) : null,
             'message' => $validated['message'],
         ]);
 

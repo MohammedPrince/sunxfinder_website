@@ -2,6 +2,7 @@
 
 namespace App\Services\Admin;
 
+use App\Models\ActivityLog;
 use App\Models\AppVersion;
 use App\Models\Quote;
 use App\Models\Rating;
@@ -449,6 +450,28 @@ class AdminService
         return $this->adminRepository->updateSettings($data);
     }
     //Settings End
+
+    //Activity Logs Start
+    public function getActivityLogs(array $filters = []): LengthAwarePaginator
+    {
+        return $this->adminRepository->getActivityLogs($filters);
+    }
+
+    public function activityLogsForExport(array $filters = [])
+    {
+        return $this->adminRepository->activityLogsForExport($filters);
+    }
+
+    public function getActivityLogById(int $id): ?ActivityLog
+    {
+        return $this->adminRepository->getActivityLogById($id);
+    }
+
+    public function getActivityLogMetrics(): array
+    {
+        return $this->adminRepository->getActivityLogMetrics();
+    }
+    //Activity Logs End
 
 
 

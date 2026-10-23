@@ -8,8 +8,13 @@ use App\Models\Product;
 use App\Models\ProductSpec;
 use App\Models\CompanyQuotation;
 use App\Models\CustomerDeviceToken;
+use App\Models\CustomerNotification;
 use App\Models\Project;
+use App\Models\ProjectMilestone;
+use App\Models\ProjectUpdate;
+use App\Models\Quote;
 use App\Models\Rating;
+use Illuminate\Support\Facades\DB;
 use App\Repositories\Admin\AdminRepository;
 use App\Repositories\Company\CompanyRepository;
 use Kreait\Firebase\Messaging\CloudMessage;
@@ -414,6 +419,54 @@ class Helper
                     ],
                 ],
             ]);
+    }
+
+    /**
+     * Soft deletes a customer and everything linked to them, in one transaction:
+     * quote requests, company offers on them, projects (with milestones and updates)
+     * and in-app notifications get deleted_at; ratings (no soft delete) are hidden.
+     * Then signs the customer out of every device. Used by admin delete and app "delete account".
+     *
+     * @return array{quotes: int, offers: int, projects: int}
+     */
+    public function softDeleteCustomerData(\App\Models\Customer $customer): array
+    {
+        $counts = DB::transaction(function () use ($customer) {
+            $customer->status = 'deleted';
+            $customer->is_active = false;
+            $customer->save();
+
+            $quoteIds = Quote::query()->where('customer_id', $customer->id)->pluck('id');
+
+            $projectIds = Project::query()
+                ->where('customer_id', $customer->id)
+                ->orWhereIn('quote_id', $quoteIds)
+                ->pluck('id');
+
+            // Builder delete() on SoftDeletes models only sets deleted_at.
+            ProjectMilestone::query()->whereIn('project_id', $projectIds)->delete();
+            ProjectUpdate::query()->whereIn('project_id', $projectIds)->delete();
+            $projects = Project::query()->whereIn('id', $projectIds)->delete();
+
+            // Company offers on this customer's requests.
+            $offers = CompanyQuotation::query()->whereIn('quote_id', $quoteIds)->delete();
+            $quotes = Quote::query()->whereIn('id', $quoteIds)->delete();
+
+            CustomerNotification::query()->where('customer_id', $customer->id)->delete();
+
+            // Ratings have no soft delete: hide them so they leave company averages.
+            Rating::query()->where('customer_id', $customer->id)->update(['is_visible' => false]);
+
+            $customer->delete();
+
+            return compact('quotes', 'offers', 'projects');
+        });
+
+        // A deleted account must not stay signed in or keep receiving pushes.
+        $customer->tokens()->delete();
+        CustomerDeviceToken::query()->where('customer_id', $customer->id)->update(['is_active' => false]);
+
+        return $counts;
     }
 
     /**

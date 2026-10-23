@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Concerns\HandlesPasswordReset;
 use App\Http\Controllers\Controller;
 use App\Services\Admin\AdminService;
+use App\Support\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -63,8 +64,14 @@ class AuthController extends Controller
                 'last_login_at' => now(),
             ])->save();
 
+            ActivityLogger::log('login', 'Signed in to the admin panel', $admin, [], ActivityLogger::actorFor($admin), 'auth');
+
             return redirect()->route('admin.dashboard.page');
         }
+
+        ActivityLogger::log('login_failed', "Failed admin sign-in for \"{$credentials['username']}\"", null, [
+            'username' => $credentials['username'],
+        ], ActivityLogger::guest($credentials['username']), 'auth');
 
         return back()
             ->withErrors([
@@ -75,6 +82,10 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        if ($admin = Auth::guard('admin')->user()) {
+            ActivityLogger::log('logout', 'Signed out of the admin panel', $admin, [], ActivityLogger::actorFor($admin), 'auth');
+        }
+
         Auth::guard('admin')->logout();
 
         $request->session()->invalidate();

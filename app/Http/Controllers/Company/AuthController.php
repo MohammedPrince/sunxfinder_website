@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Company;
 use App\Http\Controllers\Concerns\HandlesPasswordReset;
 use App\Http\Controllers\Controller;
 use App\Services\Company\CompanyService;
+use App\Support\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -63,6 +64,10 @@ class AuthController extends Controller
 
             // Allow pending and approved companies, verified or not.
             if (!in_array($company->status, ['pending', 'approved'], true)) {
+                ActivityLogger::log('login_blocked', "Company sign-in blocked: account is {$company->status}", $company, [
+                    'status' => $company->status,
+                ], ActivityLogger::actorFor($company), 'auth');
+
                 Auth::guard('company')->logout();
 
                 $request->session()->invalidate();
@@ -80,11 +85,17 @@ class AuthController extends Controller
             // Store the company ID in the session.
             $request->session()->put('company_id', $company->id);
 
+            ActivityLogger::log('login', 'Signed in to the company panel', $company, [], ActivityLogger::actorFor($company), 'auth');
+
             // Redirect to the company dashboard.
             return redirect()->intended(
                 route('company.dashboard')
             );
         }
+
+        ActivityLogger::log('login_failed', "Failed company sign-in for \"{$credentials['username']}\"", null, [
+            'username' => $credentials['username'],
+        ], ActivityLogger::guest($credentials['username']), 'auth');
 
         return back()
             ->withErrors([
@@ -96,6 +107,10 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        if ($company = Auth::guard('company')->user()) {
+            ActivityLogger::log('logout', 'Signed out of the company panel', $company, [], ActivityLogger::actorFor($company), 'auth');
+        }
+
         Auth::guard('company')->logout();
 
         $request->session()->invalidate();

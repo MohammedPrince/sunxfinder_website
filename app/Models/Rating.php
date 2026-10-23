@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Rating extends Model
 {
+    use LogsActivity;
+
     protected $table = 'tbl_ratings';
 
     /** Overall stars the app sends (whole numbers only). */
