@@ -164,10 +164,23 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::delete('/{id}', 'destroyAppVersion')->whereNumber('id')->name('destroy');
             });
 
-            // Quote requests (read-only for admin)
+            // Quote requests: view, plus cancel / reassign / nudge companies
             Route::prefix('quote-requests')->name('quote-requests.')->group(function () {
                 Route::get('/', 'quoteRequests')->name('index');
                 Route::get('/{id}', 'quoteRequestDetails')->whereNumber('id')->name('show');
+                Route::post('/{id}/cancel', 'cancelQuoteRequest')->whereNumber('id')->name('cancel');
+                Route::post('/{id}/reassign', 'reassignQuoteRequest')->whereNumber('id')->name('reassign');
+                Route::post('/{id}/nudge', 'nudgeCompaniesForQuote')->whereNumber('id')->middleware('throttle:10,1')->name('nudge');
+            });
+
+            // Background jobs: queue health and failed emails/pushes with retry
+            Route::prefix('background-jobs')->name('queue.')->group(function () {
+                Route::get('/', 'backgroundJobs')->name('index');
+                Route::post('/retry-all', 'retryAllFailedJobs')->name('retry-all');
+                Route::delete('/', 'deleteAllFailedJobs')->name('destroy-all');
+                Route::get('/{uuid}', 'showFailedJob')->whereUuid('uuid')->name('show');
+                Route::post('/{uuid}/retry', 'retryFailedJob')->whereUuid('uuid')->name('retry');
+                Route::delete('/{uuid}', 'deleteFailedJob')->whereUuid('uuid')->name('destroy');
             });
 
             // Push notifications

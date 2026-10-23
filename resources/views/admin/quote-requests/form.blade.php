@@ -94,7 +94,7 @@
                 '<strong>Project</strong>: installation progress after the customer accepts an offer.',
                 '<strong>Request information</strong>: the energy needs the customer entered in the app calculator.',
             ],
-            'note' => 'This page is read-only for admins. Use Print / Save PDF to share it.',
+            'note' => 'While a request is open you can remind companies, reassign it or cancel it under Admin actions. Use Print / Save PDF to share it.',
         ])
 
         {{-- Summary --}}
@@ -119,6 +119,8 @@
                 <strong>{{ $quote->daily_load ?: '—' }} · {{ $quote->peak_load ?: '—' }}</strong>
             </div>
         </section>
+
+        @include('admin.quote-requests.partials.admin-actions')
 
         @include('partials.request-journey', [
             'quote' => $quote,

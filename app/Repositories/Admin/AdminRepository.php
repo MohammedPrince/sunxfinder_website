@@ -2,8 +2,12 @@
 
 namespace App\Repositories\Admin;
 
+use App\Mail\CompanyRequestWaitingMail;
 use App\Models\ActivityLog;
 use App\Models\Admin;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Mail;
 use App\Repositories\OtpRepository;
 use App\Support\ActivityLogger;
 use App\Models\Appliance;
@@ -219,6 +223,21 @@ class AdminRepository
                 'count' => Quote::query()->where('status', 'pending')->doesntHave('companyQuotations')->count(),
                 'url' => route('admin.quote-requests.index', ['status' => 'pending']),
                 'tone' => 'blue',
+            ],
+            [
+                'label' => 'Failed background jobs',
+                'hint' => 'Emails or pushes that could not be sent. Open to see why and retry.',
+                'count' => DB::table('failed_jobs')->count(),
+                'url' => route('admin.queue.index'),
+                'tone' => 'red',
+            ],
+            [
+                'label' => 'Jobs stuck in the queue',
+                'hint' => 'Waiting over ' . self::STUCK_JOB_MINUTES . ' minutes: the queue worker may not be running.',
+                'count' => DB::table('jobs')->whereNull('reserved_at')
+                    ->where('available_at', '<', now()->subMinutes(self::STUCK_JOB_MINUTES)->getTimestamp())->count(),
+                'url' => route('admin.queue.index'),
+                'tone' => 'red',
             ],
             [
                 'label' => 'Projects idle for ' . ReportPeriod::STALLED_DAYS . '+ days',
@@ -2038,7 +2057,383 @@ class AdminRepository
             ->find($id);
     }
 
+    /** Hours before the same request can be nudged again. */
+    public const NUDGE_COOLDOWN_HOURS = 12;
+
+    /** Companies that can receive requests: approved, active and verified. */
+    public function getAssignableCompanies()
+    {
+        return SolarCompany::query()
+            ->where('status', 'approved')
+            ->where('is_active', true)
+            ->where('is_verified', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'city']);
+    }
+
+    /** When this request was last nudged (null if never or the cooldown has passed). */
+    public function getQuoteNudgedAt(int $quoteId): ?Carbon
+    {
+        $at = Cache::get("quote-nudged:{$quoteId}");
+
+        return $at ? Carbon::parse($at) : null;
+    }
+
+    /**
+     * Close a spam or dead request. Only open (pending) requests can be cancelled;
+     * waiting offers are withdrawn so companies stop seeing it as active.
+     */
+    public function cancelQuoteRequest(int $id, string $reason, bool $notifyCustomer): array
+    {
+        try {
+            $quote = Quote::find($id);
+
+            if (!$quote) {
+                return ['success' => false, 'message' => 'Quote request not found.'];
+            }
+
+            if ($quote->status !== 'pending') {
+                return ['success' => false, 'message' => 'Only open requests (no accepted offer yet) can be cancelled.'];
+            }
+
+            $withdrawn = DB::transaction(function () use ($quote) {
+                $quote->status = 'cancelled';
+                $quote->save();
+
+                return CompanyQuotation::query()
+                    ->where('quote_id', $quote->id)
+                    ->where('status', 'submitted')
+                    ->update(['status' => 'withdrawn', 'updated_at' => now()]);
+            });
+
+            $reference = '#Q-' . str_pad((string) $quote->id, 5, '0', STR_PAD_LEFT);
+
+            ActivityLogger::log('cancelled', "Admin cancelled quote request {$reference}: {$reason}", $quote, [
+                'reason' => $reason,
+                'offers_withdrawn' => $withdrawn,
+                'customer_notified' => $notifyCustomer,
+            ], null, 'quotes');
+
+            if ($notifyCustomer && $quote->customer_id) {
+                app(Helper::class)->notifyCustomer((int) $quote->customer_id, 'request_cancelled', $reference, 'admin');
+            }
+
+            return [
+                'success' => true,
+                'message' => "Request {$reference} cancelled." . ($withdrawn ? " {$withdrawn} waiting " . Str::plural('offer', $withdrawn) . ' withdrawn.' : '')
+                    . ($notifyCustomer ? ' The customer was notified.' : ''),
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to cancel the request. Please try again.'];
+        }
+    }
+
+    /**
+     * Send an open request to one company, or open it to all companies (null).
+     * The chosen company gets an email that a customer is waiting.
+     */
+    public function reassignQuoteRequest(int $id, ?int $companyId): array
+    {
+        try {
+            $quote = Quote::query()->with('project:id,quote_id')->find($id);
+
+            if (!$quote) {
+                return ['success' => false, 'message' => 'Quote request not found.'];
+            }
+
+            if ($quote->status !== 'pending' || $quote->project) {
+                return ['success' => false, 'message' => 'Only open requests (no accepted offer yet) can be reassigned.'];
+            }
+
+            $company = null;
+
+            if ($companyId) {
+                $company = $this->getAssignableCompanies()->firstWhere('id', $companyId);
+
+                if (!$company) {
+                    return ['success' => false, 'message' => 'Choose an approved, active and verified company.'];
+                }
+            }
+
+            if ((int) $quote->company_id === (int) $companyId) {
+                return ['success' => false, 'message' => 'The request is already assigned that way.'];
+            }
+
+            $previous = $quote->company_id ? SolarCompany::query()->whereKey($quote->company_id)->value('name') : 'all companies';
+
+            $quote->company_id = $companyId;
+            $quote->save();
+
+            $reference = '#Q-' . str_pad((string) $quote->id, 5, '0', STR_PAD_LEFT);
+            $target = $company?->name ?? 'all companies';
+
+            ActivityLogger::log('reassigned', "Admin reassigned quote request {$reference} from {$previous} to {$target}", $quote, [
+                'from' => $previous,
+                'to' => $target,
+            ], null, 'quotes');
+
+            $emailed = $company ? $this->emailCompaniesAboutQuote($quote, collect([$company->id])) : 0;
+
+            return [
+                'success' => true,
+                'message' => "Request {$reference} is now " . ($company ? "sent to {$company->name}" : 'open to all companies') . '.'
+                    . ($emailed ? " {$company->name} was emailed." : ''),
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to reassign the request. Please try again.'];
+        }
+    }
+
+    /**
+     * Email companies that have not sent an offer yet: the assigned company, or every
+     * approved company when the request is open to all. Once per NUDGE_COOLDOWN_HOURS.
+     */
+    public function nudgeCompaniesForQuote(int $id): array
+    {
+        try {
+            $quote = Quote::find($id);
+
+            if (!$quote) {
+                return ['success' => false, 'message' => 'Quote request not found.'];
+            }
+
+            if ($quote->status !== 'pending') {
+                return ['success' => false, 'message' => 'Only open requests can be nudged.'];
+            }
+
+            if ($nudgedAt = $this->getQuoteNudgedAt($quote->id)) {
+                return [
+                    'success' => false,
+                    'message' => 'Companies were already reminded ' . $nudgedAt->diffForHumans() . '. You can nudge again after '
+                        . $nudgedAt->copy()->addHours(self::NUDGE_COOLDOWN_HOURS)->format('M d, H:i') . '.',
+                ];
+            }
+
+            $alreadyOffered = CompanyQuotation::query()->where('quote_id', $quote->id)->pluck('company_id');
+
+            $companyIds = $this->getAssignableCompanies()
+                ->when($quote->company_id, fn($companies) => $companies->where('id', $quote->company_id))
+                ->whereNotIn('id', $alreadyOffered)
+                ->pluck('id');
+
+            if ($companyIds->isEmpty()) {
+                return ['success' => false, 'message' => 'No company to remind: every eligible company has already sent an offer.'];
+            }
+
+            $emailed = $this->emailCompaniesAboutQuote($quote, $companyIds);
+
+            Cache::put("quote-nudged:{$quote->id}", now()->toIso8601String(), now()->addHours(self::NUDGE_COOLDOWN_HOURS));
+
+            $reference = '#Q-' . str_pad((string) $quote->id, 5, '0', STR_PAD_LEFT);
+
+            ActivityLogger::log('nudged', "Admin reminded {$emailed} " . Str::plural('company', $emailed) . " about quote request {$reference}", $quote, [
+                'companies_emailed' => $emailed,
+                'company_ids' => $companyIds->values()->all(),
+            ], null, 'quotes');
+
+            return [
+                'success' => true,
+                'message' => "Reminder emailed to {$emailed} " . Str::plural('company', $emailed) . '.',
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to send the reminders. Please try again.'];
+        }
+    }
+
+    /** Queues a "customer is waiting for your offer" email per company with an email address. */
+    private function emailCompaniesAboutQuote(Quote $quote, $companyIds): int
+    {
+        $customerCity = $quote->customer_id ? Customer::query()->whereKey($quote->customer_id)->value('city') : null;
+        $reference = '#Q-' . str_pad((string) $quote->id, 5, '0', STR_PAD_LEFT);
+        $sent = 0;
+
+        $companies = SolarCompany::query()
+            ->whereIn('id', $companyIds)
+            ->whereNotNull('email')
+            ->where('email', '!=', '')
+            ->get(['id', 'name', 'email']);
+
+        foreach ($companies as $company) {
+            Mail::mailer('offer')->to($company->email)->queue(new CompanyRequestWaitingMail([
+                'companyName' => $company->name,
+                'reference' => $reference,
+                'quoteName' => $quote->quote_name,
+                'city' => $customerCity,
+                'dailyLoad' => $quote->daily_load,
+                'peakLoad' => $quote->peak_load,
+                'actionUrl' => route('company.quote-requests.show', $quote->id),
+            ]));
+
+            $sent++;
+        }
+
+        return $sent;
+    }
+
     //Quote Requests End
+
+    //Background Jobs Start
+
+    /** Pending jobs this old mean the queue worker is probably not running. */
+    public const STUCK_JOB_MINUTES = 10;
+
+    public function getQueueOverview(): array
+    {
+        $oldestPending = DB::table('jobs')->whereNull('reserved_at')->min('available_at');
+
+        return [
+            'pending' => DB::table('jobs')->count(),
+            'running' => DB::table('jobs')->whereNotNull('reserved_at')->count(),
+            'oldest_pending_at' => $oldestPending ? Carbon::createFromTimestamp($oldestPending) : null,
+            'stuck' => DB::table('jobs')
+                ->whereNull('reserved_at')
+                ->where('available_at', '<', now()->subMinutes(self::STUCK_JOB_MINUTES)->getTimestamp())
+                ->count(),
+            'failed' => DB::table('failed_jobs')->count(),
+            'failed_today' => DB::table('failed_jobs')->where('failed_at', '>=', now()->startOfDay())->count(),
+            'connection' => config('queue.default'),
+        ];
+    }
+
+    public function getFailedJobs(array $filters = []): LengthAwarePaginator
+    {
+        $paginator = DB::table('failed_jobs')
+            ->when(!empty($filters['search']), function ($query) use ($filters) {
+                $search = trim($filters['search']);
+                $query->where(fn($q) => $q->where('payload', 'like', "%{$search}%")->orWhere('exception', 'like', "%{$search}%"));
+            })
+            ->orderByDesc('failed_at')
+            ->paginate(20)
+            ->withQueryString();
+
+        $paginator->getCollection()->transform(fn($job) => $this->describeFailedJob($job));
+
+        return $paginator;
+    }
+
+    public function getFailedJob(string $uuid): ?object
+    {
+        $job = DB::table('failed_jobs')->where('uuid', $uuid)->first();
+
+        return $job ? $this->describeFailedJob($job, true) : null;
+    }
+
+    public function retryFailedJobs(array|string $uuids): array
+    {
+        try {
+            $ids = $uuids === 'all' ? ['all'] : (array) $uuids;
+            $count = $uuids === 'all' ? DB::table('failed_jobs')->count() : DB::table('failed_jobs')->whereIn('uuid', $ids)->count();
+
+            if ($count === 0) {
+                return ['success' => false, 'message' => 'No failed jobs to retry.'];
+            }
+
+            Artisan::call('queue:retry', ['id' => $ids]);
+
+            ActivityLogger::log('job_retried', "Admin retried {$count} failed background " . Str::plural('job', $count), null, [
+                'jobs' => $ids,
+            ], null, 'system');
+
+            return [
+                'success' => true,
+                'message' => "{$count} " . Str::plural('job', $count) . ' sent back to the queue. They run as soon as the queue worker picks them up.',
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to retry: ' . $e->getMessage()];
+        }
+    }
+
+    public function deleteFailedJobs(array|string $uuids): array
+    {
+        try {
+            if ($uuids === 'all') {
+                $count = DB::table('failed_jobs')->count();
+                Artisan::call('queue:flush');
+            } else {
+                $count = 0;
+                foreach ((array) $uuids as $uuid) {
+                    $count += Artisan::call('queue:forget', ['id' => $uuid]) === 0 ? 1 : 0;
+                }
+            }
+
+            ActivityLogger::log('job_deleted', "Admin deleted {$count} failed background " . Str::plural('job', $count), null, [
+                'jobs' => $uuids,
+            ], null, 'system');
+
+            return ['success' => true, 'message' => "{$count} failed " . Str::plural('job', $count) . ' deleted.'];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to delete: ' . $e->getMessage()];
+        }
+    }
+
+    /** Readable name, target and short error for a failed_jobs row. */
+    private function describeFailedJob(object $job, bool $withTrace = false): object
+    {
+        $payload = json_decode($job->payload, true) ?: [];
+        $class = $payload['displayName'] ?? ($payload['data']['commandName'] ?? 'Unknown job');
+        $command = (string) ($payload['data']['command'] ?? '');
+
+        $labels = [
+            \App\Jobs\SendCompanyOfferDecisionEmail::class => 'Offer accepted/rejected email to company',
+            \App\Jobs\SendCustomerWelcomeEmail::class => 'Welcome email to customer',
+            \App\Mail\ContactMessageMail::class => 'Website contact form email',
+            \App\Mail\CompanyRequestWaitingMail::class => 'Request reminder email to company',
+            \App\Mail\CompanyOfferDecisionMail::class => 'Offer decision email',
+            \App\Mail\CustomerWelcomeMail::class => 'Welcome email',
+        ];
+
+        // Recipient for queued mail ("to" is serialized inside the command).
+        preg_match('/"address";s:\d+:"([^"]+)"/', $command, $to);
+
+        $exception = (string) $job->exception;
+        $firstLine = Str::limit(trim(strtok($exception, "\n")), 300);
+
+        return (object) [
+            'id' => $job->id,
+            'uuid' => $job->uuid,
+            'queue' => $job->queue,
+            'connection' => $job->connection,
+            'class' => $class,
+            'label' => $labels[$class] ?? Str::headline(class_basename($class)),
+            'recipient' => $to[1] ?? null,
+            'attempts' => $payload['attempts'] ?? null,
+            'max_tries' => $payload['maxTries'] ?? null,
+            'error' => $firstLine,
+            'hint' => $this->failedJobHint($exception),
+            'exception' => $withTrace ? $exception : null,
+            'failed_at' => Carbon::parse($job->failed_at),
+        ];
+    }
+
+    /** Plain-language cause for the errors seen most often. */
+    private function failedJobHint(string $exception): ?string
+    {
+        return match (true) {
+            str_contains($exception, '535') || str_contains($exception, 'Failed to authenticate on SMTP') =>
+                'Wrong email username/password for this mailer. Check the MAIL_* values in .env, run "php artisan config:cache", then retry.',
+            str_contains($exception, 'is not defined') && str_contains($exception, 'Mailer') =>
+                'The server is using an old cached config. Run "php artisan config:cache" and "php artisan queue:restart", then retry.',
+            str_contains($exception, 'Connection could not be established') || str_contains($exception, 'timed out') =>
+                'The mail server could not be reached. Check MAIL_HOST / MAIL_PORT, or try again later.',
+            str_contains($exception, 'NotRegistered') || str_contains($exception, 'Requested entity was not found') =>
+                'The phone is no longer registered for push notifications (app uninstalled). Safe to delete.',
+            str_contains($exception, 'ModelNotFoundException') =>
+                'The record this job was about has been deleted. Safe to delete.',
+            default => null,
+        };
+    }
+
+    //Background Jobs End
 
     //Notifications Start
 

@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#182634">
     <title>Reset password · SunXFinder</title>
     <link rel="icon" type="image/png" href="{{ asset('admin/images/sun.png') }}">
-    <link rel="stylesheet" href="{{ asset('admin/css/admin.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('admin/css/admin.css') }}">
 </head>
 
 <body class="login-body">
@@ -182,7 +182,7 @@
             </div>
         </section>
     </main>
-    <script src="{{ asset('admin/js/admin.js') }}" defer></script>
+    <script src="{{ asset_v('admin/js/admin.js') }}" defer></script>
 </body>
 
 </html>

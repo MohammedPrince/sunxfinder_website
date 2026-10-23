@@ -860,8 +860,97 @@ class MainController extends Controller
 
         abort_if(!$quote, 404);
 
-        return view('admin.quote-requests.form', compact('quote'));
+        $assignableCompanies = $this->adminService->getAssignableCompanies();
+        $nudgedAt = $this->adminService->getQuoteNudgedAt($id);
+
+        return view('admin.quote-requests.form', compact('quote', 'assignableCompanies', 'nudgedAt'));
     }
+
+    public function cancelQuoteRequest(Request $request, int $id)
+    {
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:300'],
+            'notify_customer' => ['nullable', 'boolean'],
+        ], [
+            'reason.required' => 'Write why the request is cancelled (kept in the activity log).',
+        ]);
+
+        $result = $this->adminService->cancelQuoteRequest($id, $data['reason'], $request->boolean('notify_customer'));
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function reassignQuoteRequest(Request $request, int $id)
+    {
+        $data = $request->validate([
+            // Empty = open to all companies
+            'company_id' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $result = $this->adminService->reassignQuoteRequest($id, isset($data['company_id']) ? (int) $data['company_id'] : null);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function nudgeCompaniesForQuote(int $id)
+    {
+        $result = $this->adminService->nudgeCompaniesForQuote($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    //Background Jobs Start
+
+    public function backgroundJobs(Request $request)
+    {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $overview = $this->adminService->getQueueOverview();
+        $failedJobs = $this->adminService->getFailedJobs($filters);
+
+        return view('admin.queue.index', compact('overview', 'failedJobs'));
+    }
+
+    public function showFailedJob(string $uuid)
+    {
+        $job = $this->adminService->getFailedJob($uuid);
+
+        abort_if(!$job, 404);
+
+        return view('admin.queue.show', compact('job'));
+    }
+
+    public function retryFailedJob(string $uuid)
+    {
+        $result = $this->adminService->retryFailedJobs([$uuid]);
+
+        return redirect()->route('admin.queue.index')->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function retryAllFailedJobs()
+    {
+        $result = $this->adminService->retryFailedJobs('all');
+
+        return redirect()->route('admin.queue.index')->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function deleteFailedJob(string $uuid)
+    {
+        $result = $this->adminService->deleteFailedJobs([$uuid]);
+
+        return redirect()->route('admin.queue.index')->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function deleteAllFailedJobs()
+    {
+        $result = $this->adminService->deleteFailedJobs('all');
+
+        return redirect()->route('admin.queue.index')->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    //Background Jobs End
 
     //Quote Requests End
 

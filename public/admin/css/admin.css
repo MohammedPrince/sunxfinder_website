@@ -6024,3 +6024,142 @@ html[dir=rtl] .topbar-dropdown {
         flex-wrap: nowrap;
     }
 }
+
+/* ===== Quote request admin actions ===== */
+.quote-admin-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.quote-admin-action {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fff;
+}
+
+.quote-admin-action > small {
+    color: var(--muted);
+    line-height: 1.5;
+}
+
+.quote-admin-action form {
+    display: grid;
+    gap: 8px;
+    margin-top: auto;
+}
+
+.quote-admin-inline {
+    grid-template-columns: 1fr auto;
+}
+
+.quote-admin-action > strong {
+    color: var(--ink);
+    font-size: 15px;
+}
+
+.quote-admin-action .btn {
+    justify-content: center;
+    width: 100%;
+}
+
+.quote-admin-inline .btn {
+    width: auto;
+}
+
+/* Inputs here are outside the panel's .form-group layouts, so style them directly */
+.quote-admin-action input[type="text"],
+.quote-admin-action .select-control {
+    width: 100%;
+    min-height: 40px;
+    padding: 9px 12px;
+    border: 1px solid #dfe6ee;
+    border-radius: 9px;
+    background: #fff;
+    color: var(--ink);
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+}
+
+.quote-admin-action input[type="text"]::placeholder {
+    color: #a3adbb;
+}
+
+.quote-admin-action input[type="text"]:focus,
+.quote-admin-action .select-control:focus {
+    border-color: #f9a27b;
+    box-shadow: 0 0 0 3px #fc52021a;
+}
+
+.quote-admin-danger {
+    border-color: #f6d4cf;
+    background: #fffaf9;
+}
+
+.quote-admin-danger > strong {
+    color: #b42318;
+}
+
+.quote-admin-danger input[type="text"]:focus {
+    border-color: #f04438;
+    box-shadow: 0 0 0 3px #f044381a;
+}
+
+.quote-admin-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--ink);
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.quote-admin-check input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--orange);
+    cursor: pointer;
+}
+
+@media (max-width: 1000px) {
+    .quote-admin-actions {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ===== Background jobs ===== */
+.job-error {
+    max-width: 460px;
+    color: #a5281c;
+    font-size: 12px;
+    word-break: break-word;
+}
+
+.job-hint {
+    display: block;
+    margin-top: 4px;
+    color: #8a5a00;
+    font-size: 12px;
+}
+
+.job-trace {
+    max-height: 420px;
+    margin: 0;
+    padding: 14px;
+    overflow: auto;
+    border-radius: 10px;
+    background: #182634;
+    color: #e6edf5;
+    font-size: 11px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}

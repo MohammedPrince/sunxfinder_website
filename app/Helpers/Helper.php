@@ -322,6 +322,17 @@ class Helper
                     'body' => 'تم اعتماد حسابك في SunXFinder. يمكنك الآن تسجيل الدخول وطلب عروض من شركات الطاقة الشمسية.',
                 ],
             ],
+            // :price carries the request reference here, e.g. "#Q-00031".
+            'request_cancelled' => [
+                'en' => [
+                    'title' => 'Quote request closed',
+                    'body' => 'Your quote request :price was closed by the SunXFinder team. Contact us if you have any questions.',
+                ],
+                'ar' => [
+                    'title' => 'تم إغلاق طلب عرض السعر',
+                    'body' => 'تم إغلاق طلب عرض السعر :price من قبل فريق SunXFinder. تواصل معنا إذا كان لديك أي استفسار.',
+                ],
+            ],
             'project_completed' => [
                 'en' => [
                     'title' => 'Your solar system is ready',

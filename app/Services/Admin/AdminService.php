@@ -331,6 +331,31 @@ class AdminService
         return $this->adminRepository->getQuoteRequestById($id);
     }
 
+    public function getAssignableCompanies()
+    {
+        return $this->adminRepository->getAssignableCompanies();
+    }
+
+    public function getQuoteNudgedAt(int $quoteId)
+    {
+        return $this->adminRepository->getQuoteNudgedAt($quoteId);
+    }
+
+    public function cancelQuoteRequest(int $id, string $reason, bool $notifyCustomer): array
+    {
+        return $this->adminRepository->cancelQuoteRequest($id, $reason, $notifyCustomer);
+    }
+
+    public function reassignQuoteRequest(int $id, ?int $companyId): array
+    {
+        return $this->adminRepository->reassignQuoteRequest($id, $companyId);
+    }
+
+    public function nudgeCompaniesForQuote(int $id): array
+    {
+        return $this->adminRepository->nudgeCompaniesForQuote($id);
+    }
+
     //Quote Requests End
 
     //Notifications Start
@@ -450,6 +475,33 @@ class AdminService
         return $this->adminRepository->updateSettings($data);
     }
     //Settings End
+
+    //Background Jobs Start
+    public function getQueueOverview(): array
+    {
+        return $this->adminRepository->getQueueOverview();
+    }
+
+    public function getFailedJobs(array $filters = []): LengthAwarePaginator
+    {
+        return $this->adminRepository->getFailedJobs($filters);
+    }
+
+    public function getFailedJob(string $uuid): ?object
+    {
+        return $this->adminRepository->getFailedJob($uuid);
+    }
+
+    public function retryFailedJobs(array|string $uuids): array
+    {
+        return $this->adminRepository->retryFailedJobs($uuids);
+    }
+
+    public function deleteFailedJobs(array|string $uuids): array
+    {
+        return $this->adminRepository->deleteFailedJobs($uuids);
+    }
+    //Background Jobs End
 
     //Activity Logs Start
     public function getActivityLogs(array $filters = []): LengthAwarePaginator

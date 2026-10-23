@@ -39,6 +39,11 @@ class ActivityLog extends Model
         'force_deleted' => 'Permanently deleted',
         'password_changed' => 'Password changed',
         'account_deleted' => 'Account deleted',
+        'cancelled' => 'Cancelled',
+        'reassigned' => 'Reassigned',
+        'nudged' => 'Reminder sent',
+        'job_retried' => 'Job retried',
+        'job_deleted' => 'Job deleted',
     ];
 
     public const CATEGORIES = [
@@ -52,6 +57,7 @@ class ActivityLog extends Model
         'notifications' => 'Notifications',
         'catalog' => 'Products & suppliers',
         'app' => 'App settings',
+        'system' => 'Background jobs',
         'other' => 'Other',
     ];
 
@@ -90,8 +96,8 @@ class ActivityLog extends Model
     {
         return match ($this->action) {
             'login', 'registered', 'created', 'restored' => 'pill-green',
-            'login_failed', 'login_blocked', 'deleted', 'force_deleted', 'account_deleted' => 'pill-red',
-            'password_changed' => 'pill-orange',
+            'login_failed', 'login_blocked', 'deleted', 'force_deleted', 'account_deleted', 'cancelled', 'job_deleted' => 'pill-red',
+            'password_changed', 'nudged', 'reassigned', 'job_retried' => 'pill-orange',
             'logout' => 'pill-purple',
             default => 'pill-blue',
         };

@@ -86,6 +86,7 @@ class AppServiceProvider extends ServiceProvider
                 'notificationsCount' => Notification::count(),
                 'ratingsCount' => Rating::count(),
                 'ratingQuestionsCount' => RatingQuestion::count(),
+                'failedJobsCount' => \Illuminate\Support\Facades\DB::table('failed_jobs')->count(),
             ]);
         });
 
