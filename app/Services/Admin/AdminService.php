@@ -99,9 +99,9 @@ class AdminService
 
     //Customer Managment START
 
-    public function getCustomers(int $perPage = 10)
+    public function getCustomers(int $perPage = 10, ?string $status = null)
     {
-        return $this->adminRepository->getCustomers($perPage);
+        return $this->adminRepository->getCustomers($perPage, $status);
     }
 
 

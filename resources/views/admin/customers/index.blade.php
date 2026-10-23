@@ -71,17 +71,23 @@
                 <p>Manage registered customer accounts</p>
             </div>
 
-            <div class="table-filters">
-                <select class="select-control" data-table-filter="status">
+            {{-- Status filters on the server (all pages); search still filters the current page. --}}
+            <form method="GET" action="{{ route('admin.customers.index') }}" class="table-filters">
+                <select class="select-control" name="status" aria-label="Customer status" onchange="this.form.submit()">
                     <option value="">All statuses</option>
-                    <option value="active">Active</option>
-                    <option value="pending">Pending</option>
-                    <option value="suspended">Suspended</option>
-                    <option value="deleted">Deleted</option>
+                    @foreach (['active' => 'Active', 'pending' => 'Pending approval', 'suspended' => 'Suspended', 'deleted' => 'Deleted'] as $value => $label)
+                        <option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>
+                    @endforeach
                 </select>
 
-                <input class="table-search" type="search" placeholder="Search customers…" data-table-search>
-            </div>
+                {{-- Live search; Enter must not submit the status form and wipe the text. --}}
+                <input class="table-search" type="search" placeholder="Search customers…" data-table-search
+                    onkeydown="if (event.key === 'Enter') event.preventDefault();">
+
+                @if (request()->filled('status'))
+                    <a href="{{ route('admin.customers.index') }}" class="btn btn-light">Clear</a>
+                @endif
+            </form>
         </div>
 
         <div class="table-responsive">

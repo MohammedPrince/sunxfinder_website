@@ -132,6 +132,10 @@ class Helper
         return $ratings
             ->map(fn(Rating $rating): array => [
                 'id' => (int) $rating->id,
+                // Full name as-is (falls back to username); the app shows the first word only.
+                'full_name' => trim((string) ($rating->customer?->full_name ?: $rating->customer?->username)) ?: null,
+                'username' => $rating->customer?->username,
+                // Shortened name ("Mohammed A.") for the public website.
                 'customer' => $this->shortCustomerName($rating->customer),
                 'rating' => (int) $rating->stars,
                 'comment' => $rating->comment,

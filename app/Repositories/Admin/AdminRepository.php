@@ -8,11 +8,15 @@ use App\Models\Appliance;
 use App\Models\ApplianceGroup;
 use App\Models\AppVersion;
 use App\Models\CompanyCarousel;
+use App\Models\CompanyQuotation;
 use App\Models\Customer;
 use App\Models\CustomerNotification;
 use App\Models\Notification;
 use App\Models\Product;
 use App\Models\ProductSpec;
+use App\Models\Project;
+use App\Models\ProjectMilestone;
+use App\Models\ProjectUpdate;
 use App\Models\Quote;
 use App\Models\Rating;
 use App\Models\RatingQuestion;
@@ -198,6 +202,13 @@ class AdminRepository
                 'hint' => 'Review their details and approve or reject.',
                 'count' => SolarCompany::query()->where('status', 'pending')->count(),
                 'url' => route('admin.companies.index'),
+                'tone' => 'orange',
+            ],
+            [
+                'label' => 'Customers waiting for approval',
+                'hint' => 'New sign-ups who cannot log in to the app until approved.',
+                'count' => Customer::query()->where('status', 'pending')->count(),
+                'url' => route('admin.customers.index', ['status' => 'pending']),
                 'tone' => 'orange',
             ],
             [
@@ -1061,15 +1072,17 @@ class AdminRepository
         }
     }
 
-    public function getCustomers(int $perPage = 10)
+    public function getCustomers(int $perPage = 10, ?string $status = null)
     {
         return Customer::query()
             // tokens_count > 0 means the customer is signed in on the app.
             ->withCount('tokens')
+            // e.g. ?status=pending from the "Customers waiting for approval" alert.
+            ->when($status, fn($query) => $query->where('status', $status))
             ->orderByDesc('created_at')
             ->latest()
-            ->paginate($perPage);
-
+            ->paginate($perPage)
+            ->withQueryString();
     }
 
     /** Customers with at least one valid app token (signed in on a device). */
@@ -1264,30 +1277,46 @@ class AdminRepository
                 ];
             }
 
-            $customer->status = 'deleted';
-            $customer->is_active = false;
+            // Everything is soft deleted (deleted_at set) in one transaction,
+            // so nothing is lost and a failure leaves the customer untouched.
+            $counts = DB::transaction(function () use ($customer) {
+                $customer->status = 'deleted';
+                $customer->is_active = false;
+                $customer->save();
 
-            if (!$customer->save()) {
-                return [
-                    'success' => false,
-                    'message' => 'Unable to delete the customer.',
-                ];
-            }
+                $quoteIds = Quote::query()->where('customer_id', $customer->id)->pluck('id');
+
+                $projectIds = Project::query()
+                    ->where('customer_id', $customer->id)
+                    ->orWhereIn('quote_id', $quoteIds)
+                    ->pluck('id');
+
+                // Builder delete() on SoftDeletes models only sets deleted_at.
+                ProjectMilestone::query()->whereIn('project_id', $projectIds)->delete();
+                ProjectUpdate::query()->whereIn('project_id', $projectIds)->delete();
+                $projects = Project::query()->whereIn('id', $projectIds)->delete();
+
+                // Company offers on this customer's requests.
+                $offers = CompanyQuotation::query()->whereIn('quote_id', $quoteIds)->delete();
+                $quotes = Quote::query()->whereIn('id', $quoteIds)->delete();
+
+                CustomerNotification::query()->where('customer_id', $customer->id)->delete();
+
+                // Ratings have no soft delete: hide them so they leave company averages.
+                Rating::query()->where('customer_id', $customer->id)->update(['is_visible' => false]);
+
+                $customer->delete();
+
+                return compact('quotes', 'offers', 'projects');
+            });
 
             // A deleted account must not stay signed in on the app.
             $this->revokeCustomerSessions($customer->id);
 
-            // Soft delete: automatically sets deleted_at.
-            if (!$customer->delete()) {
-                return [
-                    'success' => false,
-                    'message' => 'Unable to delete the customer.',
-                ];
-            }
-
             return [
                 'success' => true,
-                'message' => 'Customer deleted successfully.',
+                'message' => "Customer deleted with {$counts['quotes']} quote requests, "
+                    . "{$counts['offers']} offers and {$counts['projects']} projects.",
             ];
         } catch (Throwable $e) {
             report($e);

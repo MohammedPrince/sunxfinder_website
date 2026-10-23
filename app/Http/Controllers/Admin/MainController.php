@@ -279,9 +279,13 @@ class MainController extends Controller
             ->with('success', $result['message']);
     }
 
-    public function showCustomers()
+    public function showCustomers(Request $request)
     {
-        $customers = $this->adminService->getCustomers();
+        $filters = $request->validate([
+            'status' => ['nullable', Rule::in(['active', 'pending', 'suspended', 'deleted'])],
+        ]);
+
+        $customers = $this->adminService->getCustomers(10, $filters['status'] ?? null);
 
         $totalCount = $this->adminService->customerAccountCount();
         $activeCount = $this->adminService->activeCustomerAccountCount();
