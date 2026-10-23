@@ -1125,13 +1125,21 @@ html[lang="ar"] .hx-kicker {
    text-decoration: underline;
 }
 
-/* Honeypot: off-screen for people, still in the form for bots. */
+/* Honeypot: invisible for people, still in the form for bots.
+   Clipped in place, NOT moved off-screen: a large negative left on an RTL (Arabic)
+   page made the document ~10,000px wide and the page looked blank on mobile. */
 .hx-contact-hp {
    position: absolute;
-   left: -9999px;
    width: 1px;
    height: 1px;
+   margin: -1px;
+   padding: 0;
    overflow: hidden;
+   clip: rect(0 0 0 0);
+   clip-path: inset(50%);
+   white-space: nowrap;
+   border: 0;
+   opacity: 0;
 }
 
 @media (max-width: 1000px) {
