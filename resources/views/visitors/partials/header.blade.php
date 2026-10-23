@@ -11,7 +11,7 @@
                     width="64" height="64" fetchpriority="high" decoding="async"
                     onerror="this.style.display='none';this.closest('a').querySelector('.brand-fallback').hidden=false">
             </picture>
-            <span class="brand-tagline">{{ trans('messages.Find. Compare. Connect.') }}</span>
+            <span class="brand-tagline">{{ trans('messages.Find.') }} <span class="slogan-compare">{{ trans('messages.Compare.') }}</span> {{ trans('messages.Connect.') }}</span>
             <span class="brand-fallback" hidden>Sun<span>X</span>Finder</span>
         </a>
         <button class="menu-toggle" aria-label="{{ trans('messages.Toggle navigation') }}"

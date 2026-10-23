@@ -1680,10 +1680,13 @@ class CustomerRepository
     public function getRatingForm(): array
     {
         try {
-            $questions = RatingQuestion::query()
+            /** @var \Illuminate\Database\Eloquent\Collection<int, RatingQuestion> $questionRows */
+            $questionRows = RatingQuestion::query()
                 ->active()
                 ->ordered()
-                ->get(['id', 'title_en', 'title_ar', 'question_en', 'question_ar'])
+                ->get(['id', 'title_en', 'title_ar', 'question_en', 'question_ar']);
+
+            $questions = $questionRows
                 ->map(fn(RatingQuestion $question) => [
                     'id' => (int) $question->id,
                     'title_en' => $question->title_en,
@@ -1694,9 +1697,12 @@ class CustomerRepository
                 ->values()
                 ->all();
 
-            $values = RatingValue::query()
+            /** @var \Illuminate\Database\Eloquent\Collection<int, RatingValue> $valueRows */
+            $valueRows = RatingValue::query()
                 ->orderBy('value')
-                ->get(['value', 'label_en', 'label_ar'])
+                ->get(['value', 'label_en', 'label_ar']);
+
+            $values = $valueRows
                 ->map(fn(RatingValue $value) => [
                     'value' => (int) $value->value,
                     'label_en' => $value->label_en,

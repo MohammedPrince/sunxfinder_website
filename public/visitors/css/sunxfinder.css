@@ -3350,3 +3350,8 @@ html[dir="rtl"] .language-modal-overlay .language-modal {
       font-size: 22px;
    }
 }
+
+/* "Compare" in the Find. Compare. Connect. tagline (header and footer) */
+.slogan-compare {
+   color: #fc5202;
+}

@@ -253,7 +253,7 @@ class Helper
 
     /**
      * Builds the push title/body for a customer in the app language.
-     * Supported types: offer_new, offer_updated, start_installation. $price is shown as given
+     * Supported types: offer_new, offer_updated, start_installation, project_completed. $price is shown as given
      * (e.g. "1,500 SDG").
      */
     public function notificationsTemplate($customer_id, $lang, $type, $price = null): array
@@ -302,6 +302,16 @@ class Helper
                     'body' => 'بدأ تركيب نظامك الشمسي. يمكنك متابعة مراحل التقدم من التطبيق.',
                 ],
             ],
+            'project_completed' => [
+                'en' => [
+                    'title' => 'Your solar system is ready',
+                    'body' => 'Your project is complete and has been handed over to you. Please rate the company in the app.',
+                ],
+                'ar' => [
+                    'title' => 'نظامك الشمسي جاهز',
+                    'body' => 'اكتمل مشروعك وتم تسليمه لك. نرجو تقييم الشركة من التطبيق.',
+                ],
+            ],
         ];
 
         $template = $templates[$type][$lang] ?? [
@@ -339,10 +349,11 @@ class Helper
     }
 
     /**
-     * Push notification to the customer that installation has started.
+     * Push notification to the customer about their project:
+     * start_installation (installation started) or project_completed (handed over).
      * Skipped when the customer has no device token registered.
      */
-    public function notifyCustomerInstallationStarted(Project $project): void
+    public function notifyCustomerAboutProject(Project $project, string $type): void
     {
         if (!$project->customer_id) {
             return;
@@ -356,7 +367,7 @@ class Helper
             return;
         }
 
-        $this->notifyCustomer((int) $project->customer_id, 'start_installation');
+        $this->notifyCustomer((int) $project->customer_id, $type);
     }
 
     /**

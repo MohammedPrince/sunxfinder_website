@@ -400,9 +400,13 @@ class ProjectRepository
             ]);
         });
 
-        // "Start Installation" pressed: notify the customer after commit.
+        // Notify the customer after commit, once per stage change.
         if ($oldStatus === 'accepted' && $project->status === 'in_progress') {
-            $this->helper->notifyCustomerInstallationStarted($project);
+            // "Start Installation" pressed.
+            $this->helper->notifyCustomerAboutProject($project, 'start_installation');
+        } elseif ($oldStatus !== 'completed' && $project->status === 'completed') {
+            // Customer handover confirmed: the project is completed and locked.
+            $this->helper->notifyCustomerAboutProject($project, 'project_completed');
         }
 
         return $project;

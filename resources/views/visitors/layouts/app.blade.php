@@ -124,7 +124,7 @@
                         <span class="brand-fallback" hidden>Sun<span>X</span>Finder</span>
                     </a>
 
-                    <p class="footer-slogan">{{ trans('messages.Find. Compare. Connect.') }}</p>
+                    <p class="footer-slogan">{{ trans('messages.Find.') }} <span class="slogan-compare">{{ trans('messages.Compare.') }}</span> {{ trans('messages.Connect.') }}</p>
                     <p>{{ trans('messages.The easy way to find, compare and choose a solar company.') }}</p>
                 </div>
 
