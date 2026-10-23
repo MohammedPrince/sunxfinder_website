@@ -444,7 +444,6 @@ return [
     'We will reply to your email as soon as possible.' => 'We will reply to your email as soon as possible.',
     'Your message could not be sent.' => 'Your message could not be sent.',
     'Please try again, or email us directly at' => 'Please try again, or email us directly at',
-    'Please check the highlighted fields.' => 'Please check the highlighted fields.',
     'Full name' => 'Full name',
     'optional' => 'optional',
     'I am a' => 'I am a',
@@ -454,5 +453,10 @@ return [
     'Subject' => 'Subject',
     'Message' => 'Message',
     'Send message' => 'Send message',
+    'e.g. Mohammed Ahmed' => 'e.g. Mohammed Ahmed',
+    'e.g. name@example.com' => 'e.g. name@example.com',
+    'e.g. 0912345678' => 'e.g. 0912345678',
+    'What is your message about?' => 'What is your message about?',
+    'Write your message here. Include your request number if it is about a quote.' => 'Write your message here. Include your request number if it is about a quote.',
 
 ];

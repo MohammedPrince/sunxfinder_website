@@ -498,7 +498,6 @@ return [
     'We will reply to your email as soon as possible.' => 'سنرد على بريدك الإلكتروني في أقرب وقت ممكن.',
     'Your message could not be sent.' => 'تعذّر إرسال رسالتك.',
     'Please try again, or email us directly at' => 'يرجى المحاولة مرة أخرى، أو مراسلتنا مباشرة على',
-    'Please check the highlighted fields.' => 'يرجى مراجعة الحقول المحددة.',
     'Full name' => 'الاسم الكامل',
     'optional' => 'اختياري',
     'I am a' => 'أنا',
@@ -508,5 +507,10 @@ return [
     'Subject' => 'الموضوع',
     'Message' => 'الرسالة',
     'Send message' => 'إرسال الرسالة',
+    'e.g. Mohammed Ahmed' => 'مثال: محمد أحمد',
+    'e.g. name@example.com' => 'مثال: name@example.com',
+    'e.g. 0912345678' => 'مثال: 0912345678',
+    'What is your message about?' => 'عن ماذا تدور رسالتك؟',
+    'Write your message here. Include your request number if it is about a quote.' => 'اكتب رسالتك هنا. أضف رقم طلبك إذا كانت تتعلق بعرض سعر.',
 
 ];

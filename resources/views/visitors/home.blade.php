@@ -416,7 +416,7 @@
                 <a class="hx-contact-card" href="mailto:{{ $contactEmail }}">
                     <span class="hx-contact-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"
-                            stroke-linecap="round" stroke-linejoin="round">
+                            stroke-linecap="round" stroke-linejoin="round" >
                             <rect x="3" y="5" width="18" height="14" rx="2" />
                             <path d="m3 7 9 6 9-6" />
                         </svg>
@@ -463,7 +463,7 @@
                         <div class="hx-field {{ $contactErrors->has('name') ? 'has-error' : '' }}">
                             <label for="contact_name">{{ __('messages.Full name') }} <b>*</b></label>
                             <input id="contact_name" type="text" name="name" value="{{ old('name') }}" maxlength="100"
-                                autocomplete="name" required>
+                                autocomplete="name" placeholder="{{ __('messages.e.g. Mohammed Ahmed') }}" required>
                             @if ($contactErrors->has('name'))
                                 <small>{{ $contactErrors->first('name') }}</small>
                             @endif
@@ -472,7 +472,7 @@
                         <div class="hx-field {{ $contactErrors->has('email') ? 'has-error' : '' }}">
                             <label for="contact_email">{{ __('messages.Email address') }} <b>*</b></label>
                             <input id="contact_email" type="email" name="email" value="{{ old('email') }}" maxlength="150"
-                                autocomplete="email" dir="ltr" required>
+                                autocomplete="email" dir="ltr" placeholder="{{ __('messages.e.g. name@example.com') }}" required>
                             @if ($contactErrors->has('email'))
                                 <small>{{ $contactErrors->first('email') }}</small>
                             @endif
@@ -483,7 +483,7 @@
                         <div class="hx-field {{ $contactErrors->has('phone') ? 'has-error' : '' }}">
                             <label for="contact_phone">{{ __('messages.Phone number') }} <span>({{ __('messages.optional') }})</span></label>
                             <input id="contact_phone" type="tel" name="phone" value="{{ old('phone') }}" maxlength="20"
-                                autocomplete="tel" dir="ltr">
+                                autocomplete="tel" dir="ltr" placeholder="{{ __('messages.e.g. 0912345678') }}">
                             @if ($contactErrors->has('phone'))
                                 <small>{{ $contactErrors->first('phone') }}</small>
                             @endif
@@ -504,7 +504,8 @@
 
                     <div class="hx-field {{ $contactErrors->has('subject') ? 'has-error' : '' }}">
                         <label for="contact_subject">{{ __('messages.Subject') }} <b>*</b></label>
-                        <input id="contact_subject" type="text" name="subject" value="{{ old('subject') }}" maxlength="150" required>
+                        <input id="contact_subject" type="text" name="subject" value="{{ old('subject') }}" maxlength="150"
+                            placeholder="{{ __('messages.What is your message about?') }}" required>
                         @if ($contactErrors->has('subject'))
                             <small>{{ $contactErrors->first('subject') }}</small>
                         @endif
@@ -512,7 +513,8 @@
 
                     <div class="hx-field {{ $contactErrors->has('message') ? 'has-error' : '' }}">
                         <label for="contact_message">{{ __('messages.Message') }} <b>*</b></label>
-                        <textarea id="contact_message" name="message" rows="5" maxlength="3000" required>{{ old('message') }}</textarea>
+                        <textarea id="contact_message" name="message" rows="5" maxlength="3000"
+                            placeholder="{{ __('messages.Write your message here. Include your request number if it is about a quote.') }}" required>{{ old('message') }}</textarea>
                         @if ($contactErrors->has('message'))
                             <small>{{ $contactErrors->first('message') }}</small>
                         @endif
