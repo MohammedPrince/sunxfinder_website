@@ -3,6 +3,8 @@
 namespace App\Repositories\API;
 
 use App\Helpers\Helper;
+use App\Jobs\SendCompanyOfferDecisionEmail;
+use App\Mail\CompanyOfferDecisionMail;
 use App\Models\ApplianceGroup;
 use App\Models\AppVersion;
 use App\Models\CompanyCarousel;
@@ -850,7 +852,8 @@ class CustomerRepository
         try {
             $now = now();
 
-            $carousels = CompanyCarousel::query()
+            /** @var \Illuminate\Database\Eloquent\Collection<int, CompanyCarousel> $carouselRows */
+            $carouselRows = CompanyCarousel::query()
                 ->where('is_active', true)
                 ->whereIn('platform', ['app', 'both'])
 
@@ -875,7 +878,9 @@ class CustomerRepository
                 ->orderBy('sort_order')
                 ->orderBy('id')
                 ->limit(3)
-                ->get()
+                ->get();
+
+            $carousels = $carouselRows
                 ->map(function (CompanyCarousel $carousel): array {
                     return [
                         'id' => (int) $carousel->id,
@@ -1122,8 +1127,11 @@ class CustomerRepository
                 $page
             );
 
+            /** @var \Illuminate\Support\Collection<int, Quote> $quoteRows */
+            $quoteRows = $paginator->getCollection();
+
             // Build the API response.
-            $quotes = $paginator->getCollection()
+            $quotes = $quoteRows
                 ->map(function (Quote $quote) {
                     return [
                         'id' => $quote->id,
@@ -1201,10 +1209,6 @@ class CustomerRepository
             ];
         }
     }
-
-
-
-    //'submitted','selected','not_selected','withdrawn'
 
 
 
@@ -1365,6 +1369,9 @@ class CustomerRepository
                     'visible_to_customer' => true,
                 ]);
 
+                // Email the company that its offer was accepted (queued until commit).
+                SendCompanyOfferDecisionEmail::dispatch($offer->id, CompanyOfferDecisionMail::ACCEPTED);
+
                 return [
                     'success' => true,
                     'code' => 200,
@@ -1431,6 +1438,9 @@ class CustomerRepository
 
             $offer->status = 'withdrawn';
             $offer->save();
+
+            // Email the company that its offer was rejected.
+            SendCompanyOfferDecisionEmail::dispatch($offer->id, CompanyOfferDecisionMail::REJECTED);
 
             return [
                 'success' => true,
@@ -1566,7 +1576,10 @@ class CustomerRepository
             ->latest('created_at')
             ->paginate($perPage);
 
-        $notifications = $recipients->getCollection()
+        /** @var \Illuminate\Support\Collection<int, CustomerNotification> $recipientRows */
+        $recipientRows = $recipients->getCollection();
+
+        $notifications = $recipientRows
             ->map(function (CustomerNotification $recipient) {
                 $notification = $recipient->notification;
 

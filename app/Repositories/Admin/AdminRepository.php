@@ -1449,7 +1449,10 @@ class AdminRepository
                     $removedAppliances->whereNotIn('id', $submittedIds);
                 }
 
-                $removedAppliances->get()->each(function (Appliance $appliance) {
+                /** @var \Illuminate\Database\Eloquent\Collection<int, Appliance> $removedRows */
+                $removedRows = $removedAppliances->get();
+
+                $removedRows->each(function (Appliance $appliance) {
                     $appliance->delete();
                 });
 
@@ -1484,8 +1487,10 @@ class AdminRepository
                     ];
                 }
 
-                Appliance::where('group_id', $group->id)
-                    ->get()
+                /** @var \Illuminate\Database\Eloquent\Collection<int, Appliance> $appliances */
+                $appliances = Appliance::where('group_id', $group->id)->get();
+
+                $appliances
                     ->each(function (Appliance $appliance) {
                         $appliance->delete();
                     });
@@ -1927,9 +1932,12 @@ class AdminRepository
     public function getCompanyCarouselForPlatform(string $platform)
     {
         abort_unless(in_array($platform, ['app', 'website'], true), 422);
-        return CompanyCarousel::currentlyVisible()
+        /** @var \Illuminate\Database\Eloquent\Collection<int, CompanyCarousel> $entries */
+        $entries = CompanyCarousel::currentlyVisible()
             ->whereIn('platform', [$platform, 'both'])
-            ->with('company')->orderBy('sort_order')->orderBy('id')->get()
+            ->with('company')->orderBy('sort_order')->orderBy('id')->get();
+
+        return $entries
             ->map(fn(CompanyCarousel $entry) => [
                 'carousel_id' => $entry->id,
                 'company_id' => $entry->company_id,

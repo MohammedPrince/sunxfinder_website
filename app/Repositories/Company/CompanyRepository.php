@@ -2,6 +2,7 @@
 
 namespace App\Repositories\Company;
 
+use App\Helpers\Helper;
 use App\Models\CompanyQuotation;
 use App\Models\Customer;
 use App\Models\CustomerNotification;
@@ -30,10 +31,12 @@ use Illuminate\Support\Facades\Log;
 class CompanyRepository
 {
     protected OtpRepository $otpRepository;
+    protected Helper $helper;
 
-    public function __construct(OtpRepository $otpRepository)
+    public function __construct(OtpRepository $otpRepository, Helper $helper)
     {
         $this->otpRepository = $otpRepository;
+        $this->helper = $helper;
     }
 
 
@@ -890,8 +893,7 @@ class CompanyRepository
             'won_in_period' => $this->companyOffers($companyId)->where('status', 'selected')->whereBetween('created_at', [$from, $to])->distinct()->count('customer_id'),
             'avg_project_value' => $avgProjectValue !== null ? (float) $avgProjectValue : null,
             'by_city' => $servedRows
-                ->groupBy(fn($r) => trim((string) $r->city) !== '' ? $r->city : 'Unknown')
-                ->map->count()
+                ->countBy(fn($r) => trim((string) $r->city) !== '' ? $r->city : 'Unknown')
                 ->sortDesc()
                 ->take(8)
                 ->all(),
@@ -1089,7 +1091,7 @@ class CompanyRepository
 
         $companyId = (int) $company->getAuthIdentifier();
 
-        return DB::transaction(function () use ($quoteId, $companyId, $data) {
+        [$quotation, $type] = DB::transaction(function () use ($quoteId, $companyId, $data) {
             // Lock the request to prevent offer submission while it is being closed.
             $quote = Quote::query()
                 ->whereKey($quoteId)
@@ -1143,7 +1145,7 @@ class CompanyRepository
                 $quotation->ar_message = $data['ar_message'] ?? null;
                 $quotation->save();
 
-                return $quotation->refresh();
+                return [$quotation->refresh(), 'offer_updated'];
             }
 
             // No existing offer: create the first offer for this company/request.
@@ -1158,8 +1160,13 @@ class CompanyRepository
             $quotation->status = 'submitted';
             $quotation->save();
 
-            return $quotation;
+            return [$quotation, 'offer_new'];
         });
+
+        // Push only after commit, so a rolled-back offer never notifies.
+        $this->helper->notifyCustomerAboutOffer($quotation, $type);
+
+        return $quotation;
     }
 
     public function getCompanyQuotationForQuote(int $quoteId): ?CompanyQuotation
@@ -1217,6 +1224,7 @@ class CompanyRepository
     public function deleteNotification(int $id): array
     {
         // Scoped query: a company can only delete what it sent.
+        /** @var Notification|null $notification */
         $notification = $this->companyNotificationsQuery()->find($id);
 
         if (!$notification) {

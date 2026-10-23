@@ -6,7 +6,9 @@ use App\Models\SolarCompany;
 use Illuminate\Support\Str;
 use App\Models\Product;
 use App\Models\ProductSpec;
-
+use App\Models\CompanyQuotation;
+use App\Repositories\Company\CompanyRepository;
+use Throwable;
 
 
 class Helper
@@ -47,10 +49,13 @@ class Helper
             return $data;
         }
 
-        $products = Product::query()
+        /** @var \Illuminate\Database\Eloquent\Collection<int, Product> $productRows */
+        $productRows = Product::query()
             ->where('company_id', $company->id)
             ->with(['supplier', 'specs'])
-            ->get()
+            ->get();
+
+        $products = $productRows
             ->map(function (Product $product): array {
                 return [
                     'id' => (int) $product->id,
@@ -187,5 +192,98 @@ class Helper
             ->whereIn('status', ['approved', 'pending'])
             ->where('is_active', true)
             ->where('is_verified', true);
+    }
+
+    /**
+     * Builds the push title/body for a customer in the app language.
+     * Supported types: offer_new, offer_updated. $price is shown as given
+     * (e.g. "1,500 SDG").
+     */
+    public function notificationsTemplate($customer_id, $lang, $type, $price = null): array
+    {
+        
+        $lang = strtolower((string) $lang) === 'ar' ? 'ar' : 'en';
+
+        $name = trim((string) \App\Models\Customer::query()->whereKey($customer_id)->value('full_name'));
+
+        $templates = [
+            'offer_new' => [
+                'en' => [
+                    'title' => 'New offer received',
+                    'body' => $price !== null
+                        ? 'You received a new offer of :price on your quote request.'
+                        : 'You received a new offer on your quote request.',
+                ],
+                'ar' => [
+                    'title' => 'عرض سعر جديد',
+                    'body' => $price !== null
+                        ? 'وصلك عرض سعر جديد بقيمة :price على طلبك.'
+                        : 'وصلك عرض سعر جديد على طلبك.',
+                ],
+            ],
+            'offer_updated' => [
+                'en' => [
+                    'title' => 'Offer updated',
+                    'body' => $price !== null
+                        ? 'An offer on your quote request was updated to :price.'
+                        : 'An offer on your quote request was updated.',
+                ],
+                'ar' => [
+                    'title' => 'تم تحديث عرض السعر',
+                    'body' => $price !== null
+                        ? 'تم تحديث عرض السعر على طلبك إلى :price.'
+                        : 'تم تحديث عرض السعر على طلبك.',
+                ],
+            ],
+        ];
+
+        $template = $templates[$type][$lang] ?? [
+            'title' => $lang === 'ar' ? 'إشعار جديد' : 'New notification',
+            'body' => $lang === 'ar' ? 'لديك إشعار جديد.' : 'You have a new notification.',
+        ];
+
+        $body = str_replace(':price', (string) $price, $template['body']);
+
+        if ($name !== '') {
+            $body = $lang === 'ar'
+                ? "مرحباً {$name}، {$body}"
+                : "Hi {$name}, " . lcfirst($body);
+        }
+
+        return [
+            'title' => $template['title'],
+            'body' => $body,
+        ];
+    }
+
+    /**
+     * Push notification to the customer about a new/updated offer.
+     * A failed push must not fail the offer itself.
+     */
+    public function notifyCustomerAboutOffer(CompanyQuotation $quotation, string $type): void
+    {
+        if (!$quotation->customer_id) {
+            return;
+        }
+
+        $price = number_format((float) $quotation->price) . ' ' . $quotation->currency;
+
+        $en = $this->notificationsTemplate($quotation->customer_id, 'en', $type, $price);
+        $ar = $this->notificationsTemplate($quotation->customer_id, 'ar', $type, $price);
+
+        try {
+            // Resolved here, not injected: CompanyRepository already depends on Helper.
+            app(CompanyRepository::class)->publishNotification([
+                'type' => $type,
+                'audience_type' => 'selected',
+                'customer_ids' => [(int) $quotation->customer_id],
+                'title_en' => $en['title'],
+                'message_en' => $en['body'],
+                'title_ar' => $ar['title'],
+                'message_ar' => $ar['body'],
+            ]);
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 }

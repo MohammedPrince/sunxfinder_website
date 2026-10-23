@@ -62,6 +62,19 @@ return [
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
         ],
 
+        // Offer accepted/rejected emails to companies, sent from offer@sunxfinder.com (no-reply).
+        // Falls back to the default SMTP account when the MAIL_OFFER_* values are not set.
+        'offer' => [
+            'transport' => 'smtp',
+            'scheme' => env('MAIL_OFFER_SCHEME', env('MAIL_SCHEME')),
+            'host' => env('MAIL_OFFER_HOST', env('MAIL_HOST', '127.0.0.1')),
+            'port' => env('MAIL_OFFER_PORT', env('MAIL_PORT', 2525)),
+            'username' => env('MAIL_OFFER_USERNAME', env('MAIL_USERNAME')),
+            'password' => env('MAIL_OFFER_PASSWORD', env('MAIL_PASSWORD')),
+            'timeout' => 15,
+            'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
+        ],
+
         'ses' => [
             'transport' => 'ses',
         ],
@@ -132,6 +145,12 @@ return [
     'password_reset_from' => [
         'address' => env('MAIL_RESET_FROM_ADDRESS', 'forget@sunxfinder.com'),
         'name' => env('MAIL_RESET_FROM_NAME', env('MAIL_FROM_NAME', 'SunXFinder')),
+    ],
+
+    // No-reply sender for offer decision emails (see the "offer" mailer).
+    'offer_from' => [
+        'address' => env('MAIL_OFFER_FROM_ADDRESS', 'offer@sunxfinder.com'),
+        'name' => env('MAIL_OFFER_FROM_NAME', 'SunXFinder (No-Reply)'),
     ],
 
 ];
