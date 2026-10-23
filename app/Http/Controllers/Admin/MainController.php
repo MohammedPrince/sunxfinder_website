@@ -234,7 +234,7 @@ class MainController extends Controller
             'full_name' => ['required', 'string', 'max:200'],
             'phone' => ['nullable', 'string', 'max:30'],
             'email' => [
-                'required',
+                'nullable',
                 'email',
                 'max:191',
                 Rule::unique('tbl_customers', 'email'),
@@ -354,7 +354,7 @@ class MainController extends Controller
             'full_name' => ['required', 'string', 'max:200'],
             'phone' => ['nullable', 'string', 'max:30'],
             'email' => [
-                'required',
+                'nullable',
                 'email',
                 'max:191',
                 Rule::unique('tbl_customers', 'email')->ignore($id),

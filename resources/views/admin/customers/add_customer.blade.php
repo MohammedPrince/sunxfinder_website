@@ -109,10 +109,10 @@
 
                 {{-- Email --}}
                 <div class="form-group">
-                    <label for="email">Email Address <span><b style="color: red">*</b></span></label>
+                    <label for="email">Email Address</label>
                     <input type="email" id="email" name="email" class="form-control"
-                        placeholder="Enter customer Email" value="{{ old('email', $customer->email) }}" maxlength="191"
-                        autocomplete="email" required>
+                        placeholder="Enter customer Email (optional)" value="{{ old('email', $customer->email) }}" maxlength="191"
+                        autocomplete="email">
                     @error('email')
                         <small class="text-danger">{{ $message }}</small>
                     @enderror
@@ -159,9 +159,9 @@
 
                 {{-- Address --}}
                 <div class="form-group form-group-full">
-                    <label for="address">Address <span><b style="color: red">*</b></span></label>
-                    <textarea id="address" name="address" class="form-control" rows="3" maxlength="5000" required
-                        placeholder="Enter customer address">{{ old('address', $customer->address) }}</textarea>
+                    <label for="address">Address</label>
+                    <textarea id="address" name="address" class="form-control" rows="3" maxlength="5000"
+                        placeholder="Enter customer address (optional)">{{ old('address', $customer->address) }}</textarea>
                     @error('address')
                         <small class="text-danger">{{ $message }}</small>
                     @enderror

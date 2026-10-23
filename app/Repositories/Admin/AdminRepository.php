@@ -1038,7 +1038,8 @@ class AdminRepository
             $customer->username = $data['username'];
             $customer->full_name = $data['full_name'];
             $customer->phone = $data['phone'] ?? null;
-            $customer->email = $data['email'];
+            // Optional: store NULL (not "") so the unique email index allows many blanks.
+            $customer->email = ($data['email'] ?? null) ?: null;
             $customer->gender = $data['gender'];
             $customer->city = $data['city'] ?? null;
             $customer->address = $data['address'] ?? null;
@@ -1224,7 +1225,8 @@ class AdminRepository
             $customer->username = $data['username'];
             $customer->full_name = $data['full_name'];
             $customer->phone = $data['phone'] ?? null;
-            $customer->email = $data['email'];
+            // Optional: store NULL (not "") so the unique email index allows many blanks.
+            $customer->email = ($data['email'] ?? null) ?: null;
             $customer->gender = $data['gender'];
             $customer->city = $data['city'] ?? null;
             $customer->address = $data['address'] ?? null;
