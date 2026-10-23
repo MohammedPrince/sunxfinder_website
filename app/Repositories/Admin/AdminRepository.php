@@ -1206,6 +1206,8 @@ class AdminRepository
                 ];
             }
 
+            $wasActive = $customer->status === 'active';
+
             $customer->username = $data['username'];
             $customer->full_name = $data['full_name'];
             $customer->phone = $data['phone'] ?? null;
@@ -1228,6 +1230,11 @@ class AdminRepository
                     'success' => false,
                     'message' => 'Unable to update the customer.',
                 ];
+            }
+
+            // Account approved (pending/suspended -> active): tell the customer.
+            if (!$wasActive && $customer->status === 'active') {
+                app(Helper::class)->notifyCustomerAccountApproved((int) $customer->id);
             }
 
             return [

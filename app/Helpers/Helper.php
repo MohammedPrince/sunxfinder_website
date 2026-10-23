@@ -10,6 +10,7 @@ use App\Models\CompanyQuotation;
 use App\Models\CustomerDeviceToken;
 use App\Models\Project;
 use App\Models\Rating;
+use App\Repositories\Admin\AdminRepository;
 use App\Repositories\Company\CompanyRepository;
 use Kreait\Firebase\Messaging\CloudMessage;
 use Throwable;
@@ -253,7 +254,7 @@ class Helper
 
     /**
      * Builds the push title/body for a customer in the app language.
-     * Supported types: offer_new, offer_updated, start_installation, project_completed. $price is shown as given
+     * Supported types: offer_new, offer_updated, start_installation, project_completed, account_approved. $price is shown as given
      * (e.g. "1,500 SDG").
      */
     public function notificationsTemplate($customer_id, $lang, $type, $price = null): array
@@ -300,6 +301,16 @@ class Helper
                 'ar' => [
                     'title' => 'بدأ التركيب',
                     'body' => 'بدأ تركيب نظامك الشمسي. يمكنك متابعة مراحل التقدم من التطبيق.',
+                ],
+            ],
+            'account_approved' => [
+                'en' => [
+                    'title' => 'Your account is approved',
+                    'body' => 'Your SunXFinder account has been approved. You can now log in and request offers from solar companies.',
+                ],
+                'ar' => [
+                    'title' => 'تم اعتماد حسابك',
+                    'body' => 'تم اعتماد حسابك في SunXFinder. يمكنك الآن تسجيل الدخول وطلب عروض من شركات الطاقة الشمسية.',
                 ],
             ],
             'project_completed' => [
@@ -373,48 +384,74 @@ class Helper
     /**
      * Adds the SunXFinder notification sound to a push message.
      * Android plays it through the channel; iOS needs the file extension.
+     * FCM_SOUND=default uses the phone's normal sound (no app file needed).
      */
     public static function withNotificationSound(CloudMessage $message): CloudMessage
     {
-        $sound = config('services.fcm.sound');
+        $sound = trim((string) config('services.fcm.sound')) ?: 'default';
+        $channelId = trim((string) config('services.fcm.android_channel_id'));
+
+        $androidNotification = ['sound' => $sound];
+
+        // Without a channel, Android uses the app's default FCM channel.
+        if ($channelId !== '') {
+            $androidNotification['channel_id'] = $channelId;
+        }
 
         return $message
             ->withAndroidConfig([
                 'priority' => 'high',
-                'notification' => [
-                    'sound' => $sound,
-                    'channel_id' => config('services.fcm.android_channel_id'),
-                ],
+                'notification' => $androidNotification,
             ])
             ->withApnsConfig([
                 'payload' => [
                     'aps' => [
-                        'sound' => $sound . '.wav',
+                        'sound' => $sound === 'default' ? 'default' : $sound . '.wav',
                     ],
                 ],
             ]);
     }
 
     /**
+     * Push notification to the customer that admin approved their account.
+     * Always saved in-app: a pending customer could not log in yet, so they
+     * may have no device token and will see it after their first login.
+     */
+    public function notifyCustomerAccountApproved(int $customerId): void
+    {
+        $this->notifyCustomer($customerId, 'account_approved', null, 'admin');
+    }
+
+    /**
      * Saves the notification for the customer and pushes it to their devices,
      * each in its own app language. A failed push never throws.
+     * $sender: "company" (logged-in company) or "admin" (logged-in admin).
      */
-    public function notifyCustomer(int $customerId, string $type, $price = null): void
+    public function notifyCustomer(int $customerId, string $type, $price = null, string $sender = 'company'): void
     {
         $en = $this->notificationsTemplate($customerId, 'en', $type, $price);
         $ar = $this->notificationsTemplate($customerId, 'ar', $type, $price);
 
+        $data = [
+            'type' => $type,
+            'audience_type' => 'selected',
+            'customer_ids' => [$customerId],
+            'title_en' => $en['title'],
+            'message_en' => $en['body'],
+            'title_ar' => $ar['title'],
+            'message_ar' => $ar['body'],
+        ];
+
         try {
-            // Resolved here, not injected: CompanyRepository already depends on Helper.
-            app(CompanyRepository::class)->publishNotification([
-                'type' => $type,
-                'audience_type' => 'selected',
-                'customer_ids' => [$customerId],
-                'title_en' => $en['title'],
-                'message_en' => $en['body'],
-                'title_ar' => $ar['title'],
-                'message_ar' => $ar['body'],
-            ]);
+            // Resolved here, not injected: both repositories already depend on Helper.
+            if ($sender === 'admin') {
+                app(AdminRepository::class)->publishNotification($data + [
+                    'sender_type' => 'admin',
+                    'sender_id' => auth('admin')->id(),
+                ]);
+            } else {
+                app(CompanyRepository::class)->publishNotification($data);
+            }
         } catch (Throwable $e) {
             report($e);
         }
