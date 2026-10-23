@@ -77,18 +77,26 @@
                 <button class="language-close" id="closeLanguageModal" type="button"
                     aria-label="{{ trans('messages.Close') }}">×</button>
 
-                <h2 id="languageModalTitle">{{ trans('messages.Choose your language') }}</h2>
-                <p id="languageModalDescription">{{ trans('messages.Select your preferred language to continue.') }}</p>
+                <div class="language-modal-head">
+                    <img class="language-modal-logo" src="{{ asset_v('visitors/images/logo-128.webp') }}" alt="SunXFinder"
+                        width="56" height="56">
+                    <span class="language-kicker">Language · اللغة</span>
+                    <h2 id="languageModalTitle">{{ trans('messages.Choose your language') }}</h2>
+                    <p id="languageModalDescription">{{ trans('messages.Select your preferred language to continue.') }}</p>
+                </div>
+
                 <div class="language-options">
-                    <a class="language-option" href="{{ url()->current() }}?lang=en" lang="en" dir="ltr">
-                        <span class="language-flag" aria-hidden="true">US</span>
+                    <a class="language-option language-option-en {{ app()->getLocale() === 'en' ? 'is-current' : '' }}"
+                        href="{{ url()->current() }}?lang=en" lang="en" dir="ltr">
+                        <span class="language-flag" aria-hidden="true">En</span>
                         <span><strong>English</strong><small>Continue in English</small></span>
-                        <b aria-hidden="true">›</b>
+                        <b aria-hidden="true">→</b>
                     </a>
-                    <a class="language-option" href="{{ url()->current() }}?lang=ar" lang="ar" dir="rtl">
-                        <span class="language-flag" aria-hidden="true">🇸🇩</span>
+                    <a class="language-option language-option-ar {{ app()->getLocale() === 'ar' ? 'is-current' : '' }}"
+                        href="{{ url()->current() }}?lang=ar" lang="ar" dir="rtl">
+                        <span class="language-flag" aria-hidden="true">ع</span>
                         <span><strong>العربية</strong><small>المتابعة باللغة العربية</small></span>
-                        <b aria-hidden="true">‹</b>
+                        <b aria-hidden="true">←</b>
                     </a>
                 </div>
                 <small class="language-note">{{ trans('messages.You can change your preference at any time.') }}</small>

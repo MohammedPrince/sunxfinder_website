@@ -196,12 +196,14 @@ class WebsiteController extends Controller
         $companyCover = null;
         $companyVerified = (bool) $company->is_verified;
 
-        $companyRating = 4.0;
-        $companyReviews = 0;
+        // Visible ratings only; rating is null (shows "Not rated yet") until the first one.
+        $ratingSummary = $this->mainService->getCompanyRatingSummary($company);
+        $companyRating = $ratingSummary['rating'];
+        $companyReviews = $ratingSummary['reviews'];
 
         $companyYears = null;
         $companyProducts = $company->products;
-        $companyReviewsList = [];
+        $companyReviewsList = $this->mainService->getCompanyReviews($company->id);
 
         $companyEmail = $company->email;
         $companyPhone = $company->phone;

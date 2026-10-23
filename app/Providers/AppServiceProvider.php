@@ -14,6 +14,8 @@ use App\Models\Notification;
 use App\Models\Product;
 use App\Models\Project;
 use App\Models\Quote;
+use App\Models\Rating;
+use App\Models\RatingQuestion;
 use App\Models\SolarCompany;
 use App\Models\Supplier;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -82,6 +84,8 @@ class AppServiceProvider extends ServiceProvider
                 'quoteCount' => Quote::count(),
                 'appVersionCount' => AppVersion::count(),
                 'notificationsCount' => Notification::count(),
+                'ratingsCount' => Rating::count(),
+                'ratingQuestionsCount' => RatingQuestion::count(),
             ]);
         });
 
@@ -106,6 +110,7 @@ class AppServiceProvider extends ServiceProvider
             $productsCount = 0;
             $myActiveProjectCount = 0;
             $notificationsCount = 0;
+            $ratingsCount = 0;
 
             if ($company) {
                 $companyId = $company->getAuthIdentifier();
@@ -118,6 +123,7 @@ class AppServiceProvider extends ServiceProvider
                 $productsCount = Product::query()->where('company_id', $companyId)->count();
                 $myActiveProjectCount = Project::query()->where('company_id', $companyId)->count();
                 $notificationsCount = Notification::query()->where('sender_id', $companyId)->count();
+                $ratingsCount = Rating::query()->visible()->where('company_id', $companyId)->count();
             }
 
 
@@ -126,6 +132,7 @@ class AppServiceProvider extends ServiceProvider
                 'productsCount' => $productsCount,
                 'myActiveProjectCount' => $myActiveProjectCount,
                 'notificationsCount' => $notificationsCount,
+                'ratingsCount' => $ratingsCount,
             ]);
         });
     }

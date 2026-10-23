@@ -262,7 +262,7 @@ return [
     'Back to companies' => 'رجوع للصفحة الرئيسية',
 
     'Verified company' => 'شركة موثوقة',
-    'customer reviews' => 'تقيمات العملاء',
+    'customer reviews' => 'تقييمات العملاء',
 
     'Contact company' => 'إفتح التطبيق',
     'View services' => 'خدمات الشركة',

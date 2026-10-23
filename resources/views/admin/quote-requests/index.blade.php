@@ -104,7 +104,7 @@
                     <tr>
                         <th>Request</th>
                         <th>Customer</th>
-                        <th>Service</th>
+                        <th>Quote name</th>
                         <th>Load estimate</th>
                         <th>Received</th>
                         <th>Offers</th>
@@ -149,7 +149,7 @@
                             </td>
 
                             <td>
-                                <strong>{{ $quote->service_needed }}</strong>
+                                <strong>{{ $quote->quote_name }}</strong>
                                 @if ($systemType)
                                     <small class="cell-note">{{ $systemType }}</small>
                                 @endif

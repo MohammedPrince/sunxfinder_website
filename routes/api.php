@@ -42,6 +42,10 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
         Route::post('/offer-accept', [MainController::class, 'acceptOffer'])->middleware('throttle:60,1')->name('offer-accept');
         Route::post('/offer-reject', [MainController::class, 'rejectOffer'])->middleware('throttle:60,1')->name('offer-reject');
 
+        // Ratings: rate the company whose offer was accepted (one per quote)
+        Route::get('/rating-form', [MainController::class, 'getRatingForm'])->middleware('throttle:60,1');
+        Route::post('/rating', [MainController::class, 'submitRating'])->middleware('throttle:20,1')->name('rating');
+
         Route::get('/profile', [MainController::class, 'getProfile'])->middleware('throttle:60,1');
         Route::post('/profile', [MainController::class, 'updateProfile'])->middleware('throttle:60,1');
 

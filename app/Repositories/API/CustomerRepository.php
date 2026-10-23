@@ -17,6 +17,10 @@ use App\Models\Project;
 use App\Models\ProjectMilestone;
 use App\Models\ProjectUpdate;
 use App\Models\Quote;
+use App\Models\Rating;
+use App\Models\RatingQuestion;
+use App\Models\RatingValue;
+use App\Models\Setting;
 use App\Models\SolarCompany;
 use Carbon\Carbon;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -188,6 +192,11 @@ class CustomerRepository
 
             $profile = $profileResult['profile'] ?? null;
 
+            // Admin-editable app settings the app reads on start.
+            $settings = [
+                'max_open_quotes' => Setting::maxOpenQuotes(),
+            ];
+
             // Services: getServices() returns both languages under data.
             $servicesResult = $this->getServices();
 
@@ -283,6 +292,8 @@ class CustomerRepository
                 ],
                 'notifications' => $notifications,
                 'app_version' => $this->getAppVersions($customerId),
+                'settings' => $settings,
+                'rating_form' => $this->getRatingForm()['data'],
                 'meta' => [
                     'companies_total' => $companiesResult['meta']['total']
                         ?? count($companies),
@@ -622,12 +633,18 @@ class CustomerRepository
                 });
             }
 
-            // There is no rating column yet, so "rating" shows verified
-            // companies first and then the newest.
+            // Average stars and count of visible ratings (read by transformCompany).
+            $query->withAvg(['ratings as visible_rating' => fn($q) => $q->where('is_visible', true)], 'stars')
+                ->withCount(['ratings as visible_reviews' => fn($q) => $q->where('is_visible', true)]);
+
             if ($sort === 'name') {
                 $query->orderBy('name');
             } elseif ($sort === 'rating') {
-                $query->orderByDesc('is_verified')->orderByDesc('created_at');
+                // Highest rated first; unrated companies last, verified ones before the rest.
+                $query->orderByRaw('visible_rating IS NULL')
+                    ->orderByDesc('visible_rating')
+                    ->orderByDesc('is_verified')
+                    ->orderByDesc('created_at');
             } else {
                 $query->orderByDesc('created_at');
             }
@@ -946,7 +963,6 @@ class CustomerRepository
 
         $existingQuote = Quote::query()
             ->where('customer_id', $data['customer_id'])
-            // ->where('service_needed', $data['service_needed'])
             ->where('peak_load', $data['peak_load'])
             ->where('daily_load', $data['daily_load'])
             ->whereIn('status', ['pending', 'accepted'])
@@ -961,13 +977,36 @@ class CustomerRepository
                     'id' => $existingQuote->id,
                     'customer_id' => $existingQuote->customer_id,
                     'company_id' => $existingQuote->company_id,
-                    'service_needed' => $existingQuote->service_needed,
+                    'quote_name' => $existingQuote->quote_name,
+                    'service_needed' => $existingQuote->quote_name,
                     'estimated_load' => $existingQuote->estimated_load,
                     'peak_load' => $existingQuote->peak_load,
                     'daily_load' => $existingQuote->daily_load,
                     'message' => $existingQuote->message,
                     'status' => $existingQuote->status,
                     'created_at' => $existingQuote->created_at,
+                ],
+            ];
+        }
+
+        // Open = still pending, i.e. no offer accepted yet. Accepting an offer frees a slot.
+        $maxOpenQuotes = Setting::maxOpenQuotes();
+
+        $openQuotes = Quote::query()
+            ->where('customer_id', $data['customer_id'])
+            ->where('status', 'pending')
+            ->count();
+
+        if ($openQuotes >= $maxOpenQuotes) {
+            return [
+                'success' => false,
+                'code' => 422,
+                'message' => "You can have up to {$maxOpenQuotes} open requests at a time. "
+                    . 'Accept an offer or close a request to make room.',
+                'quote' => null,
+                'data' => [
+                    'reason' => 'quote_limit_reached',
+                    'max_open_quotes' => $maxOpenQuotes,
                 ],
             ];
         }
@@ -997,7 +1036,7 @@ class CustomerRepository
 
                 $quote->customer_id = $data['customer_id'];
                 $quote->company_id = $data['company_id'];
-                $quote->service_needed = $data['service_needed'];
+                $quote->quote_name = $data['quote_name'];
                 $quote->estimated_load = $data['estimated_load'];
                 $quote->peak_load = $data['peak_load'];
                 $quote->daily_load = $data['daily_load'];
@@ -1017,7 +1056,8 @@ class CustomerRepository
                     'id' => $quote->id,
                     'customer_id' => $quote->customer_id,
                     'company_id' => $quote->company_id,
-                    'service_needed' => $quote->service_needed,
+                    'quote_name' => $quote->quote_name,
+                    'service_needed' => $quote->quote_name,
                     'estimated_load' => $quote->estimated_load,
                     'message' => $quote->message,
                     'status' => $quote->status,
@@ -1087,12 +1127,15 @@ class CustomerRepository
                             'completed_at',
                         ]);
                     },
+
+                    // The customer's own rating, so the app hides "Rate Company" once rated.
+                    'rating:id,quote_id,customer_id,stars',
                 ]);
 
             // Search quote fields.
             if ($search !== '') {
                 $query->where(function ($q) use ($search) {
-                    $q->where('service_needed', 'like', '%' . $search . '%')
+                    $q->where('quote_name', 'like', '%' . $search . '%')
                         ->orWhere('estimated_load', 'like', '%' . $search . '%')
                         ->orWhere('message', 'like', '%' . $search . '%');
                 });
@@ -1130,9 +1173,22 @@ class CustomerRepository
             /** @var \Illuminate\Support\Collection<int, Quote> $quoteRows */
             $quoteRows = $paginator->getCollection();
 
+            // Average stars per company on this page, in one query.
+            $companyRatings = $this->companyRatingSummaries(
+                $quoteRows->flatMap(fn(Quote $quote) => $quote->companyQuotations->pluck('company_id'))
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all()
+            );
+
             // Build the API response.
             $quotes = $quoteRows
-                ->map(function (Quote $quote) {
+                ->map(function (Quote $quote) use ($companyRatings, $customerId) {
+                    $ownRating = $quote->rating && (int) $quote->rating->customer_id === (int) $customerId
+                        ? $quote->rating
+                        : null;
+
                     return [
                         'id' => $quote->id,
                         'reference' => '#Q-' . str_pad(
@@ -1141,7 +1197,10 @@ class CustomerRepository
                             '0',
                             STR_PAD_LEFT
                         ),
-                        'service_needed' => $quote->service_needed,
+                        'quote_name' => $quote->quote_name,
+                        // Kept for app builds that still read the old key.
+                        'service_needed' => $quote->quote_name,
+                        'customer_rating' => $ownRating?->stars,
                         'estimated_load' => $quote->estimated_load,
                         'daily_load' => $quote->daily_load,
                         'peak_load' => $quote->peak_load,
@@ -1166,12 +1225,17 @@ class CustomerRepository
 
                         // Individual company offers and their statuses.
                         'offers' => $quote->companyQuotations
-                            ->map(function ($offer) {
+                            ->map(function ($offer) use ($companyRatings) {
+                                $summary = $companyRatings[(int) $offer->company_id] ?? null;
+
                                 return [
                                     'id' => $offer->id,
                                     'company_id' => $offer->company?->id,
                                     'company_name' => $offer->company?->name,
                                     'company_logo' => $offer->company?->logo_path,
+                                    // Null until the company has at least one rating.
+                                    'company_rating' => $summary['rating'] ?? null,
+                                    'company_reviews' => $summary['reviews'] ?? 0,
                                     'price' => (float) $offer->price,
                                     'currency' => $offer->currency,
                                     'message' => $offer->message,
@@ -1464,6 +1528,243 @@ class CustomerRepository
             ];
         }
     }
+
+    //Ratings Start
+
+    /**
+     * Customer rates the company whose offer they accepted on a quote.
+     * One rating per quote; overall stars 1-5 plus optional 1-4 answers per question.
+     */
+    public function submitRating(array $data): array
+    {
+        try {
+            $customer = $this->helper->isCustomerAuthenticated();
+
+            if (!$customer) {
+                return [
+                    'success' => false,
+                    'code' => 401,
+                    'message' => 'Unauthenticated.',
+                    'data' => null,
+                ];
+            }
+
+            $quote = Quote::query()->with('project:id,quote_id')->find($data['quote_id']);
+
+            if (!$quote) {
+                return [
+                    'success' => false,
+                    'code' => 404,
+                    'message' => 'Quote request not found.',
+                    'data' => null,
+                ];
+            }
+
+            if ((int) $quote->customer_id !== (int) $customer->id) {
+                return [
+                    'success' => false,
+                    'code' => 403,
+                    'message' => 'This quote request does not belong to your account.',
+                    'data' => null,
+                ];
+            }
+
+            // Only the company whose offer was accepted can be rated.
+            $acceptedOffer = CompanyQuotation::query()
+                ->where('quote_id', $quote->id)
+                ->where('status', 'selected')
+                ->first();
+
+            if (!$acceptedOffer) {
+                return [
+                    'success' => false,
+                    'code' => 422,
+                    'message' => 'You can rate a company after accepting its offer.',
+                    'data' => ['reason' => 'no_accepted_offer'],
+                ];
+            }
+
+            if ((int) $acceptedOffer->company_id !== (int) $data['company_id']) {
+                return [
+                    'success' => false,
+                    'code' => 422,
+                    'message' => 'You can only rate the company whose offer you accepted.',
+                    'data' => ['reason' => 'company_mismatch'],
+                ];
+            }
+
+            $alreadyRated = Rating::query()
+                ->where('customer_id', $customer->id)
+                ->where('quote_id', $quote->id)
+                ->exists();
+
+            if ($alreadyRated) {
+                return $this->alreadyRatedResponse();
+            }
+
+            // Answers: only active questions, each once, value on the 1-4 scale.
+            $activeQuestionIds = RatingQuestion::query()->active()->pluck('id')->map(fn($id) => (int) $id)->all();
+
+            $answers = collect($data['answers'] ?? [])
+                ->filter(fn($answer) => in_array((int) $answer['question_id'], $activeQuestionIds, true))
+                ->keyBy(fn($answer) => (int) $answer['question_id'])
+                ->map(fn($answer) => (int) $answer['value']);
+
+            $comment = trim((string) ($data['comment'] ?? ''));
+
+            $rating = DB::transaction(function () use ($customer, $quote, $acceptedOffer, $data, $answers, $comment) {
+                $rating = Rating::query()->create([
+                    'customer_id' => $customer->id,
+                    'company_id' => $acceptedOffer->company_id,
+                    'quote_id' => $quote->id,
+                    // Taken from the server, not the request, so they always match the quote.
+                    'offer_id' => $acceptedOffer->id,
+                    'project_id' => $quote->project?->id,
+                    'stars' => (int) $data['stars'],
+                    'comment' => $comment !== '' ? $comment : null,
+                    'is_visible' => true,
+                ]);
+
+                foreach ($answers as $questionId => $value) {
+                    $rating->answers()->create([
+                        'question_id' => $questionId,
+                        'value' => $value,
+                    ]);
+                }
+
+                return $rating;
+            });
+
+            $summary = $this->companyRatingSummaries([(int) $rating->company_id])[(int) $rating->company_id]
+                ?? ['rating' => null, 'reviews' => 0];
+
+            return [
+                'success' => true,
+                'code' => 201,
+                'message' => 'Thank you for your rating',
+                'data' => [
+                    'ratingDetails' => [
+                        'id' => (int) $rating->id,
+                        'quote_id' => (int) $rating->quote_id,
+                        'company_id' => (int) $rating->company_id,
+                        'offer_id' => (int) $rating->offer_id,
+                        'project_id' => $rating->project_id ? (int) $rating->project_id : null,
+                        'stars' => (int) $rating->stars,
+                        'comment' => $rating->comment,
+                        'answers' => $answers->map(fn($value, $questionId) => [
+                            'question_id' => (int) $questionId,
+                            'value' => $value,
+                        ])->values()->all(),
+                        'created_at' => $rating->created_at?->toISOString(),
+                        'company_rating' => $summary['rating'],
+                        'company_reviews' => $summary['reviews'],
+                    ],
+                ],
+            ];
+        } catch (UniqueConstraintViolationException $e) {
+            // Two taps at once: the unique index stops the second row.
+            return $this->alreadyRatedResponse();
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+                'message' => 'Unable to submit your rating. Please try again.',
+                'data' => null,
+            ];
+        }
+    }
+
+    /** Active questions and the 1-4 answer labels, for the app's rating screen. */
+    public function getRatingForm(): array
+    {
+        try {
+            $questions = RatingQuestion::query()
+                ->active()
+                ->ordered()
+                ->get(['id', 'title_en', 'title_ar', 'question_en', 'question_ar'])
+                ->map(fn(RatingQuestion $question) => [
+                    'id' => (int) $question->id,
+                    'title_en' => $question->title_en,
+                    'title_ar' => $question->title_ar,
+                    'question_en' => $question->question_en,
+                    'question_ar' => $question->question_ar,
+                ])
+                ->values()
+                ->all();
+
+            $values = RatingValue::query()
+                ->orderBy('value')
+                ->get(['value', 'label_en', 'label_ar'])
+                ->map(fn(RatingValue $value) => [
+                    'value' => (int) $value->value,
+                    'label_en' => $value->label_en,
+                    'label_ar' => $value->label_ar,
+                ])
+                ->values()
+                ->all();
+
+            return [
+                'success' => true,
+                'code' => 200,
+                'message' => 'Rating form retrieved successfully.',
+                'data' => [
+                    'questions' => $questions,
+                    'values' => $values,
+                    'stars' => ['min' => Rating::MIN_STARS, 'max' => Rating::MAX_STARS],
+                ],
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+                'message' => 'Unable to load the rating form.',
+                'data' => null,
+            ];
+        }
+    }
+
+    /**
+     * Average stars and count of visible ratings, keyed by company ID.
+     * Companies without ratings are left out.
+     *
+     * @return array<int, array{rating: float, reviews: int}>
+     */
+    public function companyRatingSummaries(array $companyIds): array
+    {
+        if (empty($companyIds)) {
+            return [];
+        }
+
+        return Rating::query()
+            ->visible()
+            ->whereIn('company_id', $companyIds)
+            ->groupBy('company_id')
+            ->selectRaw('company_id, AVG(stars) as avg_stars, COUNT(*) as total')
+            ->get()
+            ->mapWithKeys(fn($row) => [
+                (int) $row->company_id => [
+                    'rating' => round((float) $row->avg_stars, 1),
+                    'reviews' => (int) $row->total,
+                ],
+            ])
+            ->all();
+    }
+
+    private function alreadyRatedResponse(): array
+    {
+        return [
+            'success' => false,
+            'code' => 422,
+            'message' => 'You have already rated this company for this request',
+            'data' => ['reason' => 'already_rated'],
+        ];
+    }
+
+    //Ratings End
 
     public function getProjectProgress(int $projectId): Project|array|null
     {

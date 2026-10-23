@@ -10,6 +10,7 @@ use App\Models\Notification;
 use App\Models\Product;
 use App\Models\Project;
 use App\Models\Quote;
+use App\Models\Rating;
 use App\Models\SolarCompany;
 use App\Repositories\OtpRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -508,14 +509,14 @@ class CompanyRepository
                 ->where('o.company_id', $companyId)
                 ->whereBetween('o.created_at', [$from, $to])
                 ->orderBy('o.created_at')
-                ->get(['q.id as quote_id', 'q.created_at as received_at', 'o.created_at as offered_at', 'c.full_name', 'c.username', 'c.city', 'q.service_needed', 'o.price', 'o.currency', 'o.status', 'q.status as request_status']);
+                ->get(['q.id as quote_id', 'q.created_at as received_at', 'o.created_at as offered_at', 'c.full_name', 'c.username', 'c.city', 'q.quote_name', 'o.price', 'o.currency', 'o.status', 'q.status as request_status']);
 
             return [
                 'filename' => "my-offers_{$suffix}.csv",
-                'headers' => ['Request', 'Request received', 'Offer sent', 'Customer', 'City', 'Service', 'Price', 'Currency', 'Offer status', 'Request status'],
+                'headers' => ['Request', 'Request received', 'Offer sent', 'Customer', 'City', 'Quote name', 'Price', 'Currency', 'Offer status', 'Request status'],
                 'rows' => $rows->map(fn($r) => [
                     $ref($r->quote_id), $r->received_at, $r->offered_at, $r->full_name ?: $r->username, $r->city,
-                    $r->service_needed, $r->price, $r->currency, $r->status, $r->request_status,
+                    $r->quote_name, $r->price, $r->currency, $r->status, $r->request_status,
                 ])->all(),
             ];
         }
@@ -529,13 +530,13 @@ class CompanyRepository
                 ->where('p.company_id', $companyId)
                 ->whereBetween('p.created_at', [$from, $to])
                 ->orderBy('p.created_at')
-                ->get(['p.id', 'p.quote_id', 'c.full_name', 'c.username', 'c.city', 'q.service_needed', 'p.status', 'p.progress_percent', 'o.price', 'o.currency', 'p.accepted_at', 'p.started_at', 'p.completed_at']);
+                ->get(['p.id', 'p.quote_id', 'c.full_name', 'c.username', 'c.city', 'q.quote_name', 'p.status', 'p.progress_percent', 'o.price', 'o.currency', 'p.accepted_at', 'p.started_at', 'p.completed_at']);
 
             return [
                 'filename' => "my-projects_{$suffix}.csv",
-                'headers' => ['Project', 'Request', 'Customer', 'City', 'Service', 'Status', 'Progress %', 'Price', 'Currency', 'Accepted', 'Started', 'Completed'],
+                'headers' => ['Project', 'Request', 'Customer', 'City', 'Quote name', 'Status', 'Progress %', 'Price', 'Currency', 'Accepted', 'Started', 'Completed'],
                 'rows' => $rows->map(fn($r) => [
-                    $r->id, $ref($r->quote_id), $r->full_name ?: $r->username, $r->city, $r->service_needed, $r->status,
+                    $r->id, $ref($r->quote_id), $r->full_name ?: $r->username, $r->city, $r->quote_name, $r->status,
                     $r->progress_percent, $r->price, $r->currency, $r->accepted_at, $r->started_at, $r->completed_at,
                 ])->all(),
             ];
@@ -680,7 +681,7 @@ class CompanyRepository
         return [
             'by_status' => $inPeriod()->selectRaw('status as k, COUNT(*) as n')->groupBy('k')->orderByDesc('n')->pluck('n', 'k')->all(),
             'by_service' => $inPeriod()
-                ->selectRaw("COALESCE(NULLIF(TRIM(service_needed), ''), 'Not specified') as k, COUNT(*) as n")
+                ->selectRaw("COALESCE(NULLIF(TRIM(quote_name), ''), 'Not specified') as k, COUNT(*) as n")
                 ->groupBy('k')->orderByDesc('n')->limit(8)->pluck('n', 'k')->all(),
             'by_city' => $inPeriod()
                 ->leftJoin('tbl_customers as c', 'c.id', '=', 'tbl_quote_requests.customer_id')
@@ -700,7 +701,7 @@ class CompanyRepository
                     'id' => $quote->id,
                     'customer' => $quote->customer?->full_name ?: ($quote->customer?->username ?: '—'),
                     'city' => $quote->customer?->city ?: '—',
-                    'service' => $quote->service_needed ?: '—',
+                    'service' => $quote->quote_name ?: '—',
                     'competing_offers' => (int) $quote->company_quotations_count,
                     'created_at' => $quote->created_at,
                     'age_hours' => (int) $quote->created_at->diffInHours(now()),
@@ -797,7 +798,7 @@ class CompanyRepository
             ->orderBy('p.progress_percent')
             ->orderBy('p.created_at')
             ->limit(15)
-            ->get(['p.id', 'p.quote_id', 'p.status', 'p.progress_percent', 'p.created_at', 'c.full_name', 'c.username', 'q.service_needed', DB::raw('COALESCE(u.last_update_at, p.updated_at) as last_activity_at')])
+            ->get(['p.id', 'p.quote_id', 'p.status', 'p.progress_percent', 'p.created_at', 'c.full_name', 'c.username', 'q.quote_name', DB::raw('COALESCE(u.last_update_at, p.updated_at) as last_activity_at')])
             ->map(function ($r) {
                 $idleDays = (int) Carbon::parse($r->last_activity_at)->diffInDays(now());
 
@@ -807,7 +808,7 @@ class CompanyRepository
                     'status' => $r->status,
                     'progress' => (int) $r->progress_percent,
                     'customer' => $r->full_name ?: ($r->username ?: '—'),
-                    'service' => $r->service_needed ?: '—',
+                    'service' => $r->quote_name ?: '—',
                     'idle_days' => $idleDays,
                     'stalled' => $idleDays >= ReportPeriod::STALLED_DAYS,
                 ];
@@ -1004,7 +1005,7 @@ class CompanyRepository
                             ->orWhere('customer_id', (int) $search);
                     }
 
-                    $q->orWhere('service_needed', 'like', "%{$search}%")
+                    $q->orWhere('quote_name', 'like', "%{$search}%")
                         ->orWhere('estimated_load', 'like', "%{$search}%")
                         ->orWhere('message', 'like', "%{$search}%")
                         ->orWhere('daily_load', 'like', "%{$search}%")
@@ -1660,5 +1661,77 @@ class CompanyRepository
 
     //Notifications End
 
+    //Ratings Start
 
+    /** This company's visible ratings, newest first. Hidden ones were removed by admin. */
+    public function getCompanyRatings(array $filters = []): LengthAwarePaginator
+    {
+        return Rating::query()
+            ->visible()
+            ->where('company_id', $this->authenticatedCompanyId())
+            ->with([
+                'customer:id,full_name,username,city',
+                'quote:id,quote_name',
+                'answers' => fn($q) => $q->with('question')->orderBy('question_id'),
+            ])
+            ->when(!empty($filters['stars']), fn($q) => $q->where('stars', (int) $filters['stars']))
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(10)
+            ->withQueryString();
+    }
+
+    /** Average stars, star distribution and per-question averages for this company. */
+    public function getCompanyRatingSummary(): array
+    {
+        $companyId = $this->authenticatedCompanyId();
+
+        $visible = Rating::query()->visible()->where('company_id', $companyId);
+
+        $distribution = (clone $visible)
+            ->selectRaw('stars, COUNT(*) as n')
+            ->groupBy('stars')
+            ->pluck('n', 'stars');
+
+        $total = (int) $distribution->sum();
+        $average = (clone $visible)->avg('stars');
+
+        // Average answer per question, over this company's visible ratings.
+        $questions = DB::table('tbl_rating_answers as a')
+            ->join('tbl_ratings as r', 'r.id', '=', 'a.rating_id')
+            ->join('tbl_rating_questions as q', 'q.id', '=', 'a.question_id')
+            ->where('r.company_id', $companyId)
+            ->where('r.is_visible', true)
+            ->groupBy('q.id', 'q.title_en', 'q.question_en', 'q.sort_order')
+            ->orderBy('q.sort_order')
+            ->orderBy('q.id')
+            ->get([
+                'q.id',
+                'q.title_en',
+                'q.question_en',
+                DB::raw('AVG(a.value) as avg_value'),
+                DB::raw('COUNT(*) as answers'),
+            ])
+            ->map(fn($row) => [
+                'title' => $row->title_en,
+                'question' => $row->question_en,
+                'average' => round((float) $row->avg_value, 1),
+                'answers' => (int) $row->answers,
+            ])
+            ->all();
+
+        return [
+            'total' => $total,
+            'average' => $total > 0 ? round((float) $average, 1) : null,
+            'this_month' => (clone $visible)->where('created_at', '>=', now()->startOfMonth())->count(),
+            'with_comment' => (clone $visible)->whereNotNull('comment')->count(),
+            // stars => count, 5 down to 1, zeros included.
+            'distribution' => collect(range(Rating::MAX_STARS, Rating::MIN_STARS))
+                ->mapWithKeys(fn($stars) => [$stars => (int) ($distribution[$stars] ?? 0)])
+                ->all(),
+            'questions' => $questions,
+        ];
+    }
+
+    //Ratings End
 }

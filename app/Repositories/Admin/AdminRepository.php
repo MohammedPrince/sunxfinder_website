@@ -14,6 +14,10 @@ use App\Models\Notification;
 use App\Models\Product;
 use App\Models\ProductSpec;
 use App\Models\Quote;
+use App\Models\Rating;
+use App\Models\RatingQuestion;
+use App\Models\RatingValue;
+use App\Models\Setting;
 use App\Models\SolarCompany;
 use App\Models\Supplier;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -311,16 +315,16 @@ class AdminRepository
                 ->whereBetween('q.created_at', [$from, $to])
                 ->orderBy('q.created_at')
                 ->get([
-                    'q.id', 'q.created_at', 'c.full_name', 'c.username', 'c.city', 'q.service_needed', 'q.status',
+                    'q.id', 'q.created_at', 'c.full_name', 'c.username', 'c.city', 'q.quote_name', 'q.status',
                     'o.offers', 'sc.name as selected_company', 's.price as selected_price', 's.currency as selected_currency',
                 ]);
 
             return [
                 'filename' => "quote-requests_{$suffix}.csv",
-                'headers' => ['Request', 'Received', 'Customer', 'City', 'Service', 'Status', 'Offers', 'Selected company', 'Selected price', 'Currency'],
+                'headers' => ['Request', 'Received', 'Customer', 'City', 'Quote name', 'Status', 'Offers', 'Selected company', 'Selected price', 'Currency'],
                 'rows' => $rows->map(fn($r) => [
                     '#Q-' . str_pad((string) $r->id, 5, '0', STR_PAD_LEFT), $r->created_at,
-                    $r->full_name ?: $r->username, $r->city, $r->service_needed, $r->status, (int) $r->offers,
+                    $r->full_name ?: $r->username, $r->city, $r->quote_name, $r->status, (int) $r->offers,
                     $r->selected_company, $r->selected_price, $r->selected_currency,
                 ])->all(),
             ];
@@ -509,7 +513,7 @@ class AdminRepository
             'total' => $total,
             'by_status' => $base()->selectRaw('q.status as k, COUNT(*) as n')->groupBy('k')->orderByDesc('n')->pluck('n', 'k')->all(),
             'by_service' => $base()
-                ->selectRaw("COALESCE(NULLIF(TRIM(q.service_needed), ''), 'Not specified') as k, COUNT(*) as n")
+                ->selectRaw("COALESCE(NULLIF(TRIM(q.quote_name), ''), 'Not specified') as k, COUNT(*) as n")
                 ->groupBy('k')->orderByDesc('n')->limit(8)->pluck('n', 'k')->all(),
             'by_city' => $base()
                 ->leftJoin('tbl_customers as c', 'c.id', '=', 'q.customer_id')
@@ -525,12 +529,12 @@ class AdminRepository
             'backlog' => $backlogQuery
                 ->orderBy('q.created_at')
                 ->limit(10)
-                ->get(['q.id', 'q.created_at', 'q.service_needed', 'c.full_name', 'c.username', 'c.city'])
+                ->get(['q.id', 'q.created_at', 'q.quote_name', 'c.full_name', 'c.username', 'c.city'])
                 ->map(fn($r) => [
                     'id' => $r->id,
                     'customer' => $r->full_name ?: ($r->username ?: '—'),
                     'city' => $r->city ?: '—',
-                    'service' => $r->service_needed ?: '—',
+                    'service' => $r->quote_name ?: '—',
                     'created_at' => Carbon::parse($r->created_at),
                     'age_hours' => (int) Carbon::parse($r->created_at)->diffInHours(now()),
                 ])->all(),
@@ -1974,7 +1978,7 @@ class AdminRepository
                             ->orWhere('customer_id', (int) $search);
                     }
 
-                    $q->orWhere('service_needed', 'like', "%{$search}%")
+                    $q->orWhere('quote_name', 'like', "%{$search}%")
                         ->orWhere('estimated_load', 'like', "%{$search}%")
                         ->orWhere('message', 'like', "%{$search}%")
                         ->orWhereHas('customer', function ($customerQuery) use ($search) {
@@ -2465,5 +2469,275 @@ class AdminRepository
 
     //Notifications End
 
+    //Ratings Start
 
+    public function getRatings(array $filters = []): LengthAwarePaginator
+    {
+        return Rating::query()
+            ->with([
+                'customer:id,full_name,username,city',
+                'company:id,name,city',
+                'quote:id,quote_name',
+            ])
+            ->withCount('answers')
+            ->when(!empty($filters['company_id']), fn($q) => $q->where('company_id', (int) $filters['company_id']))
+            ->when(!empty($filters['stars']), fn($q) => $q->where('stars', (int) $filters['stars']))
+            ->when(($filters['visibility'] ?? '') === 'visible', fn($q) => $q->where('is_visible', true))
+            ->when(($filters['visibility'] ?? '') === 'hidden', fn($q) => $q->where('is_visible', false))
+            ->when(!empty($filters['search']), function ($query) use ($filters) {
+                $search = trim($filters['search']);
+
+                $query->where(function ($q) use ($search) {
+                    if (ctype_digit($search)) {
+                        $q->orWhere('id', (int) $search)
+                            ->orWhere('quote_id', (int) $search);
+                    }
+
+                    $q->orWhere('comment', 'like', "%{$search}%")
+                        ->orWhereHas('customer', function ($customerQuery) use ($search) {
+                            $customerQuery
+                                ->where('full_name', 'like', "%{$search}%")
+                                ->orWhere('username', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('company', fn($companyQuery) => $companyQuery->where('name', 'like', "%{$search}%"));
+                });
+            })
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(10)
+            ->withQueryString();
+    }
+
+    public function getRatingMetrics(): array
+    {
+        $visible = Rating::query()->visible();
+
+        $distribution = (clone $visible)
+            ->selectRaw('stars, COUNT(*) as n')
+            ->groupBy('stars')
+            ->pluck('n', 'stars');
+
+        $average = (clone $visible)->avg('stars');
+
+        return [
+            'total' => Rating::query()->count(),
+            'average' => $average !== null ? round((float) $average, 1) : null,
+            'this_month' => Rating::query()->where('created_at', '>=', now()->startOfMonth())->count(),
+            'hidden' => Rating::query()->where('is_visible', false)->count(),
+            'rated_companies' => (clone $visible)->distinct()->count('company_id'),
+            // stars => count, 5 down to 1, zeros included.
+            'distribution' => collect(range(Rating::MAX_STARS, Rating::MIN_STARS))
+                ->mapWithKeys(fn($stars) => [$stars => (int) ($distribution[$stars] ?? 0)])
+                ->all(),
+        ];
+    }
+
+    public function getRatingById(int $id): ?Rating
+    {
+        return Rating::query()
+            ->with([
+                'customer:id,full_name,username,city,phone,email',
+                'company:id,name,city,slug',
+                'quote:id,quote_name,created_at',
+                'project:id,status,progress_percent',
+                'answers' => fn($q) => $q->with('question')->orderBy('question_id'),
+            ])
+            ->find($id);
+    }
+
+    /** Hide or show a rating. Hidden ratings leave the company average and public page. */
+    public function setRatingVisibility(int $id, bool $visible): array
+    {
+        try {
+            $rating = Rating::find($id);
+
+            if (!$rating) {
+                return ['success' => false, 'message' => 'Rating not found.'];
+            }
+
+            $rating->is_visible = $visible;
+            $rating->save();
+
+            return [
+                'success' => true,
+                'message' => $visible
+                    ? 'Rating is visible again and counts in the company average.'
+                    : 'Rating hidden. It no longer shows publicly or counts in the company average.',
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to update the rating. Please try again.'];
+        }
+    }
+
+    /** Deleting lets the customer rate that request again. */
+    public function deleteRating(int $id): array
+    {
+        try {
+            $rating = Rating::find($id);
+
+            if (!$rating) {
+                return ['success' => false, 'message' => 'Rating not found.'];
+            }
+
+            DB::transaction(function () use ($rating) {
+                $rating->answers()->delete();
+                $rating->delete();
+            });
+
+            return ['success' => true, 'message' => 'Rating deleted. The customer can rate this request again.'];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to delete the rating. Please try again.'];
+        }
+    }
+
+    public function getRatingCompanyOptions()
+    {
+        return SolarCompany::query()
+            ->whereHas('ratings')
+            ->orderBy('name')
+            ->get(['id', 'name']);
+    }
+
+    //Ratings End
+
+    //Rating Questions Start
+
+    public function getRatingQuestions()
+    {
+        return RatingQuestion::query()
+            ->withCount('answers')
+            ->withAvg('answers', 'value')
+            ->ordered()
+            ->get();
+    }
+
+    public function findRatingQuestion(int $id): ?RatingQuestion
+    {
+        return RatingQuestion::find($id);
+    }
+
+    public function createRatingQuestion(array $data): array
+    {
+        try {
+            $question = new RatingQuestion();
+            $this->assignRatingQuestionFields($question, $data);
+            $question->save();
+
+            return ['success' => true, 'message' => "Question \"{$question->title_en}\" added successfully."];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to save the question. Please try again.'];
+        }
+    }
+
+    public function updateRatingQuestion(int $id, array $data): array
+    {
+        try {
+            $question = RatingQuestion::find($id);
+
+            if (!$question) {
+                return ['success' => false, 'message' => 'Question not found.'];
+            }
+
+            $this->assignRatingQuestionFields($question, $data);
+            $question->save();
+
+            return ['success' => true, 'message' => "Question \"{$question->title_en}\" updated successfully."];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to update the question. Please try again.'];
+        }
+    }
+
+    /** Soft delete: past answers keep showing the question title. */
+    public function deleteRatingQuestion(int $id): array
+    {
+        try {
+            $question = RatingQuestion::find($id);
+
+            if (!$question) {
+                return ['success' => false, 'message' => 'Question not found.'];
+            }
+
+            $question->delete();
+
+            return ['success' => true, 'message' => 'Question deleted. Past answers to it are kept.'];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to delete the question. Please try again.'];
+        }
+    }
+
+    private function assignRatingQuestionFields(RatingQuestion $question, array $data): void
+    {
+        $question->title_en = $data['title_en'];
+        $question->title_ar = $data['title_ar'];
+        $question->question_en = $data['question_en'] ?? null;
+        $question->question_ar = $data['question_ar'] ?? null;
+        $question->sort_order = (int) ($data['sort_order'] ?? 0);
+        $question->is_active = (bool) ($data['is_active'] ?? false);
+    }
+
+    //Rating Questions End
+
+    //Rating Values Start
+
+    public function getRatingValues()
+    {
+        return RatingValue::query()->orderBy('value')->get();
+    }
+
+    /** Labels only; the 1-4 scale itself is fixed. $values = [value => [label_en, label_ar]]. */
+    public function updateRatingValues(array $values): array
+    {
+        try {
+            DB::transaction(function () use ($values) {
+                foreach ($values as $value => $labels) {
+                    RatingValue::query()->updateOrCreate(
+                        ['value' => (int) $value],
+                        ['label_en' => $labels['label_en'], 'label_ar' => $labels['label_ar']]
+                    );
+                }
+            });
+
+            return ['success' => true, 'message' => 'Rating values saved successfully.'];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to save the rating values. Please try again.'];
+        }
+    }
+
+    //Rating Values End
+
+    //Settings Start
+
+    public function getSettings(): array
+    {
+        return [
+            'max_open_quotes' => Setting::maxOpenQuotes(),
+        ];
+    }
+
+    public function updateSettings(array $data): array
+    {
+        try {
+            Setting::set('max_open_quotes', (int) $data['max_open_quotes']);
+
+            return ['success' => true, 'message' => 'Settings saved successfully.'];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to save the settings. Please try again.'];
+        }
+    }
+
+    //Settings End
 }

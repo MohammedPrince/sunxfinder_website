@@ -43,11 +43,11 @@
                                     <td style="padding:12px 16px;font-size:14px;font-weight:bold;color:#10366b;">
                                         #{{ $quote_id }}</td>
                                 </tr>
-                                @if (!empty($serviceNeeded))
+                                @if (!empty($quoteName))
                                     <tr>
-                                        <td style="padding:12px 16px;font-size:14px;color:#526783;">Service</td>
+                                        <td style="padding:12px 16px;font-size:14px;color:#526783;">Quote name</td>
                                         <td style="padding:12px 16px;font-size:14px;font-weight:bold;color:#10366b;">
-                                            {{ $serviceNeeded }}</td>
+                                            {{ $quoteName }}</td>
                                     </tr>
                                 @endif
                                 <tr>

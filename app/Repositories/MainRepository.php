@@ -2,6 +2,7 @@
 
 namespace App\Repositories;
 
+use App\Helpers\Helper;
 use App\Jobs\SendCustomerWelcomeEmail;
 use App\Models\AppVersion;
 use App\Models\CompanyCarousel;
@@ -72,6 +73,18 @@ class MainRepository
                 },
             ])
             ->first();
+    }
+
+    /** Average stars and count of visible ratings, e.g. ['rating' => 4.6, 'reviews' => 23]. */
+    public function getCompanyRatingSummary(SolarCompany $company): array
+    {
+        return $company->ratingSummary();
+    }
+
+    /** Latest visible reviews for the public profile page. */
+    public function getCompanyReviews(int $companyId): array
+    {
+        return app(Helper::class)->companyReviews($companyId);
     }
 
     public function registerCompany(array $data): array
@@ -221,7 +234,10 @@ class MainRepository
                     ->where('is_verified', true)
                     ->where('is_active', true);
             })
-            ->with('company')
+            // Average stars and count of visible ratings, shown on each card.
+            ->with(['company' => fn($query) => $query
+                ->withAvg(['ratings as visible_rating' => fn($q) => $q->where('is_visible', true)], 'stars')
+                ->withCount(['ratings as visible_reviews' => fn($q) => $q->where('is_visible', true)])])
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();

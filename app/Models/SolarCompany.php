@@ -63,6 +63,31 @@ class SolarCompany extends Authenticatable
         return $this->hasMany(Product::class, 'company_id');
     }
 
+    public function ratings(): HasMany
+    {
+        return $this->hasMany(Rating::class, 'company_id');
+    }
+
+    /**
+     * Average stars and count of visible ratings, e.g. ['rating' => 4.6, 'reviews' => 23].
+     * Rating is null while the company has no ratings.
+     */
+    public function ratingSummary(): array
+    {
+        $row = Rating::query()
+            ->visible()
+            ->where('company_id', $this->id)
+            ->selectRaw('AVG(stars) as avg_stars, COUNT(*) as total')
+            ->first();
+
+        $total = (int) ($row->total ?? 0);
+
+        return [
+            'rating' => $total > 0 ? round((float) $row->avg_stars, 1) : null,
+            'reviews' => $total,
+        ];
+    }
+
     public function supplier()
     {
         return $this->belongsTo(Supplier::class, 'supplier_id');

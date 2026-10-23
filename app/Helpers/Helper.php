@@ -9,6 +9,7 @@ use App\Models\ProductSpec;
 use App\Models\CompanyQuotation;
 use App\Models\CustomerDeviceToken;
 use App\Models\Project;
+use App\Models\Rating;
 use App\Repositories\Company\CompanyRepository;
 use Kreait\Firebase\Messaging\CloudMessage;
 use Throwable;
@@ -30,6 +31,16 @@ class Helper
         SolarCompany $company,
         bool $detailed = false
     ): array {
+        // Lists preload these with withAvg/withCount; otherwise query them here.
+        $attributes = $company->getAttributes();
+
+        $ratingSummary = array_key_exists('visible_rating', $attributes)
+            ? [
+                'rating' => $company->visible_rating !== null ? round((float) $company->visible_rating, 1) : null,
+                'reviews' => (int) ($company->visible_reviews ?? 0),
+            ]
+            : $company->ratingSummary();
+
         $data = [
             'id' => (int) $company->id,
             'name' => $company->name,
@@ -37,8 +48,9 @@ class Helper
             'city' => $company->city,
             'logo_url' => $this->publicUrl($company->logo_path),
             'cover_image_url' => null,
-            'rating' => null,
-            'reviews_count' => 0,
+            // Null until the company has at least one visible rating.
+            'rating' => $ratingSummary['rating'],
+            'reviews_count' => $ratingSummary['reviews'],
             'services' => $this->splitList($company->services),
             'ar_services' => $this->splitList($company->ar_services),
             'is_verified' => (bool) $company->is_verified,
@@ -97,8 +109,50 @@ class Helper
             'projects_completed' => null,
             'support_hours' => null,
             'products' => $products,
-            'reviews' => [],
+            'reviews' => $this->companyReviews($company->id),
         ];
+    }
+
+    /**
+     * Latest visible ratings of a company, for its public page and the app.
+     * Customer names are shortened ("Mohammed A.") for privacy.
+     */
+    public function companyReviews(int $companyId, int $limit = 10): array
+    {
+        /** @var \Illuminate\Database\Eloquent\Collection<int, Rating> $ratings */
+        $ratings = Rating::query()
+            ->visible()
+            ->where('company_id', $companyId)
+            ->with('customer:id,full_name,username')
+            ->latest()
+            ->limit($limit)
+            ->get();
+
+        return $ratings
+            ->map(fn(Rating $rating): array => [
+                'id' => (int) $rating->id,
+                'customer' => $this->shortCustomerName($rating->customer),
+                'rating' => (int) $rating->stars,
+                'comment' => $rating->comment,
+                'date' => $rating->created_at?->toDateString(),
+            ])
+            ->values()
+            ->all();
+    }
+
+    public function shortCustomerName(?\App\Models\Customer $customer): string
+    {
+        $name = trim((string) ($customer?->full_name ?: $customer?->username));
+
+        if ($name === '') {
+            return 'Customer';
+        }
+
+        $parts = preg_split('/\s+/u', $name);
+
+        return count($parts) > 1
+            ? $parts[0] . ' ' . mb_strtoupper(mb_substr(end($parts), 0, 1)) . '.'
+            : $parts[0];
     }
 
     public function plainText(?string $html): string

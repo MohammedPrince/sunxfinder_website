@@ -167,6 +167,32 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::get('/{notification}', 'showNotification')->whereNumber('notification')->name('show');
                 Route::delete('/{notification}', 'destroyNotification')->whereNumber('notification')->name('destroy');
             });
+
+            // Customer ratings of companies
+            Route::prefix('ratings')->name('ratings.')->group(function () {
+                Route::get('/', 'ratings')->name('index');
+                Route::get('/{id}', 'showRating')->whereNumber('id')->name('show');
+                Route::post('/{id}/visibility', 'toggleRatingVisibility')->whereNumber('id')->name('visibility');
+                Route::delete('/{id}', 'destroyRating')->whereNumber('id')->name('destroy');
+            });
+
+            // Rating questions (Price, Service, ...)
+            Route::prefix('rating-questions')->name('rating-questions.')->group(function () {
+                Route::get('/', 'ratingQuestions')->name('index');
+                Route::get('/create', 'createRatingQuestion')->name('create');
+                Route::post('/', 'storeRatingQuestion')->name('store');
+                Route::get('/{id}/edit', 'editRatingQuestion')->whereNumber('id')->name('edit');
+                Route::put('/{id}', 'updateRatingQuestion')->whereNumber('id')->name('update');
+                Route::delete('/{id}', 'destroyRatingQuestion')->whereNumber('id')->name('destroy');
+            });
+
+            // Rating values (labels of the 1-4 answer scale)
+            Route::get('/rating-values', 'ratingValues')->name('rating-values.index');
+            Route::put('/rating-values', 'updateRatingValues')->name('rating-values.update');
+
+            // App settings (open quote limit, ...)
+            Route::get('/settings', 'settings')->name('settings.index');
+            Route::put('/settings', 'updateSettings')->name('settings.update');
         });
     });
 });
@@ -241,6 +267,9 @@ Route::prefix('company')->name('company.')->group(function () {
                 Route::get('/{notification}', 'showNotification')->whereNumber('notification')->name('show');
                 Route::delete('/{notification}', 'destroyNotification')->whereNumber('notification')->name('destroy');
             });
+
+            // Ratings customers gave this company
+            Route::get('/ratings', 'ratings')->name('ratings.index');
         });
 
         // Projects (offers accepted by customers)

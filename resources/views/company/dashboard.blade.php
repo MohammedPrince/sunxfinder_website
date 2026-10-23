@@ -239,7 +239,7 @@
                     <tr>
                         <th>Request</th>
                         <th>Customer</th>
-                        <th>Service</th>
+                        <th>Quote name</th>
                         <th>Received</th>
                         <th>Your offer</th>
                         <th>Request status</th>
@@ -274,7 +274,7 @@
                                     </span>
                                 </div>
                             </td>
-                            <td>{{ $quote->service_needed ?? 'Solar installation' }}</td>
+                            <td>{{ $quote->quote_name ?? 'Solar installation' }}</td>
                             <td>{{ $quote->created_at?->format('M d, Y') ?? '—' }}</td>
                             <td>
                                 @if ($myOffer)

@@ -5814,3 +5814,160 @@ html[dir=rtl] .topbar-dropdown {
         display: grid;
     }
 }
+
+/* ===== Ratings (admin + company) ===== */
+.star-rating {
+    display: inline-flex;
+    gap: 1px;
+    color: #d5dbe3;
+    font-size: 15px;
+    letter-spacing: 0;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.star-rating .on {
+    color: var(--yellow);
+}
+
+.star-rating-lg {
+    font-size: 22px;
+}
+
+.rating-score {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.rating-score strong {
+    font-size: 34px;
+    line-height: 1;
+    color: var(--navy);
+}
+
+.rating-bars {
+    display: grid;
+    gap: 8px;
+}
+
+.rating-bar-row {
+    display: grid;
+    grid-template-columns: 54px 1fr 40px;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.rating-bar-row .mini-progress {
+    margin-top: 0;
+    height: 8px;
+}
+
+.rating-bar-row .mini-progress span {
+    background: linear-gradient(90deg, var(--yellow), #ffcf5c);
+}
+
+.rating-bar-row b {
+    text-align: right;
+    color: var(--ink);
+}
+
+.rating-overview {
+    display: grid;
+    grid-template-columns: minmax(180px, 240px) 1fr;
+    gap: 28px;
+    align-items: center;
+}
+
+.rating-answer-list {
+    display: grid;
+    gap: 12px;
+}
+
+.rating-answer {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 6px 16px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+}
+
+.rating-answer small {
+    display: block;
+    color: var(--muted);
+}
+
+.rating-answer .mini-progress {
+    grid-column: 1 / -1;
+    margin-top: 0;
+}
+
+.rating-scale-dots {
+    display: inline-flex;
+    gap: 4px;
+}
+
+.rating-scale-dots i {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #e3e8ee;
+}
+
+.rating-scale-dots i.on {
+    background: var(--orange);
+}
+
+.rating-comment {
+    margin: 0;
+    padding: 14px 16px;
+    border-left: 3px solid var(--orange);
+    border-radius: 0 10px 10px 0;
+    background: #fff7f2;
+    color: var(--ink);
+    line-height: 1.6;
+    white-space: pre-line;
+}
+
+.rating-comment-cell {
+    max-width: 280px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rating-value-grid {
+    display: grid;
+    gap: 14px;
+}
+
+.rating-value-row {
+    display: grid;
+    grid-template-columns: 70px 1fr 1fr;
+    align-items: start;
+    gap: 14px;
+}
+
+.rating-value-badge {
+    display: grid;
+    place-items: center;
+    height: 44px;
+    border-radius: 12px;
+    background: #fff0e8;
+    color: var(--orange);
+    font-weight: 700;
+    font-size: 18px;
+}
+
+@media (max-width: 760px) {
+    .rating-overview,
+    .rating-value-row {
+        grid-template-columns: 1fr;
+    }
+}

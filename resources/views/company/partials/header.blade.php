@@ -136,6 +136,20 @@
         <span class="nav-count warm">{{ $notificationsCount ?? 0 }}</span>
     </a>
 
+    <a class="nav-link {{ request()->routeIs('company.ratings.*') ? 'active' : '' }}"
+        href="{{ route('company.ratings.index') }}">
+        <span class="nav-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m12 3 2.7 5.5 6 .9-4.4 4.2 1 6L12 16.8 6.7 19.6l1-6L3.3 9.4l6-.9L12 3Z" />
+            </svg>
+        </span>
+
+        <span>My Ratings</span>
+
+        <span class="nav-count warm">{{ $ratingsCount ?? 0 }}</span>
+    </a>
+
     <div class="sidebar-label">SYSTEM</div>
 
     <nav class="side-nav">

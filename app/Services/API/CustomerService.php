@@ -91,6 +91,16 @@ class CustomerService
         return $this->customerRepository->rejectOffer($data);
     }
 
+    public function submitRating(array $data): array
+    {
+        return $this->customerRepository->submitRating($data);
+    }
+
+    public function getRatingForm(): array
+    {
+        return $this->customerRepository->getRatingForm();
+    }
+
     public function getProjectProgress(int $projectId)
     {
         return $this->customerRepository->getProjectProgress($projectId);

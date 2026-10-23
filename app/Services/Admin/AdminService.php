@@ -4,7 +4,10 @@ namespace App\Services\Admin;
 
 use App\Models\AppVersion;
 use App\Models\Quote;
+use App\Models\Rating;
+use App\Models\RatingQuestion;
 use App\Repositories\Admin\AdminRepository;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class AdminService
 {
@@ -363,6 +366,89 @@ class AdminService
         return $this->adminRepository->deleteNotification($id);
     }
     //Notifications End
+
+    //Ratings Start
+    public function getRatings(array $filters = []): LengthAwarePaginator
+    {
+        return $this->adminRepository->getRatings($filters);
+    }
+
+    public function getRatingMetrics(): array
+    {
+        return $this->adminRepository->getRatingMetrics();
+    }
+
+    public function getRatingById(int $id): ?Rating
+    {
+        return $this->adminRepository->getRatingById($id);
+    }
+
+    public function setRatingVisibility(int $id, bool $visible): array
+    {
+        return $this->adminRepository->setRatingVisibility($id, $visible);
+    }
+
+    public function deleteRating(int $id): array
+    {
+        return $this->adminRepository->deleteRating($id);
+    }
+
+    public function getRatingCompanyOptions()
+    {
+        return $this->adminRepository->getRatingCompanyOptions();
+    }
+    //Ratings End
+
+    //Rating Questions Start
+    public function getRatingQuestions()
+    {
+        return $this->adminRepository->getRatingQuestions();
+    }
+
+    public function findRatingQuestion(int $id): ?RatingQuestion
+    {
+        return $this->adminRepository->findRatingQuestion($id);
+    }
+
+    public function createRatingQuestion(array $data): array
+    {
+        return $this->adminRepository->createRatingQuestion($data);
+    }
+
+    public function updateRatingQuestion(int $id, array $data): array
+    {
+        return $this->adminRepository->updateRatingQuestion($id, $data);
+    }
+
+    public function deleteRatingQuestion(int $id): array
+    {
+        return $this->adminRepository->deleteRatingQuestion($id);
+    }
+    //Rating Questions End
+
+    //Rating Values Start
+    public function getRatingValues()
+    {
+        return $this->adminRepository->getRatingValues();
+    }
+
+    public function updateRatingValues(array $values): array
+    {
+        return $this->adminRepository->updateRatingValues($values);
+    }
+    //Rating Values End
+
+    //Settings Start
+    public function getSettings(): array
+    {
+        return $this->adminRepository->getSettings();
+    }
+
+    public function updateSettings(array $data): array
+    {
+        return $this->adminRepository->updateSettings($data);
+    }
+    //Settings End
 
 
 

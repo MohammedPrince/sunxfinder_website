@@ -103,7 +103,7 @@
                     <tr>
                         <th>Request</th>
                         <th>Customer</th>
-                        <th>Service</th>
+                        <th>Quote name</th>
                         <th>Energy needs</th>
                         <th>Received</th>
                         <th>Offers</th>
@@ -169,7 +169,7 @@
                                 </div>
                             </td>
 
-                            <td><strong>{{ $quote->service_needed }}</strong></td>
+                            <td><strong>{{ $quote->quote_name }}</strong></td>
 
                             <td>
                                 <strong>{{ $quote->daily_load ?: '—' }}</strong>

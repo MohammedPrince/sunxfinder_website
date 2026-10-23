@@ -79,6 +79,10 @@ class MainController extends Controller
                     'my_quotes' => $result['my_quotes'],
                     'notifications' => $result['notifications'],
                     'app_version' => $result['app_version'],
+                    // e.g. {"max_open_quotes": 2}, editable from admin Settings.
+                    'settings' => $result['settings'],
+                    // Rating questions and the 1-4 answer labels.
+                    'rating_form' => $result['rating_form'],
                 ],
                 'meta' => $result['meta'],
             ]);
@@ -428,9 +432,14 @@ class MainController extends Controller
 
     public function storeQuote(Request $request)
     {
+        // Older app builds send "service_needed"; newer ones send "quote_name".
+        if (!$request->filled('quote_name') && $request->filled('service_needed')) {
+            $request->merge(['quote_name' => $request->input('service_needed')]);
+        }
+
         $validator = Validator::make($request->all(), [
             'company_id' => ['present', 'nullable', 'integer', 'min:1'],
-            'service_needed' => ['required', 'string', 'max:100'],
+            'quote_name' => ['required', 'string', 'max:100'],
             'estimated_load' => ['present', 'string', 'max:50000'],
             'peak_load' => ['required', 'string', 'max:255'],
             'daily_load' => ['required', 'string', 'max:255'],
@@ -453,7 +462,7 @@ class MainController extends Controller
             'company_id' => $validated['company_id'] === null
                 ? null
                 : (int) $validated['company_id'],
-            'service_needed' => $validated['service_needed'],
+            'quote_name' => $validated['quote_name'],
             'estimated_load' => $validated['estimated_load'],
             'peak_load' => $validated['peak_load'],
             'daily_load' => $validated['daily_load'],
@@ -466,7 +475,8 @@ class MainController extends Controller
             'status' => ($result['success'] ?? false) ? 'success' : 'error',
             'code' => $httpCode,
             'message' => $result['message'] ?? 'Unable to submit quote.',
-            'data' => $result['quote'] ?? null,
+            // Limit errors carry {reason: quote_limit_reached} so the app can show its own wording.
+            'data' => $result['quote'] ?? ($result['data'] ?? null),
         ], $httpCode);
     }
 
@@ -571,6 +581,62 @@ class MainController extends Controller
         ], $httpCode);
     }
 
+
+    public function submitRating(Request $request)
+    {
+        // The app omits a blank comment; treat "" the same as missing.
+        if (trim((string) $request->input('comment', '')) === '') {
+            $request->request->remove('comment');
+        }
+
+        $validator = Validator::make($request->all(), [
+            'quote_id' => ['required', 'integer', 'min:1'],
+            'company_id' => ['required', 'integer', 'min:1'],
+            'offer_id' => ['nullable', 'integer', 'min:1'],
+            'project_id' => ['nullable', 'integer', 'min:1'],
+            'stars' => ['required', 'integer', 'min:1', 'max:5'],
+            'comment' => ['nullable', 'string', 'max:500'],
+            // Optional per-question answers on the 1-4 scale.
+            'answers' => ['nullable', 'array', 'max:20'],
+            'answers.*.question_id' => ['required_with:answers', 'integer', 'distinct', 'min:1'],
+            'answers.*.value' => ['required_with:answers', 'integer', 'min:1', 'max:4'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'code' => 422,
+                'message' => 'Validation failed.',
+                'errors' => $validator->errors(),
+                'data' => null,
+            ], 422);
+        }
+
+        $result = $this->customerService->submitRating($validator->validated());
+
+        $httpCode = $result['code'] ?? 500;
+
+        return response()->json([
+            'status' => ($result['success'] ?? false) ? 'success' : 'error',
+            'code' => $httpCode,
+            'message' => $result['message'] ?? 'Unable to submit your rating.',
+            'data' => $result['data'] ?? null,
+        ], $httpCode);
+    }
+
+    public function getRatingForm()
+    {
+        $result = $this->customerService->getRatingForm();
+
+        $httpCode = $result['code'] ?? 500;
+
+        return response()->json([
+            'status' => ($result['success'] ?? false) ? 'success' : 'error',
+            'code' => $httpCode,
+            'message' => $result['message'] ?? 'Unable to load the rating form.',
+            'data' => $result['data'] ?? null,
+        ], $httpCode);
+    }
 
     public function getProjectProgress(int $projectId)
     {

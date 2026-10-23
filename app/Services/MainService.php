@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\SolarCompany;
 use App\Repositories\MainRepository;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -37,6 +38,16 @@ class MainService
     public function getCompanyBySlug(string $slug)
     {
         return $this->mainRepository->getCompanyBySlug($slug);
+    }
+
+    public function getCompanyRatingSummary(SolarCompany $company): array
+    {
+        return $this->mainRepository->getCompanyRatingSummary($company);
+    }
+
+    public function getCompanyReviews(int $companyId): array
+    {
+        return $this->mainRepository->getCompanyReviews($companyId);
     }
 
     public function registerCompany(array $data): array

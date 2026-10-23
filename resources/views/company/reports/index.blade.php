@@ -167,7 +167,7 @@
                         <th>Request</th>
                         <th>Customer</th>
                         <th>City</th>
-                        <th>Service</th>
+                        <th>Quote name</th>
                         <th>Other offers</th>
                         <th>Waiting</th>
                         <th class="no-print">Action</th>
@@ -294,7 +294,7 @@
                     <tr>
                         <th>Project</th>
                         <th>Customer</th>
-                        <th>Service</th>
+                        <th>Quote name</th>
                         <th>Progress</th>
                         <th>Last update</th>
                         <th class="no-print">Action</th>

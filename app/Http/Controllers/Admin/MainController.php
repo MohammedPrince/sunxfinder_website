@@ -7,6 +7,7 @@ use App\Models\AppVersion;
 use App\Repositories\Admin\AdminRepository;
 use App\Models\Customer;
 use App\Models\Product;
+use App\Models\RatingValue;
 use App\Models\SolarCompany;
 use App\Services\Admin\AdminService;
 use Illuminate\Http\Request;
@@ -858,6 +859,178 @@ class MainController extends Controller
     }
 
     //Quote Requests End
+
+    //Ratings Start
+
+    public function ratings(Request $request)
+    {
+        $filters = $request->validate([
+            'company_id' => ['nullable', 'integer', 'min:1'],
+            'stars' => ['nullable', 'integer', 'between:1,5'],
+            'visibility' => ['nullable', 'in:visible,hidden'],
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $ratings = $this->adminService->getRatings($filters);
+        $metrics = $this->adminService->getRatingMetrics();
+        $companies = $this->adminService->getRatingCompanyOptions();
+
+        return view('admin.ratings.index', compact('ratings', 'metrics', 'companies', 'filters'));
+    }
+
+    public function showRating(int $id)
+    {
+        $rating = $this->adminService->getRatingById($id);
+
+        abort_if(!$rating, 404);
+
+        $valueLabels = RatingValue::labels();
+
+        return view('admin.ratings.show', compact('rating', 'valueLabels'));
+    }
+
+    public function toggleRatingVisibility(int $id)
+    {
+        $rating = $this->adminService->getRatingById($id);
+
+        abort_if(!$rating, 404);
+
+        $result = $this->adminService->setRatingVisibility($id, !$rating->is_visible);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function destroyRating(int $id)
+    {
+        $result = $this->adminService->deleteRating($id);
+
+        return redirect()->route('admin.ratings.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    //Ratings End
+
+    //Rating Questions Start
+
+    public function ratingQuestions()
+    {
+        $questions = $this->adminService->getRatingQuestions();
+        $valueLabels = RatingValue::labels();
+
+        return view('admin.rating-questions.index', compact('questions', 'valueLabels'));
+    }
+
+    public function createRatingQuestion()
+    {
+        return view('admin.rating-questions.form', ['question' => null]);
+    }
+
+    public function storeRatingQuestion(Request $request)
+    {
+        $result = $this->adminService->createRatingQuestion($this->validatedRatingQuestion($request));
+
+        return $result['success']
+            ? redirect()->route('admin.rating-questions.index')->with('success', $result['message'])
+            : back()->withInput()->with('error', $result['message']);
+    }
+
+    public function editRatingQuestion(int $id)
+    {
+        $question = $this->adminService->findRatingQuestion($id);
+
+        abort_if(!$question, 404);
+
+        return view('admin.rating-questions.form', compact('question'));
+    }
+
+    public function updateRatingQuestion(Request $request, int $id)
+    {
+        $result = $this->adminService->updateRatingQuestion($id, $this->validatedRatingQuestion($request));
+
+        return $result['success']
+            ? redirect()->route('admin.rating-questions.index')->with('success', $result['message'])
+            : back()->withInput()->with('error', $result['message']);
+    }
+
+    public function destroyRatingQuestion(int $id)
+    {
+        $result = $this->adminService->deleteRatingQuestion($id);
+
+        return redirect()->route('admin.rating-questions.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    private function validatedRatingQuestion(Request $request): array
+    {
+        $data = $request->validate([
+            'title_en' => ['required', 'string', 'max:100'],
+            'title_ar' => ['required', 'string', 'max:100'],
+            'question_en' => ['nullable', 'string', 'max:255'],
+            'question_ar' => ['nullable', 'string', 'max:255'],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:999'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $data['is_active'] = $request->boolean('is_active');
+
+        return $data;
+    }
+
+    //Rating Questions End
+
+    //Rating Values Start
+
+    public function ratingValues()
+    {
+        $values = $this->adminService->getRatingValues();
+
+        return view('admin.rating-values.index', compact('values'));
+    }
+
+    public function updateRatingValues(Request $request)
+    {
+        $range = range(RatingValue::MIN, RatingValue::MAX);
+
+        $rules = [];
+
+        foreach ($range as $value) {
+            $rules["values.{$value}.label_en"] = ['required', 'string', 'max:50'];
+            $rules["values.{$value}.label_ar"] = ['required', 'string', 'max:50'];
+        }
+
+        $data = $request->validate($rules, [
+            'values.*.label_en.required' => 'Every value needs an English label.',
+            'values.*.label_ar.required' => 'Every value needs an Arabic label.',
+        ]);
+
+        $result = $this->adminService->updateRatingValues(array_intersect_key($data['values'], array_flip($range)));
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    //Rating Values End
+
+    //Settings Start
+
+    public function settings()
+    {
+        $settings = $this->adminService->getSettings();
+
+        return view('admin.settings.index', compact('settings'));
+    }
+
+    public function updateSettings(Request $request)
+    {
+        $data = $request->validate([
+            'max_open_quotes' => ['required', 'integer', 'min:1', 'max:50'],
+        ]);
+
+        $result = $this->adminService->updateSettings($data);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    //Settings End
 
       // Notifications Management Start
 

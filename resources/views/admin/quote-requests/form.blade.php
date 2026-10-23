@@ -323,7 +323,7 @@
 
                 <div class="quote-detail">
                     <span>Service needed</span>
-                    <strong>{{ $quote->service_needed }}</strong>
+                    <strong>{{ $quote->quote_name }}</strong>
                 </div>
 
                 <div class="quote-detail">

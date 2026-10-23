@@ -50,7 +50,7 @@ class ProjectRepository
                     }
 
                     $q->orWhereHas('quote', function ($quoteQuery) use ($search) {
-                        $quoteQuery->where('service_needed', 'like', "%{$search}%");
+                        $quoteQuery->where('quote_name', 'like', "%{$search}%");
                     })
                         ->orWhereHas('customer', function ($customerQuery) use ($search) {
                             // tbl_customers has full_name/username, not name.

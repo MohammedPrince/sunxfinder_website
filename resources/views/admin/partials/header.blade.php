@@ -187,12 +187,39 @@
             <span class="nav-count warm">{{ $notificationsCount ?? 0 }}</span>
         </a>
 
+        <div class="sidebar-label">RATINGS</div>
+
+        <a class="nav-link {{ request()->routeIs('admin.ratings.*') ? 'active' : '' }}"
+            href="{{ route('admin.ratings.index') }}">
+            <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="m12 3 2.7 5.5 6 .9-4.4 4.2 1 6L12 16.8 6.7 19.6l1-6L3.3 9.4l6-.9L12 3Z" />
+                </svg>
+            </span>
+            <span>Ratings</span>
+            <span class="nav-count warm">{{ $ratingsCount ?? 0 }}</span>
+        </a>
+
+        <a class="nav-link {{ request()->routeIs('admin.rating-questions.*', 'admin.rating-values.*') ? 'active' : '' }}"
+            href="{{ route('admin.rating-questions.index') }}">
+            <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M9 6h11M9 12h11M9 18h11" />
+                    <path d="m3.5 6 1 1 2-2M3.5 12l1 1 2-2M3.5 18l1 1 2-2" />
+                </svg>
+            </span>
+            <span>Rating Questions</span>
+            <span class="nav-count warm">{{ $ratingQuestionsCount ?? 0 }}</span>
+        </a>
 
     </nav>
     <div class="sidebar-label">SYSTEM</div>
     <nav class="side-nav"><a class="nav-link" href="{{ url('/') }}" target="_blank" rel="noopener"><span
-                class="nav-icon">↗</span>View website</a><a class="nav-link" href="#"
-            data-demo-toast="Connect this item to your settings page."><span class="nav-icon">⚙</span>Settings</a>
+                class="nav-icon">↗</span>View website</a><a
+            class="nav-link {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}"
+            href="{{ route('admin.settings.index') }}"><span class="nav-icon">⚙</span>Settings</a>
     </nav>
     </div>
     <div class="sidebar-bottom">

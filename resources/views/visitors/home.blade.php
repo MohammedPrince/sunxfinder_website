@@ -219,6 +219,10 @@
                             ->map(fn($service) => trim($service))
                             ->filter()
                             ->take(3);
+
+                        $reviewCount = (int) ($company->visible_reviews ?? 0);
+                        $rating = $reviewCount > 0 ? round((float) $company->visible_rating, 1) : null;
+                        $filledStars = $rating !== null ? max(0, min(5, (int) round($rating))) : 0;
                     @endphp
 
                     <article class="company-card" data-interval="{{ $carouselEntry->interval_seconds }}">
@@ -233,6 +237,17 @@
                                     <span aria-hidden="true">⌖</span>
                                     {{ $company->city ? $company->city . ', ' : '' }}{{ __('messages.Sudan') }}
                                 </span>
+
+                                <div class="hx-company-rating" dir="ltr">
+                                    @if ($rating !== null)
+                                        <span class="hx-stars" aria-label="{{ $rating }} out of 5 stars">{{ str_repeat('★', $filledStars) }}<span
+                                                class="hx-stars-off">{{ str_repeat('★', 5 - $filledStars) }}</span></span>
+                                        <strong>{{ number_format($rating, 1) }}</strong>
+                                        <span class="hx-rating-count">({{ number_format($reviewCount) }} {{ __('messages.customer reviews') }})</span>
+                                    @else
+                                        <span class="hx-rating-empty">{{ __('messages.Not rated yet') }}</span>
+                                    @endif
+                                </div>
                             </div>
 
                             @if ($company->is_verified)

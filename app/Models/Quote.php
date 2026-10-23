@@ -19,7 +19,7 @@ class Quote extends Model
     protected $fillable = [
         'customer_id',
         'company_id',
-        'service_needed',
+        'quote_name',
         'estimated_load',
         'peak_load',
         'daily_load',
@@ -49,6 +49,11 @@ class Quote extends Model
     public function project(): HasOne
     {
         return $this->hasOne(Project::class, 'quote_id', 'id');
+    }
+
+    public function rating(): HasOne
+    {
+        return $this->hasOne(Rating::class, 'quote_id', 'id');
     }
 
     /**

@@ -189,8 +189,8 @@
             </div>
 
             <div class="quote-detail">
-                <span>Service</span>
-                <strong>{{ $quote?->service_needed ?? 'Solar installation' }}</strong>
+                <span>Quote name</span>
+                <strong>{{ $quote?->quote_name ?? 'Solar installation' }}</strong>
             </div>
 
             <div class="quote-detail">

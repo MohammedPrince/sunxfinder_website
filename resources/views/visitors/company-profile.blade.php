@@ -42,9 +42,11 @@
                         </p>
 
                         <div class="company-profile-rating" dir="ltr">
-                            @if (is_numeric($companyRating) && is_numeric($companyReviews))
+                            @if (is_numeric($companyRating) && $companyReviews > 0)
+                                @php $filledStars = max(0, min(5, (int) round($companyRating))); @endphp
                                 <span class="company-profile-stars"
-                                    aria-label="{{ $companyRating }} out of 5 stars">★★★★★</span>
+                                    aria-label="{{ $companyRating }} out of 5 stars">{{ str_repeat('★', $filledStars) }}<span
+                                        style="opacity:.3">{{ str_repeat('★', 5 - $filledStars) }}</span></span>
                                 <strong>{{ number_format((float) $companyRating, 1) }}</strong>
                                 <span>{{ number_format((int) $companyReviews) }}
                                     {{ trans('messages.customer reviews') }}</span>
@@ -200,10 +202,15 @@
                                 @foreach ($companyReviewsList as $review)
                                     <article class="company-review">
                                         <div class="review-head">
+                                            @php $reviewStars = max(0, min(5, (int) data_get($review, 'rating', 0))); @endphp
                                             <strong>{{ data_get($review, 'customer', trans('messages.Customer')) }}</strong><span
-                                                class="company-profile-stars">{{ str_repeat('★', max(0, min(5, (int) data_get($review, 'rating', 0)))) }}</span>
+                                                class="company-profile-stars"
+                                                aria-label="{{ $reviewStars }} out of 5 stars">{{ str_repeat('★', $reviewStars) }}<span
+                                                    style="opacity:.3">{{ str_repeat('★', 5 - $reviewStars) }}</span></span>
                                         </div>
-                                        <p>{{ data_get($review, 'comment', '') }}</p>
+                                        @if (data_get($review, 'comment'))
+                                            <p>{{ data_get($review, 'comment') }}</p>
+                                        @endif
                                         <small>{{ data_get($review, 'date', '') }}</small>
                                     </article>
                                 @endforeach

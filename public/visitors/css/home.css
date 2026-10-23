@@ -569,6 +569,40 @@
    margin: 4px 0 12px;
 }
 
+/* Rating under the company name (visible ratings only) */
+.hx-company-rating {
+   display: flex;
+   align-items: center;
+   gap: 6px;
+   margin-top: 6px;
+   font-size: 13px;
+}
+
+[dir="rtl"] .hx-company-rating {
+   justify-content: flex-end;
+}
+
+.hx-stars {
+   color: var(--hx-sun);
+   font-size: 15px;
+   letter-spacing: 1px;
+   line-height: 1;
+}
+
+.hx-stars-off {
+   color: #d9e1ea;
+}
+
+.hx-company-rating strong {
+   color: var(--hx-navy);
+}
+
+.hx-rating-count,
+.hx-rating-empty {
+   color: var(--hx-muted);
+   font-size: 12px;
+}
+
 .hx-company-facts span {
    padding: 5px 10px;
    border-radius: 8px;

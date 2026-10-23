@@ -154,7 +154,7 @@
                         <th>Request</th>
                         <th>Customer</th>
                         <th>City</th>
-                        <th>Service</th>
+                        <th>Quote name</th>
                         <th>Received</th>
                         <th>Waiting</th>
                         <th class="no-print">Details</th>

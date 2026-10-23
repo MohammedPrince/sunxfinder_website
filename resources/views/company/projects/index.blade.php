@@ -103,7 +103,7 @@
                     <tr>
                         <th>Project</th>
                         <th>Customer</th>
-                        <th>Service</th>
+                        <th>Quote name</th>
                         <th>Selected offer</th>
                         <th>Progress</th>
                         <th>Status</th>
@@ -158,7 +158,7 @@
                                 </div>
                             </td>
 
-                            <td>{{ $quote?->service_needed ?? 'Solar installation' }}</td>
+                            <td>{{ $quote?->quote_name ?? 'Solar installation' }}</td>
 
                             <td>
                                 @if ($offer)

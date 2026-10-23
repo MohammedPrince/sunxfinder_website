@@ -68,7 +68,7 @@ class SendCompanyOfferDecisionEmail implements ShouldQueue
             'companyName' => $company->name ?: 'there',
             'customerName' => $customer?->full_name ?: ($customer?->username ?: 'The customer'),
             'quote_id' => (int) $offer->quote_id,
-            'serviceNeeded' => $offer->quote?->service_needed,
+            'quoteName' => $offer->quote?->quote_name,
             'price' => number_format((float) $offer->price) . ' ' . $offer->currency,
             'actionUrl' => $projectId
                 ? route('company.projects.show', $projectId)

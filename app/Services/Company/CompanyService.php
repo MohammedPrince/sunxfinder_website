@@ -219,4 +219,16 @@ class CompanyService
         return $this->companyRepository->deleteNotification($id);
     }
     //Notifications End
+
+    //Ratings Start
+    public function getCompanyRatings(array $filters = []): LengthAwarePaginator
+    {
+        return $this->companyRepository->getCompanyRatings($filters);
+    }
+
+    public function getCompanyRatingSummary(): array
+    {
+        return $this->companyRepository->getCompanyRatingSummary();
+    }
+    //Ratings End
 }

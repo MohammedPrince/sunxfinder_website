@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Company;
 
 use App\Http\Controllers\Controller;
+use App\Models\RatingValue;
 use App\Services\Company\CompanyService;
 use App\Support\ReportPeriod;
 use Illuminate\Http\Request;
@@ -520,8 +521,20 @@ class MainController extends Controller
 
     //Notifications Managment Start
 
+    //Ratings Start
 
+    public function ratings(Request $request)
+    {
+        $filters = $request->validate([
+            'stars' => ['nullable', 'integer', 'between:1,5'],
+        ]);
 
+        $ratings = $this->companyService->getCompanyRatings($filters);
+        $summary = $this->companyService->getCompanyRatingSummary();
+        $valueLabels = RatingValue::labels();
 
+        return view('company.ratings.index', compact('ratings', 'summary', 'valueLabels'));
+    }
 
+    //Ratings End
 }
