@@ -370,17 +370,19 @@ class CustomerRepository
 
     public function createAccount($data): array
     {
-        // Check whether the username, phone, or email already exists.
+        // Only an active account (is_active = 1) reserves the username, phone or email.
+        $matchesIdentifiers = function ($query) use ($data) {
+            $query->where('username', $data['username'])
+                ->orWhere('phone', $data['phone']);
+
+            if (!empty($data['email'])) {
+                $query->orWhere('email', $data['email']);
+            }
+        };
+
         $existingCustomer = Customer::query()
             ->where('is_active', 1)
-            ->where(function ($query) use ($data) {
-                $query->where('username', $data['username'])
-                    ->orWhere('phone', $data['phone']);
-
-                if (!empty($data['email'])) {
-                    $query->orWhere('email', $data['email']);
-                }
-            });
+            ->where($matchesIdentifiers);
 
         if ($existingCustomer->exists()) {
             return [
@@ -401,19 +403,25 @@ class CustomerRepository
         ], fn($name) => $name !== null && $name !== '')));
 
         try {
-            $customer = Customer::create([
-                'username' => $data['username'],
-                'first_name' => $firstName,
-                'second_name' => $secondName,
-                'third_name' => $thirdName,
-                'full_name' => $fullName !== '' ? $fullName : null,
-                'phone' => $data['phone'],
-                'email' => $data['email'] ?? null,
-                'gender' => $data['gender'] ?? null,
-                'city' => $data['city'] ?? null,
-                'address' => $data['address'] ?? null,
-                'password' => Hash::make($data['password']),
-            ]);
+            $customer = DB::transaction(function () use ($data, $matchesIdentifiers, $firstName, $secondName, $thirdName, $fullName) {
+                // Inactive accounts (pending, suspended or deleted) still hold these values,
+                // and the unique indexes would reject the new row. Release them first.
+                $this->releaseInactiveCustomerIdentifiers($data, $matchesIdentifiers);
+
+                return Customer::create([
+                    'username' => $data['username'],
+                    'first_name' => $firstName,
+                    'second_name' => $secondName,
+                    'third_name' => $thirdName,
+                    'full_name' => $fullName !== '' ? $fullName : null,
+                    'phone' => $data['phone'],
+                    'email' => $data['email'] ?? null,
+                    'gender' => $data['gender'] ?? null,
+                    'city' => $data['city'] ?? null,
+                    'address' => $data['address'] ?? null,
+                    'password' => Hash::make($data['password']),
+                ]);
+            });
         } catch (UniqueConstraintViolationException $e) {
             return [
                 'success' => false,
@@ -471,6 +479,44 @@ class CustomerRepository
             'message' => 'Account created successfully.',
             'account' => $customerAccount,
         ];
+    }
+
+    /**
+     * Frees the username/phone/email held by inactive accounts (is_active = 0) so a new
+     * sign-up can use them. The old row keeps its history: each taken value gets an
+     * "__old{id}" suffix, and the account is marked deleted and signed out.
+     */
+    private function releaseInactiveCustomerIdentifiers(array $data, \Closure $matchesIdentifiers): void
+    {
+        $inactive = Customer::withTrashed()
+            ->where('is_active', 0)
+            ->where($matchesIdentifiers)
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($inactive as $old) {
+            $suffix = '__old' . $old->id;
+
+            foreach (['username', 'phone', 'email'] as $field) {
+                $value = $data[$field] ?? null;
+
+                if ($value !== null && $value !== '' && strcasecmp((string) $old->{$field}, (string) $value) === 0) {
+                    $old->{$field} = $old->{$field} . $suffix;
+                }
+            }
+
+            $old->status = 'deleted';
+            $old->is_active = false;
+            $old->save();
+
+            if (!$old->trashed()) {
+                $old->delete();
+            }
+
+            // The replaced account must not stay signed in or receive pushes.
+            $old->tokens()->delete();
+            CustomerDeviceToken::query()->where('customer_id', $old->id)->update(['is_active' => false]);
+        }
     }
 
     public function getProfile(): array

@@ -147,6 +147,8 @@ class MainController extends Controller
         }
 
         // Check duplicates separately to return one generic message.
+        // Only active accounts (is_active = 1) reserve a username/phone/email;
+        // an inactive account's values are released in the repository on sign-up.
         $duplicateField = null;
 
         if (\DB::table('tbl_customers')->where('username', $request->username)->where('is_active', 1)->exists()) {
