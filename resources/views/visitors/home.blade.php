@@ -140,6 +140,33 @@
                 <a class="hx-btn hx-btn-primary" href="{{ $customerRegisterUrl }}">{{ __('messages.Start with step 1') }}</a>
                 <small class="hx-note">{{ __('messages.It is free and takes about 2 minutes.') }}</small>
             </div>
+
+            {{-- <div class="hx-app-walkthrough">
+                <div class="hx-app-copy">
+                    <span class="hx-kicker">{{ $isArabic ? 'تطبيق SunXFinder' : 'THE SUNXFINDER APP' }}</span>
+                    <h2>{{ $isArabic ? 'كل ما تحتاجه للطاقة الشمسية في تطبيق واحد' : 'Your solar project, made simple' }}</h2>
+                    <p>{{ $isArabic ? 'اكتشف الشركات الموثوقة، وقارن العروض، وتابع مشروعك بسهولة من هاتفك.' : 'Find trusted companies, compare offers, and follow your project, all from your phone.' }}</p>
+
+                    <ul class="hx-app-highlights">
+                        <li>{{ $isArabic ? 'اطلب عروضاً تناسب احتياجاتك' : 'Request offers for your needs' }}</li>
+                        <li>{{ $isArabic ? 'قارن الأسعار والتفاصيل بسهولة' : 'Compare prices and details' }}</li>
+                        <li>{{ $isArabic ? 'تابع مشروعك خطوة بخطوة' : 'Follow your project step by step' }}</li>
+                    </ul>
+
+                    <a class="hx-btn hx-btn-primary" href="{{ $customerRegisterUrl }}">
+                        {{ $isArabic ? 'ابدأ الآن' : 'Get started' }}
+                        <span aria-hidden="true">{{ $isArabic ? '←' : '→' }}</span>
+                    </a>
+                </div>
+
+                <div class="hx-app-visual">
+                    <img
+                        src="{{ asset_v('visitors/images/' . ($isArabic ? 'ar_sunxfinder_app_ar.gif' : 'en_sunxfinder_app.gif')) }}"
+                        alt="{{ $isArabic ? 'شرح لتطبيق SunXFinder' : 'SunXFinder app walkthrough' }}"
+                        loading="lazy"
+                        decoding="async">
+                </div>
+            </div> --}}
         </div>
     </section>
 
@@ -232,7 +259,7 @@
                             </div>
 
                             <div class="company-main-info">
-                                <h3 title="{{ $company->name }}">{{ $company->name }}</h3>
+                                <h3>{{ $company->name }}</h3>
                                 <span class="company-location">
                                     <span aria-hidden="true">⌖</span>
                                     {{ $company->city ? $company->city . ', ' : '' }}{{ __('messages.Sudan') }}

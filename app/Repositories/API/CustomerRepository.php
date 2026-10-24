@@ -45,6 +45,7 @@ class CustomerRepository
 
     public function login(array $data): array
     {
+        
         $username = trim($data['username'] ?? '');
         $password = $data['password'] ?? '';
 

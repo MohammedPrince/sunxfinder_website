@@ -51,53 +51,6 @@ class MainController extends Controller
         ], $result['code']);
     }
 
-    public function mainData(): JsonResponse
-    {
-        try {
-            $result = $this->customerService->mainData();
-
-            if (!$result['success']) {
-                return response()->json([
-                    'status' => 'error',
-                    'code' => $result['code'],
-                    'error' => $result['message'],
-                ], $result['code']);
-            }
-
-            return response()->json([
-                'status' => 'success',
-                'code' => 200,
-                'message' => 'Main Data Retrieved Successfully',
-                'data' => [
-                    'profile' => $result['profile'],
-                    'cities' => $result['cities'],
-                    'services' => $result['services'],
-                    'services_ar' => $result['services_ar'],
-                    'carousels' => $result['carousels'],
-                    'companies' => $result['companies'],
-                    'calculator' => $result['calculator'],
-                    'my_quotes' => $result['my_quotes'],
-                    'notifications' => $result['notifications'],
-                    'app_version' => $result['app_version'],
-                    // {"status":"active"|"stopped","message":"...in app language", ...}. Set by admin per customer.
-                    'app_status' => $result['app_status'],
-                    // e.g. {"max_open_quotes": 2}, editable from admin Settings.
-                    'settings' => $result['settings'],
-                    // Rating questions and the 1-4 answer labels.
-                    'rating_form' => $result['rating_form'],
-                ],
-                'meta' => $result['meta'],
-            ]);
-        } catch (Throwable $e) {
-            report($e);
-
-            return response()->json([
-                'status' => 'error',
-                'code' => 500,
-                'error' => 'Unable to retrieve main data.',
-            ], 500);
-        }
-    }
 
     public function createAccount(Request $request)
     {
@@ -216,6 +169,54 @@ class MainController extends Controller
                 'exception' => get_class($e),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
+            ], 500);
+        }
+    }
+
+    public function mainData(): JsonResponse
+    {
+        try {
+            $result = $this->customerService->mainData();
+
+            if (!$result['success']) {
+                return response()->json([
+                    'status' => 'error',
+                    'code' => $result['code'],
+                    'error' => $result['message'],
+                ], $result['code']);
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'code' => 200,
+                'message' => 'Main Data Retrieved Successfully',
+                'data' => [
+                    'profile' => $result['profile'],
+                    'cities' => $result['cities'],
+                    'services' => $result['services'],
+                    'services_ar' => $result['services_ar'],
+                    'carousels' => $result['carousels'],
+                    'companies' => $result['companies'],
+                    'calculator' => $result['calculator'],
+                    'my_quotes' => $result['my_quotes'],
+                    'notifications' => $result['notifications'],
+                    'app_version' => $result['app_version'],
+                    // {"status":"active"|"stopped","message":"...in app language", ...}. Set by admin per customer.
+                    'app_status' => $result['app_status'],
+                    // e.g. {"max_open_quotes": 2}, editable from admin Settings.
+                    'settings' => $result['settings'],
+                    // Rating questions and the 1-4 answer labels.
+                    'rating_form' => $result['rating_form'],
+                ],
+                'meta' => $result['meta'],
+            ]);
+        } catch (Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'status' => 'error',
+                'code' => 500,
+                'error' => 'Unable to retrieve main data.',
             ], 500);
         }
     }

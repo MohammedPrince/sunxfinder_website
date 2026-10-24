@@ -92,6 +92,97 @@
    font-size: 13px;
 }
 
+.hx-app-walkthrough {
+   display: grid;
+   grid-template-columns: repeat(2, minmax(0, 1fr));
+   align-items: center;
+   gap: 32px;
+   width: 100%;
+   max-width: 1320px;
+   min-height: 520px;
+   margin: 84px auto 0;
+}
+
+.hx-app-copy {
+   position: relative;
+   z-index: 1;
+   padding-block: 52px;
+   padding-inline: 52px 24px;
+}
+
+.hx-app-copy h2 {
+   margin: 18px 0 14px;
+   color: var(--hx-navy);
+   font-family: Manrope, Cairo, "DM Sans", sans-serif;
+   font-size: clamp(30px, 3.4vw, 42px);
+   line-height: 1.18;
+}
+
+.hx-app-copy > p {
+   max-width: 470px;
+   margin: 0;
+   color: var(--hx-muted);
+   font-size: 17px;
+   line-height: 1.7;
+}
+
+.hx-app-highlights {
+   display: grid;
+   gap: 12px;
+   margin: 24px 0 28px;
+   padding: 0;
+   list-style: none;
+   color: var(--hx-ink);
+   font-size: 15px;
+   font-weight: 600;
+}
+
+.hx-app-highlights li {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+}
+
+.hx-app-highlights li::before {
+   content: "✓";
+   display: grid;
+   flex: 0 0 24px;
+   place-items: center;
+   width: 24px;
+   height: 24px;
+   border-radius: 50%;
+   background: var(--hx-green-soft);
+   color: var(--hx-green);
+   font-size: 13px;
+   font-weight: 800;
+}
+
+.hx-app-visual {
+   position: relative;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   align-self: stretch;
+   min-height: 480px;
+}
+
+.hx-app-visual img {
+   position: relative;
+   display: block;
+   width: min(100%, 620px);
+   height: auto;
+   max-height: 560px;
+   object-fit: contain;
+   object-position: center;
+   border: 0;
+   border-radius: 0;
+   box-shadow: none;
+}
+
+html[lang="ar"] .hx-app-copy h2 {
+   letter-spacing: 0;
+}
+
 /* Buttons */
 .hx-btn {
    display: inline-flex;
@@ -958,6 +1049,31 @@ html[lang="ar"] .hx-kicker {
       flex-direction: column;
       align-items: flex-start;
       padding: 26px 22px;
+   }
+
+   .hx-app-walkthrough {
+      grid-template-columns: 1fr;
+      gap: 0;
+      min-height: 0;
+      margin-top: 64px;
+   }
+
+   .hx-app-copy {
+      padding: 32px 26px 12px;
+   }
+
+   .hx-app-copy > p {
+      font-size: 16px;
+   }
+
+   .hx-app-visual {
+      min-height: 0;
+      padding-top: 20px;
+   }
+
+   .hx-app-visual img {
+      width: min(78%, 340px);
+      max-height: 480px;
    }
 
    .hx-final-panel {
