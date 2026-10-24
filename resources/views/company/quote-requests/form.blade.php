@@ -605,7 +605,6 @@
 
             <div class="quote-subsection">
                 {{-- Estimated load summary --}}
-                ```php
                 @php
                     $loadSummary = $quote->estimated_load ?? '';
 
@@ -756,8 +755,7 @@
                         $systemType = trim($matches[1]);
                     }
                 @endphp
-                ```
-
+               
                 <div class="quote-subsection">
                     <div class="quote-subsection-heading">
                         <h3>Estimated load summary</h3>

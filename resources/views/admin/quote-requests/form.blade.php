@@ -158,11 +158,13 @@
                             <tr class="{{ $offer->status === 'selected' ? 'row-highlight' : '' }}">
                                 <td>
                                     <div class="company-cell">
-                                        <span class="company-avatar solar">{{ strtoupper(mb_substr($offer->company?->name ?? '?', 0, 1)) }}</span>
+                                        <span
+                                            class="company-avatar solar">{{ strtoupper(mb_substr($offer->company?->name ?? '?', 0, 1)) }}</span>
                                         <span>
                                             <strong>
                                                 @if ($offer->company)
-                                                    <a href="{{ route('admin.companies.edit', $offer->company->id) }}">{{ $offer->company->name }}</a>
+                                                    <a
+                                                        href="{{ route('admin.companies.edit', $offer->company->id) }}">{{ $offer->company->name }}</a>
                                                 @else
                                                     Company #{{ $offer->company_id }}
                                                 @endif
@@ -187,7 +189,8 @@
                                 </td>
                                 <td>
                                     {{ $offer->created_at?->format('d M Y, H:i') ?? '—' }}
-                                    <small class="cell-note">{{ $offer->created_at && $quote->created_at ? $quote->created_at->diffForHumans($offer->created_at, true) . ' after the request' : '' }}</small>
+                                    <small
+                                        class="cell-note">{{ $offer->created_at && $quote->created_at ? $quote->created_at->diffForHumans($offer->created_at, true) . ' after the request' : '' }}</small>
                                 </td>
                                 <td class="cell-wrap">{{ \Illuminate\Support\Str::limit($offer->message ?: '—', 140) }}</td>
                             </tr>
@@ -215,7 +218,8 @@
                     <p>The installation the chosen company carries out for this customer.</p>
                 </div>
                 @if ($project)
-                    <span class="pill {{ $project->status === 'completed' ? 'pill-green' : ($project->status === 'in_progress' ? 'pill-blue' : 'pill-orange') }}">
+                    <span
+                        class="pill {{ $project->status === 'completed' ? 'pill-green' : ($project->status === 'in_progress' ? 'pill-blue' : 'pill-orange') }}">
                         {{ $projectStatusLabels[$project->status] ?? ucfirst($project->status) }}
                     </span>
                 @endif
@@ -232,7 +236,8 @@
                     <div class="quote-detail">
                         <span>Progress</span>
                         <strong>{{ $project->progress_percent }}%</strong>
-                        <div class="mini-progress mini-progress-lg"><span style="width: {{ $project->progress_percent }}%"></span></div>
+                        <div class="mini-progress mini-progress-lg"><span
+                                style="width: {{ $project->progress_percent }}%"></span></div>
                     </div>
                     <div class="quote-detail">
                         <span>Milestones</span>
@@ -379,30 +384,147 @@
                 $batteryCount = '—';
                 $systemType = '—';
 
-                if (preg_match('/Estimated load:\s*([^,.\r\n]+(?:\.\d+)?\s*kWh\/day)/i', $loadSummary, $matches)) {
-                    $dailyEnergy = trim($matches[1]);
+                /*
+                |--------------------------------------------------------------------------
+                | Daily energy
+                |--------------------------------------------------------------------------
+                | English: Estimated load: 22.4 kWh/day
+                | Arabic:  الحمل التقديري: 22.4 كيلوواط ساعة/يوم
+                */
+                if (
+                    preg_match(
+                        '/Estimated load:\s*([\d.]+)\s*kWh\/day/i',
+                        $loadSummary,
+                        $matches
+                    )
+                ) {
+                    $dailyEnergy = $matches[1] . ' kWh/day';
+                } elseif (
+                    preg_match(
+                        '/الحمل التقديري:\s*([\d.]+)\s*كيلوواط\s*ساعة\/يوم/u',
+                        $loadSummary,
+                        $matches
+                    )
+                ) {
+                    $dailyEnergy = $matches[1] . ' كيلوواط ساعة/يوم';
                 }
 
-                if (preg_match('/peak\s*([^,\r\n]+?)(?=\.\s*Suggested system:|[\r\n]|$)/i', $loadSummary, $matches)) {
-                    $peakLoad = trim($matches[1]);
+                /*
+                |--------------------------------------------------------------------------
+                | Peak load
+                |--------------------------------------------------------------------------
+                */
+                if (
+                    preg_match(
+                        '/peak\s*([\d.]+)\s*kW/i',
+                        $loadSummary,
+                        $matches
+                    )
+                ) {
+                    $peakLoad = $matches[1] . ' kW';
+                } elseif (
+                    preg_match(
+                        '/الحمل الأقصى\s*([\d.]+)\s*كيلوواط/u',
+                        $loadSummary,
+                        $matches
+                    )
+                ) {
+                    $peakLoad = $matches[1] . ' كيلوواط';
                 }
 
-                if (preg_match('/Suggested system:\s*(\d+)\s*panels?/i', $loadSummary, $matches)) {
+                /*
+                |--------------------------------------------------------------------------
+                | Solar panels
+                |--------------------------------------------------------------------------
+                */
+                if (
+                    preg_match(
+                        '/Suggested system:\s*(\d+)\s*panels?/i',
+                        $loadSummary,
+                        $matches
+                    )
+                ) {
+                    $panelCount = $matches[1];
+                } elseif (
+                    preg_match(
+                        '/المنظومة المقترحة:\s*(\d+)\s*ألواح/u',
+                        $loadSummary,
+                        $matches
+                    )
+                ) {
                     $panelCount = $matches[1];
                 }
 
-                if (preg_match('/Suggested system:.*?(\d+(?:\.\d+)?)\s*kW\s*inverter/i', $loadSummary, $matches)) {
+                /*
+                |--------------------------------------------------------------------------
+                | Inverter size
+                |--------------------------------------------------------------------------
+                */
+                if (
+                    preg_match(
+                        '/Suggested system:.*?([\d.]+)\s*kW\s*inverter/i',
+                        $loadSummary,
+                        $matches
+                    )
+                ) {
                     $inverterSize = $matches[1] . ' kW';
+                } elseif (
+                    preg_match(
+                        '/المنظومة المقترحة:.*?محوّل\s*([\d.]+)\s*كيلوواط/u',
+                        $loadSummary,
+                        $matches
+                    )
+                ) {
+                    $inverterSize = $matches[1] . ' كيلوواط';
                 }
 
-                if (preg_match('/Suggested system:.*?(\d+)\s*batter(?:y|ies)/i', $loadSummary, $matches)) {
+                /*
+                |--------------------------------------------------------------------------
+                | Batteries
+                |--------------------------------------------------------------------------
+                */
+                if (
+                    preg_match(
+                        '/Suggested system:.*?(\d+)\s*batter(?:y|ies)/i',
+                        $loadSummary,
+                        $matches
+                    )
+                ) {
+                    $batteryCount = $matches[1];
+                } elseif (
+                    preg_match(
+                        '/المنظومة المقترحة:.*?(\d+)\s*بطاريات/u',
+                        $loadSummary,
+                        $matches
+                    )
+                ) {
                     $batteryCount = $matches[1];
                 }
 
-                if (preg_match('/System type:\s*([^\r\n]+)/i', $loadSummary, $matches)) {
+                /*
+                |--------------------------------------------------------------------------
+                | System type
+                |--------------------------------------------------------------------------
+                */
+                if (
+                    preg_match(
+                        '/System type:\s*([^\r\n]+)/i',
+                        $loadSummary,
+                        $matches
+                    )
+                ) {
+                    $systemType = trim($matches[1]);
+                } elseif (
+                    preg_match(
+                        '/نوع المنظومة:\s*([^\r\n،,.]+)/u',
+                        $loadSummary,
+                        $matches
+                    )
+                ) {
                     $systemType = trim($matches[1]);
                 }
             @endphp
+            
 
             <div class="quote-subsection">
                 <div class="quote-subsection-heading">
@@ -549,19 +671,19 @@
                         </div>
                     </div>
                 @else
-                    <div class="quote-company-card">
-                        <div class="quote-company-details">
-                            <strong class="quote-company-waiting">
-                                Not chosen yet
-                            </strong>
+                        <div class="quote-company-card">
+                            <div class="quote-company-details">
+                                <strong class="quote-company-waiting">
+                                    Not chosen yet
+                                </strong>
 
-                            <span>
-                                {{ $offers->count() > 0
-                                    ? 'The customer is comparing ' . $offers->count() . ' ' . \Illuminate\Support\Str::plural('offer', $offers->count()) . '.'
-                                    : 'No company has sent an offer yet.' }}
-                            </span>
+                                <span>
+                                    {{ $offers->count() > 0
+                    ? 'The customer is comparing ' . $offers->count() . ' ' . \Illuminate\Support\Str::plural('offer', $offers->count()) . '.'
+                    : 'No company has sent an offer yet.' }}
+                                </span>
+                            </div>
                         </div>
-                    </div>
                 @endif
             </section>
 
