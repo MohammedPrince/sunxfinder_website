@@ -1328,3 +1328,95 @@ html[lang="ar"] .hx-kicker {
       justify-self: stretch;
    }
 }
+.hx-app-slider {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 24px;
+    box-shadow: 0 12px 32px rgba(253, 81, 3, 0.12);
+}
+
+.hx-app-slider-track {
+    position: relative;
+    width: 100%;
+}
+
+.hx-app-slide {
+    display: none;
+    width: 100%;
+}
+
+.hx-app-slide.is-active {
+    display: block;
+}
+
+.hx-app-slide img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 24px;
+}
+
+.hx-app-slider-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgba(253, 81, 3, 0.15);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.95);
+    color: #fd5103;
+    box-shadow: 0 4px 16px rgba(253, 81, 3, 0.12);
+    cursor: pointer;
+}
+
+.hx-app-slider-prev {
+    left: 12px;
+}
+
+.hx-app-slider-next {
+    right: 12px;
+}
+
+.hx-app-slider-dots {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 0 4px;
+}
+
+.hx-app-slider-dot {
+    width: 9px;
+    height: 9px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: #dce7ef;
+    cursor: pointer;
+    transition: width 0.25s ease, background 0.25s ease;
+}
+
+.hx-app-slider-dot.is-active {
+    width: 24px;
+    border-radius: 10px;
+    background: #fd5103;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .hx-app-slide img {
+        animation: hx-slide-fade 0.35s ease;
+    }
+}
+
+@keyframes hx-slide-fade {
+    from {
+        opacity: 0.65;
+    }
+
+    to {
+        opacity: 1;
+    }
+}

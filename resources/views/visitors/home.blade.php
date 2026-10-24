@@ -141,32 +141,144 @@
                 <small class="hx-note">{{ __('messages.It is free and takes about 2 minutes.') }}</small>
             </div>
 
-            {{-- <div class="hx-app-walkthrough">
-                <div class="hx-app-copy">
-                    <span class="hx-kicker">{{ $isArabic ? 'تطبيق SunXFinder' : 'THE SUNXFINDER APP' }}</span>
-                    <h2>{{ $isArabic ? 'كل ما تحتاجه للطاقة الشمسية في تطبيق واحد' : 'Your solar project, made simple' }}</h2>
-                    <p>{{ $isArabic ? 'اكتشف الشركات الموثوقة، وقارن العروض، وتابع مشروعك بسهولة من هاتفك.' : 'Find trusted companies, compare offers, and follow your project, all from your phone.' }}</p>
 
-                    <ul class="hx-app-highlights">
-                        <li>{{ $isArabic ? 'اطلب عروضاً تناسب احتياجاتك' : 'Request offers for your needs' }}</li>
-                        <li>{{ $isArabic ? 'قارن الأسعار والتفاصيل بسهولة' : 'Compare prices and details' }}</li>
-                        <li>{{ $isArabic ? 'تابع مشروعك خطوة بخطوة' : 'Follow your project step by step' }}</li>
-                    </ul>
+<div class="hx-app-walkthrough">
+    {{-- App description --}}
+    <div class="hx-app-copy">
+        <span class="hx-kicker">
+            {{ $isArabic ? 'تطبيق SunXFinder' : 'THE SUNXFINDER APP' }}
+        </span>
 
-                    <a class="hx-btn hx-btn-primary" href="{{ $customerRegisterUrl }}">
-                        {{ $isArabic ? 'ابدأ الآن' : 'Get started' }}
-                        <span aria-hidden="true">{{ $isArabic ? '←' : '→' }}</span>
-                    </a>
-                </div>
+        <h2>
+            {{ $isArabic
+                ? 'كل ما تحتاجه للطاقة الشمسية في تطبيق واحد'
+                : 'Your solar project, made simple' }}
+        </h2>
 
-                <div class="hx-app-visual">
-                    <img
-                        src="{{ asset_v('visitors/images/' . ($isArabic ? 'ar_sunxfinder_app_ar.gif' : 'en_sunxfinder_app.gif')) }}"
-                        alt="{{ $isArabic ? 'شرح لتطبيق SunXFinder' : 'SunXFinder app walkthrough' }}"
-                        loading="lazy"
-                        decoding="async">
-                </div>
-            </div> --}}
+        <p>
+            {{ $isArabic
+                ? 'اكتشف الشركات الموثوقة، وقارن العروض، وتابع مشروعك بسهولة من هاتفك.'
+                : 'Find trusted companies, compare offers, and follow your project, all from your phone.' }}
+        </p>
+
+        <ul class="hx-app-highlights">
+            <li>
+                {{ $isArabic ? 'اطلب عروضاً تناسب احتياجاتك' : 'Request offers for your needs' }}
+            </li>
+            <li>
+                {{ $isArabic ? 'قارن الأسعار والتفاصيل بسهولة' : 'Compare prices and details' }}
+            </li>
+            <li>
+                {{ $isArabic ? 'تابع مشروعك خطوة بخطوة' : 'Follow your project step by step' }}
+            </li>
+        </ul>
+
+        <a class="hx-btn hx-btn-primary" href="{{ $customerRegisterUrl }}">
+            {{ $isArabic ? 'ابدأ الآن' : 'Get started' }}
+            <span aria-hidden="true">
+                {{ $isArabic ? '←' : '→' }}
+            </span>
+        </a>
+    </div>
+
+    {{-- App screenshots slider --}}
+    @php
+        $sliderImages = $isArabic
+            ? [
+                '1.png',
+                '2.png',
+                '3.png',
+                '4.png',
+                '5.png',
+                '6.png',
+                '8.png',
+                '9.png',
+                '10.png',
+            ]
+            : [
+                '1.png',
+                '2.png',
+                '3.png',
+                '4.png',
+                '5.png',
+                '6.png',
+                '8.png',
+                '9.png',
+                '10.png',
+            ];
+
+        $sliderFolder = $isArabic
+            ? 'visitors/images/app-slider/ar'
+            : 'visitors/images/app-slider/en';
+    @endphp
+
+    <div class="hx-app-visual">
+        <div
+            class="hx-app-slider"
+            data-app-slider
+            dir="{{ $isArabic ? 'rtl' : 'ltr' }}"
+            aria-label="{{ $isArabic ? 'صور تطبيق SunXFinder' : 'SunXFinder app screenshots' }}"
+            aria-roledescription="{{ $isArabic ? 'عارض صور' : 'carousel' }}"
+        >
+            <div class="hx-app-slider-track">
+                @foreach ($sliderImages as $index => $image)
+                    <div
+                        class="hx-app-slide {{ $index === 0 ? 'is-active' : '' }}"
+                        aria-hidden="{{ $index === 0 ? 'false' : 'true' }}"
+                    >
+                        <img
+                            src="{{ asset_v($sliderFolder . '/' . $image) }}"
+                            alt="{{ $isArabic
+                                ? 'شاشة تطبيق SunXFinder رقم ' . ($index + 1)
+                                : 'SunXFinder app screen ' . ($index + 1) }}"
+                            loading="{{ $index === 0 ? 'eager' : 'lazy' }}"
+                            decoding="async"
+                        >
+                    </div>
+                @endforeach
+            </div>
+
+            <button
+                type="button"
+                class="hx-app-slider-arrow hx-app-slider-prev"
+                data-slider-prev
+                aria-label="{{ $isArabic ? 'الصورة السابقة' : 'Previous image' }}"
+            >
+                &#10094;
+            </button>
+
+            <button
+                type="button"
+                class="hx-app-slider-arrow hx-app-slider-next"
+                data-slider-next
+                aria-label="{{ $isArabic ? 'الصورة التالية' : 'Next image' }}"
+            >
+                &#10095;
+            </button>
+
+            <div
+                class="hx-app-slider-dots"
+                aria-label="{{ $isArabic ? 'اختيار الصورة' : 'Choose image' }}"
+            >
+                @foreach ($sliderImages as $index => $image)
+                    <button
+                        type="button"
+                        class="hx-app-slider-dot {{ $index === 0 ? 'is-active' : '' }}"
+                        data-slide-to="{{ $index }}"
+                        aria-label="{{ $isArabic
+                            ? 'الصورة ' . ($index + 1)
+                            : 'Image ' . ($index + 1) }}"
+                        aria-current="{{ $index === 0 ? 'true' : 'false' }}"
+                    ></button>
+                @endforeach
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
         </div>
     </section>
 
@@ -570,5 +682,100 @@
             </div>
         </div>
     </section>
+
+    <script>
+
+document.querySelectorAll('[data-app-slider]').forEach((slider) => {
+    if (slider.dataset.sliderInitialized === 'true') return;
+    slider.dataset.sliderInitialized = 'true';
+
+    const slides = Array.from(
+        slider.querySelectorAll('.hx-app-slide')
+    );
+
+    const dots = Array.from(
+        slider.querySelectorAll('.hx-app-slider-dot')
+    );
+
+    const prevButton = slider.querySelector('[data-slider-prev]');
+    const nextButton = slider.querySelector('[data-slider-next]');
+
+    if (!slides.length) return;
+
+    let currentIndex = 0;
+    let autoplayTimer = null;
+
+    function showSlide(index) {
+        currentIndex = (index + slides.length) % slides.length;
+
+        slides.forEach((slide, i) => {
+            const active = i === currentIndex;
+
+            slide.classList.toggle('is-active', active);
+            slide.setAttribute('aria-hidden', String(!active));
+        });
+
+        dots.forEach((dot, i) => {
+            const active = i === currentIndex;
+
+            dot.classList.toggle('is-active', active);
+            dot.setAttribute('aria-current', String(active));
+        });
+    }
+
+    function stopAutoplay() {
+        if (autoplayTimer !== null) {
+            clearInterval(autoplayTimer);
+            autoplayTimer = null;
+        }
+    }
+
+    function startAutoplay() {
+        stopAutoplay();
+
+        if (
+            slides.length < 2 ||
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ) {
+            return;
+        }
+
+        autoplayTimer = setInterval(() => {
+            showSlide(currentIndex + 1);
+        }, 4000);
+    }
+
+    prevButton?.addEventListener('click', () => {
+        showSlide(currentIndex - 1);
+        startAutoplay();
+    });
+
+    nextButton?.addEventListener('click', () => {
+        showSlide(currentIndex + 1);
+        startAutoplay();
+    });
+
+    dots.forEach((dot, index) => {
+        dot.addEventListener('click', () => {
+            showSlide(index);
+            startAutoplay();
+        });
+    });
+
+    slider.addEventListener('mouseenter', stopAutoplay);
+    slider.addEventListener('mouseleave', startAutoplay);
+    slider.addEventListener('focusin', stopAutoplay);
+    slider.addEventListener('focusout', (event) => {
+        if (!slider.contains(event.relatedTarget)) {
+            startAutoplay();
+        }
+    });
+
+    showSlide(0);
+    startAutoplay();
+});
+
+
+</script>
 
 @endsection

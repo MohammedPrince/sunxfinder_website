@@ -38,7 +38,9 @@
             place-items: center;
             padding: 24px 16px;
             /* Home page body: "DM Sans", Arial (sunxfinder.css); Arabic pages: Cairo first */
-            font-family: {!! $isArabic ? 'Cairo, "DM Sans", Tahoma, Arial, sans-serif' : '"DM Sans", Arial, sans-serif' !!};
+            font-family:
+                {!! $isArabic ? 'Cairo, "DM Sans", Tahoma, Arial, sans-serif' : '"DM Sans", Arial, sans-serif' !!}
+            ;
             color: var(--navy);
             background:
                 radial-gradient(circle at 85% 10%, rgba(255, 179, 26, .28), transparent 40%),
@@ -94,11 +96,17 @@
         /* Home page headings: Manrope, "DM Sans" with -0.02em (home.css); Arabic: Cairo, no spacing */
         h1 {
             margin: 14px 0 12px;
-            font-family: {!! $isArabic ? 'Cairo, Tahoma, sans-serif' : 'Manrope, "DM Sans", sans-serif' !!};
+            font-family:
+                {!! $isArabic ? 'Cairo, Tahoma, sans-serif' : 'Manrope, "DM Sans", sans-serif' !!}
+            ;
             font-size: clamp(28px, 3.4vw, 40px);
             font-weight: 800;
-            line-height: {{ $isArabic ? '1.3' : '1.15' }};
-            letter-spacing: {{ $isArabic ? '0' : '-0.02em' }};
+            line-height:
+                {{ $isArabic ? '1.3' : '1.15' }}
+            ;
+            letter-spacing:
+                {{ $isArabic ? '0' : '-0.02em' }}
+            ;
         }
 
         .message {
@@ -169,15 +177,16 @@
 
 <body>
     <main class="card">
-        <img class="logo" src="{{ asset_v('visitors/images/logo-128.webp') }}" alt="SunXFinder" width="72"
-            height="72">
+        <img class="logo" src="{{ asset_v('visitors/images/logo-128.webp') }}" alt="SunXFinder" width="72" height="72">
         <div><span class="sun" aria-hidden="true">☀️</span></div>
 
         <span class="kicker">{{ $isArabic ? 'صيانة مجدولة' : 'Scheduled maintenance' }}</span>
 
         <h1>{{ $title ?: ($isArabic ? 'الموقع تحت الصيانة' : 'We will be back soon') }}</h1>
 
-        <p class="message">{{ $message ?: ($isArabic ? 'نعمل على تحسين الموقع. شكراً لصبرك.' : 'We are improving the website. Thank you for your patience.') }}</p>
+        <p class="message">
+            {{ $message ?: ($isArabic ? 'نعمل على تحسين الموقع. شكراً لصبرك.' : 'We are improving the website. Thank you for your patience.') }}
+        </p>
 
         @if ($until && $until->isFuture())
             <div class="until">
@@ -188,8 +197,8 @@
 
         <p class="contact">
             {{ $isArabic ? 'تحتاج مساعدة؟ راسلنا على' : 'Need help? Email us at' }}
-            <a href="mailto:{{ config('mail.contact_address', 'info@sunxfinder.com') }}"
-                dir="ltr">{{ config('mail.contact_address', 'info@sunxfinder.com') }}</a>
+            <a href="mailto:{{ config('mail.contact_address', 'info@sunxfinder.com') }}" dir="ltr">{{
+                config('mail.contact_address', 'info@sunxfinder.com') }}</a>
         </p>
 
         <nav class="lang" aria-label="Language">
