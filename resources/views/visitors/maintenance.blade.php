@@ -1,3 +1,10 @@
+@php
+    /** Passed by App\Http\Middleware\SiteMaintenance. */
+    /** @var bool $isArabic */
+    /** @var string|null $title */
+    /** @var string|null $message */
+    /** @var \Illuminate\Support\Carbon|null $until */
+@endphp
 <!doctype html>
 <html lang="{{ $isArabic ? 'ar' : 'en' }}" dir="{{ $isArabic ? 'rtl' : 'ltr' }}">
 
@@ -7,10 +14,11 @@
     <meta name="robots" content="noindex">
     <title>{{ $title ?: 'SunXFinder' }} · SunXFinder</title>
     <link rel="icon" type="image/png" href="{{ asset_v('visitors/images/logo-128.png') }}">
+    {{-- Same fonts as the home page (layouts/app.blade.php): DM Sans + Manrope, plus Cairo for Arabic --}}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Manrope:wght@800{{ $isArabic ? '&family=Cairo:wght@400;600;800' : '' }}&display=swap">
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800{{ $isArabic ? '&family=Cairo:wght@400;600;700;800' : '' }}&display=swap">
     <style>
         :root {
             --navy: #0b2d5c;
@@ -29,7 +37,8 @@
             display: grid;
             place-items: center;
             padding: 24px 16px;
-            font-family: {{ $isArabic ? 'Cairo, "DM Sans"' : '"DM Sans"' }}, system-ui, sans-serif;
+            /* Home page body: "DM Sans", Arial (sunxfinder.css); Arabic pages: Cairo first */
+            font-family: {!! $isArabic ? 'Cairo, "DM Sans", Tahoma, Arial, sans-serif' : '"DM Sans", Arial, sans-serif' !!};
             color: var(--navy);
             background:
                 radial-gradient(circle at 85% 10%, rgba(255, 179, 26, .28), transparent 40%),
@@ -82,12 +91,14 @@
             letter-spacing: .05em;
         }
 
+        /* Home page headings: Manrope, "DM Sans" with -0.02em (home.css); Arabic: Cairo, no spacing */
         h1 {
             margin: 14px 0 12px;
-            font-family: {{ $isArabic ? 'Cairo' : 'Manrope' }}, sans-serif;
-            font-size: clamp(24px, 5vw, 32px);
+            font-family: {!! $isArabic ? 'Cairo, Tahoma, sans-serif' : 'Manrope, "DM Sans", sans-serif' !!};
+            font-size: clamp(28px, 3.4vw, 40px);
             font-weight: 800;
-            line-height: 1.25;
+            line-height: {{ $isArabic ? '1.3' : '1.15' }};
+            letter-spacing: {{ $isArabic ? '0' : '-0.02em' }};
         }
 
         .message {
