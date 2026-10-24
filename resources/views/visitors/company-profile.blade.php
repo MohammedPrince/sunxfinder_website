@@ -78,11 +78,6 @@
                             <a class="btn btn-quiet" href="{{ route('app.company', ['slug' => $company->slug]) }}">
                                 📱 {{ trans('messages.Open in App') }}
                             </a>
-
-                            {{-- Laptops/PCs: no app button, so "View services" is the orange second action --}}
-                            <a class="btn btn-quiet {{ $isMobileDevice ? '' : 'btn-services' }}" href="#company-services">
-                                {{ trans('messages.View services') }}
-                            </a>
                         @endif
 
                         {{-- Laptops/PCs: no app button, so "View services" is the orange second action --}}
@@ -211,26 +206,54 @@
 
 
                     <section class="profile-panel" id="company-reviews">
-                        <span class="eyebrow">{{ trans('messages.CUSTOMER FEEDBACK') }}</span>
-                        <h2>{{ trans('messages.Customer reviews') }}</h2>
-                        @if (count($companyReviewsList))
-                            <div class="company-review-list">
+                        @php $reviewCount = count($companyReviewsList); @endphp
+                        <div class="review-slider-head">
+                            <div>
+                                <span class="eyebrow">{{ trans('messages.CUSTOMER FEEDBACK') }}</span>
+                                <h2>{{ trans('messages.Customer reviews') }}</h2>
+                            </div>
+
+                            @if ($reviewCount > 1)
+                                <div class="review-slider-controls" dir="ltr">
+                                    <button type="button" class="review-slider-btn" data-review-prev
+                                        aria-label="{{ trans('messages.Previous') }}">←</button>
+                                    <button type="button" class="review-slider-btn" data-review-next
+                                        aria-label="{{ trans('messages.Next') }}">→</button>
+                                </div>
+                            @endif
+                        </div>
+
+                        @if ($reviewCount)
+                            <div class="review-slider" data-review-slider tabindex="0"
+                                aria-label="{{ trans('messages.Customer reviews') }}">
                                 @foreach ($companyReviewsList as $review)
+                                    @php
+                                        $reviewStars = max(0, min(5, (int) data_get($review, 'rating', 0)));
+                                        $reviewer = data_get($review, 'customer') ?: trans('messages.Customer');
+                                    @endphp
                                     <article class="company-review">
                                         <div class="review-head">
-                                            @php $reviewStars = max(0, min(5, (int) data_get($review, 'rating', 0))); @endphp
-                                            <strong>{{ data_get($review, 'customer', trans('messages.Customer')) }}</strong><span
-                                                class="company-profile-stars"
+                                            <span class="review-avatar" aria-hidden="true">{{ mb_strtoupper(mb_substr($reviewer, 0, 1)) }}</span>
+                                            <span class="review-who">
+                                                <strong>{{ $reviewer }}</strong>
+                                                <small>{{ data_get($review, 'date', '') }}</small>
+                                            </span>
+                                            <span class="company-profile-stars" dir="ltr"
                                                 aria-label="{{ $reviewStars }} out of 5 stars">{{ str_repeat('★', $reviewStars) }}<span
                                                     style="opacity:.3">{{ str_repeat('★', 5 - $reviewStars) }}</span></span>
                                         </div>
                                         @if (data_get($review, 'comment'))
-                                            <p>{{ data_get($review, 'comment') }}</p>
+                                            <p class="review-comment">“{{ data_get($review, 'comment') }}”</p>
+                                        @else
+                                            <p class="review-comment review-comment-empty">{{ trans('messages.Rated without a comment.') }}</p>
                                         @endif
-                                        <small>{{ data_get($review, 'date', '') }}</small>
                                     </article>
                                 @endforeach
                             </div>
+
+                            @if ($reviewCount > 1)
+                                <div class="review-slider-dots" data-review-dots></div>
+                            @endif
                         @else
                             <p class="company-muted">{{ trans('messages.No customer reviews have been published yet.') }}
                             </p>
@@ -339,4 +362,101 @@
             </div>
         </section>
     </div>
+@endsection
+
+@section('scripts')
+    {{-- Reviews slider: buttons, dots and swipe (native scroll-snap). Works in RTL. --}}
+    <script>
+        (function() {
+            var track = document.querySelector('[data-review-slider]');
+            if (!track) return;
+
+            var section = track.closest('#company-reviews');
+            var prev = section.querySelector('[data-review-prev]');
+            var next = section.querySelector('[data-review-next]');
+            var dotsBox = section.querySelector('[data-review-dots]');
+            var cards = Array.prototype.slice.call(track.children);
+            var isRtl = getComputedStyle(track).direction === 'rtl';
+
+            function step() {
+                var card = cards[0];
+                var gap = parseFloat(getComputedStyle(track).columnGap) || 0;
+                return card ? card.getBoundingClientRect().width + gap : track.clientWidth;
+            }
+
+            // How many cards fit, and which page we are on (scrollLeft is negative in RTL).
+            function perView() {
+                return Math.max(1, Math.round(track.clientWidth / step()));
+            }
+
+            function pageCount() {
+                return Math.max(1, Math.ceil(cards.length / perView()));
+            }
+
+            function currentPage() {
+                return Math.round(Math.abs(track.scrollLeft) / (step() * perView()));
+            }
+
+            // The page shown now. Buttons and dots set it directly; swiping updates it from the scroll.
+            var page = 0;
+
+            function render() {
+                var last = pageCount() - 1;
+                // In RTL the first card is on the right, so "←" moves forward and "→" back.
+                if (prev) prev.disabled = isRtl ? page >= last : page <= 0;
+                if (next) next.disabled = isRtl ? page <= 0 : page >= last;
+                if (dotsBox) {
+                    Array.prototype.forEach.call(dotsBox.children, function(dot, i) {
+                        dot.classList.toggle('is-active', i === page);
+                        dot.setAttribute('aria-current', i === page ? 'true' : 'false');
+                    });
+                }
+                if (prev) prev.parentElement.hidden = last < 1;
+            }
+
+            function goTo(target) {
+                page = Math.max(0, Math.min(pageCount() - 1, target));
+                var left = page * perView() * step();
+                track.scrollTo({ left: isRtl ? -left : left, behavior: 'smooth' });
+                render();
+            }
+
+            function renderDots() {
+                if (!dotsBox) return;
+                dotsBox.innerHTML = '';
+                for (var i = 0; i < pageCount(); i++) {
+                    var dot = document.createElement('button');
+                    dot.type = 'button';
+                    dot.className = 'review-slider-dot';
+                    dot.setAttribute('aria-label', (i + 1) + ' / ' + pageCount());
+                    dot.addEventListener('click', goTo.bind(null, i));
+                    dotsBox.appendChild(dot);
+                }
+                dotsBox.hidden = pageCount() < 2;
+            }
+
+            // Arrows point the way the cards move on screen ("→" shows what is to the right).
+            if (prev) prev.addEventListener('click', function() { goTo(page + (isRtl ? 1 : -1)); });
+            if (next) next.addEventListener('click', function() { goTo(page + (isRtl ? -1 : 1)); });
+
+            // Finger swipe / trackpad: follow the scroll once it settles.
+            var settle;
+            track.addEventListener('scroll', function() {
+                clearTimeout(settle);
+                settle = setTimeout(function() {
+                    page = Math.max(0, Math.min(pageCount() - 1, currentPage()));
+                    render();
+                }, 120);
+            }, { passive: true });
+
+            window.addEventListener('resize', function() {
+                renderDots();
+                page = Math.max(0, Math.min(pageCount() - 1, currentPage()));
+                render();
+            });
+
+            renderDots();
+            render();
+        })();
+    </script>
 @endsection

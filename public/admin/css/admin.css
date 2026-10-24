@@ -6163,3 +6163,223 @@ html[dir=rtl] .topbar-dropdown {
     white-space: pre-wrap;
     word-break: break-word;
 }
+
+/* ===== Sidebar: collapsible groups (admin + company) ===== */
+.nav-group {
+    margin: 0 0 10px;
+    border: 1px solid #ffffff12;
+    border-radius: 12px;
+    background: #ffffff05;
+    overflow: hidden;
+}
+
+.nav-group:first-child {
+    margin-top: 4px;
+}
+
+.nav-group-toggle {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 0;
+    background: #ffffff08;
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: start;
+    cursor: pointer;
+    transition: background .18s;
+}
+
+.nav-group-toggle:hover {
+    background: #ffffff10;
+}
+
+.nav-group-toggle:focus-visible {
+    outline: 2px solid #fc520280;
+    outline-offset: -2px;
+}
+
+.nav-group-icon {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    color: #c3cfda;
+}
+
+/* The group that holds the current page gets the brand colour on its icon */
+.nav-group.has-active .nav-group-icon {
+    color: var(--orange);
+}
+
+.nav-group-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nav-group-chevron {
+    flex: 0 0 auto;
+    color: #98a9b8;
+    transition: transform .2s ease;
+}
+
+.nav-group:not(.is-open) .nav-group-chevron {
+    transform: rotate(180deg);
+}
+
+.nav-group-items {
+    padding: 6px;
+    border-top: 1px solid #ffffff0d;
+}
+
+.nav-group:not(.is-open) .nav-group-items {
+    display: none;
+}
+
+.nav-group-items .nav-link {
+    min-height: 36px;
+    padding-inline: 10px 8px;
+    font-size: 12.5px;
+}
+
+.nav-group-items .nav-link > span:not(.nav-icon):not(.nav-count) {
+    flex: 1;
+    min-width: 0;
+}
+
+.nav-group-items .nav-count {
+    min-width: 22px;
+    text-align: center;
+    font-weight: 700;
+}
+
+.nav-link-disabled {
+    opacity: .55;
+    cursor: default;
+}
+
+.nav-link-disabled small {
+    display: block;
+    font-size: 10px;
+    font-weight: 500;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nav-group-chevron {
+        transition: none;
+    }
+}
+
+/* ===== Admin dialog (modal) ===== */
+.admin-dialog {
+    width: min(560px, calc(100vw - 32px));
+    padding: 0;
+    border: 0;
+    border-radius: 16px;
+    background: #fff;
+    color: var(--ink);
+    box-shadow: 0 30px 80px rgba(16, 33, 52, .3);
+}
+
+.admin-dialog::backdrop {
+    background: rgba(16, 33, 52, .55);
+    backdrop-filter: blur(3px);
+}
+
+.admin-dialog-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 22px 14px;
+    border-bottom: 1px solid var(--line);
+}
+
+.admin-dialog-head h2 {
+    margin: 0 0 4px;
+    font-size: 18px;
+}
+
+.admin-dialog-head p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.admin-dialog-close {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    background: #fff;
+    color: var(--muted);
+    font-size: 20px;
+    line-height: 1;
+}
+
+.admin-dialog-close:hover {
+    border-color: var(--orange);
+    color: var(--orange);
+}
+
+.admin-dialog-body {
+    display: grid;
+    gap: 14px;
+    padding: 18px 22px;
+}
+
+.admin-dialog-body .form-group {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+}
+
+.admin-dialog-body label {
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.admin-dialog-body textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 10px 12px;
+    border: 1px solid #dfe6ee;
+    border-radius: 10px;
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+}
+
+.admin-dialog-body textarea:focus {
+    border-color: #f9a27b;
+    box-shadow: 0 0 0 3px #fc52021a;
+}
+
+.admin-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 22px 20px;
+    border-top: 1px solid var(--line);
+}
+
+/* App access dropdown in the Customer directory */
+.app-status-select {
+    min-width: 104px;
+    font-weight: 700;
+}
+
+.app-status-select.is-stopped {
+    border-color: #f6c4bd;
+    background: #fdecea;
+    color: #b42318;
+}

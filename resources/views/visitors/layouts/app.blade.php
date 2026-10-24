@@ -67,6 +67,13 @@
 </head>
 
 <body>
+    @if (!empty($maintenancePreview))
+        {{-- Only logged-in admins reach the site during maintenance --}}
+        <div style="position:sticky;top:0;z-index:2000;padding:8px 16px;background:#b42318;color:#fff;font:600 13px/1.4 system-ui,sans-serif;text-align:center">
+            🛠 Maintenance mode is ON. Visitors see the maintenance page; you see the site because you are signed in as admin.
+            <a href="{{ route('admin.settings.index') }}" style="color:#fff;text-decoration:underline">Turn it off</a>
+        </div>
+    @endif
     @if (!request()->cookie('locale') && !in_array(request()->query('lang'), ['en', 'ar'], true))
         <div class="language-modal-overlay" id="languageModal" role="presentation">
     @else
@@ -145,7 +152,6 @@
                 <div>
                     <strong>{{ trans('messages.For companies') }}</strong>
                     <a href="{{ route('company.register', ['lang' => app()->getLocale()]) }}">{{ trans('messages.Join as a company') }}</a>
-                    <a href="{{ route('company.login') }}">{{ trans('messages.Company login') }}</a>
                     <a href="mailto:info@sunxfinder.com">{{ trans('messages.Company inquiries') }}</a>
                 </div>
             </div>

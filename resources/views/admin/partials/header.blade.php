@@ -6,34 +6,31 @@
                 href="{{ route('admin.dashboard.page') }}"><small>ADMIN CONSOLE</small></a></span></div>
     {{-- Only the links scroll; brand and account box stay in place --}}
     <div class="sidebar-scroll">
-        <div class="sidebar-label">WORKSPACE</div>
-        <nav class="side-nav">
+        @component('partials.nav-group', ['key' => 'overview', 'label' => 'Overview', 'icon' => 'grid', 'routes' => ['admin.dashboard.page', 'admin.reports.*']])
             <a class="nav-link {{ request()->routeIs('admin.dashboard.page') ? 'active' : '' }}"
-                href="{{ route('admin.dashboard.page') }}"><span class="nav-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
-                        aria-hidden="true">
-                        <rect x="3" y="3" width="7" height="9" rx="1.5" />
-                        <rect x="14" y="3" width="7" height="5" rx="1.5" />
-                        <rect x="14" y="12" width="7" height="9" rx="1.5" />
-                        <rect x="3" y="16" width="7" height="5" rx="1.5" />
+                href="{{ route('admin.dashboard.page') }}">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />
                     </svg>
-                </span>Dashboard</a>
-
+                </span>
+                <span>Dashboard</span>
+            </a>
             <a class="nav-link {{ request()->routeIs('admin.reports.*') ? 'active' : '' }}"
                 href="{{ route('admin.reports.index') }}">
                 <span class="nav-icon">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M3 3v18h18" />
-                        <path d="M7 15v2" />
-                        <path d="M11 11v6" />
-                        <path d="M15 7v10" />
-                        <path d="M19 12v5" />
+                        <path d="M7 15v2M11 11v6M15 7v10M19 12v5" />
                     </svg>
-                </span>Reports</a>
+                </span>
+                <span>Reports</span>
+            </a>
+        @endcomponent
 
-            <div class="sidebar-label">MANAGEMENT</div>
+        @component('partials.nav-group', ['key' => 'management', 'label' => 'Management', 'icon' => 'users', 'routes' => ['admin.companies.*', 'admin.customers.*', 'admin.suppliers.*', 'admin.products.*']])
             <a class="nav-link {{ request()->routeIs('admin.companies.*') ? 'active' : '' }}"
                 href="{{ route('admin.companies.index') }}">
                 <span class="nav-icon">
@@ -44,8 +41,8 @@
                         <path d="M6 7h.01M6 11h.01M6 15h.01M18 7h.01M18 11h.01M18 15h.01M11 10h2M11 14h2" />
                     </svg>
                 </span>
-                Solar companies
-                <span class="nav-count warm">{{ $companyCount }}</span>
+                <span>Solar companies</span>
+                <span class="nav-count warm">{{ $companyCount ?? 0 }}</span>
             </a>
             <a class="nav-link {{ request()->routeIs('admin.customers.*') ? 'active' : '' }}"
                 href="{{ route('admin.customers.index') }}">
@@ -58,29 +55,23 @@
                         <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                     </svg>
                 </span>
-                Customers
-                <span class="nav-count warm">{{ $customersCount }}</span>
-
+                <span>Customers</span>
+                <span class="nav-count warm">{{ $customersCount ?? 0 }}</span>
             </a>
-
             <a class="nav-link {{ request()->routeIs('admin.suppliers.*') ? 'active' : '' }}"
                 href="{{ route('admin.suppliers.index') }}">
                 <span class="nav-icon">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <!-- Store roof -->
                         <path d="M3 10V6.5L5 3h14l2 3.5V10" />
-                        <!-- Storefront -->
                         <path d="M4 10v10h16V10" />
                         <path d="M9 20v-6h6v6" />
-                        <!-- Solar/product boxes -->
                         <path d="M3 10a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0" />
                     </svg>
                 </span>
                 <span>Supplier</span>
                 <span class="nav-count warm">{{ $suppliersCount ?? 0 }}</span>
             </a>
-
             <a class="nav-link {{ request()->routeIs('admin.products.*') ? 'active' : '' }}"
                 href="{{ route('admin.products.index') }}">
                 <span class="nav-icon">
@@ -93,12 +84,11 @@
                     </svg>
                 </span>
                 <span>Products</span>
-
                 <span class="nav-count warm">{{ $productsCount ?? 0 }}</span>
             </a>
+        @endcomponent
 
-            <div class="sidebar-label">APP MANAGEMENT</div>
-
+        @component('partials.nav-group', ['key' => 'app', 'label' => 'App Management', 'icon' => 'layers', 'routes' => ['admin.calculator-groups.*', 'admin.company-carousel.*', 'admin.app-versions.*']])
             <a class="nav-link {{ request()->routeIs('admin.calculator-groups.*') ? 'active' : '' }}"
                 href="{{ route('admin.calculator-groups.index') }}">
                 <span class="nav-icon">
@@ -109,29 +99,22 @@
                         <path d="M6 6h.01M12 6h.01M18 6h.01" />
                     </svg>
                 </span>
-
-                Calculator Groups
-
+                <span>Calculator Groups</span>
                 <span class="nav-count warm">{{ $applianceGroupCount ?? 0 }}</span>
             </a>
-
             <a class="nav-link {{ request()->routeIs('admin.company-carousel.*') ? 'active' : '' }}"
                 href="{{ route('admin.company-carousel.index') }}">
                 <span class="nav-icon">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <rect x="3" y="4" width="18" height="16" rx="2" />
-                        <path d="M7 8h10" />
-                        <path d="M7 12h6" />
-                        <path d="M7 16h4" />
+                        <path d="M7 8h10M7 12h6M7 16h4" />
                         <path d="m16 13 2 2 3-4" />
                     </svg>
                 </span>
                 <span>Company Carousel</span>
-
                 <span class="nav-count warm">{{ $carouselCount ?? 0 }}</span>
             </a>
-
             <a class="nav-link {{ request()->routeIs('admin.app-versions.*') ? 'active' : '' }}"
                 href="{{ route('admin.app-versions.index') }}">
                 <span class="nav-icon">
@@ -144,12 +127,11 @@
                     </svg>
                 </span>
                 <span>App Versions</span>
-
                 <span class="nav-count warm">{{ $appVersionCount ?? 0 }}</span>
             </a>
+        @endcomponent
 
-            <div class="sidebar-label">QUOTES</div>
-
+        @component('partials.nav-group', ['key' => 'quotes', 'label' => 'Quotes', 'icon' => 'file', 'routes' => ['admin.quote-requests.*', 'admin.notifications.*']])
             <a class="nav-link {{ request()->routeIs('admin.quote-requests.*') ? 'active' : '' }}"
                 href="{{ route('admin.quote-requests.index') }}">
                 <span class="nav-icon">
@@ -157,20 +139,13 @@
                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M6 2.75h8l5 5V21a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V4.75a2 2 0 0 1 2-2z" />
                         <path d="M14 2.75v5h5" />
-                        <path d="M8 12h8" />
-                        <path d="M8 15h4" />
+                        <path d="M8 12h8M8 15h4" />
                         <circle cx="16" cy="17" r="3.5" />
-                        <path d="M16 14.8v4.4" />
-                        <path
-                            d="M17.3 15.8c-.3-.4-.7-.6-1.3-.6-.7 0-1.2.4-1.2.9 0 1.3 2.4.7 2.4 1.9 0 .5-.5.9-1.2.9-.6 0-1.1-.2-1.4-.6" />
                     </svg>
                 </span>
-
                 <span>Quote requests</span>
-
                 <span class="nav-count warm">{{ $quoteCount ?? 0 }}</span>
             </a>
-
             <a class="nav-link {{ request()->routeIs('admin.notifications.*') ? 'active' : '' }}"
                 href="{{ route('admin.notifications.index') }}">
                 <span class="nav-icon">
@@ -181,14 +156,12 @@
                         <path d="M12 2v1" />
                     </svg>
                 </span>
-
                 <span>Push Notifications</span>
-
                 <span class="nav-count warm">{{ $notificationsCount ?? 0 }}</span>
             </a>
+        @endcomponent
 
-            <div class="sidebar-label">RATINGS</div>
-
+        @component('partials.nav-group', ['key' => 'ratings', 'label' => 'Ratings', 'icon' => 'star', 'routes' => ['admin.ratings.*', 'admin.rating-questions.*', 'admin.rating-values.*']])
             <a class="nav-link {{ request()->routeIs('admin.ratings.*') ? 'active' : '' }}"
                 href="{{ route('admin.ratings.index') }}">
                 <span class="nav-icon">
@@ -200,7 +173,6 @@
                 <span>Ratings</span>
                 <span class="nav-count warm">{{ $ratingsCount ?? 0 }}</span>
             </a>
-
             <a class="nav-link {{ request()->routeIs('admin.rating-questions.*', 'admin.rating-values.*') ? 'active' : '' }}"
                 href="{{ route('admin.rating-questions.index') }}">
                 <span class="nav-icon">
@@ -213,38 +185,75 @@
                 <span>Rating Questions</span>
                 <span class="nav-count warm">{{ $ratingQuestionsCount ?? 0 }}</span>
             </a>
+        @endcomponent
 
-        </nav>
-        <div class="sidebar-label">SYSTEM</div>
-        <nav class="side-nav">
+        @component('partials.nav-group', ['key' => 'system', 'label' => 'System', 'icon' => 'gear', 'routes' => ['admin.logs.*', 'admin.queue.*', 'admin.settings.*', 'admin.backups.*']])
             <a class="nav-link {{ request()->routeIs('admin.logs.*') ? 'active' : '' }}"
-                href="{{ route('admin.logs.index') }}"><span class="nav-icon">
+                href="{{ route('admin.logs.index') }}">
+                <span class="nav-icon">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
                         <path d="M14 3v6h6" />
                         <path d="M8 13h8M8 17h5" />
                     </svg>
-                </span>Activity Logs</a>
+                </span>
+                <span>Activity Logs</span>
+            </a>
             <a class="nav-link {{ request()->routeIs('admin.queue.*') ? 'active' : '' }}"
-                href="{{ route('admin.queue.index') }}"><span class="nav-icon">
+                href="{{ route('admin.queue.index') }}">
+                <span class="nav-icon">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <rect x="3" y="4" width="18" height="5" rx="1.5" />
                         <rect x="3" y="10" width="18" height="5" rx="1.5" />
                         <rect x="3" y="16" width="18" height="5" rx="1.5" />
                     </svg>
-                </span><span>Background Jobs</span>
+                </span>
+                <span>Background Jobs</span>
                 @if (($failedJobsCount ?? 0) > 0)
-                    <span class="nav-count warm">{{ $failedJobsCount }}</span>
+                    <span class="nav-count warm" title="Failed jobs">{{ $failedJobsCount }}</span>
                 @endif
             </a>
-            <a class="nav-link" href="{{ url('/') }}" target="_blank" rel="noopener"><span class="nav-icon">↗</span>View
-                website</a><a class="nav-link {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}"
-                href="{{ route('admin.settings.index') }}"><span class="nav-icon">⚙</span>Settings</a>
-
-        </nav>
+            <a class="nav-link {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}"
+                href="{{ route('admin.settings.index') }}">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" />
+                    </svg>
+                </span>
+                <span>Settings</span>
+                @if (\App\Models\Setting::maintenance()['enabled'])
+                    <span class="nav-count warm" title="Maintenance mode is on">ON</span>
+                @endif
+            </a>
+            <a class="nav-link {{ request()->routeIs('admin.backups.*') ? 'active' : '' }}"
+                href="{{ route('admin.backups.index') }}">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <ellipse cx="12" cy="5" rx="8" ry="3" />
+                        <path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5" />
+                        <path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" />
+                    </svg>
+                </span>
+                <span>Database Backups</span>
+            </a>
+            <a class="nav-link" href="{{ url('/') }}" target="_blank" rel="noopener">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M14 3h7v7" />
+                        <path d="M10 14 21 3" />
+                        <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
+                    </svg>
+                </span>
+                <span>View website</span>
+            </a>
+        @endcomponent
     </div>
+
     <div class="sidebar-bottom">
         <div class="sidebar-status"><i class="status-dot"></i><span><strong>System operational</strong><small>All
                     services look good</small></span></div>

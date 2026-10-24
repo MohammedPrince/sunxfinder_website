@@ -79,6 +79,8 @@ class MainController extends Controller
                     'my_quotes' => $result['my_quotes'],
                     'notifications' => $result['notifications'],
                     'app_version' => $result['app_version'],
+                    // {"status":"active"|"stopped","message":"...in app language", ...}. Set by admin per customer.
+                    'app_status' => $result['app_status'],
                     // e.g. {"max_open_quotes": 2}, editable from admin Settings.
                     'settings' => $result['settings'],
                     // Rating questions and the 1-4 answer labels.

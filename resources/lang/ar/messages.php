@@ -229,6 +229,9 @@ return [
     'CUSTOMER FEEDBACK' => 'آراء العملاء',
     'Customer reviews' => 'تقييمات العملاء',
     'No customer reviews have been published yet.' => 'لم يتم نشر أي تقييمات للعملاء حتى الآن.',
+    'Rated without a comment.' => 'قيّم بدون تعليق.',
+    'Previous' => 'السابق',
+    'Next' => 'التالي',
 
 
     'About company verification' => 'حول التحقق من الشركة',
@@ -403,7 +406,7 @@ return [
     'Receive offers from several companies and compare prices, details and experience in one place.' => 'استلم عروضاً من عدة شركات، وقارن الأسعار والتفاصيل والخبرات في مكان واحد.',
     'Accept the offer you like best, then follow your installation step by step until it is done.' => 'اقبل العرض الأنسب لك، ثم تابع تركيب نظامك خطوة بخطوة حتى يكتمل.',
     'Start with step 1' => 'ابدأ بالخطوة الأولى',
-    'It is free and takes about 2 minutes.' => 'مجاني ويستغرق نحو دقيقتين.',
+    'It is free and takes about 2 minutes.' => 'التسجيل مجاني ويستغرق نحو دقيقتين.',
     'Solar for every need' => 'طاقة شمسية لكل احتياج',
     'Whatever you want to power, there is a company on SunXFinder that can help.' => 'مهما كان ما تريد تشغيله، ستجد على SunXFinder شركة تساعدك.',
     'Companies' => 'الشركات',

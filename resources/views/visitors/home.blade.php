@@ -232,7 +232,7 @@
                             </div>
 
                             <div class="company-main-info">
-                                <h3>{{ $company->name }}</h3>
+                                <h3 title="{{ $company->name }}">{{ $company->name }}</h3>
                                 <span class="company-location">
                                     <span aria-hidden="true">⌖</span>
                                     {{ $company->city ? $company->city . ', ' : '' }}{{ __('messages.Sudan') }}

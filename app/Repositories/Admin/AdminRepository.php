@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use App\Repositories\OtpRepository;
 use App\Support\ActivityLogger;
+use App\Support\DatabaseBackup;
 use App\Models\Appliance;
 use App\Models\ApplianceGroup;
 use App\Models\AppVersion;
@@ -1285,6 +1286,60 @@ class AdminRepository
                 'success' => false,
                 'message' => 'Unable to update the customer. Please try again.',
             ];
+        }
+    }
+
+    /**
+     * Stop or re-allow the mobile app for one customer. The app reads app_status and
+     * the message (in its language) from /main-data. Optionally pushes the message.
+     */
+    public function setCustomerAppStatus(int $id, string $status, ?string $messageEn, ?string $messageAr, bool $push): array
+    {
+        try {
+            $customer = Customer::find($id);
+
+            if (!$customer) {
+                return ['success' => false, 'message' => 'Customer not found.'];
+            }
+
+            $stopping = $status === 'stopped';
+
+            $customer->forceFill([
+                'app_status' => $status,
+                // Keep the message only while stopped; a reactivation note is pushed, not stored.
+                'app_status_message_en' => $stopping ? $messageEn : null,
+                'app_status_message_ar' => $stopping ? $messageAr : null,
+                'app_status_changed_at' => now(),
+            ])->save();
+
+            $pushed = false;
+
+            if ($push && ($messageEn || $messageAr)) {
+                $this->publishNotification([
+                    'sender_type' => 'admin',
+                    'sender_id' => auth('admin')->id(),
+                    'type' => 'app_status',
+                    'audience_type' => 'selected',
+                    'customer_ids' => [(int) $customer->id],
+                    'title_en' => $stopping ? 'App access paused' : 'App access restored',
+                    'title_ar' => $stopping ? 'تم إيقاف التطبيق مؤقتاً' : 'تمت إعادة تفعيل التطبيق',
+                    'message_en' => $messageEn ?: $messageAr,
+                    'message_ar' => $messageAr ?: $messageEn,
+                ]);
+                $pushed = true;
+            }
+
+            $name = $customer->full_name ?: $customer->username;
+
+            return [
+                'success' => true,
+                'message' => ($stopping ? "App stopped for {$name}." : "App is active again for {$name}.")
+                    . ($pushed ? ' The message was sent as a push notification.' : ''),
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to change the app status. Please try again.'];
         }
     }
 
@@ -3125,17 +3180,38 @@ class AdminRepository
 
     public function getSettings(): array
     {
+        cache()->forget(Setting::MAINTENANCE_CACHE_KEY);
+
         return [
             'max_open_quotes' => Setting::maxOpenQuotes(),
+            'maintenance' => Setting::maintenance(),
         ];
     }
 
     public function updateSettings(array $data): array
     {
         try {
+            $wasInMaintenance = Setting::maintenance()['enabled'];
+
             Setting::set('max_open_quotes', (int) $data['max_open_quotes']);
 
-            return ['success' => true, 'message' => 'Settings saved successfully.'];
+            Setting::set('maintenance_enabled', !empty($data['maintenance_enabled']) ? '1' : '0');
+            foreach (['title_en', 'title_ar', 'message_en', 'message_ar', 'until'] as $field) {
+                Setting::set("maintenance_{$field}", $data["maintenance_{$field}"] ?? null);
+            }
+
+            cache()->forget(Setting::MAINTENANCE_CACHE_KEY);
+
+            $nowInMaintenance = !empty($data['maintenance_enabled']);
+
+            return [
+                'success' => true,
+                'message' => 'Settings saved successfully.' . match (true) {
+                    $nowInMaintenance && !$wasInMaintenance => ' Maintenance mode is ON: visitors now see the maintenance page.',
+                    !$nowInMaintenance && $wasInMaintenance => ' Maintenance mode is OFF: the website is live again.',
+                    default => '',
+                },
+            ];
         } catch (Throwable $e) {
             report($e);
 
@@ -3144,6 +3220,63 @@ class AdminRepository
     }
 
     //Settings End
+
+    //Database Backups Start
+
+    public function getDatabaseBackups(): array
+    {
+        return DatabaseBackup::all();
+    }
+
+    public function createDatabaseBackup(): array
+    {
+        try {
+            $started = microtime(true);
+            $name = DatabaseBackup::create();
+            $size = filesize(DatabaseBackup::path($name));
+
+            ActivityLogger::log('created', "Admin created database backup {$name}", null, [
+                'file' => $name,
+                'size_bytes' => $size,
+            ], null, 'system');
+
+            return [
+                'success' => true,
+                'message' => "Backup {$name} created (" . $this->humanSize($size) . ', ' . round(microtime(true) - $started, 1) . 's).',
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Backup failed: ' . $e->getMessage()];
+        }
+    }
+
+    public function getDatabaseBackupPath(string $name): ?string
+    {
+        return DatabaseBackup::path($name);
+    }
+
+    public function deleteDatabaseBackup(string $name): array
+    {
+        if (!DatabaseBackup::delete($name)) {
+            return ['success' => false, 'message' => 'Backup not found.'];
+        }
+
+        ActivityLogger::log('deleted', "Admin deleted database backup {$name}", null, ['file' => $name], null, 'system');
+
+        return ['success' => true, 'message' => "Backup {$name} deleted."];
+    }
+
+    private function humanSize(int $bytes): string
+    {
+        return match (true) {
+            $bytes >= 1048576 => round($bytes / 1048576, 1) . ' MB',
+            $bytes >= 1024 => round($bytes / 1024, 1) . ' KB',
+            default => $bytes . ' B',
+        };
+    }
+
+    //Database Backups End
 
     //Activity Logs Start
 

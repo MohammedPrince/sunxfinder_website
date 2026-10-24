@@ -313,6 +313,7 @@ class CustomerRepository
                 ],
                 'notifications' => $notifications,
                 'app_version' => $this->getAppVersions($customerId),
+                'app_status' => $this->getCustomerAppStatus($customerId),
                 'settings' => $settings,
                 'rating_form' => $this->getRatingForm()['data'],
                 'meta' => [
@@ -330,6 +331,36 @@ class CustomerRepository
                 'message' => 'Unable to retrieve main data.',
             ];
         }
+    }
+
+    /**
+     * Whether admin stopped the app for this customer, with the message in the app's
+     * language (from the most recently used device), plus both languages.
+     */
+    private function getCustomerAppStatus(int $customerId): array
+    {
+        $customer = Customer::query()
+            ->whereKey($customerId)
+            ->first(['id', 'app_status', 'app_status_message_en', 'app_status_message_ar', 'app_status_changed_at']);
+
+        $lang = strtolower((string) CustomerDeviceToken::query()
+            ->where('customer_id', $customerId)
+            ->orderByDesc('last_used_at')
+            ->value('lang')) === 'ar' ? 'ar' : 'en';
+
+        $status = $customer?->app_status === 'stopped' ? 'stopped' : 'active';
+        $messageEn = $status === 'stopped' ? $customer->app_status_message_en : null;
+        $messageAr = $status === 'stopped' ? $customer->app_status_message_ar : null;
+
+        return [
+            'status' => $status,
+            'is_stopped' => $status === 'stopped',
+            'message' => $lang === 'ar' ? ($messageAr ?: $messageEn) : ($messageEn ?: $messageAr),
+            'message_en' => $messageEn,
+            'message_ar' => $messageAr,
+            'lang' => $lang,
+            'changed_at' => $customer?->app_status_changed_at?->toISOString(),
+        ];
     }
 
     /**

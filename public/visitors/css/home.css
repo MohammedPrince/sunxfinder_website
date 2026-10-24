@@ -562,6 +562,56 @@
    justify-content: flex-end;
 }
 
+/* Phones: logo | details side by side, "Verified" under the details, and the
+   company name on a single line ("…" when too long; full name in its tooltip). */
+@media (max-width: 640px) {
+   #companies .company-card-top {
+      display: grid;
+      grid-template-columns: 46px minmax(0, 1fr);
+      grid-template-areas:
+         "logo info"
+         ".    badge";
+      align-items: center;
+      column-gap: 10px;
+      row-gap: 8px;
+   }
+
+   #companies .company-logo-placeholder {
+      grid-area: logo;
+      width: 46px;
+      height: 46px;
+      border-radius: 13px;
+      font-size: 22px;
+   }
+
+   #companies .company-main-info {
+      grid-area: info;
+   }
+
+   #companies .company-main-info h3 {
+      margin-bottom: 4px;
+      font-size: 15px;
+      letter-spacing: -0.01em;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      overflow-wrap: normal;
+   }
+
+   #companies .company-location {
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+   }
+
+   #companies .verification-badge {
+      grid-area: badge;
+      justify-self: start;
+   }
+}
+
 .hx-company-facts {
    display: flex;
    flex-wrap: wrap;

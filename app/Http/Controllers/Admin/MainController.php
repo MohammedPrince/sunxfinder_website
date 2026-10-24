@@ -280,6 +280,30 @@ class MainController extends Controller
             ->with('success', $result['message']);
     }
 
+    /** Stop / re-allow the mobile app for one customer (from the Customer directory modal). */
+    public function updateCustomerAppStatus(Request $request, int $id)
+    {
+        $data = $request->validate([
+            'app_status' => ['required', Rule::in(['active', 'stopped'])],
+            'message_en' => ['required_if:app_status,stopped', 'nullable', 'string', 'max:1000'],
+            'message_ar' => ['required_if:app_status,stopped', 'nullable', 'string', 'max:1000'],
+            'push' => ['nullable', 'boolean'],
+        ], [
+            'message_en.required_if' => 'Write the English message the customer will see.',
+            'message_ar.required_if' => 'Write the Arabic message the customer will see.',
+        ]);
+
+        $result = $this->adminService->setCustomerAppStatus(
+            $id,
+            $data['app_status'],
+            $data['message_en'] ?? null,
+            $data['message_ar'] ?? null,
+            $request->boolean('push')
+        );
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
     public function showCustomers(Request $request)
     {
         $filters = $request->validate([
@@ -1117,7 +1141,20 @@ class MainController extends Controller
     {
         $data = $request->validate([
             'max_open_quotes' => ['required', 'integer', 'min:1', 'max:50'],
+            'maintenance_enabled' => ['nullable', 'boolean'],
+            'maintenance_title_en' => ['nullable', 'required_if:maintenance_enabled,1', 'string', 'max:150'],
+            'maintenance_title_ar' => ['nullable', 'required_if:maintenance_enabled,1', 'string', 'max:150'],
+            'maintenance_message_en' => ['nullable', 'required_if:maintenance_enabled,1', 'string', 'max:2000'],
+            'maintenance_message_ar' => ['nullable', 'required_if:maintenance_enabled,1', 'string', 'max:2000'],
+            'maintenance_until' => ['nullable', 'date'],
+        ], [
+            'maintenance_title_en.required_if' => 'Write the English maintenance title.',
+            'maintenance_title_ar.required_if' => 'Write the Arabic maintenance title.',
+            'maintenance_message_en.required_if' => 'Write the English maintenance message.',
+            'maintenance_message_ar.required_if' => 'Write the Arabic maintenance message.',
         ]);
+
+        $data['maintenance_enabled'] = $request->boolean('maintenance_enabled');
 
         $result = $this->adminService->updateSettings($data);
 
@@ -1125,6 +1162,40 @@ class MainController extends Controller
     }
 
     //Settings End
+
+    //Database Backups Start
+
+    public function databaseBackups()
+    {
+        $backups = $this->adminService->getDatabaseBackups();
+
+        return view('admin.backups.index', compact('backups'));
+    }
+
+    public function createDatabaseBackup()
+    {
+        $result = $this->adminService->createDatabaseBackup();
+
+        return redirect()->route('admin.backups.index')->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function downloadDatabaseBackup(string $file)
+    {
+        $path = $this->adminService->getDatabaseBackupPath($file);
+
+        abort_if(!$path, 404);
+
+        return response()->download($path, $file, ['Content-Type' => 'application/sql']);
+    }
+
+    public function deleteDatabaseBackup(string $file)
+    {
+        $result = $this->adminService->deleteDatabaseBackup($file);
+
+        return redirect()->route('admin.backups.index')->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    //Database Backups End
 
     //Activity Logs Start
 

@@ -25,3 +25,6 @@ Thumbs.db
 *firebase-adminsdk*.json
 google-services.json
 GoogleService-Info.plist
+
+# Admin database backups (Admin -> Database Backups). Never commit them.
+/storage/app/private/db/

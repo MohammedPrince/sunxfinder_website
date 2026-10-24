@@ -154,6 +154,9 @@ return [
     'CUSTOMER FEEDBACK' => 'CUSTOMER FEEDBACK',
     'Customer reviews' => 'Customer reviews',
     'No customer reviews have been published yet.' => 'No customer reviews have been published yet.',
+    'Rated without a comment.' => 'Rated without a comment.',
+    'Previous' => 'Previous',
+    'Next' => 'Next',
 
     'About company verification' => 'About company verification',
 
@@ -348,7 +351,7 @@ return [
     'Receive offers from several companies and compare prices, details and experience in one place.' => 'Receive offers from several companies and compare prices, details and experience in one place.',
     'Accept the offer you like best, then follow your installation step by step until it is done.' => 'Accept the offer you like best, then follow your installation step by step until it is done.',
     'Start with step 1' => 'Start with step 1',
-    'It is free and takes about 2 minutes.' => 'It is free and takes about 2 minutes.',
+    'It is free and takes about 2 minutes.' => 'Registration is free and takes about 2 minutes.',
     'Solar for every need' => 'Solar for every need',
     'Whatever you want to power, there is a company on SunXFinder that can help.' => 'Whatever you want to power, there is a company on SunXFinder that can help.',
     'Companies' => 'Companies',

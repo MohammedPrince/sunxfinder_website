@@ -16,7 +16,8 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-Route::controller(WebsiteController::class)->group(function () {
+// site.maintenance: shows the maintenance page when it is on (Admin → Settings).
+Route::controller(WebsiteController::class)->middleware('site.maintenance')->group(function () {
     Route::get('/', 'index')->name('home');
     Route::get('/companies/{slug}', 'showCompany')->name('company-profile.show');
 
@@ -111,6 +112,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::put('/{id}', 'updateCustomer')->whereNumber('id')->name('update');
                 Route::delete('/{id}', 'destroyCustomer')->whereNumber('id')->name('destroy');
                 Route::post('/{id}/sign-out', 'signOutCustomer')->whereNumber('id')->name('sign-out');
+                Route::post('/{id}/app-status', 'updateCustomerAppStatus')->whereNumber('id')->name('app-status');
                 Route::post('/force-logout', 'forceLogoutCustomers')->name('force-logout');
             });
 
@@ -217,6 +219,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
             // App settings (open quote limit, ...)
             Route::get('/settings', 'settings')->name('settings.index');
             Route::put('/settings', 'updateSettings')->name('settings.update');
+
+            // Database backups: create, download, delete (files in storage/app/private/db)
+            Route::prefix('database-backups')->name('backups.')->group(function () {
+                Route::get('/', 'databaseBackups')->name('index');
+                Route::post('/', 'createDatabaseBackup')->middleware('throttle:5,1')->name('store');
+                Route::get('/{file}/download', 'downloadDatabaseBackup')->where('file', '[A-Za-z0-9_\-]+\.sql')->name('download');
+                Route::delete('/{file}', 'deleteDatabaseBackup')->where('file', '[A-Za-z0-9_\-]+\.sql')->name('destroy');
+            });
 
             // Activity logs (admins, companies and customers). Admin only.
             Route::prefix('activity-logs')->name('logs.')->group(function () {

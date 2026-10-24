@@ -105,6 +105,11 @@ class AdminService
         return $this->adminRepository->getCustomers($perPage, $status);
     }
 
+    public function setCustomerAppStatus(int $id, string $status, ?string $messageEn, ?string $messageAr, bool $push): array
+    {
+        return $this->adminRepository->setCustomerAppStatus($id, $status, $messageEn, $messageAr, $push);
+    }
+
 
     public function customerAccountCount(): int
     {
@@ -475,6 +480,28 @@ class AdminService
         return $this->adminRepository->updateSettings($data);
     }
     //Settings End
+
+    //Database Backups Start
+    public function getDatabaseBackups(): array
+    {
+        return $this->adminRepository->getDatabaseBackups();
+    }
+
+    public function createDatabaseBackup(): array
+    {
+        return $this->adminRepository->createDatabaseBackup();
+    }
+
+    public function getDatabaseBackupPath(string $name): ?string
+    {
+        return $this->adminRepository->getDatabaseBackupPath($name);
+    }
+
+    public function deleteDatabaseBackup(string $name): array
+    {
+        return $this->adminRepository->deleteDatabaseBackup($name);
+    }
+    //Database Backups End
 
     //Background Jobs Start
     public function getQueueOverview(): array

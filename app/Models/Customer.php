@@ -39,6 +39,7 @@ class Customer extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
+            'app_status_changed_at' => 'datetime',
         ];
     }
 

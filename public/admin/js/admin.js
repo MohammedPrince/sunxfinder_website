@@ -480,3 +480,49 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
+// ------------------------------------------
+// Sidebar groups (admin + company): collapse/expand, remembered per panel.
+// The group holding the current page always starts open.
+// ------------------------------------------
+(function () {
+    const groups = document.querySelectorAll('.nav-group[data-nav-group]');
+    if (!groups.length) return;
+
+    const panel = location.pathname.split('/')[1] || 'panel';
+    const storageKey = 'sx-nav-collapsed:' + panel;
+
+    let collapsed = [];
+    try {
+        collapsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    } catch (e) {
+        collapsed = [];
+    }
+
+    const save = () => {
+        try {
+            localStorage.setItem(storageKey, JSON.stringify(collapsed));
+        } catch (e) { /* private mode: just don't remember */ }
+    };
+
+    const setOpen = (group, open) => {
+        group.classList.toggle('is-open', open);
+        group.querySelector('.nav-group-toggle')?.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+
+    groups.forEach(group => {
+        const key = group.dataset.navGroup;
+        const hasActive = group.classList.contains('has-active') || !!group.querySelector('.nav-link.active');
+
+        setOpen(group, hasActive || !collapsed.includes(key));
+
+        group.querySelector('.nav-group-toggle')?.addEventListener('click', () => {
+            const open = !group.classList.contains('is-open');
+            setOpen(group, open);
+
+            collapsed = collapsed.filter(item => item !== key);
+            if (!open) collapsed.push(key);
+            save();
+        });
+    });
+})();
