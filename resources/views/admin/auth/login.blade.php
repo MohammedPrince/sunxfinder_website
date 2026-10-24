@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#182634">
     <title>{{ $loginTitle ?? 'Sign in' }} · SunXFinder</title>
     <link rel="icon" type="image/png" href="{{ asset('admin/images/sun.png') }}">
-    <link rel="stylesheet" href="{{ asset('admin/css/admin.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('admin/css/admin.css') }}">
 </head>
 
 <body class="login-body">
@@ -71,8 +71,7 @@
                 @endif
 
 
-                <form method="POST" action="{{ $loginAction ?? route('admin.login.submit') }}"
-                    class="admin-login-form">
+                <form method="POST" action="{{ $loginAction ?? route('admin.login.submit') }}" class="admin-login-form">
                     @csrf
 
                     <div class="form-field">
@@ -83,8 +82,7 @@
                         <div class="input-with-icon">
                             <span class="field-icon" aria-hidden="true">
                                 <svg viewBox="0 0 24 24" fill="none">
-                                    <circle cx="12" cy="8" r="4" stroke="currentColor"
-                                        stroke-width="1.7" />
+                                    <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.7" />
                                     <path d="M4.5 20a7.5 7.5 0 0 1 15 0" stroke="currentColor" stroke-width="1.7"
                                         stroke-linecap="round" />
                                 </svg>
@@ -106,8 +104,8 @@
                         <div class="input-with-icon password-input-wrap">
                             <span class="field-icon" aria-hidden="true">
                                 <svg viewBox="0 0 24 24" fill="none">
-                                    <rect x="4.5" y="10" width="15" height="10" rx="2.2"
-                                        stroke="currentColor" stroke-width="1.7" />
+                                    <rect x="4.5" y="10" width="15" height="10" rx="2.2" stroke="currentColor"
+                                        stroke-width="1.7" />
                                     <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.7"
                                         stroke-linecap="round" />
                                     <circle cx="12" cy="15" r="1.2" fill="currentColor" />
@@ -124,9 +122,9 @@
                     </div>
 
                     <div class="login-options">
-
-                        <a href="#" data-demo-toast="Connect password reset to your authentication flow.">Forgot
-                            password?</a>
+                        <button type="button" class="link-button" data-modal-open="forgotPasswordModal">
+                            Forgot password?
+                        </button>
                     </div>
 
                     <button class="btn btn-primary login-submit" type="submit">
@@ -157,7 +155,53 @@
             </div>
         </section>
     </main>
-    <script src="{{ asset('admin/js/admin.js') }}" defer></script>
+
+    {{-- Forgot password: check the email belongs to this portal's account type --}}
+    <div class="login-modal-overlay" id="forgotPasswordModal" role="dialog" aria-modal="true"
+        aria-labelledby="forgotPasswordTitle" hidden>
+        <div class="login-modal">
+            <div class="login-modal-header">
+                <div>
+                    <span class="login-kicker">ACCOUNT RECOVERY</span>
+                    <h2 id="forgotPasswordTitle">Forgot your password?</h2>
+                    <p>Enter the email registered to your {{ $accountLabel ?? 'administrator' }} account. We'll
+                        email you a 6-digit code.</p>
+                </div>
+                <button type="button" class="login-modal-close" data-modal-close aria-label="Close">×</button>
+            </div>
+
+            <form method="POST" action="{{ $forgotPasswordAction ?? route('admin.password.email') }}"
+                class="admin-login-form" data-forgot-password-form novalidate>
+                @csrf
+
+                <div class="form-field">
+                    <label for="forgotEmail">Registered email</label>
+                    <div class="input-with-icon">
+                        <span class="field-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <rect x="3.5" y="5.5" width="17" height="13" rx="2.2" stroke="currentColor"
+                                    stroke-width="1.7" />
+                                <path d="m4 7 8 6 8-6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                        </span>
+                        <input id="forgotEmail" name="email" type="email" maxlength="191" placeholder="name@example.com"
+                            autocomplete="email" required>
+                    </div>
+                </div>
+
+                <div class="login-modal-result" data-forgot-password-result role="status" aria-live="polite" hidden>
+                </div>
+
+                <div class="login-modal-actions">
+                    <button type="button" class="btn btn-light" data-modal-close>Cancel</button>
+                    <button type="submit" class="btn btn-primary" data-forgot-password-submit>Send code</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="{{ asset_v('admin/js/admin.js') }}" defer></script>
 </body>
 
 </html>

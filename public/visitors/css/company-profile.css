@@ -180,6 +180,21 @@
     background: rgba(255, 255, 255, .08);
 }
 
+/* Desktop "View services": orange outline, fills orange on hover */
+.company-profile-actions .btn-services {
+    border: 1.5px solid #fc5202;
+    color: #fc5202;
+    background: #fff;
+    font-weight: 700;
+    transition: background .2s, color .2s;
+}
+
+.company-profile-actions .btn-services:hover,
+.company-profile-actions .btn-services:focus-visible {
+    background: #fc5202;
+    color: #fff;
+}
+
 .company-profile-content {
     background: #f6f8fb;
 }
@@ -365,27 +380,171 @@
     font-size: 12px;
 }
 
-.company-review {
-    padding: 16px;
-    border: 1px solid #e9eef5;
+/* ---- Customer reviews slider ---- */
+.review-slider-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 4px;
+}
+
+.review-slider-controls {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-bottom: 18px;
+}
+
+.review-slider-btn {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid #dfe6ef;
+    border-radius: 12px;
+    background: #fff;
+    color: #17365f;
+    font-size: 18px;
+    cursor: pointer;
+    transition: border-color .2s, color .2s, background .2s;
+}
+
+.review-slider-btn:hover:not(:disabled) {
+    border-color: #fd5103;
+    color: #fd5103;
+}
+
+.review-slider-btn:disabled {
+    opacity: .35;
+    cursor: default;
+}
+
+.review-slider {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: calc((100% - 14px) / 2);
+    gap: 14px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+}
+
+.review-slider::-webkit-scrollbar {
+    display: none;
+}
+
+.review-slider:focus-visible {
+    outline: 2px solid #fd510366;
+    outline-offset: 4px;
     border-radius: 14px;
+}
+
+.company-review {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    padding: 18px;
+    border: 1px solid #e9eef5;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #fff 0%, #fbfcfe 100%);
+    scroll-snap-align: start;
 }
 
 .review-head {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
 }
 
-.review-head strong {
-    color: #17365f;
+.review-avatar {
+    display: grid;
+    place-items: center;
+    flex: 0 0 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: #fff0e6;
+    color: #fd5103;
+    font-weight: 800;
 }
 
-.company-review p {
-    margin: 10px 0;
-    color: #64758c;
+.review-who {
+    flex: 1;
+    min-width: 0;
+}
+
+.review-who strong {
+    display: block;
+    overflow: hidden;
+    color: #17365f;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.review-who small {
+    display: block;
+    margin-top: 2px;
+}
+
+.review-head .company-profile-stars {
+    flex-shrink: 0;
+    letter-spacing: 1px;
+}
+
+.review-comment {
+    margin: 0;
+    color: #4f6078;
     line-height: 1.8;
+    overflow-wrap: anywhere;
+}
+
+.review-comment-empty {
+    color: #9aa6b4;
+    font-style: italic;
+    font-size: 14px;
+}
+
+.review-slider-dots {
+    display: flex;
+    justify-content: center;
+    gap: 7px;
+    margin-top: 16px;
+}
+
+.review-slider-dot {
+    width: 8px;
+    height: 8px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: #d7dfe9;
+    cursor: pointer;
+    transition: width .2s, background .2s;
+}
+
+.review-slider-dot.is-active {
+    width: 22px;
+    background: #fd5103;
+}
+
+@media (max-width: 760px) {
+    .review-slider {
+        grid-auto-columns: 100%;
+    }
+
+    .review-slider-controls {
+        margin-bottom: 14px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .review-slider {
+        scroll-behavior: auto;
+    }
 }
 
 .contact-panel h2 {
@@ -925,5 +1084,259 @@ html[dir="rtl"] .provider-field select {
     label[for="companyEditorAr"] {
         padding: 15px !important;
         display: block;
+    }
+}
+
+/* ==========================================
+   Sign-up pages: steps, field states, password checklist, success panel
+   ========================================== */
+
+.provider-register-container {
+    max-width: 920px;
+}
+
+.provider-back-link:hover {
+    color: #ff5200;
+}
+
+/* "What happens next" strip */
+.provider-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 0 0 24px;
+    padding: 0;
+    list-style: none;
+}
+
+.provider-steps li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid #e2eaf3;
+    border-radius: 14px;
+    background: #fff;
+}
+
+.provider-steps strong {
+    display: block;
+    color: #173f70;
+    font-size: 14px;
+}
+
+.provider-steps small {
+    display: block;
+    color: #7d8b9e;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.provider-step-no {
+    display: grid;
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border-radius: 50%;
+    background: #fff0e8;
+    color: #ff5200;
+    font-weight: 800;
+}
+
+.provider-steps li:nth-child(2) .provider-step-no {
+    background: #edf5ff;
+    color: #1565c0;
+}
+
+.provider-steps li:nth-child(3) .provider-step-no {
+    background: #e8f6ea;
+    color: #2e9d3a;
+}
+
+/* Quill sets its container to height:100%, which made the editors overflow
+   into the next section. Let them grow with their content instead. */
+.provider-quill-editor.ql-container {
+    height: auto;
+    min-height: 180px;
+    border-radius: 0 0 10px 10px;
+}
+
+.provider-field .ql-toolbar {
+    border-radius: 10px 10px 0 0;
+}
+
+/* Section numbers follow the same orange as the steps */
+.provider-section-number {
+    background: #fff0e8;
+    color: #ff5200;
+    font-size: 16px;
+}
+
+/* Field states */
+.provider-field input.is-invalid,
+.provider-field select.is-invalid,
+.provider-field textarea.is-invalid {
+    border-color: #e74736;
+    background: #fffafa;
+}
+
+.provider-field small.provider-field-error {
+    color: #c0352a;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Password with show/hide button */
+.provider-password {
+    position: relative;
+}
+
+.provider-password input {
+    padding-inline-end: 72px;
+}
+
+.provider-password-toggle {
+    position: absolute;
+    top: 50%;
+    inset-inline-end: 8px;
+    transform: translateY(-50%);
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 7px;
+    background: #f1f5fa;
+    color: #34516f;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.provider-password-toggle:hover {
+    background: #e4ecf5;
+}
+
+.provider-password-rules {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px 16px;
+    margin: 0;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: #f7f9fc;
+    list-style: none;
+}
+
+.provider-password-rules li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #7d8b9e;
+    font-size: 12px;
+}
+
+.provider-password-rules li::before {
+    content: "";
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #cfd9e5;
+    border-radius: 50%;
+    box-sizing: border-box;
+}
+
+.provider-password-rules li.is-done {
+    color: #1f7a3a;
+    font-weight: 600;
+}
+
+.provider-password-rules li.is-done::before {
+    content: "✓";
+    display: grid;
+    place-items: center;
+    border-color: #2e9d3a;
+    background: #2e9d3a;
+    color: #fff;
+    font-size: 10px;
+    line-height: 1;
+}
+
+.provider-register-footer a {
+    color: #1765a4;
+    font-weight: 700;
+}
+
+.provider-submit-button:disabled {
+    opacity: 0.65;
+    cursor: wait;
+    transform: none;
+}
+
+/* Success panel shown instead of the form */
+.provider-success {
+    padding: 44px 28px;
+    border: 1px solid #c5ebd4;
+    border-radius: 20px;
+    background: #fff;
+    text-align: center;
+    box-shadow: 0 14px 45px rgb(22 54 91 / 5%);
+}
+
+.provider-success-icon {
+    display: grid;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 16px;
+    place-items: center;
+    border-radius: 50%;
+    background: #e6f7ed;
+    color: #1f7a3a;
+    font-size: 30px;
+    font-weight: 800;
+}
+
+.provider-success h2 {
+    margin: 0 0 10px;
+    color: #173f70;
+    font-size: 24px;
+}
+
+.provider-success p {
+    max-width: 560px;
+    margin: 0 auto 10px;
+    color: #5f7189;
+    line-height: 1.7;
+}
+
+.provider-success-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin: 22px 0 14px;
+}
+
+.provider-success-actions .provider-submit-button {
+    text-decoration: none;
+}
+
+.provider-login-link-inline {
+    display: inline-block;
+    margin-top: 8px;
+    color: #1765a4;
+    font-weight: 700;
+}
+
+@media (max-width: 760px) {
+    .provider-steps {
+        grid-template-columns: 1fr;
+    }
+
+    .provider-password-rules {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .provider-submit-button {
+        width: 100%;
     }
 }

@@ -71,17 +71,23 @@
                 <p>Manage registered customer accounts</p>
             </div>
 
-            <div class="table-filters">
-                <select class="select-control" data-table-filter="status">
+            {{-- Status filters on the server (all pages); search still filters the current page. --}}
+            <form method="GET" action="{{ route('admin.customers.index') }}" class="table-filters">
+                <select class="select-control" name="status" aria-label="Customer status" onchange="this.form.submit()">
                     <option value="">All statuses</option>
-                    <option value="active">Active</option>
-                    <option value="pending">Pending</option>
-                    <option value="suspended">Suspended</option>
-                    <option value="deleted">Deleted</option>
+                    @foreach (['active' => 'Active', 'pending' => 'Pending approval', 'suspended' => 'Suspended', 'deleted' => 'Deleted'] as $value => $label)
+                        <option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>
+                    @endforeach
                 </select>
 
-                <input class="table-search" type="search" placeholder="Search customers…" data-table-search>
-            </div>
+                {{-- Live search; Enter must not submit the status form and wipe the text. --}}
+                <input class="table-search" type="search" placeholder="Search customers…" data-table-search
+                    onkeydown="if (event.key === 'Enter') event.preventDefault();">
+
+                @if (request()->filled('status'))
+                    <a href="{{ route('admin.customers.index') }}" class="btn btn-light">Clear</a>
+                @endif
+            </form>
         </div>
 
         <div class="table-responsive">
@@ -94,7 +100,9 @@
                         <th>Gender</th>
                         <th>City</th>
                         <th>Joined</th>
+                        <th>Last login</th>
                         <th>Status</th>
+                        <th>App</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -135,6 +143,22 @@
                                 {{ $customer->created_at?->format('M d, Y') ?? '—' }}
                             </td>
 
+                            {{-- Last app login --}}
+                            <td>
+                                @if ($customer->last_login_at)
+                                    <span title="{{ $customer->last_login_at->format('M d, Y H:i') }}">
+                                        {{ $customer->last_login_at->format('M d, Y') }}
+                                    </span>
+                                    <small class="cell-note">{{ $customer->last_login_at->diffForHumans() }}</small>
+                                @else
+                                    <span class="cell-note">Never</span>
+                                @endif
+
+                                @if ($customer->tokens_count)
+                                    <small class="cell-note signed-in-note">● Signed in on app</small>
+                                @endif
+                            </td>
+
                             {{-- Account status --}}
                             <td>
                                 @php
@@ -152,6 +176,27 @@
 
                                 @if (!$customer->is_active)
                                     <small class="d-block">Inactive account</small>
+                                @endif
+                            </td>
+
+                            {{-- Mobile app access: Active / Stopped (with a message shown in the app) --}}
+                            <td>
+                                @php $appStopped = $customer->app_status === 'stopped'; @endphp
+                                <select class="select-control app-status-select {{ $appStopped ? 'is-stopped' : '' }}"
+                                    aria-label="App access for {{ $customer->full_name ?: $customer->username }}"
+                                    data-app-status-select
+                                    data-url="{{ route('admin.customers.app-status', $customer->id) }}"
+                                    data-name="{{ $customer->full_name ?: $customer->username }}"
+                                    data-current="{{ $customer->app_status ?? 'active' }}"
+                                    data-message-en="{{ $customer->app_status_message_en }}"
+                                    data-message-ar="{{ $customer->app_status_message_ar }}">
+                                    <option value="active" @selected(!$appStopped)>Active</option>
+                                    <option value="stopped" @selected($appStopped)>Stopped</option>
+                                </select>
+                                @if ($appStopped)
+                                    <small class="cell-note" title="{{ $customer->app_status_message_en }}">
+                                        Stopped {{ $customer->app_status_changed_at?->diffForHumans() }}
+                                    </small>
                                 @endif
                             </td>
 
@@ -199,7 +244,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="text-center">
+                            <td colspan="10" class="text-center">
                                 No customers found.
                             </td>
                         </tr>
@@ -209,17 +254,133 @@
         </div>
 
         {{-- Pagination --}}
-        <div class="table-bottom">
-            <span class="table-info">
-                Showing {{ $customers->firstItem() ?? 0 }}
-                to {{ $customers->lastItem() ?? 0 }}
-                of {{ $customers->total() }} customers
-            </span>
+        @include('partials.table-pagination', ['paginator' => $customers, 'label' => 'customers'])
+    </section>
 
-            <div class="pagination-wrapper">
-                {{ $customers->links() }}
+    {{-- Sign every customer out of the app --}}
+    <section class="panel danger-zone">
+        <div class="danger-zone-row">
+            <div>
+                <h2>Force logout all customers</h2>
+                <p>
+                    Signs every customer out of the mobile app. They must log in again, and push notifications
+                    stop until they do. Use it after a security issue or a major app change.
+                    <strong>{{ number_format($signedInCount) }}</strong>
+                    {{ $signedInCount === 1 ? 'customer is' : 'customers are' }} signed in right now.
+                </p>
             </div>
+            <form action="{{ route('admin.customers.force-logout') }}" method="POST"
+                onsubmit="return confirm('Sign ALL customers out of the app? Everyone will have to log in again.');">
+                @csrf
+                <button type="submit" class="btn btn-danger" @disabled($signedInCount === 0)>Force logout all</button>
+            </form>
         </div>
     </section>
 
+    {{-- Stop / re-allow the app for one customer --}}
+    <dialog class="admin-dialog" id="appStatusDialog" aria-labelledby="appStatusDialogTitle">
+        <form method="POST" action="" id="appStatusForm">
+            @csrf
+            <input type="hidden" name="app_status" id="appStatusValue">
+
+            <div class="admin-dialog-head">
+                <div>
+                    <h2 id="appStatusDialogTitle">Stop the app</h2>
+                    <p id="appStatusDialogIntro"></p>
+                </div>
+                <button type="button" class="admin-dialog-close" data-dialog-cancel aria-label="Close">×</button>
+            </div>
+
+            <div class="admin-dialog-body">
+                <div class="form-group">
+                    <label for="appStatusMessageEn">Message in English <b style="color:red" data-required-mark>*</b></label>
+                    <textarea class="form-control" id="appStatusMessageEn" name="message_en" rows="3" maxlength="1000"
+                        placeholder="e.g. Your account is under review. Please contact support@sunxfinder.com."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="appStatusMessageAr">Message in Arabic <b style="color:red" data-required-mark>*</b></label>
+                    <textarea class="form-control" id="appStatusMessageAr" name="message_ar" rows="3" maxlength="1000"
+                        dir="rtl" lang="ar" placeholder="مثال: حسابك قيد المراجعة. يرجى التواصل مع support@sunxfinder.com."></textarea>
+                </div>
+
+                <label class="quote-admin-check">
+                    <input type="hidden" name="push" value="0">
+                    <input type="checkbox" name="push" value="1" checked>
+                    Send this message as a push notification
+                </label>
+
+                <small class="form-hint" id="appStatusHint">
+                    The app shows this message (in the customer's app language) and stops working until you set it back
+                    to Active.
+                </small>
+            </div>
+
+            <div class="admin-dialog-actions">
+                <button type="button" class="btn btn-light" data-dialog-cancel>Cancel</button>
+                <button type="submit" class="btn btn-danger" id="appStatusSubmit">Stop app</button>
+            </div>
+        </form>
+    </dialog>
+
+@endsection
+
+@section('scripts')
+    <script>
+        (function() {
+            var dialog = document.getElementById('appStatusDialog');
+            var form = document.getElementById('appStatusForm');
+            if (!dialog || !form) return;
+
+            var activeSelect = null;
+            var en = document.getElementById('appStatusMessageEn');
+            var ar = document.getElementById('appStatusMessageAr');
+
+            function open(select) {
+                var stopping = select.value === 'stopped';
+                activeSelect = select;
+
+                form.action = select.dataset.url;
+                document.getElementById('appStatusValue').value = select.value;
+                document.getElementById('appStatusDialogTitle').textContent = stopping ? 'Stop the app' : 'Re-activate the app';
+                document.getElementById('appStatusDialogIntro').textContent = stopping
+                    ? 'Stop the mobile app for ' + select.dataset.name + '. Write what they will see.'
+                    : 'Let ' + select.dataset.name + ' use the app again. A message is optional.';
+                document.getElementById('appStatusHint').hidden = !stopping;
+
+                en.value = stopping ? (select.dataset.messageEn || '') : '';
+                ar.value = stopping ? (select.dataset.messageAr || '') : '';
+                en.required = ar.required = stopping;
+                dialog.querySelectorAll('[data-required-mark]').forEach(function(mark) { mark.hidden = !stopping; });
+
+                var submit = document.getElementById('appStatusSubmit');
+                submit.textContent = stopping ? 'Stop app' : 'Re-activate app';
+                submit.className = 'btn ' + (stopping ? 'btn-danger' : 'btn-primary');
+
+                dialog.showModal();
+                en.focus();
+            }
+
+            function cancel() {
+                if (activeSelect) activeSelect.value = activeSelect.dataset.current;
+                dialog.close();
+            }
+
+            document.querySelectorAll('[data-app-status-select]').forEach(function(select) {
+                select.addEventListener('change', function() {
+                    if (select.value !== select.dataset.current) open(select);
+                });
+            });
+
+            dialog.querySelectorAll('[data-dialog-cancel]').forEach(function(button) {
+                button.addEventListener('click', cancel);
+            });
+
+            // Esc key closes the dialog: put the dropdown back too.
+            dialog.addEventListener('cancel', function(event) {
+                event.preventDefault();
+                cancel();
+            });
+        })();
+    </script>
 @endsection

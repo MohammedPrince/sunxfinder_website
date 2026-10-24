@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\SolarCompany;
 use App\Repositories\MainRepository;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -39,6 +40,16 @@ class MainService
         return $this->mainRepository->getCompanyBySlug($slug);
     }
 
+    public function getCompanyRatingSummary(SolarCompany $company): array
+    {
+        return $this->mainRepository->getCompanyRatingSummary($company);
+    }
+
+    public function getCompanyReviews(int $companyId): array
+    {
+        return $this->mainRepository->getCompanyReviews($companyId);
+    }
+
     public function registerCompany(array $data): array
     {
         return $this->mainRepository->registerCompany($data);
@@ -53,5 +64,27 @@ class MainService
     {
         return $this->mainRepository->getWebsiteCompanyCarousel();
     }
+
+    public function sendContactMessage(array $data): array
+    {
+        return $this->mainRepository->sendContactMessage($data);
+    }
+
+    public function getAppDownloadLinks(): array
+    {
+        return $this->mainRepository->getAppDownloadLinks();
+    }
+
+    public function recordVisitor(string $sessionId): void
+    {
+        $this->mainRepository->recordVisitor($sessionId);
+    }
+
+    public function getVisitorCount(): int
+    {
+        return $this->mainRepository->getVisitorCount();
+    }
+
+
 
 }

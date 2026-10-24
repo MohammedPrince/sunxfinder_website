@@ -28,6 +28,14 @@
 
 @section('content')
 
+    {{-- Success message --}}
+    @if (session('success'))
+        <div class="alert alert-success alert-dismissible">
+            <strong>Success!</strong> {{ session('success') }}
+            <button type="button" class="alert-close" onclick="this.parentElement.remove()" aria-label="Close">&times;</button>
+        </div>
+    @endif
+
     {{-- Error message --}}
     @if (session('error'))
         <div class="alert alert-danger alert-dismissible">
@@ -101,10 +109,10 @@
 
                 {{-- Email --}}
                 <div class="form-group">
-                    <label for="email">Email Address <span><b style="color: red">*</b></span></label>
+                    <label for="email">Email Address</label>
                     <input type="email" id="email" name="email" class="form-control"
-                        placeholder="Enter customer Email" value="{{ old('email', $customer->email) }}" maxlength="191"
-                        autocomplete="email" required>
+                        placeholder="Enter customer Email (optional)" value="{{ old('email', $customer->email) }}" maxlength="191"
+                        autocomplete="email">
                     @error('email')
                         <small class="text-danger">{{ $message }}</small>
                     @enderror
@@ -151,9 +159,9 @@
 
                 {{-- Address --}}
                 <div class="form-group form-group-full">
-                    <label for="address">Address <span><b style="color: red">*</b></span></label>
-                    <textarea id="address" name="address" class="form-control" rows="3" maxlength="5000" required
-                        placeholder="Enter customer address">{{ old('address', $customer->address) }}</textarea>
+                    <label for="address">Address</label>
+                    <textarea id="address" name="address" class="form-control" rows="3" maxlength="5000"
+                        placeholder="Enter customer address (optional)">{{ old('address', $customer->address) }}</textarea>
                     @error('address')
                         <small class="text-danger">{{ $message }}</small>
                     @enderror
@@ -234,5 +242,62 @@
             </div>
         </form>
     </section>
+
+    {{-- Edit mode only: app session and account removal (separate forms, outside the main form) --}}
+    @if ($isEdit)
+        @php
+            $isSignedIn = ($customer->tokens_count ?? 0) > 0;
+            $customerLabel = $customer->full_name ?: $customer->username;
+        @endphp
+
+        <section class="panel danger-zone">
+            <div class="panel-heading">
+                <h2>App access</h2>
+                <p>
+                    @if ($customer->last_login_at)
+                        Last login {{ $customer->last_login_at->format('M d, Y H:i') }}
+                        ({{ $customer->last_login_at->diffForHumans() }}).
+                    @else
+                        No app login recorded yet.
+                    @endif
+                    @if ($isSignedIn)
+                        <span class="pill pill-green">Signed in on app</span>
+                    @else
+                        <span class="pill pill-blue">Signed out</span>
+                    @endif
+                    @if ($customer->active_devices_count)
+                        <span class="cell-note">{{ $customer->active_devices_count }} device{{ $customer->active_devices_count === 1 ? '' : 's' }} receiving notifications</span>
+                    @endif
+                </p>
+            </div>
+
+            <div class="danger-zone-row">
+                <div>
+                    <h3>Sign out from the app</h3>
+                    <p>Deletes the customer's login token. The app logs them out on its next request and push
+                        notifications stop until they log in again. The account itself is not changed.</p>
+                </div>
+                <form action="{{ route('admin.customers.sign-out', $customer->id) }}" method="POST"
+                    onsubmit="return confirm('Sign this customer out of the app?');">
+                    @csrf
+                    <button type="submit" class="btn btn-light" @disabled(!$isSignedIn)>Sign out</button>
+                </form>
+            </div>
+
+            <div class="danger-zone-row">
+                <div>
+                    <h3>Delete account</h3>
+                    <p>Marks the account as deleted, signs the customer out, and removes them from the customers list.
+                        They will no longer be able to log in.</p>
+                </div>
+                <form action="{{ route('admin.customers.destroy', $customer->id) }}" method="POST"
+                    onsubmit="return confirm('Delete this customer account? They will no longer be able to log in.');">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-danger" aria-label="Delete account of {{ $customerLabel }}">Delete account</button>
+                </form>
+            </div>
+        </section>
+    @endif
 
 @endsection

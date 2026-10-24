@@ -5,7 +5,7 @@
 @section('breadcrumb', 'Active Projects')
 @section('eyebrow', 'PROJECT MANAGEMENT')
 @section('page-title', 'Project Progress')
-@section('page-description', 'Track installation milestones and keep the customer informed.')
+@section('page-description', 'Run this installation step by step. Every update you save is shown to the customer.')
 
 @section('page-actions')
     <div class="quote-page-actions">
@@ -21,10 +21,8 @@
         $customer = $project->customer;
         $offer = $project->companyQuotation;
 
-        $customerName = $customer?->name
-            ?? $customer?->full_name
-            ?? $customer?->customer_name
-            ?? 'Customer #' . $project->customer_id;
+        $customerName = $customer?->full_name
+            ?: ($customer?->username ?: 'Customer #' . $project->customer_id);
 
         $reference = '#Q-' . str_pad(
             (string) $project->quote_id,
@@ -35,13 +33,13 @@
 
         $statusLabels = [
             'accepted' => 'Accepted',
-            'in_progress' => 'On Progress',
+            'in_progress' => 'In progress',
             'completed' => 'Completed',
         ];
 
         $statusClasses = [
-            'accepted' => 'pill-blue',
-            'in_progress' => 'pill-yellow',
+            'accepted' => 'pill-orange',
+            'in_progress' => 'pill-blue',
             'completed' => 'pill-green',
         ];
 
@@ -161,23 +159,38 @@
         </div>
     @endif
 
+    @include('partials.page-guide', [
+        'key' => 'company-project-details',
+        'title' => 'How to run this project',
+        'intro' => 'The customer accepted your offer. Follow the three stages below; the right-hand panel always shows your next action.',
+        'steps' => [
+            '<strong>Start installation</strong> when your team is ready to begin work.',
+            '<strong>Complete each milestone</strong> in order, adding a short message for the customer. Progress is calculated automatically.',
+            '<strong>Confirm customer handover</strong> once the system is installed and explained. This closes the project at 100% and cannot be undone.',
+        ],
+        'note' => 'Use the customer contact details below to arrange site visits and installation dates.',
+    ])
+
     {{-- Project summary --}}
     <section class="panel">
         <div class="quote-detail-grid">
             <div class="quote-detail">
                 <span>Request reference</span>
-                <strong>{{ $reference }}</strong>
+                <strong>
+                    <a href="{{ route('company.quote-requests.show', $project->quote_id) }}">{{ $reference }}</a>
+                </strong>
+                <small>Project #{{ $project->id }}</small>
             </div>
 
             <div class="quote-detail">
                 <span>Customer</span>
                 <strong>{{ $customerName }}</strong>
-                <small>{{ $customer?->email ?? 'No email' }}</small>
+                <small>{{ $customer?->city ?: 'City not set' }}</small>
             </div>
 
             <div class="quote-detail">
-                <span>Service</span>
-                <strong>{{ $quote?->service_needed ?? 'Solar installation' }}</strong>
+                <span>Quote name</span>
+                <strong>{{ $quote?->quote_name ?? 'Solar installation' }}</strong>
             </div>
 
             <div class="quote-detail">
@@ -206,6 +219,21 @@
                 <strong>
                     {{ $project->updated_at?->format('d M Y, H:i') ?? '—' }}
                 </strong>
+                <small>{{ $project->updated_at?->diffForHumans() }}</small>
+            </div>
+        </div>
+
+        {{-- Contact details for arranging site visits and installation --}}
+        <div class="project-contact">
+            <span class="project-contact-title">Customer contact</span>
+            <div class="project-contact-items">
+                @if ($customer?->phone)
+                    <a href="tel:{{ preg_replace('/[^\d+]/', '', $customer->phone) }}">📞 {{ $customer->phone }}</a>
+                @endif
+                @if ($customer?->email)
+                    <a href="mailto:{{ $customer->email }}">✉ {{ $customer->email }}</a>
+                @endif
+                <span>📍 {{ collect([$customer?->address, $customer?->city])->filter()->implode(', ') ?: 'Address not provided' }}</span>
             </div>
         </div>
     </section>
@@ -629,7 +657,7 @@
                                     : 'Describe the work completed or the next step...' }}"
                             >{{ old('message') }}</textarea>
 
-                            <small>Maximum 500 characters.</small>
+                            <small>Maximum 500 characters. The customer sees this message in the app.</small>
                         </div>
 
                         {{-- Customer visibility --}}

@@ -3,30 +3,44 @@
 namespace App\Repositories\API;
 
 use App\Helpers\Helper;
+use App\Jobs\SendCompanyOfferDecisionEmail;
+use App\Mail\CompanyOfferDecisionMail;
 use App\Models\ApplianceGroup;
+use App\Models\AppVersion;
 use App\Models\CompanyCarousel;
 use App\Models\CompanyQuotation;
 use App\Models\Customer;
+use App\Models\CustomerDeviceToken;
+use App\Repositories\OtpRepository;
+use App\Models\CustomerNotification;
+use App\Models\Project;
+use App\Models\ProjectMilestone;
+use App\Models\ProjectUpdate;
 use App\Models\Quote;
+use App\Models\Rating;
+use App\Models\RatingQuestion;
+use App\Models\RatingValue;
+use App\Models\Setting;
 use App\Models\SolarCompany;
+use App\Support\ActivityLogger;
 use Carbon\Carbon;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Throwable;
-use Illuminate\Database\UniqueConstraintViolationException;
-use App\Models\Project;
-use App\Models\ProjectMilestone;
-use App\Models\ProjectUpdate;
 
 
 class CustomerRepository
 {
     protected Helper $helper;
 
-    public function __construct(Helper $helper)
+    protected OtpRepository $otpRepository;
+
+    public function __construct(Helper $helper, OtpRepository $otpRepository)
     {
         $this->helper = $helper;
+        $this->otpRepository = $otpRepository;
     }
 
     public function login(array $data): array
@@ -50,6 +64,11 @@ class CustomerRepository
         if (RateLimiter::tooManyAttempts($rateLimitKey, 3)) {
             $seconds = RateLimiter::availableIn($rateLimitKey);
 
+            ActivityLogger::log('login_blocked', "App sign-in locked for \"{$username}\" after too many attempts", null, [
+                'username' => $username,
+                'retry_after_seconds' => $seconds,
+            ], ActivityLogger::guest($username), 'auth');
+
             return [
                 'success' => false,
                 'code' => 429,
@@ -65,6 +84,11 @@ class CustomerRepository
         if (!$customer) {
             RateLimiter::hit($rateLimitKey, 300);
 
+            ActivityLogger::log('login_failed', "Failed app sign-in: unknown username \"{$username}\"", null, [
+                'username' => $username,
+                'reason' => 'unknown_username',
+            ], ActivityLogger::guest($username), 'auth');
+
             return [
                 'success' => false,
                 'code' => 401,
@@ -77,6 +101,10 @@ class CustomerRepository
         }
 
         if (!$customer->is_active) {
+            ActivityLogger::log('login_blocked', "App sign-in blocked: account is {$customer->status}", $customer, [
+                'status' => $customer->status,
+            ], ActivityLogger::actorFor($customer), 'auth');
+
             return [
                 'success' => false,
                 'code' => 403,
@@ -86,6 +114,10 @@ class CustomerRepository
 
         if (!Hash::check($password, $customer->password)) {
             RateLimiter::hit($rateLimitKey, 300);
+
+            ActivityLogger::log('login_failed', 'Failed app sign-in: wrong password', $customer, [
+                'reason' => 'wrong_password',
+            ], ActivityLogger::actorFor($customer), 'auth');
 
             return [
                 'success' => false,
@@ -105,11 +137,16 @@ class CustomerRepository
 
         $expiresAt = Carbon::now()->addYear();
 
+        // Shown in the admin customers list. Not in $fillable on purpose.
+        $customer->forceFill(['last_login_at' => now()])->saveQuietly();
+
         $token = $customer->createToken(
             'sunxfinder-customer-mobile-app',
             ['*'],
             $expiresAt
         );
+
+        ActivityLogger::log('login', 'Signed in to the mobile app', $customer, [], ActivityLogger::actorFor($customer), 'auth');
 
         $customerDetails = [
             'id' => $customer->id,
@@ -133,19 +170,271 @@ class CustomerRepository
         ];
     }
 
+
+    public function mainData(): array
+    {
+        try {
+            // Authentication stays in the Repository.
+            $customer = $this->helper->isCustomerAuthenticated();
+
+            if (!$customer) {
+                return [
+                    'success' => false,
+                    'code' => 401,
+                    'message' => 'Unauthenticated.',
+                ];
+            }
+
+            $customerId = (int) $customer->id;
+
+            // Cities and profile.
+            $citiesResult = $this->getCities();
+
+            if (!($citiesResult['success'] ?? false)) {
+                return [
+                    'success' => false,
+                    'code' => $citiesResult['code'] ?? 500,
+                    'message' => $citiesResult['message'] ?? 'Unable to retrieve cities.',
+                ];
+            }
+
+            $cities = $citiesResult['cities'] ?? [];
+
+
+            $profileResult = $this->getProfile();
+
+            if (!($profileResult['success'] ?? false)) {
+                return [
+                    'success' => false,
+                    'code' => $profileResult['code'] ?? 500,
+                    'message' => $profileResult['message'] ?? 'Unable to retrieve profile.',
+                ];
+            }
+
+            $profile = $profileResult['profile'] ?? null;
+
+            // Admin-editable app settings the app reads on start.
+            $settings = [
+                'max_open_quotes' => Setting::maxOpenQuotes(),
+            ];
+
+            // Services: getServices() returns both languages under data.
+            $servicesResult = $this->getServices();
+
+            if (!($servicesResult['success'] ?? false)) {
+                return [
+                    'success' => false,
+                    'code' => $servicesResult['code'] ?? 500,
+                    'message' => $servicesResult['message']
+                        ?? 'Unable to retrieve services.',
+                ];
+            }
+
+            $services = $servicesResult['data']['services'] ?? [];
+            $servicesAr = $servicesResult['data']['services_ar'] ?? [];
+
+            // Carousels.
+            $carouselsResult = $this->getCarousels();
+
+            if (!($carouselsResult['success'] ?? false)) {
+                return [
+                    'success' => false,
+                    'code' => $carouselsResult['code'] ?? 500,
+                    'message' => $carouselsResult['message']
+                        ?? 'Unable to retrieve carousels.',
+                ];
+            }
+
+            $carousels = $carouselsResult['carousels'] ?? [];
+
+            // Companies: method requires filters and returns a paginated result.
+            $companiesResult = $this->getCompanies([
+                'per_page' => 50,
+                'page' => 1,
+                'sort' => 'newest',
+            ]);
+
+            if (!($companiesResult['success'] ?? false)) {
+                return [
+                    'success' => false,
+                    'code' => $companiesResult['code'] ?? 500,
+                    'message' => $companiesResult['message']
+                        ?? 'Unable to retrieve companies.',
+                ];
+            }
+
+            $companies = $companiesResult['companies'] ?? [];
+
+            // Calculator data.
+            $calculator = $this->appliancesCalculator();
+
+            // Existing quotes: pass filters and preserve the existing quote format.
+            $quotesResult = $this->getMyQuotes([]);
+
+            if (!($quotesResult['success'] ?? false)) {
+                return [
+                    'success' => false,
+                    'code' => $quotesResult['code'] ?? 500,
+                    'message' => $quotesResult['message']
+                        ?? 'Unable to retrieve quote requests.',
+                ];
+            }
+
+            $myQuotes = $quotesResult['quotes'] ?? [];
+
+            // Notifications toggle follows the customer's most recently used device token.
+            $customer = $this->helper->isCustomerAuthenticated();
+
+            $notificationsEnabled = (bool) CustomerDeviceToken::query()
+                ->where('customer_id', $customer->id)
+                ->orderByDesc('last_used_at')
+                ->value('is_active');
+
+            // TODO: Replace with your actual customer notification query.
+            $notifications = [
+                'enabled' => $notificationsEnabled,
+                'unread_count' => 0,
+                'items' => [],
+            ];
+
+            return [
+                'success' => true,
+                'code' => 200,
+                'message' => 'Main data loaded.',
+                'profile' => $profile,
+                'cities' => $cities,
+                'services' => $services,
+                'services_ar' => $servicesAr,
+                'carousels' => $carousels,
+                'companies' => $companies,
+                'calculator' => $calculator,
+                'my_quotes' => [
+                    'quotes' => $myQuotes,
+                ],
+                'notifications' => $notifications,
+                'app_version' => $this->getAppVersions($customerId),
+                'app_status' => $this->getCustomerAppStatus($customerId),
+                'settings' => $settings,
+                'rating_form' => $this->getRatingForm()['data'],
+                'meta' => [
+                    'companies_total' => $companiesResult['meta']['total']
+                        ?? count($companies),
+                    'generated_at' => now()->utc()->toISOString(),
+                ],
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+                'message' => 'Unable to retrieve main data.',
+            ];
+        }
+    }
+
+    /**
+     * Whether admin stopped the app for this customer, with the message in the app's
+     * language (from the most recently used device), plus both languages.
+     */
+    private function getCustomerAppStatus(int $customerId): array
+    {
+        $customer = Customer::query()
+            ->whereKey($customerId)
+            ->first(['id', 'app_status', 'app_status_message_en', 'app_status_message_ar', 'app_status_changed_at']);
+
+        $lang = strtolower((string) CustomerDeviceToken::query()
+            ->where('customer_id', $customerId)
+            ->orderByDesc('last_used_at')
+            ->value('lang')) === 'ar' ? 'ar' : 'en';
+
+        $status = $customer?->app_status === 'stopped' ? 'stopped' : 'active';
+        $messageEn = $status === 'stopped' ? $customer->app_status_message_en : null;
+        $messageAr = $status === 'stopped' ? $customer->app_status_message_ar : null;
+
+        return [
+            'status' => $status,
+            'is_stopped' => $status === 'stopped',
+            'message' => $lang === 'ar' ? ($messageAr ?: $messageEn) : ($messageEn ?: $messageAr),
+            'message_en' => $messageEn,
+            'message_ar' => $messageAr,
+            'lang' => $lang,
+            'changed_at' => $customer?->app_status_changed_at?->toISOString(),
+        ];
+    }
+
+    /**
+     * Minimum supported app version per platform, managed from the admin panel.
+     * A platform without a configured version is returned as null.
+     * "desc" follows the language of the customer's most recently used device.
+     */
+    private function getAppVersions(int $customerId): array
+    {
+        $deviceLang = CustomerDeviceToken::query()
+            ->where('customer_id', $customerId)
+            ->orderByDesc('last_used_at')
+            ->value('lang');
+
+        $lang = strtolower($deviceLang ?? 'en') === 'ar' ? 'ar' : 'en';
+
+        $defaultDesc = [
+            'en' => [
+                'force' => 'A new version of SunXFinder is required. Please update the app to continue.',
+                'optional' => 'A new version of SunXFinder is available. Update now for the latest features and fixes.',
+            ],
+            'ar' => [
+                'force' => 'يلزم تحديث تطبيق SunXFinder إلى الإصدار الجديد للمتابعة.',
+                'optional' => 'يتوفر إصدار جديد من تطبيق SunXFinder. حدّث الآن للحصول على أحدث الميزات والإصلاحات.',
+            ],
+        ];
+
+        $versions = AppVersion::query()
+            ->get([
+                'platform',
+                'minimum_version',
+                'app_url',
+                'force_update',
+                'description_en',
+                'description_ar',
+                'updated_at',
+            ])
+            ->keyBy('platform');
+
+        $result = [];
+
+        foreach (array_keys(AppVersion::PLATFORMS) as $platform) {
+            $version = $versions->get($platform);
+
+            $result[$platform] = $version ? [
+                'minimum_version' => $version->minimum_version,
+                'app_url' => $version->app_url,
+                'force_update' => $version->force_update,
+                'lang' => $lang,
+                // Admin message in the device language, or the default when left empty.
+                'desc' => $version->{"description_{$lang}"}
+                    ?: $defaultDesc[$lang][$version->force_update ? 'force' : 'optional'],
+                'updated_at' => $version->updated_at?->toISOString(),
+            ] : null;
+        }
+
+        return $result;
+    }
+
     public function createAccount($data): array
     {
-        // Check whether the username, phone, or email already exists.
+        // Only an active account (is_active = 1) reserves the username, phone or email.
+        $matchesIdentifiers = function ($query) use ($data) {
+            $query->where('username', $data['username'])
+                ->orWhere('phone', $data['phone']);
+
+            if (!empty($data['email'])) {
+                $query->orWhere('email', $data['email']);
+            }
+        };
+
         $existingCustomer = Customer::query()
             ->where('is_active', 1)
-            ->where(function ($query) use ($data) {
-                $query->where('username', $data['username'])
-                    ->orWhere('phone', $data['phone']);
-
-                if (!empty($data['email'])) {
-                    $query->orWhere('email', $data['email']);
-                }
-            });
+            ->where($matchesIdentifiers);
 
         if ($existingCustomer->exists()) {
             return [
@@ -166,19 +455,25 @@ class CustomerRepository
         ], fn($name) => $name !== null && $name !== '')));
 
         try {
-            $customer = Customer::create([
-                'username' => $data['username'],
-                'first_name' => $firstName,
-                'second_name' => $secondName,
-                'third_name' => $thirdName,
-                'full_name' => $fullName !== '' ? $fullName : null,
-                'phone' => $data['phone'],
-                'email' => $data['email'] ?? null,
-                'gender' => $data['gender'] ?? null,
-                'city' => $data['city'] ?? null,
-                'address' => $data['address'] ?? null,
-                'password' => Hash::make($data['password']),
-            ]);
+            $customer = DB::transaction(function () use ($data, $matchesIdentifiers, $firstName, $secondName, $thirdName, $fullName) {
+                // Inactive accounts (pending, suspended or deleted) still hold these values,
+                // and the unique indexes would reject the new row. Release them first.
+                $this->releaseInactiveCustomerIdentifiers($data, $matchesIdentifiers);
+
+                return Customer::create([
+                    'username' => $data['username'],
+                    'first_name' => $firstName,
+                    'second_name' => $secondName,
+                    'third_name' => $thirdName,
+                    'full_name' => $fullName !== '' ? $fullName : null,
+                    'phone' => $data['phone'],
+                    'email' => $data['email'] ?? null,
+                    'gender' => $data['gender'] ?? null,
+                    'city' => $data['city'] ?? null,
+                    'address' => $data['address'] ?? null,
+                    'password' => Hash::make($data['password']),
+                ]);
+            });
         } catch (UniqueConstraintViolationException $e) {
             return [
                 'success' => false,
@@ -195,6 +490,27 @@ class CustomerRepository
             ];
         }
 
+        // Save the phone's FCM token with the new customer_id, so pushes
+        // (e.g. "account approved") reach the customer before their first login.
+        $deviceTokenSaved = false;
+
+        if (!empty($data['fcm_token'])) {
+            try {
+                $this->saveCustomerDeviceToken(
+                    (int) $customer->id,
+                    $data['fcm_token'],
+                    $data['platform'] ?? 'android',
+                    $data['lang'] ?? 'en',
+                    $data['device_name'] ?? null
+                );
+
+                $deviceTokenSaved = true;
+            } catch (Throwable $e) {
+                // The account exists; a token problem must not fail sign-up.
+                report($e);
+            }
+        }
+
         $customerAccount = [
             'username' => $customer->username,
             'full_name' => $customer->full_name,
@@ -206,6 +522,7 @@ class CustomerRepository
             'gender' => $customer->gender,
             'city' => $customer->city,
             'address' => $customer->address,
+            'device_token_saved' => $deviceTokenSaved,
         ];
 
         return [
@@ -214,6 +531,44 @@ class CustomerRepository
             'message' => 'Account created successfully.',
             'account' => $customerAccount,
         ];
+    }
+
+    /**
+     * Frees the username/phone/email held by inactive accounts (is_active = 0) so a new
+     * sign-up can use them. The old row keeps its history: each taken value gets an
+     * "__old{id}" suffix, and the account is marked deleted and signed out.
+     */
+    private function releaseInactiveCustomerIdentifiers(array $data, \Closure $matchesIdentifiers): void
+    {
+        $inactive = Customer::withTrashed()
+            ->where('is_active', 0)
+            ->where($matchesIdentifiers)
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($inactive as $old) {
+            $suffix = '__old' . $old->id;
+
+            foreach (['username', 'phone', 'email'] as $field) {
+                $value = $data[$field] ?? null;
+
+                if ($value !== null && $value !== '' && strcasecmp((string) $old->{$field}, (string) $value) === 0) {
+                    $old->{$field} = $old->{$field} . $suffix;
+                }
+            }
+
+            $old->status = 'deleted';
+            $old->is_active = false;
+            $old->save();
+
+            if (!$old->trashed()) {
+                $old->delete();
+            }
+
+            // The replaced account must not stay signed in or receive pushes.
+            $old->tokens()->delete();
+            CustomerDeviceToken::query()->where('customer_id', $old->id)->update(['is_active' => false]);
+        }
     }
 
     public function getProfile(): array
@@ -398,12 +753,18 @@ class CustomerRepository
                 });
             }
 
-            // There is no rating column yet, so "rating" shows verified
-            // companies first and then the newest.
+            // Average stars and count of visible ratings (read by transformCompany).
+            $query->withAvg(['ratings as visible_rating' => fn($q) => $q->where('is_visible', true)], 'stars')
+                ->withCount(['ratings as visible_reviews' => fn($q) => $q->where('is_visible', true)]);
+
             if ($sort === 'name') {
                 $query->orderBy('name');
             } elseif ($sort === 'rating') {
-                $query->orderByDesc('is_verified')->orderByDesc('created_at');
+                // Highest rated first; unrated companies last, verified ones before the rest.
+                $query->orderByRaw('visible_rating IS NULL')
+                    ->orderByDesc('visible_rating')
+                    ->orderByDesc('is_verified')
+                    ->orderByDesc('created_at');
             } else {
                 $query->orderByDesc('created_at');
             }
@@ -449,6 +810,22 @@ class CustomerRepository
                 'message' => 'Unable to retrieve companies.',
             ];
         }
+    }
+
+    /** Same as getCompany(), looked up by the slug from a website "Open in App" link. */
+    public function getCompanyBySlug(string $slug): array
+    {
+        $id = $this->helper->visibleCompanies()->where('slug', $slug)->value('id');
+
+        if (!$id) {
+            return [
+                'success' => false,
+                'code' => 404,
+                'message' => 'Company not found.',
+            ];
+        }
+
+        return $this->getCompany((int) $id);
     }
 
     public function getCompany(int $id): array
@@ -614,6 +991,7 @@ class CustomerRepository
         }
     }
 
+
     public function getCarousels(): array
     {
         if (!$this->helper->isCustomerAuthenticated()) {
@@ -625,35 +1003,46 @@ class CustomerRepository
         }
 
         try {
-            $carousels = CompanyCarousel::query()
+            $now = now();
+
+            /** @var \Illuminate\Database\Eloquent\Collection<int, CompanyCarousel> $carouselRows */
+            $carouselRows = CompanyCarousel::query()
                 ->where('is_active', true)
-                ->whereIN('platform', ['app', 'both'])
-                ->where(function ($query) {
+                ->whereIn('platform', ['app', 'both'])
+
+                // Carousel schedule
+                ->where(function ($query) use ($now) {
                     $query->whereNull('starts_at')
-                        ->orWhere('starts_at', '<=', now());
+                        ->orWhere('starts_at', '<=', $now);
                 })
-                ->where(function ($query) {
+                ->where(function ($query) use ($now) {
                     $query->whereNull('ends_at')
-                        ->orWhere('ends_at', '>=', now());
+                        ->orWhere('ends_at', '>=', $now);
                 })
+
+                // Only approved, verified, active companies
                 ->whereHas('company', function ($query) {
                     $query->where('status', 'approved')
                         ->where('is_verified', true)
                         ->where('is_active', true);
                 })
+
                 ->with('company')
                 ->orderBy('sort_order')
                 ->orderBy('id')
-                ->get()
-                ->map(function (CompanyCarousel $carousel): array {
-                    $company = $carousel->company;
+                ->limit(3)
+                ->get();
 
+            $carousels = $carouselRows
+                ->map(function (CompanyCarousel $carousel): array {
                     return [
                         'id' => (int) $carousel->id,
                         'sort_order' => (int) $carousel->sort_order,
                         'interval_seconds' => (int) $carousel->interval_seconds,
                         'platform' => $carousel->platform,
-                        'company' => $this->helper->transformCompany($company),
+                        'company' => $this->helper->transformCompany(
+                            $carousel->company
+                        ),
                     ];
                 })
                 ->values()
@@ -676,6 +1065,7 @@ class CustomerRepository
             ];
         }
     }
+
 
     public function storeQuote(array $data): array
     {
@@ -709,7 +1099,6 @@ class CustomerRepository
 
         $existingQuote = Quote::query()
             ->where('customer_id', $data['customer_id'])
-            // ->where('service_needed', $data['service_needed'])
             ->where('peak_load', $data['peak_load'])
             ->where('daily_load', $data['daily_load'])
             ->whereIn('status', ['pending', 'accepted'])
@@ -724,13 +1113,36 @@ class CustomerRepository
                     'id' => $existingQuote->id,
                     'customer_id' => $existingQuote->customer_id,
                     'company_id' => $existingQuote->company_id,
-                    'service_needed' => $existingQuote->service_needed,
+                    'quote_name' => $existingQuote->quote_name,
+                    'service_needed' => $existingQuote->quote_name,
                     'estimated_load' => $existingQuote->estimated_load,
                     'peak_load' => $existingQuote->peak_load,
                     'daily_load' => $existingQuote->daily_load,
                     'message' => $existingQuote->message,
                     'status' => $existingQuote->status,
                     'created_at' => $existingQuote->created_at,
+                ],
+            ];
+        }
+
+        // Open = still pending, i.e. no offer accepted yet. Accepting an offer frees a slot.
+        $maxOpenQuotes = Setting::maxOpenQuotes();
+
+        $openQuotes = Quote::query()
+            ->where('customer_id', $data['customer_id'])
+            ->where('status', 'pending')
+            ->count();
+
+        if ($openQuotes >= $maxOpenQuotes) {
+            return [
+                'success' => false,
+                'code' => 422,
+                'message' => "You can have up to {$maxOpenQuotes} open requests at a time. "
+                    . 'Accept an offer or close a request to make room.',
+                'quote' => null,
+                'data' => [
+                    'reason' => 'quote_limit_reached',
+                    'max_open_quotes' => $maxOpenQuotes,
                 ],
             ];
         }
@@ -760,10 +1172,11 @@ class CustomerRepository
 
                 $quote->customer_id = $data['customer_id'];
                 $quote->company_id = $data['company_id'];
-                $quote->service_needed = $data['service_needed'];
+                $quote->quote_name = $data['quote_name'];
                 $quote->estimated_load = $data['estimated_load'];
                 $quote->peak_load = $data['peak_load'];
                 $quote->daily_load = $data['daily_load'];
+                $quote->appliances_ids = ($data['appliances_ids'] ?? null) ?: null;
                 $quote->message = $data['message'];
                 $quote->status = 'pending';
 
@@ -780,8 +1193,10 @@ class CustomerRepository
                     'id' => $quote->id,
                     'customer_id' => $quote->customer_id,
                     'company_id' => $quote->company_id,
-                    'service_needed' => $quote->service_needed,
+                    'quote_name' => $quote->quote_name,
+                    'service_needed' => $quote->quote_name,
                     'estimated_load' => $quote->estimated_load,
+                    'appliances_ids' => $quote->appliances_ids,
                     'message' => $quote->message,
                     'status' => $quote->status,
                     'created_at' => $quote->created_at,
@@ -850,12 +1265,15 @@ class CustomerRepository
                             'completed_at',
                         ]);
                     },
+
+                    // The customer's own rating, so the app hides "Rate Company" once rated.
+                    'rating:id,quote_id,customer_id,stars',
                 ]);
 
             // Search quote fields.
             if ($search !== '') {
                 $query->where(function ($q) use ($search) {
-                    $q->where('service_needed', 'like', '%' . $search . '%')
+                    $q->where('quote_name', 'like', '%' . $search . '%')
                         ->orWhere('estimated_load', 'like', '%' . $search . '%')
                         ->orWhere('message', 'like', '%' . $search . '%');
                 });
@@ -890,9 +1308,25 @@ class CustomerRepository
                 $page
             );
 
+            /** @var \Illuminate\Support\Collection<int, Quote> $quoteRows */
+            $quoteRows = $paginator->getCollection();
+
+            // Average stars per company on this page, in one query.
+            $companyRatings = $this->companyRatingSummaries(
+                $quoteRows->flatMap(fn(Quote $quote) => $quote->companyQuotations->pluck('company_id'))
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all()
+            );
+
             // Build the API response.
-            $quotes = $paginator->getCollection()
-                ->map(function (Quote $quote) {
+            $quotes = $quoteRows
+                ->map(function (Quote $quote) use ($companyRatings, $customerId) {
+                    $ownRating = $quote->rating && (int) $quote->rating->customer_id === (int) $customerId
+                        ? $quote->rating
+                        : null;
+
                     return [
                         'id' => $quote->id,
                         'reference' => '#Q-' . str_pad(
@@ -901,10 +1335,14 @@ class CustomerRepository
                             '0',
                             STR_PAD_LEFT
                         ),
-                        'service_needed' => $quote->service_needed,
+                        'quote_name' => $quote->quote_name,
+                        // Kept for app builds that still read the old key.
+                        'service_needed' => $quote->quote_name,
+                        'customer_rating' => $ownRating?->stars,
                         'estimated_load' => $quote->estimated_load,
                         'daily_load' => $quote->daily_load,
                         'peak_load' => $quote->peak_load,
+                        'appliances_ids' => $quote->appliances_ids,
                         'message' => $quote->message,
 
                         // Overall customer quote-request status.
@@ -926,12 +1364,17 @@ class CustomerRepository
 
                         // Individual company offers and their statuses.
                         'offers' => $quote->companyQuotations
-                            ->map(function ($offer) {
+                            ->map(function ($offer) use ($companyRatings) {
+                                $summary = $companyRatings[(int) $offer->company_id] ?? null;
+
                                 return [
                                     'id' => $offer->id,
                                     'company_id' => $offer->company?->id,
                                     'company_name' => $offer->company?->name,
                                     'company_logo' => $offer->company?->logo_path,
+                                    // Null until the company has at least one rating.
+                                    'company_rating' => $summary['rating'] ?? null,
+                                    'company_reviews' => $summary['reviews'] ?? 0,
                                     'price' => (float) $offer->price,
                                     'currency' => $offer->currency,
                                     'message' => $offer->message,
@@ -969,10 +1412,6 @@ class CustomerRepository
             ];
         }
     }
-
-
-
-    //'submitted','selected','not_selected','withdrawn'
 
 
 
@@ -1133,6 +1572,9 @@ class CustomerRepository
                     'visible_to_customer' => true,
                 ]);
 
+                // Email the company that its offer was accepted (queued until commit).
+                SendCompanyOfferDecisionEmail::dispatch($offer->id, CompanyOfferDecisionMail::ACCEPTED);
+
                 return [
                     'success' => true,
                     'code' => 200,
@@ -1200,6 +1642,9 @@ class CustomerRepository
             $offer->status = 'withdrawn';
             $offer->save();
 
+            // Email the company that its offer was rejected.
+            SendCompanyOfferDecisionEmail::dispatch($offer->id, CompanyOfferDecisionMail::REJECTED);
+
             return [
                 'success' => true,
                 'code' => 200,
@@ -1223,6 +1668,248 @@ class CustomerRepository
         }
     }
 
+    //Ratings Start
+
+    /**
+     * Customer rates the company whose offer they accepted on a quote.
+     * One rating per quote; overall stars 1-5 plus optional 1-4 answers per question.
+     */
+    public function submitRating(array $data): array
+    {
+        try {
+            $customer = $this->helper->isCustomerAuthenticated();
+
+            if (!$customer) {
+                return [
+                    'success' => false,
+                    'code' => 401,
+                    'message' => 'Unauthenticated.',
+                    'data' => null,
+                ];
+            }
+
+            $quote = Quote::query()->with('project:id,quote_id')->find($data['quote_id']);
+
+            if (!$quote) {
+                return [
+                    'success' => false,
+                    'code' => 404,
+                    'message' => 'Quote request not found.',
+                    'data' => null,
+                ];
+            }
+
+            if ((int) $quote->customer_id !== (int) $customer->id) {
+                return [
+                    'success' => false,
+                    'code' => 403,
+                    'message' => 'This quote request does not belong to your account.',
+                    'data' => null,
+                ];
+            }
+
+            // Only the company whose offer was accepted can be rated.
+            $acceptedOffer = CompanyQuotation::query()
+                ->where('quote_id', $quote->id)
+                ->where('status', 'selected')
+                ->first();
+
+            if (!$acceptedOffer) {
+                return [
+                    'success' => false,
+                    'code' => 422,
+                    'message' => 'You can rate a company after accepting its offer.',
+                    'data' => ['reason' => 'no_accepted_offer'],
+                ];
+            }
+
+            if ((int) $acceptedOffer->company_id !== (int) $data['company_id']) {
+                return [
+                    'success' => false,
+                    'code' => 422,
+                    'message' => 'You can only rate the company whose offer you accepted.',
+                    'data' => ['reason' => 'company_mismatch'],
+                ];
+            }
+
+            $alreadyRated = Rating::query()
+                ->where('customer_id', $customer->id)
+                ->where('quote_id', $quote->id)
+                ->exists();
+
+            if ($alreadyRated) {
+                return $this->alreadyRatedResponse();
+            }
+
+            // Answers: only active questions, each once, value on the 1-4 scale.
+            $activeQuestionIds = RatingQuestion::query()->active()->pluck('id')->map(fn($id) => (int) $id)->all();
+
+            $answers = collect($data['answers'] ?? [])
+                ->filter(fn($answer) => in_array((int) $answer['question_id'], $activeQuestionIds, true))
+                ->keyBy(fn($answer) => (int) $answer['question_id'])
+                ->map(fn($answer) => (int) $answer['value']);
+
+            $comment = trim((string) ($data['comment'] ?? ''));
+
+            $rating = DB::transaction(function () use ($customer, $quote, $acceptedOffer, $data, $answers, $comment) {
+                $rating = Rating::query()->create([
+                    'customer_id' => $customer->id,
+                    'company_id' => $acceptedOffer->company_id,
+                    'quote_id' => $quote->id,
+                    // Taken from the server, not the request, so they always match the quote.
+                    'offer_id' => $acceptedOffer->id,
+                    'project_id' => $quote->project?->id,
+                    'stars' => (int) $data['stars'],
+                    'comment' => $comment !== '' ? $comment : null,
+                    'is_visible' => true,
+                ]);
+
+                foreach ($answers as $questionId => $value) {
+                    $rating->answers()->create([
+                        'question_id' => $questionId,
+                        'value' => $value,
+                    ]);
+                }
+
+                return $rating;
+            });
+
+            $summary = $this->companyRatingSummaries([(int) $rating->company_id])[(int) $rating->company_id]
+                ?? ['rating' => null, 'reviews' => 0];
+
+            return [
+                'success' => true,
+                'code' => 201,
+                'message' => 'Thank you for your rating',
+                'data' => [
+                    'ratingDetails' => [
+                        'id' => (int) $rating->id,
+                        'quote_id' => (int) $rating->quote_id,
+                        'company_id' => (int) $rating->company_id,
+                        'offer_id' => (int) $rating->offer_id,
+                        'project_id' => $rating->project_id ? (int) $rating->project_id : null,
+                        'stars' => (int) $rating->stars,
+                        'comment' => $rating->comment,
+                        'answers' => $answers->map(fn($value, $questionId) => [
+                            'question_id' => (int) $questionId,
+                            'value' => $value,
+                        ])->values()->all(),
+                        'created_at' => $rating->created_at?->toISOString(),
+                        'company_rating' => $summary['rating'],
+                        'company_reviews' => $summary['reviews'],
+                    ],
+                ],
+            ];
+        } catch (UniqueConstraintViolationException $e) {
+            // Two taps at once: the unique index stops the second row.
+            return $this->alreadyRatedResponse();
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+                'message' => 'Unable to submit your rating. Please try again.',
+                'data' => null,
+            ];
+        }
+    }
+
+    /** Active questions and the 1-4 answer labels, for the app's rating screen. */
+    public function getRatingForm(): array
+    {
+        try {
+            /** @var \Illuminate\Database\Eloquent\Collection<int, RatingQuestion> $questionRows */
+            $questionRows = RatingQuestion::query()
+                ->active()
+                ->ordered()
+                ->get(['id', 'title_en', 'title_ar', 'question_en', 'question_ar']);
+
+            $questions = $questionRows
+                ->map(fn(RatingQuestion $question) => [
+                    'id' => (int) $question->id,
+                    'title_en' => $question->title_en,
+                    'title_ar' => $question->title_ar,
+                    'question_en' => $question->question_en,
+                    'question_ar' => $question->question_ar,
+                ])
+                ->values()
+                ->all();
+
+            /** @var \Illuminate\Database\Eloquent\Collection<int, RatingValue> $valueRows */
+            $valueRows = RatingValue::query()
+                ->orderBy('value')
+                ->get(['value', 'label_en', 'label_ar']);
+
+            $values = $valueRows
+                ->map(fn(RatingValue $value) => [
+                    'value' => (int) $value->value,
+                    'label_en' => $value->label_en,
+                    'label_ar' => $value->label_ar,
+                ])
+                ->values()
+                ->all();
+
+            return [
+                'success' => true,
+                'code' => 200,
+                'message' => 'Rating form retrieved successfully.',
+                'data' => [
+                    'questions' => $questions,
+                    'values' => $values,
+                    'stars' => ['min' => Rating::MIN_STARS, 'max' => Rating::MAX_STARS],
+                ],
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+                'message' => 'Unable to load the rating form.',
+                'data' => null,
+            ];
+        }
+    }
+
+    /**
+     * Average stars and count of visible ratings, keyed by company ID.
+     * Companies without ratings are left out.
+     *
+     * @return array<int, array{rating: float, reviews: int}>
+     */
+    public function companyRatingSummaries(array $companyIds): array
+    {
+        if (empty($companyIds)) {
+            return [];
+        }
+
+        return Rating::query()
+            ->visible()
+            ->whereIn('company_id', $companyIds)
+            ->groupBy('company_id')
+            ->selectRaw('company_id, AVG(stars) as avg_stars, COUNT(*) as total')
+            ->get()
+            ->mapWithKeys(fn($row) => [
+                (int) $row->company_id => [
+                    'rating' => round((float) $row->avg_stars, 1),
+                    'reviews' => (int) $row->total,
+                ],
+            ])
+            ->all();
+    }
+
+    private function alreadyRatedResponse(): array
+    {
+        return [
+            'success' => false,
+            'code' => 422,
+            'message' => 'You have already rated this company for this request',
+            'data' => ['reason' => 'already_rated'],
+        ];
+    }
+
+    //Ratings End
 
     public function getProjectProgress(int $projectId): Project|array|null
     {
@@ -1266,6 +1953,199 @@ class CustomerRepository
             ->first();
     }
 
+    public function saveCustomerDeviceToken(
+        int $customerId,
+        string $token,
+        string $platform,
+        string $lang = 'en',
+        ?string $deviceName = null,
+        ?bool $isActive = null
+    ): CustomerDeviceToken {
+        $lang = strtolower($lang) === 'ar' ? 'ar' : 'en';
+
+        $tokenHash = hash('sha256', $token);
+
+        $values = [
+            'customer_id' => $customerId,
+            'fcm_token' => $token,
+            'platform' => $platform,
+            'lang' => $lang,
+            'device_name' => $deviceName,
+            'last_used_at' => now(),
+        ];
+
+        // Only change the toggle when the client sends it, so a plain
+        // token refresh doesn't re-enable notifications the user turned off.
+        if ($isActive !== null) {
+            $values['is_active'] = $isActive;
+        }
+
+        return CustomerDeviceToken::updateOrCreate(
+            ['token_hash' => $tokenHash],
+            $values
+        );
+    }
+
+    public function getCustomerNotifications(array $filters = []): array
+    {
+        // Resolve the authenticated customer in the repository.
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        if (!$customer) {
+            return [
+                'success' => false,
+                'code' => 401,
+                'message' => 'Unauthenticated.',
+
+            ];
+        }
+
+        $customerId = $customer->id;
+
+        $query = CustomerNotification::query()
+            ->with('notification')
+            ->where('customer_id', $customerId)
+            ->whereHas('notification', function ($query) {
+                $query->where('status', 'published');
+            });
+
+        $unreadCount = (clone $query)
+            ->whereNull('read_at')
+            ->count();
+
+        $perPage = min(
+            max((int) ($filters['per_page'] ?? 20), 1),
+            100
+        );
+
+        $recipients = $query
+            ->latest('created_at')
+            ->paginate($perPage);
+
+        /** @var \Illuminate\Support\Collection<int, CustomerNotification> $recipientRows */
+        $recipientRows = $recipients->getCollection();
+
+        $notifications = $recipientRows
+            ->map(function (CustomerNotification $recipient) {
+                $notification = $recipient->notification;
+
+                if (!$notification) {
+                    return null;
+                }
+
+                return [
+                    'id' => $notification->id,
+                    'type' => $notification->type,
+                    'title' => $notification->title_en,
+                    'ar_title' => $notification->title_ar,
+                    'body' => $notification->message_en,
+                    'ar_body' => $notification->message_ar,
+
+                    'read' => $recipient->read_at !== null,
+                    'created_at' => $recipient->created_at
+                        ? $recipient->created_at->utc()->format(
+                            'Y-m-d\TH:i:s\Z'
+                        )
+                        : null,
+                ];
+            })
+            ->filter()
+            ->values();
+
+        return [
+            'unread_count' => $unreadCount,
+            'notifications' => $notifications->all(),
+            'pagination' => [
+                'current_page' => $recipients->currentPage(),
+                'last_page' => $recipients->lastPage(),
+                'per_page' => $recipients->perPage(),
+                'total' => $recipients->total(),
+            ],
+        ];
+    }
+
+    public function markNotificationAsRead($notificationId): array
+    {
+
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        if (!$customer) {
+            return [
+                'success' => false,
+                'code' => 401,
+                'message' => 'Unauthenticated.',
+
+            ];
+        }
+
+
+        $customerID = $customer->id;
+
+        $notification = CustomerNotification::query()->where('id', $notificationId)->where('customer_id', $customerID)->first();
+
+        if (!$notification) {
+            return [
+                'success' => false,
+                'code' => 404,
+                'message' => 'Notification not found',
+            ];
+        }
+
+        // Mark as read
+        if (is_null($notification->read_at)) {
+            $notification->update([
+                'read_at' => now(),
+            ]);
+        }
+
+        // Get remaining unread count
+        $unreadCount = CustomerNotification::query()->where('customer_id', $customerID)->whereNull('read_at')->count();
+
+        return [
+            'success' => true,
+            'code' => 200,
+            'message' => 'Notification marked as read successfully',
+            'notificationDetails' => [
+                'id' => $notification->id,
+                'is_read' => true,
+                'read_at' => $notification->fresh()->read_at?->toISOString(),
+            ],
+            'unread_count' => $unreadCount,
+        ];
+    }
+
+    public function markAllNotificationsAsRead(): array
+    {
+
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        if (!$customer) {
+            return [
+                'success' => false,
+                'code' => 401,
+                'message' => 'Unauthenticated.',
+
+            ];
+        }
+
+        $customerID = $customer->id;
+
+        // Mark all unread notifications as read
+        $updatedCount = CustomerNotification::query()->where('customer_id', $customerID)->whereNull('read_at')
+            ->update([
+                'read_at' => now(),
+            ]);
+
+        return [
+            'success' => true,
+            'code' => 200,
+            'message' => 'All notifications marked as read successfully',
+            'notificationDetails' => [
+                'updated_count' => $updatedCount,
+                'unread_count' => 0,
+            ],
+        ];
+    }
 
     public function deleteAccount(): array
     {
@@ -1280,11 +2160,11 @@ class CustomerRepository
                 ];
             }
 
-            // Revoke all API tokens belonging to this customer.
-            $customer->tokens()->delete();
+            // Soft deletes the account with all its quotes, offers, projects,
+            // notifications and ratings, and signs out every device.
+            $counts = $this->helper->softDeleteCustomerData($customer);
 
-            // Soft-delete the customer account, if SoftDeletes is enabled.
-            $customer->delete();
+            ActivityLogger::log('account_deleted', 'Customer deleted their own account from the app', $customer, $counts, ActivityLogger::actorFor($customer), 'customers');
 
             return [
                 'success' => true,
@@ -1320,10 +2200,250 @@ class CustomerRepository
             $token->delete();
         }
 
+        ActivityLogger::log('logout', 'Signed out of the mobile app', $customer, [], ActivityLogger::actorFor($customer), 'auth');
+
         return [
             'success' => true,
             'code' => 200,
             'message' => 'Logged out successfully.',
         ];
     }
+
+    //Password Reset (public, no token) Start
+
+    /**
+     * Step 1: phone + email must belong to the same active customer; send a 6-digit code.
+     */
+    public function forgotPassword(array $data): array
+    {
+        $lang = $data['lang'];
+        $channel = $data['channel'];
+
+        if (!in_array($channel, OtpRepository::availableChannels(), true)) {
+            return $this->passwordResetError(422, 'channel_unavailable', $lang, [
+                'available_channels' => OtpRepository::availableChannels(),
+            ]);
+        }
+
+        $found = $this->findCustomerForPasswordReset($data['phone'], $data['email'], $lang);
+
+        if (!$found['success']) {
+            return $found;
+        }
+
+        $customer = $found['customer'];
+
+        $sent = $this->otpRepository->sendPasswordResetCode(
+            'customer',
+            strtolower($customer->email),
+            (string) ($customer->full_name ?: $customer->username),
+            'customer',
+            $lang,
+            $channel,
+            $customer->phone
+        );
+
+        if (!$sent['success']) {
+            return $this->passwordResetError(503, $sent['reason'], $lang);
+        }
+
+        return [
+            'success' => true,
+            'code' => 200,
+            'message' => $this->passwordResetMessage($channel === 'sms' ? 'code_sent_sms' : 'code_sent_email', $lang),
+            'data' => [
+                'channel' => $channel,
+                'sent_to' => $channel === 'sms'
+                    ? $this->maskPhone($customer->phone)
+                    : $this->maskEmail($customer->email),
+                'otp_length' => 6,
+                'expires_in' => OtpRepository::EXPIRES_SECONDS,
+                'available_channels' => OtpRepository::availableChannels(),
+            ],
+        ];
+    }
+
+    /**
+     * Step 2: check the code; a correct code is exchanged for a reset token.
+     */
+    public function verifyPasswordResetOtp(array $data): array
+    {
+        $lang = $data['lang'];
+
+        $found = $this->findCustomerForPasswordReset($data['phone'], $data['email'], $lang);
+
+        if (!$found['success']) {
+            return $found;
+        }
+
+        $email = strtolower($found['customer']->email);
+
+        $check = $this->otpRepository->verifyPasswordResetCode('customer', $email, $data['otp']);
+
+        if (!$check['success']) {
+            return $this->passwordResetError(422, $check['reason'], $lang, array_filter([
+                'attempts_remaining' => $check['attempts_remaining'] ?? null,
+            ], fn($value) => $value !== null));
+        }
+
+        $this->otpRepository->consume($check['otp']);
+
+        $token = $this->otpRepository->issueResetToken('customer', $email);
+
+        return [
+            'success' => true,
+            'code' => 200,
+            'message' => $this->passwordResetMessage('code_verified', $lang),
+            'data' => [
+                'reset_token' => $token['token'],
+                'expires_in' => OtpRepository::RESET_TOKEN_EXPIRES_SECONDS,
+            ],
+        ];
+    }
+
+    /**
+     * Step 3: set the new password with the reset token. Signs the customer out everywhere.
+     */
+    public function resetPassword(array $data): array
+    {
+        $lang = $data['lang'];
+
+        $found = $this->findCustomerForPasswordReset($data['phone'], $data['email'], $lang);
+
+        if (!$found['success']) {
+            return $found;
+        }
+
+        $customer = $found['customer'];
+        $email = strtolower($customer->email);
+
+        $check = $this->otpRepository->verifyResetToken('customer', $email, $data['reset_token']);
+
+        if (!$check['success']) {
+            return $this->passwordResetError(422, $check['reason'], $lang);
+        }
+
+        // The "hashed" cast hashes the new password.
+        $customer->password = $data['password'];
+        $customer->save();
+
+        // Revoking the Sanctum tokens signs the app out on every device; it must log in again.
+        $customer->tokens()->delete();
+
+        $this->otpRepository->consume($check['otp']);
+
+        return [
+            'success' => true,
+            'code' => 200,
+            'message' => $this->passwordResetMessage('password_reset', $lang),
+        ];
+    }
+
+    private function findCustomerForPasswordReset(string $phone, string $email, string $lang): array
+    {
+        $customer = Customer::query()
+            ->whereRaw('LOWER(email) = ?', [strtolower(trim($email))])
+            ->first();
+
+        // Phones are stored as 0XXXXXXXXX or +249XXXXXXXXX: compare the last 9 digits.
+        $lastDigits = fn(?string $value) => substr(preg_replace('/\D/', '', (string) $value), -9);
+
+        if (!$customer || $lastDigits($customer->phone) === '' || $lastDigits($customer->phone) !== $lastDigits($phone)) {
+            return $this->passwordResetError(404, 'account_not_found', $lang);
+        }
+
+        if (!$customer->is_active) {
+            return $this->passwordResetError(403, 'account_inactive', $lang);
+        }
+
+        return ['success' => true, 'customer' => $customer];
+    }
+
+    private function passwordResetError(int $code, string $reason, string $lang, array $extra = []): array
+    {
+        return [
+            'success' => false,
+            'code' => $code,
+            'reason' => $reason,
+            'message' => $this->passwordResetMessage($reason, $lang),
+            'extra' => $extra,
+        ];
+    }
+
+    private function passwordResetMessage(string $key, string $lang): string
+    {
+        $messages = [
+            'code_sent_email' => [
+                'en' => 'We sent a 6-digit code to your email. It expires in 1 minute.',
+                'ar' => 'أرسلنا رمزاً من 6 أرقام إلى بريدك الإلكتروني. تنتهي صلاحيته خلال دقيقة واحدة.',
+            ],
+            'code_sent_sms' => [
+                'en' => 'We sent a 6-digit code to your phone. It expires in 1 minute.',
+                'ar' => 'أرسلنا رمزاً من 6 أرقام إلى هاتفك. تنتهي صلاحيته خلال دقيقة واحدة.',
+            ],
+            'code_verified' => [
+                'en' => 'Code verified. You can now set a new password.',
+                'ar' => 'تم التحقق من الرمز. يمكنك الآن تعيين كلمة مرور جديدة.',
+            ],
+            'password_reset' => [
+                'en' => 'Your password has been reset. Please log in with your new password.',
+                'ar' => 'تمت إعادة تعيين كلمة المرور. يرجى تسجيل الدخول بكلمة المرور الجديدة.',
+            ],
+            'account_not_found' => [
+                'en' => 'No account matches this phone number and email.',
+                'ar' => 'لا يوجد حساب مطابق لرقم الهاتف والبريد الإلكتروني.',
+            ],
+            'account_inactive' => [
+                'en' => 'This account is inactive. Please contact support.',
+                'ar' => 'هذا الحساب غير نشط. يرجى التواصل مع الدعم.',
+            ],
+            'channel_unavailable' => [
+                'en' => 'SMS is not available yet. Please use email.',
+                'ar' => 'الرسائل النصية غير متاحة حالياً. يرجى استخدام البريد الإلكتروني.',
+            ],
+            'send_failed' => [
+                'en' => 'We could not send the code right now. Please try again in a moment.',
+                'ar' => 'تعذّر إرسال الرمز حالياً. يرجى المحاولة بعد قليل.',
+            ],
+            'no_active_code' => [
+                'en' => 'No active code was found. Please request a new code.',
+                'ar' => 'لا يوجد رمز صالح. يرجى طلب رمز جديد.',
+            ],
+            'expired' => [
+                'en' => 'This code has expired. Please request a new code.',
+                'ar' => 'انتهت صلاحية الرمز. يرجى طلب رمز جديد.',
+            ],
+            'too_many_attempts' => [
+                'en' => 'Too many incorrect attempts. Please request a new code.',
+                'ar' => 'محاولات خاطئة كثيرة. يرجى طلب رمز جديد.',
+            ],
+            'incorrect_code' => [
+                'en' => 'The code is incorrect.',
+                'ar' => 'الرمز غير صحيح.',
+            ],
+            'invalid_reset_token' => [
+                'en' => 'Your reset session has expired. Please request a new code.',
+                'ar' => 'انتهت جلسة إعادة التعيين. يرجى طلب رمز جديد.',
+            ],
+        ];
+
+        return $messages[$key][$lang] ?? $messages[$key]['en'] ?? $key;
+    }
+
+    private function maskEmail(string $email): string
+    {
+        [$name, $domain] = array_pad(explode('@', $email, 2), 2, '');
+
+        return mb_substr($name, 0, 2) . str_repeat('*', max(3, mb_strlen($name) - 2)) . '@' . $domain;
+    }
+
+    private function maskPhone(?string $phone): string
+    {
+        $phone = (string) $phone;
+
+        return substr($phone, 0, 3) . str_repeat('*', max(0, strlen($phone) - 5)) . substr($phone, -2);
+    }
+
+    //Password Reset End
+
 }

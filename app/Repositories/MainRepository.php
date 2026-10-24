@@ -2,12 +2,19 @@
 
 namespace App\Repositories;
 
+use App\Helpers\Helper;
+use App\Jobs\SendCustomerWelcomeEmail;
+use App\Mail\ContactMessageMail;
+use Illuminate\Support\Facades\Mail;
+use App\Models\AppVersion;
 use App\Models\CompanyCarousel;
 use App\Models\Customer;
 use App\Models\SolarCompany;
+use App\Models\Visitor;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -70,6 +77,18 @@ class MainRepository
             ->first();
     }
 
+    /** Average stars and count of visible ratings, e.g. ['rating' => 4.6, 'reviews' => 23]. */
+    public function getCompanyRatingSummary(SolarCompany $company): array
+    {
+        return $company->ratingSummary();
+    }
+
+    /** Latest visible reviews for the public profile page. */
+    public function getCompanyReviews(int $companyId): array
+    {
+        return app(Helper::class)->companyReviews($companyId);
+    }
+
     public function registerCompany(array $data): array
     {
         try {
@@ -117,7 +136,9 @@ class MainRepository
 
             return [
                 'success' => true,
-                'message' => 'Registration submitted successfully.',
+                'message' => app()->getLocale() === 'ar'
+                    ? 'تم تسجيل حساب شركتك بنجاح. يرجى الانتظار حتى تتم الموافقة على الحساب.'
+                    : 'Your company account has been registered successfully. Please wait for approval.',
                 'company' => $company,
             ];
         } catch (Throwable $e) {
@@ -148,25 +169,84 @@ class MainRepository
             $customer->is_active = false;
 
             if ($customer->save()) {
+                Log::info('Customer registered; dispatching welcome email.', [
+                    'customer_id' => $customer->id,
+                    'locale' => app()->getLocale(),
+                ]);
+
+                SendCustomerWelcomeEmail::dispatch(
+                    (int) $customer->id,
+                    app()->getLocale()
+                )->afterCommit();
+
                 return [
                     'success' => true,
-                    'message' => 'Your account has been registered successfully. Please wait for approval.',
+                    'message' => app()->getLocale() === 'ar'
+                        ? 'تم تسجيل حسابك بنجاح. يرجى الانتظار حتى تتم الموافقة على حسابك.'
+                        : 'Your account has been registered successfully. Please wait for approval.',
                     'customer' => $customer,
                 ];
             }
 
             return [
                 'success' => false,
-                'message' => 'Registration could not be completed. Please try again.',
+                'message' => app()->getLocale() === 'ar'
+                    ? 'تعذّر إكمال التسجيل. يرجى المحاولة مرة أخرى.'
+                    : 'Registration could not be completed. Please try again.',
             ];
         } catch (Throwable $e) {
             report($e);
 
             return [
                 'success' => false,
-                'message' => 'Registration could not be completed. Please try again.',
+                'message' => app()->getLocale() === 'ar'
+                    ? 'تعذّر إكمال التسجيل. يرجى المحاولة مرة أخرى.'
+                    : 'Registration could not be completed. Please try again.',
             ];
         }
+    }
+
+    /** Store links of the customer app, keyed by platform (android / ios). Empty when none is set. */
+    /**
+     * Emails a website "Contact us" message to info@sunxfinder.com (queued, so the
+     * visitor doesn't wait on SMTP). Reply-To is the visitor's email.
+     */
+    public function sendContactMessage(array $data): array
+    {
+        $senderTypes = [
+            'customer' => 'Customer / homeowner',
+            'company' => 'Solar company',
+            'other' => 'Other',
+        ];
+
+        try {
+            Mail::to(config('mail.contact_address'))->queue(new ContactMessageMail([
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'phone' => $data['phone'] ?? null,
+                'sender_type_label' => $senderTypes[$data['sender_type']] ?? 'Other',
+                'subject' => $data['subject'],
+                'message' => $data['message'],
+                'lang' => app()->getLocale(),
+                'ip' => request()->ip(),
+                'sent_at' => now()->format('d M Y, H:i'),
+            ]));
+
+            return ['success' => true];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false];
+        }
+    }
+
+    public function getAppDownloadLinks(): array
+    {
+        return AppVersion::query()
+            ->whereNotNull('app_url')
+            ->where('app_url', '!=', '')
+            ->pluck('app_url', 'platform')
+            ->all();
     }
 
     public function getWebsiteCompanyCarousel(): Collection
@@ -189,10 +269,25 @@ class MainRepository
                     ->where('is_verified', true)
                     ->where('is_active', true);
             })
-            ->with('company')
+            // Average stars and count of visible ratings, shown on each card.
+            ->with(['company' => fn($query) => $query
+                ->withAvg(['ratings as visible_rating' => fn($q) => $q->where('is_visible', true)], 'stars')
+                ->withCount(['ratings as visible_reviews' => fn($q) => $q->where('is_visible', true)])])
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
+    }
+
+    public function recordVisitor(string $sessionId): void
+    {
+        Visitor::firstOrCreate([
+            'session_id' => $sessionId,
+        ]);
+    }
+
+    public function getVisitorCount(): int
+    {
+        return Visitor::count();
     }
 
 }

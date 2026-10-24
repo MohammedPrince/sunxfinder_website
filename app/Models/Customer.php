@@ -2,14 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\CustomerDeviceToken;
 
 class Customer extends Authenticatable
 {
-    use Notifiable, SoftDeletes, HasApiTokens;
+    use Notifiable, SoftDeletes, HasApiTokens, LogsActivity;
     protected $table = 'tbl_customers';
 
     protected $fillable = [
@@ -35,6 +38,14 @@ class Customer extends Authenticatable
         return [
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'last_login_at' => 'datetime',
+            'app_status_changed_at' => 'datetime',
         ];
     }
+
+    public function deviceTokens(): HasMany
+    {
+        return $this->hasMany(CustomerDeviceToken::class, 'customer_id');
+    }
+
 }

@@ -2,6 +2,7 @@
 
 namespace App\Repositories\Company;
 
+use App\Helpers\Helper;
 use App\Models\Project;
 use App\Models\ProjectMilestone;
 use App\Models\ProjectUpdate;
@@ -12,6 +13,10 @@ use Illuminate\Support\Facades\DB;
 
 class ProjectRepository
 {
+    public function __construct(private Helper $helper)
+    {
+    }
+
     private function authenticatedCompanyId(): int
     {
         $company = Auth::guard('company')->user();
@@ -45,19 +50,20 @@ class ProjectRepository
                     }
 
                     $q->orWhereHas('quote', function ($quoteQuery) use ($search) {
-                        $quoteQuery->where('service_needed', 'like', "%{$search}%");
+                        $quoteQuery->where('quote_name', 'like', "%{$search}%");
                     })
                         ->orWhereHas('customer', function ($customerQuery) use ($search) {
+                            // tbl_customers has full_name/username, not name.
                             $customerQuery
-                                ->where('name', 'like', "%{$search}%")
-                                ->orWhere('full_name', 'like', "%{$search}%")
+                                ->where('full_name', 'like', "%{$search}%")
+                                ->orWhere('username', 'like', "%{$search}%")
                                 ->orWhere('email', 'like', "%{$search}%");
                         });
                 });
             })
             ->orderByDesc('updated_at')
             ->orderByDesc('id')
-            ->paginate(15)
+            ->paginate(10)
             ->withQueryString();
     }
 
@@ -98,8 +104,9 @@ class ProjectRepository
     public function updateProgress(int $projectId, array $data): Project
     {
         $companyId = $this->authenticatedCompanyId();
+        $oldStatus = null;
 
-        return DB::transaction(function () use ($projectId, $companyId, $data) {
+        $project = DB::transaction(function () use ($projectId, $companyId, $data, &$oldStatus) {
             $project = Project::query()
                 ->where('company_id', $companyId)
                 ->whereKey($projectId)
@@ -392,6 +399,17 @@ class ProjectRepository
                 'updates',
             ]);
         });
+
+        // Notify the customer after commit, once per stage change.
+        if ($oldStatus === 'accepted' && $project->status === 'in_progress') {
+            // "Start Installation" pressed.
+            $this->helper->notifyCustomerAboutProject($project, 'start_installation');
+        } elseif ($oldStatus !== 'completed' && $project->status === 'completed') {
+            // Customer handover confirmed: the project is completed and locked.
+            $this->helper->notifyCustomerAboutProject($project, 'project_completed');
+        }
+
+        return $project;
     }
 
 

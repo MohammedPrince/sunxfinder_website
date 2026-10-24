@@ -97,6 +97,7 @@ button {
 
 .brand img {
    width: 190px;
+   height: auto;
    max-height: 56px;
    object-fit: contain;
    object-position: left center
@@ -1973,12 +1974,10 @@ body.modal-open {
 
 @keyframes language-pop {
    from {
-      opacity: 0;
       transform: translateY(8px) scale(.98)
    }
 
    to {
-      opacity: 1;
       transform: translateY(0) scale(1)
    }
 }
@@ -2378,12 +2377,10 @@ html[dir="rtl"] .footer-grid>div:not(:first-child) {
 
 @keyframes language-pop {
    from {
-      opacity: 0;
       transform: translateY(8px) scale(.98)
    }
 
    to {
-      opacity: 1;
       transform: translateY(0) scale(1)
    }
 }
@@ -3119,4 +3116,263 @@ html[dir="ltr"] .cta-content {
 .sun-icon svg circle {
    fill: #fc5202;
    stroke: #fc5202;
+}
+
+/* ==========================================
+   Square SunXFinder logo (logo.png) in header and footer
+   ========================================== */
+.header .brand {
+   min-width: 0;
+   gap: 12px;
+}
+
+.header .brand img.brand-logo {
+   width: 60px;
+   height: 60px;
+   max-height: none;
+   object-fit: contain;
+}
+
+/* Slogan next to the logo; hidden where the nav needs the room */
+.brand-tagline {
+   padding-inline-start: 12px;
+   border-inline-start: 1px solid #e3eaf2;
+   font-size: 13px;
+   font-weight: 700;
+   line-height: 1.3;
+   color: var(--navy);
+   white-space: nowrap;
+}
+
+.footer-brand img {
+   width: 88px;
+   height: 88px;
+   max-height: none;
+   object-fit: contain;
+}
+
+.footer-slogan {
+   margin: 10px 0 4px;
+   font-size: 15px !important;
+   font-weight: 800;
+   color: var(--navy) !important;
+}
+
+/* Arabic pages: Cairo has the Arabic letters DM Sans lacks */
+html[lang="ar"] body {
+   font-family: Cairo, "DM Sans", Tahoma, Arial, sans-serif;
+}
+
+@media (max-width: 1150px) {
+   .brand-tagline {
+      display: none;
+   }
+}
+
+@media (max-width: 760px) {
+   .header .brand img.brand-logo {
+      width: 50px;
+      height: 50px;
+   }
+
+   /* Phones: the nav folds into the ☰ menu, so there is room for the slogan again. */
+   .header .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+   }
+
+   .brand-tagline {
+      display: inline-block;
+      padding-inline-start: 10px;
+      font-size: 12px;
+   }
+}
+
+@media (max-width: 340px) {
+   .brand-tagline {
+      font-size: 11px;
+      padding-inline-start: 8px;
+   }
+}
+
+/* ===== Language picker: matches the "Find. Compare. Connect." home design ===== */
+.language-modal-overlay {
+   background: rgba(11, 45, 92, .55);
+   backdrop-filter: blur(6px);
+}
+
+.language-modal-overlay .language-modal {
+   width: min(440px, 100%);
+   padding: 34px 28px 24px;
+   overflow: hidden;
+   border: 1px solid #e6edf5;
+   border-radius: 24px;
+   background:
+      radial-gradient(circle at 85% 0%, rgba(255, 179, 26, .24), transparent 42%),
+      radial-gradient(circle at 0% 100%, rgba(21, 101, 192, .07), transparent 45%),
+      linear-gradient(180deg, #fffaf4 0%, #fff 55%);
+   box-shadow: 0 30px 80px rgba(11, 45, 92, .28);
+}
+
+html[dir="rtl"] .language-modal-overlay .language-modal {
+   background:
+      radial-gradient(circle at 15% 0%, rgba(255, 179, 26, .24), transparent 42%),
+      radial-gradient(circle at 100% 100%, rgba(21, 101, 192, .07), transparent 45%),
+      linear-gradient(180deg, #fffaf4 0%, #fff 55%);
+}
+
+.language-modal-head {
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+   margin-bottom: 22px;
+}
+
+.language-modal-logo {
+   width: 56px;
+   height: 56px;
+   margin-bottom: 14px;
+   border-radius: 16px;
+   background: #fff;
+   box-shadow: 0 10px 24px rgba(11, 45, 92, .12);
+   object-fit: contain;
+}
+
+.language-kicker {
+   display: inline-block;
+   padding: 5px 12px;
+   border-radius: 999px;
+   background: #fff0e6;
+   color: #fc5202;
+   font-size: 12px;
+   font-weight: 700;
+   letter-spacing: .04em;
+}
+
+.language-modal-overlay .language-modal h2 {
+   margin: 12px 0 6px;
+   font-family: Manrope, Cairo, "DM Sans", sans-serif;
+   font-size: 26px;
+   font-weight: 800;
+   letter-spacing: -.02em;
+   color: #0b2d5c;
+}
+
+.language-modal-overlay .language-modal-head p {
+   margin: 0;
+   color: #5f7189;
+   font-size: 14px;
+}
+
+.language-modal-overlay .language-options {
+   gap: 12px;
+}
+
+.language-modal-overlay .language-option {
+   gap: 14px;
+   padding: 14px 16px;
+   border: 2px solid #e6edf5;
+   border-radius: 16px;
+   background: #fff;
+   transition: border-color .2s, box-shadow .2s, transform .2s;
+}
+
+.language-modal-overlay .language-option:hover,
+.language-modal-overlay .language-option:focus-visible {
+   border-color: #fc5202;
+   background: #fff;
+   box-shadow: 0 12px 26px rgba(252, 82, 2, .14);
+   transform: translateY(-2px);
+   outline: none;
+}
+
+.language-modal-overlay .language-option.is-current {
+   border-color: #ffd3b8;
+   background: #fffaf6;
+}
+
+.language-modal-overlay .language-flag {
+   width: 46px;
+   height: 46px;
+   border-radius: 13px;
+   font-family: Manrope, Cairo, sans-serif;
+   font-size: 17px;
+   font-weight: 800;
+}
+
+.language-option-en .language-flag {
+   background: #e8f1fc;
+   color: #1565c0;
+}
+
+.language-option-ar .language-flag {
+   background: #e8f6ea;
+   color: #2e9d3a;
+   font-size: 22px;
+}
+
+.language-modal-overlay .language-option strong {
+   color: #0b2d5c;
+   font-size: 16px;
+}
+
+.language-modal-overlay .language-option small {
+   color: #5f7189;
+   font-size: 12px;
+}
+
+.language-modal-overlay .language-option > b {
+   display: grid;
+   place-items: center;
+   width: 32px;
+   height: 32px;
+   border-radius: 50%;
+   background: #f6f9fc;
+   color: #5f7189;
+   font-size: 16px;
+   transition: background .2s, color .2s;
+}
+
+.language-modal-overlay .language-option:hover > b,
+.language-modal-overlay .language-option:focus-visible > b {
+   background: #fc5202;
+   color: #fff;
+}
+
+.language-modal-overlay .language-close {
+   top: 14px;
+   inset-inline-end: 14px;
+   background: #fff;
+   border: 1px solid #e6edf5;
+   color: #5f7189;
+   font-size: 22px;
+   transition: border-color .2s, color .2s;
+}
+
+.language-modal-overlay .language-close:hover {
+   border-color: #fc5202;
+   color: #fc5202;
+}
+
+.language-modal-overlay .language-note {
+   margin-top: 18px;
+   color: #5f7189;
+   font-size: 12px;
+}
+
+@media (max-width: 760px) {
+   .language-modal-overlay .language-modal {
+      padding: 30px 18px 20px;
+   }
+
+   .language-modal-overlay .language-modal h2 {
+      font-size: 22px;
+   }
+}
+
+/* "Compare" in the Find. Compare. Connect. tagline (header and footer) */
+.slogan-compare {
+   color: #fc5202;
 }

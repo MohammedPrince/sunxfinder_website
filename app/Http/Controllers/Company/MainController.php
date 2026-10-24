@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Company;
 
 use App\Http\Controllers\Controller;
+use App\Models\RatingValue;
 use App\Services\Company\CompanyService;
+use App\Support\ReportPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
@@ -18,6 +20,57 @@ class MainController extends Controller
     {
         $this->companyService = $companyService;
     }
+
+    public function dashboard()
+    {
+        $result = $this->companyService->getDashboardData();
+
+        return view('company.dashboard', $result);
+    }
+
+    //Reports Start
+
+    public function reports(Request $request)
+    {
+        $report = $this->companyService->getCompanyReportsData($this->validatedReportFilters($request));
+
+        return view('company.reports.index', array_merge($report, [
+            'presets' => ReportPeriod::PRESETS,
+            'stalledDays' => ReportPeriod::STALLED_DAYS,
+        ]));
+    }
+
+    public function exportReport(Request $request, string $section)
+    {
+        abort_unless(in_array($section, ['offers', 'projects', 'customers'], true), 404);
+
+        $export = $this->companyService->getCompanyReportExport($section, $this->validatedReportFilters($request));
+
+        return response()->streamDownload(function () use ($export) {
+            $out = fopen('php://output', 'w');
+
+            // UTF-8 BOM so Excel shows Arabic names correctly.
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, $export['headers']);
+
+            foreach ($export['rows'] as $row) {
+                fputcsv($out, $row);
+            }
+
+            fclose($out);
+        }, $export['filename'], ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    private function validatedReportFilters(Request $request): array
+    {
+        return $request->validate([
+            'preset' => ['nullable', Rule::in(array_keys(ReportPeriod::PRESETS))],
+            'from' => ['nullable', 'date', 'required_if:preset,custom'],
+            'to' => ['nullable', 'date', 'required_if:preset,custom'],
+        ]);
+    }
+
+    //Reports End
 
     public function index()
     {
@@ -55,7 +108,7 @@ class MainController extends Controller
             'city' => [
                 'required',
                 'string',
-                \Illuminate\Validation\Rule::in([
+                Rule::in([
                     'Khartoum',
                     'Port Sudan',
                     'Atbara',
@@ -77,7 +130,7 @@ class MainController extends Controller
                 'required',
                 'email',
                 'max:191',
-                \Illuminate\Validation\Rule::unique('tbl_solar_companies', 'email')
+                Rule::unique('tbl_solar_companies', 'email')
                     ->ignore($company->id),
             ],
             'social_media' => ['nullable', 'string', 'max:2000'],
@@ -362,5 +415,126 @@ class MainController extends Controller
 
     //Quote Requests End
 
+    //Notifications Managment End
+    public function notifications(Request $request)
+    {
+        $filters = $request->validate([
+            'type' => [
+                'nullable',
+                'string',
+                Rule::in([
+                    'general',
+                    'quote',
+                    'promotion',
+                    'account',
+                    'support',
+                    'maintenance',
+                ]),
+            ],
+            'status' => ['nullable', Rule::in(['published', 'draft'])],
+            'search' => ['nullable', 'string', 'max:150'],
+        ]);
 
+        $result = $this->companyService->getNotifications($filters);
+
+        return view('company.notifications.index', [
+            'notifications' => $result['notifications'],
+            'publishedCount' => $result['publishedCount'],
+            'draftCount' => $result['draftCount'],
+            'recipientCount' => $result['recipientCount'],
+        ]);
+    }
+
+    public function createNotification()
+    {
+        $result = $this->companyService->getNotificationFormData();
+
+        return view('company.notifications.create', [
+            'customers' => $result['customers'],
+        ]);
+    }
+
+    public function storeNotification(Request $request)
+    {
+        $validated = $request->validate([
+            'type' => [
+                'required',
+                Rule::in([
+                    'general',
+                    'quote',
+                    'promotion',
+                    'account',
+                    'support',
+                    'maintenance',
+                ]),
+            ],
+            'audience_type' => ['required', Rule::in(['all', 'selected'])],
+            'customer_ids' => [
+                'required_if:audience_type,selected',
+                'array',
+                'min:1',
+            ],
+            'customer_ids.*' => ['required', 'integer', 'min:1'],
+            'title_en' => ['required', 'string', 'max:180'],
+            'title_ar' => ['nullable', 'string', 'max:180'],
+            'message_en' => ['required', 'string', 'max:5000'],
+            'message_ar' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $result = $this->companyService->publishNotification($validated);
+
+        if (!$result['success']) {
+            return back()
+                ->withInput()
+                ->with('error', $result['message']);
+        }
+
+        return redirect()
+            ->route('company.notifications.index')
+            ->with('success', $result['message']);
+    }
+    public function showNotification(int $notification)
+    {
+        $result = $this->companyService->getNotificationDetails($notification);
+
+        if (!$result['success']) {
+            return redirect()
+                ->route('company.notifications.index')
+                ->with('error', $result['message']);
+        }
+
+        return view('company.notifications.show', [
+            'notification' => $result['notification'],
+            'readCount' => $result['readCount'],
+            'unreadCount' => $result['unreadCount'],
+            'recipients' => $result['recipients'],
+        ]);
+    }
+
+    public function destroyNotification(int $notification)
+    {
+        $result = $this->companyService->deleteNotification($notification);
+
+        return redirect()->route('company.notifications.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    //Notifications Managment Start
+
+    //Ratings Start
+
+    public function ratings(Request $request)
+    {
+        $filters = $request->validate([
+            'stars' => ['nullable', 'integer', 'between:1,5'],
+        ]);
+
+        $ratings = $this->companyService->getCompanyRatings($filters);
+        $summary = $this->companyService->getCompanyRatingSummary();
+        $valueLabels = RatingValue::labels();
+
+        return view('company.ratings.index', compact('ratings', 'summary', 'valueLabels'));
+    }
+
+    //Ratings End
 }

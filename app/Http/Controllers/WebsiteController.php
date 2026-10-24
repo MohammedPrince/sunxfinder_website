@@ -2,12 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\Helper;
 use App\Services\MainService;
 use Illuminate\Http\Request;
-
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Validator;
+use Kreait\Firebase\Messaging\CloudMessage;
+use Kreait\Firebase\Messaging\Notification as FcmNotification;
+use Kreait\Firebase\Contract\Messaging;
 
 class WebsiteController extends Controller
 {
@@ -25,12 +29,142 @@ class WebsiteController extends Controller
         $pendingCount = $this->mainService->pendingCount();
         $inactiveCount = $this->mainService->inactiveCount();
 
+        $sessionId = session()->getId();
+        $this->mainService->recordVisitor($sessionId);
+        $visitorCount = $this->mainService->getVisitorCount();
+        $appLinks = $this->mainService->getAppDownloadLinks();
+
         return view('visitors.home', compact(
             'companies',
             'verifiedCount',
             'pendingCount',
-            'inactiveCount'
+            'inactiveCount',
+            'visitorCount',
+            'appLinks'
         ));
+    }
+
+    /**
+     * "Open in App" for a company page. When the app is installed and App/Universal
+     * Links are set up, the phone opens the app before this page even loads. Otherwise
+     * this page tries the app's link scheme and falls back to the store or the website.
+     */
+    public function openCompanyInApp(Request $request, string $slug)
+    {
+        $company = $this->mainService->getCompanyBySlug($slug);
+
+        abort_if(!$company, 404);
+
+        $app = config('services.mobile_app');
+        $storeLinks = $this->mainService->getAppDownloadLinks();
+        $userAgent = (string) $request->userAgent();
+
+        $platform = match (true) {
+            (bool) preg_match('/android/i', $userAgent) => 'android',
+            (bool) preg_match('/iphone|ipad|ipod/i', $userAgent) => 'ios',
+            default => 'other',
+        };
+
+        $profileUrl = route('company-profile.show', ['slug' => $company->slug, 'lang' => app()->getLocale()]);
+        $storeUrl = $storeLinks[$platform] ?? null;
+        $fallbackUrl = $storeUrl ?: $profileUrl;
+
+        // sunxfinder://company/{slug}
+        $schemeUrl = $app['scheme'] . '://company/' . rawurlencode($company->slug);
+
+        // Android Chrome opens the app if installed, otherwise goes to the fallback by itself.
+        $intentUrl = 'intent://company/' . rawurlencode($company->slug) . '#Intent;scheme=' . $app['scheme']
+            . ($app['android_package'] ? ';package=' . $app['android_package'] : '')
+            . ';S.browser_fallback_url=' . rawurlencode($fallbackUrl) . ';end';
+
+        return view('visitors.open-in-app', compact(
+            'company',
+            'platform',
+            'schemeUrl',
+            'intentUrl',
+            'storeUrl',
+            'profileUrl'
+        ));
+    }
+
+    /** Android App Links verification. Empty until ANDROID_PACKAGE_NAME is set. */
+    public function androidAssetLinks()
+    {
+        $app = config('services.mobile_app');
+
+        $fingerprints = collect(explode(',', (string) $app['android_sha256']))
+            ->map(fn($fingerprint) => strtoupper(trim($fingerprint)))
+            ->filter()
+            ->values()
+            ->all();
+
+        $statements = $app['android_package'] && $fingerprints
+            ? [[
+                'relation' => ['delegate_permission/common.handle_all_urls'],
+                'target' => [
+                    'namespace' => 'android_app',
+                    'package_name' => $app['android_package'],
+                    'sha256_cert_fingerprints' => $fingerprints,
+                ],
+            ]]
+            : [];
+
+        return response()->json($statements, 200, [], JSON_UNESCAPED_SLASHES);
+    }
+
+    /** iOS Universal Links verification. Lists no apps until IOS_APP_ID is set. */
+    public function appleAppSiteAssociation()
+    {
+        $appId = config('services.mobile_app.ios_app_id');
+
+        return response()->json([
+            'applinks' => [
+                'details' => $appId ? [[
+                    'appIDs' => [$appId],
+                    'components' => [['/' => '/open/*', 'comment' => 'Open in App links']],
+                ]] : [],
+            ],
+        ], 200, [], JSON_UNESCAPED_SLASHES);
+    }
+
+    /** Home page "Contact us" form: emails the message to info@sunxfinder.com. */
+    public function sendContactMessage(Request $request)
+    {
+        // Back to the form on the home page, in the visitor's language.
+        $backToForm = route('home', ['lang' => app()->getLocale()]) . '#contact';
+
+        $validator = Validator::make($request->all(), [
+            'name' => ['required', 'string', 'min:2', 'max:100'],
+            'email' => ['required', 'email', 'max:150'],
+            'phone' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+\s()-]+$/'],
+            'sender_type' => ['required', Rule::in(['customer', 'company', 'other'])],
+            'subject' => ['required', 'string', 'min:3', 'max:150'],
+            'message' => ['required', 'string', 'min:10', 'max:3000'],
+            // Honeypot: hidden from people, filled in by spam bots.
+            'website' => ['nullable', 'max:0'],
+        ], [], [
+            'name' => trans('messages.Full name'),
+            'email' => trans('messages.Email address'),
+            'phone' => trans('messages.Phone number'),
+            'sender_type' => trans('messages.I am a'),
+            'subject' => trans('messages.Subject'),
+            'message' => trans('messages.Message'),
+        ]);
+
+        if ($validator->fails()) {
+            // A filled honeypot is a bot: pretend it worked.
+            if ($validator->errors()->has('website')) {
+                return redirect()->to($backToForm)->with('contact_success', true);
+            }
+
+            return redirect()->to($backToForm)->withErrors($validator, 'contact')->withInput();
+        }
+
+        $result = $this->mainService->sendContactMessage($validator->validated());
+
+        return $result['success']
+            ? redirect()->to($backToForm)->with('contact_success', true)
+            : redirect()->to($backToForm)->withInput()->with('contact_error', true);
     }
 
     public function registerCompany()
@@ -42,8 +176,7 @@ class WebsiteController extends Controller
     {
 
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:200', 'regex:/\A[A-Za-z0-9\s.,&\'()\-]+\z/',],
-
+            'name' => ['required', 'string', 'max:100', 'min:10', 'regex:/\A[A-Za-z0-9\s.,&\'()\-]+\z/',],
             'username' => [
                 'required',
                 'string',
@@ -55,11 +188,11 @@ class WebsiteController extends Controller
             'email' => [
                 'required',
                 'email',
-                'max:191',
+                'max:100',
                 Rule::unique('tbl_solar_companies', 'email'),
             ],
 
-            'phone' => ['required', 'string', 'max:30'],
+            'phone' => ['required', 'string', 'max:10', 'min:10'],
             'city' => ['required', 'string', 'max:100'],
             'services' => ['required', 'string', 'max:5000'],
             'ar_services' => ['required', 'string', 'max:5000'],
@@ -151,7 +284,6 @@ class WebsiteController extends Controller
                 ->with('error', 'Registration could not be completed. Please try again.');
         }
     }
-
     public function showCompany(string $slug)
     {
         $company = $this->mainService->getCompanyBySlug($slug);
@@ -187,12 +319,14 @@ class WebsiteController extends Controller
         $companyCover = null;
         $companyVerified = (bool) $company->is_verified;
 
-        $companyRating = 4.0;
-        $companyReviews = 0;
+        // Visible ratings only; rating is null (shows "Not rated yet") until the first one.
+        $ratingSummary = $this->mainService->getCompanyRatingSummary($company);
+        $companyRating = $ratingSummary['rating'];
+        $companyReviews = $ratingSummary['reviews'];
 
         $companyYears = null;
         $companyProducts = $company->products;
-        $companyReviewsList = [];
+        $companyReviewsList = $this->mainService->getCompanyReviews($company->id);
 
         $companyEmail = $company->email;
         $companyPhone = $company->phone;
@@ -218,27 +352,42 @@ class WebsiteController extends Controller
         ));
     }
 
-
     public function registerCustomer()
     {
-        return view('visitors.create-customer-account');
+        // Store links for the "account created" message.
+        $appLinks = $this->mainService->getAppDownloadLinks();
+
+        return view('visitors.create-customer-account', compact('appLinks'));
     }
 
     public function storeCustomer(Request $request)
     {
 
-        $validated = $request->validate([
+        $validator = Validator::make($request->all(), [
             'username' => [
                 'required',
                 'string',
-                'max:191',
+                'max:15',
+                'min:6',
+                'regex:/^[a-zA-Z0-9_]+$/',
                 'unique:tbl_customers,username',
             ],
-            'first_name' => ['required', 'string', 'max:100'],
-            'second_name' => ['required', 'string', 'max:100'],
-            'third_name' => ['required', 'string', 'max:100'],
-            'phone' => ['required', 'string', 'max:30', 'unique:tbl_customers,phone'],
-            'email' => ['required', 'email', 'max:191', 'unique:tbl_customers,email',],
+            'first_name' => ['required', 'string', 'max:15', 'min:3'],
+            'second_name' => ['required', 'string', 'max:15', 'min:3'],
+            'third_name' => ['required', 'string', 'max:15', 'min:3'],
+            'phone' => [
+                'required',
+                'string',
+                'max:10',
+                'min:10',
+                'unique:tbl_customers,phone',
+            ],
+            'email' => [
+                'required',
+                'email',
+                'max:100',
+                'unique:tbl_customers,email',
+            ],
             'gender' => ['required', Rule::in(['male', 'female'])],
             'city' => [
                 'required',
@@ -258,14 +407,58 @@ class WebsiteController extends Controller
             'password' => [
                 'required',
                 'string',
-                'min:8',
+                'min:5',
                 'confirmed',
-                'regex:/[a-z]/',      // At least one lowercase letter
-                'regex:/[A-Z]/',      // At least one uppercase letter
-                'regex:/[0-9]/',      // At least one number
-                'regex:/[^A-Za-z0-9]/', // At least one special character
+                'regex:/[a-z]/',
+                'regex:/[A-Z]/',
+                'regex:/[0-9]/',
+                'regex:/[^A-Za-z0-9]/',
             ],
         ]);
+
+        if ($validator->fails()) {
+
+            $errors = $validator->errors();
+
+            // Find a field that failed its "unique" rule. Checked by rule name,
+            // so it works whatever the language of the error messages.
+            $failedRules = $validator->failed();
+            $duplicateField = collect(['username', 'phone', 'email'])
+                ->first(fn($field) => isset($failedRules[$field]['Unique']));
+
+            if ($duplicateField) {
+                $isArabic = app()->getLocale() === 'ar';
+
+                $fieldName = match ($duplicateField) {
+                    'username' => $isArabic ? 'اسم المستخدم' : 'username',
+                    'phone' => $isArabic ? 'رقم الهاتف' : 'phone number',
+                    'email' => $isArabic ? 'البريد الإلكتروني' : 'email address',
+                    default => $isArabic ? 'البيانات المدخلة' : 'provided details',
+                };
+
+                $message = $isArabic
+                    ? "تعذّر إكمال التسجيل. {$fieldName} مستخدم بالفعل. يرجى استخدام قيمة أخرى."
+                    : "Registration could not be completed. The {$fieldName} is already in use. Please use a different one.";
+
+                return back()
+                    ->withInput($request->except([
+                        'password',
+                        'password_confirmation',
+                    ]))
+                    ->withErrors([
+                        'registration' => $message,
+                    ]);
+            }
+
+            return back()
+                ->withInput($request->except([
+                    'password',
+                    'password_confirmation',
+                ]))
+                ->withErrors($errors);
+        }
+
+        $validated = $validator->validated();
 
         $validated['full_name'] = trim(implode(' ', [
             $validated['first_name'],
@@ -299,4 +492,26 @@ class WebsiteController extends Controller
             ->withErrors(['registration' => $result['message']]);
     }
 
+
+    //Test Push Notifications
+    public function testPush(Messaging $messaging)
+    {
+        $token = 'fb0CWo-WSYCaZL00Q1Bwp0:APA91bEiHmF6MsgrHQDBqxOz3Qa7Zb4U9FX6wJWVw9_KGRHBB4RuD3MXuAzpdUNcLjYGJmHHpzGuLrzUEE5wEiVH0makP2ubr8jfnNZuUKz7srYq6qxFnTs';
+
+        $message = Helper::withNotificationSound(CloudMessage::new())
+            ->toToken($token)
+            ->withNotification(
+                FcmNotification::create(
+                    'SunXFinder Test',
+                    'Your push notifications are working!'
+                )
+            );
+
+        $result = $messaging->send($message);
+
+        return response()->json([
+            'success' => true,
+            'message_id' => $result,
+        ]);
+    }
 }

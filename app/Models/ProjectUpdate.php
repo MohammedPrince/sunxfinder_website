@@ -3,13 +3,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ProjectUpdate extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, LogsActivity;
     protected $table = 'tbl_project_updates';
 
     protected $fillable = [

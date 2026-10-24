@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class Admin extends Authenticatable
 {
-    use Notifiable;
+    use Notifiable, LogsActivity;
 
     protected $table = 'tbl_admins';
 
@@ -16,6 +17,7 @@ class Admin extends Authenticatable
     protected $fillable = [
         'name',
         'username',
+        'email',
         'password',
         'is_active',
         'last_login_at',

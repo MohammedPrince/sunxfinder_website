@@ -14,14 +14,26 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
     Route::post('/login', [MainController::class, 'login'])->middleware('throttle:5,1');
     Route::post('/register', [MainController::class, 'createAccount'])->middleware('throttle:5,1');
 
+    // Forgot password (no token): send code -> verify code -> set new password
+    Route::prefix('password')->group(function () {
+        Route::post('/forgot', [MainController::class, 'forgotPassword'])->middleware('throttle:customer-password-forgot');
+        Route::post('/verify-otp', [MainController::class, 'verifyPasswordResetOtp'])->middleware('throttle:customer-password-verify');
+        Route::post('/reset', [MainController::class, 'resetPassword'])->middleware('throttle:customer-password-reset');
+    });
+
     // Protected routes: valid Sanctum token required
     Route::middleware('auth:sanctum')->group(function () {
 
         // Lookups and catalogue. The app reloads these on every pull to
         // refresh, so they need a higher limit than login.
+
+        Route::post('/main-data', [MainController::class, 'mainData'])->middleware('throttle:60,1');
+
         Route::get('/cities', [MainController::class, 'getCities'])->middleware('throttle:60,1');
         Route::get('/companies', [MainController::class, 'getCompanies'])->middleware('throttle:60,1');
         Route::get('/companies/{id}', [MainController::class, 'getCompany'])->whereNumber('id')->middleware('throttle:60,1');
+        // For "Open in App" links from the website: sunxfinder://company/{slug}
+        Route::get('/companies/slug/{slug}', [MainController::class, 'getCompanyBySlug'])->where('slug', '[A-Za-z0-9-]+')->middleware('throttle:60,1');
         Route::get('/services', [MainController::class, 'getServices'])->middleware('throttle:60,1');
         Route::get('/carousels', [MainController::class, 'getCarousels'])->middleware('throttle:60,1');
         Route::get('/calculator-items', [MainController::class, 'appliancesCalculator'])->middleware('throttle:60,1');
@@ -32,21 +44,22 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
         Route::post('/offer-accept', [MainController::class, 'acceptOffer'])->middleware('throttle:60,1')->name('offer-accept');
         Route::post('/offer-reject', [MainController::class, 'rejectOffer'])->middleware('throttle:60,1')->name('offer-reject');
 
+        // Ratings: rate the company whose offer was accepted (one per quote)
+        Route::get('/rating-form', [MainController::class, 'getRatingForm'])->middleware('throttle:60,1');
+        Route::post('/rating', [MainController::class, 'submitRating'])->middleware('throttle:20,1')->name('rating');
+
         Route::get('/profile', [MainController::class, 'getProfile'])->middleware('throttle:60,1');
         Route::post('/profile', [MainController::class, 'updateProfile'])->middleware('throttle:60,1');
 
+        Route::get('/project-progress/{projectId}', [MainController::class, 'getProjectProgress'])->whereNumber('projectId')->name('customer.project-progress');
 
-        Route::get('/project-progress/{projectId}',[MainController::class, 'getProjectProgress'])->whereNumber('projectId')->name('customer.project-progress');
+        Route::post('/device-token', [MainController::class, 'saveCustomerDeviceToken'])->middleware('throttle:60,1');
+        Route::get('/notifications', [MainController::class, 'getNotifications'])->middleware('throttle:60,1');
+        Route::post('/notifications/{id}/read', [MainController::class, 'markNotificationAsRead']);
+        Route::post('/notifications/read-all', [MainController::class, 'markAllNotificationsAsRead']);
 
-
-
+        Route::post('/delete-account', [MainController::class, 'deleteAccount']);
         Route::post('/logout', [MainController::class, 'logout']);
 
-
-        // Add private customer routes here:
-        // Route::put('/profile', ...);
-        // Route::get('/saved-companies', ...);
-        // Route::get('/quotes', ...);
-        // Route::get('/notifications', ...);
     });
 });

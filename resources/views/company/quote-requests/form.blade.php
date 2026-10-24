@@ -93,6 +93,19 @@
             && !$companyQuotation;
 
         $canMakeOrEditOffer = $canSubmitOffer || $canEditOffer;
+
+        // Offers the customer has: competitors still in the running plus this company's own.
+        $offersCount = (isset($competitorPrices) ? $competitorPrices->count() : 0) + ($companyQuotation ? 1 : 0);
+
+        // One plain sentence explaining the status above.
+        $statusExplanation = match (true) {
+            $status === 'selected' => 'The customer chose your offer. Manage the installation in the project.',
+            $status === 'submitted' && $quote->status === 'pending' => 'Your offer was sent. The customer is comparing offers; you can still edit yours.',
+            in_array($status, ['not_selected', 'withdrawn', 'selected_another'], true) => 'The customer chose another company. This request is closed for you.',
+            $status === 'pending' => 'The customer is waiting for offers. Send yours below.',
+            $status === 'cancelled' => 'The customer cancelled this request.',
+            default => 'This request is no longer accepting offers.',
+        };
     @endphp
 
     <div class="quote-print-page">
@@ -110,6 +123,19 @@
             </div>
         </header>
 
+        @include('partials.page-guide', [
+            'key' => 'company-quote-details',
+            'title' => 'How to respond to this request',
+            'intro' => 'A customer used the SunXFinder calculator and is asking for a total price for the system below.',
+            'steps' => [
+                '<strong>Check the energy needs</strong>: daily energy, peak load and the suggested panels, inverter and batteries.',
+                '<strong>Compare prices</strong>: other companies’ prices appear without their names.',
+                '<strong>Make an offer</strong>: one total price for the complete system, plus a message in English and Arabic.',
+                '<strong>Wait for the customer</strong>: you can edit your offer until they choose. If they choose you, "View Project" appears at the top.',
+            ],
+            'note' => 'Your price and messages are shown to the customer in the app.',
+        ])
+
         <section class="quote-summary">
             <div class="quote-summary-item">
                 <span>Request reference</span>
@@ -123,7 +149,7 @@
                     {{ $statusLabels[$status] ?? ucfirst($status) }}
                 </strong>
 
-                <small class="quote-status-note">From customer side</small>
+                <small class="quote-status-note">{{ $statusExplanation }}</small>
             </div>
             <div class="quote-summary-item">
                 <span>Daily energy</span>
@@ -135,6 +161,12 @@
                 <strong>{{ $quote->peak_load ?: '—' }}</strong>
             </div>
         </section>
+
+        @include('partials.request-journey', [
+            'quote' => $quote,
+            'offersCount' => $offersCount,
+            'project' => $project ?? null,
+        ])
 
 
         {{-- Competitor pricing: prices only, never show company identities --}}
@@ -243,14 +275,26 @@
 
 
                 <div class="offer-panel-copy">
-                    <span class="offer-eyebrow" style="color:#172b45;">COMPETE FOR THIS REQUEST</span>
-
-                    <h2>Win the Customer's Business</h2>
-
-                    <p style="font-size:14px;">
-                        Other solar companies are competing for this customer.
-                        Submit your best <b style="color:orangered">PRICE</b> to stand out.
-                    </p>
+                    @if ($companyQuotation?->status === 'selected')
+                        <span class="offer-eyebrow" style="color:#172b45;">YOUR OFFER WON</span>
+                        <h2>The customer chose you</h2>
+                        <p style="font-size:14px;">Plan the installation and keep the customer updated from the project page.</p>
+                    @elseif ($canEditOffer)
+                        <span class="offer-eyebrow" style="color:#172b45;">OFFER SENT</span>
+                        <h2>Customer is comparing offers</h2>
+                        <p style="font-size:14px;">You can still improve your price or message until the customer decides.</p>
+                    @elseif ($canSubmitOffer)
+                        <span class="offer-eyebrow" style="color:#172b45;">COMPETE FOR THIS REQUEST</span>
+                        <h2>Win the customer's business</h2>
+                        <p style="font-size:14px;">
+                            Send one total price for the complete system. Customers compare price, message and your
+                            company profile.
+                        </p>
+                    @else
+                        <span class="offer-eyebrow" style="color:#172b45;">REQUEST CLOSED</span>
+                        <h2>No more offers on this request</h2>
+                        <p style="font-size:14px;">{{ $statusExplanation }}</p>
+                    @endif
 
                     @if ($companyQuotation)
                         <div class="offer-current-price">
@@ -305,8 +349,11 @@
                                 @if ($companyQuotation?->status === 'selected' && $project)
                                     <div class="selected-offer-actions">
                                         <a href="{{ route('company.projects.show', $project->id) }}" class="btn btn-primary">
-                                            <i class="fas {{ $project->status === 'completed' ? 'fa-eye' : 'fa-play-circle' }}"></i>
-                                            {{ $project->status === 'completed' ? 'View Project' : "Let's Start Project" }}
+                                            {{ match ($project->status) {
+                                                'completed' => 'View Project',
+                                                'in_progress' => 'Update Project Progress',
+                                                default => "Let's Start the Project",
+                                            } }} →
                                         </a>
                                     </div>
                                 @endif
@@ -420,24 +467,23 @@
                             </div>
 
                             <div class="offer-form-group">
-                                <label for="offer_message">
-                                    Message to customer
-                                    <span class="optional-label">Required</span>
+                                <label for="message">
+                                    <span>*</span> Message to customer (English)
                                 </label>
 
                                 <textarea name="message" id="message" class="form-control" rows="5" required maxlength="2000"
                                     placeholder="Describe the proposed solar system, including panels, inverter, batteries, installation, warranty, delivery time, 
-                                                                                                    and what is included in the total price.">{{ old('message', $quotation->message ?? 'Thank you for considering our company for your solar energy project. This offer includes the proposed solar equipment, 
+                                                                                                    and what is included in the total price.">{{ old('message', $companyQuotation?->message ?? 'Thank you for considering our company for your solar energy project. This offer includes the proposed solar equipment, 
                                                                                                     installation, system testing, and warranty as specified in the quotation. Please review the details and contact us if you have any questions.') }}</textarea>
                             </div>
 
                             <div class="form-group">
-                                <label for="ar_message">Arabic Message <span class="optional-label">Required</span></label>
+                                <label for="ar_message"><span style="color:#dc2626">*</span> Message to customer (Arabic)</label>
 
                                 <textarea name="ar_message" id="ar_message" class="form-control" rows="5" dir="rtl" lang="ar"
                                     required maxlength="2000"
                                     placeholder="اكتب تفاصيل عرض السعر، والألواح الشمسية،
-                                                                                                     والعاكس، والبطاريات، والتركيب، والضمان، ومدة التنفيذ...">{{ old('ar_message', $quotation->ar_message ?? 'شكرًا لاختياركم شركتنا لتقديم عرض لنظام الطاقة الشمسية.
+                                                                                                     والعاكس، والبطاريات، والتركيب، والضمان، ومدة التنفيذ...">{{ old('ar_message', $companyQuotation?->ar_message ??'شكرًا لاختياركم شركتنا لتقديم عرض لنظام الطاقة الشمسية.
                                                                                                       يشمل هذا العرض المعدات المقترحة وأعمال التركيب واختبار النظام والضمان وفقًا للتفاصيل الموضحة في عرض السعر.
                                                                                                       يرجى مراجعة التفاصيل والتواصل معنا إذا كانت لديكم أي استفسارات.') }}</textarea>
 
@@ -520,8 +566,8 @@
                 </div>
 
                 <div class="quote-detail">
-                    <span>Service needed</span>
-                    <strong>{{ $quote->service_needed }}</strong>
+                    <span>Quote name</span>
+                    <strong>{{ $quote->quote_name }}</strong>
                 </div>
 
                 <div class="quote-detail">
@@ -551,6 +597,9 @@
                     <strong>{{ $quote->updated_at?->format('d M Y, H:i') ?? '—' }}</strong>
                 </div>
             </div>
+
+            {{-- Devices and watts from the app calculator --}}
+            @include('partials.quote-appliances', ['quote' => $quote])
 
             <div class="quote-subsection">
                 {{-- Estimated load summary --}}

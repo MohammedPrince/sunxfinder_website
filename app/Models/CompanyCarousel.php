@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class CompanyCarousel extends Model
 {
 
-    use SoftDeletes;
+    use SoftDeletes, LogsActivity;
     protected $table = 'tbl_company_carousels';
 
     protected $fillable = ['company_id', 'platform', 'sort_order', 'interval_seconds', 'is_active', 'starts_at', 'ends_at'];

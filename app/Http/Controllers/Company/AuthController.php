@@ -2,12 +2,23 @@
 
 namespace App\Http\Controllers\Company;
 
+use App\Http\Controllers\Concerns\HandlesPasswordReset;
 use App\Http\Controllers\Controller;
+use App\Services\Company\CompanyService;
+use App\Support\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
+    use HandlesPasswordReset;
+
+    protected $companyService;
+
+    public function __construct(CompanyService $companyService)
+    {
+        $this->companyService = $companyService;
+    }
     public function showLogin()
     {
         if (Auth::guard('company')->check()) {
@@ -24,18 +35,13 @@ class AuthController extends Controller
             Auth::guard('company')->logout();
         }
 
-        return view('admin.auth.login', [
-            'loginTitle' => 'Company Sign In',
-            'portalLabel' => 'SUNXFINDER COMPANY PORTAL',
-            'portalDescription' =>
-                'Manage your solar company profile and reach customers looking for solar solutions.',
+        return view('admin.auth.login', array_merge($this->portalViewData(), [
             'loginFieldLabel' => 'Company Username',
             'loginPlaceholder' => 'Enter your company username',
             'loginAction' => route('company.login.submit'),
-            'securityTitle' => 'Secure company access',
-            'securityMessage' =>
-                'Only approved and active company accounts can access this workspace.',
-        ]);
+            'forgotPasswordAction' => route('company.password.email'),
+            'accountLabel' => 'company',
+        ]));
     }
 
     public function login(Request $request)
@@ -58,6 +64,10 @@ class AuthController extends Controller
 
             // Allow pending and approved companies, verified or not.
             if (!in_array($company->status, ['pending', 'approved'], true)) {
+                ActivityLogger::log('login_blocked', "Company sign-in blocked: account is {$company->status}", $company, [
+                    'status' => $company->status,
+                ], ActivityLogger::actorFor($company), 'auth');
+
                 Auth::guard('company')->logout();
 
                 $request->session()->invalidate();
@@ -75,11 +85,17 @@ class AuthController extends Controller
             // Store the company ID in the session.
             $request->session()->put('company_id', $company->id);
 
+            ActivityLogger::log('login', 'Signed in to the company panel', $company, [], ActivityLogger::actorFor($company), 'auth');
+
             // Redirect to the company dashboard.
             return redirect()->intended(
                 route('company.dashboard')
             );
         }
+
+        ActivityLogger::log('login_failed', "Failed company sign-in for \"{$credentials['username']}\"", null, [
+            'username' => $credentials['username'],
+        ], ActivityLogger::guest($credentials['username']), 'auth');
 
         return back()
             ->withErrors([
@@ -91,11 +107,61 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        if ($company = Auth::guard('company')->user()) {
+            ActivityLogger::log('logout', 'Signed out of the company panel', $company, [], ActivityLogger::actorFor($company), 'auth');
+        }
+
         Auth::guard('company')->logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
         return redirect()->route('company.login');
+    }
+
+    // Branding shared by the login and reset password pages.
+    private function portalViewData(): array
+    {
+        return [
+            'loginTitle' => 'Company Sign In',
+            'portalLabel' => 'SUNXFINDER COMPANY PORTAL',
+            'portalDescription' =>
+                'Manage your solar company profile and reach customers looking for solar solutions.',
+            'securityTitle' => 'Secure company access',
+            'securityMessage' =>
+                'Only approved and active company accounts can access this workspace.',
+        ];
+    }
+
+    //Password Reset (see HandlesPasswordReset)
+
+    protected function passwordResetPortal(): string
+    {
+        return 'company';
+    }
+
+    protected function passwordResetAccountLabel(): string
+    {
+        return 'company';
+    }
+
+    protected function passwordResetEmailExists(string $email): bool
+    {
+        return $this->companyService->companyEmailExists($email);
+    }
+
+    protected function sendPasswordResetOtp(string $email, string $locale): array
+    {
+        return $this->companyService->sendPasswordResetOtp($email, $locale);
+    }
+
+    protected function resetPasswordWithOtp(string $email, string $code, string $password): array
+    {
+        return $this->companyService->resetPasswordWithOtp($email, $code, $password);
+    }
+
+    protected function passwordResetViewData(): array
+    {
+        return $this->portalViewData();
     }
 }

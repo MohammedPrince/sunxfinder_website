@@ -344,19 +344,7 @@
         @endforelse
 
         {{-- Pagination --}}
-        @if ($groups->hasPages())
-            <div class="table-bottom">
-                <span class="table-info">
-                    Showing {{ $groups->firstItem() ?? 0 }}
-                    to {{ $groups->lastItem() ?? 0 }}
-                    of {{ $groups->total() }} groups
-                </span>
-
-                <div class="pagination-wrapper">
-                    {{ $groups->links() }}
-                </div>
-            </div>
-        @endif
+        @include('partials.table-pagination', ['paginator' => $groups, 'label' => 'groups'])
 
     </div>
 

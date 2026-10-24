@@ -6,8 +6,8 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Company') · SunXFinder</title>
     <link rel="icon" type="image/png" href="{{ asset('admin/images/sun.png') }}">
-    <link rel="stylesheet" href="{{ asset('admin/css/admin.css') }}">
-    <link rel="stylesheet" href="{{ asset('company/css/company-profile.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('admin/css/admin.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('company/css/company-profile.css') }}">
     <link rel="stylesheet" href="{{ asset('main/css/quill.snow.css') }}">
     @stack('styles')
 </head>
@@ -30,7 +30,7 @@
         </main>
     </div>
 
-    <script src="{{ asset('admin/js/admin.js') }}" defer></script>
+    <script src="{{ asset_v('admin/js/admin.js') }}" defer></script>
     <script src="{{ asset('main/js/quill.js') }}"></script>
     {{--
     <script src="{{ asset('main/js/lucide.min.js') }}"></script> --}}

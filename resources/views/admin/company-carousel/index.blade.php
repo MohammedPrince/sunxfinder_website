@@ -95,11 +95,6 @@
             </table>
         </div>
 
-        <div class="table-bottom">
-            <span class="table-info">
-                Showing {{ $entries->firstItem() ?? 0 }}–{{ $entries->lastItem() ?? 0 }} of {{ $entries->total() }}
-            </span>
-            <div class="pagination-wrapper">{{ $entries->links() }}</div>
-        </div>
+        @include('partials.table-pagination', ['paginator' => $entries, 'label' => 'entries'])
     </section>
 @endsection

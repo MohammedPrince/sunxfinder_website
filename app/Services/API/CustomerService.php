@@ -2,6 +2,7 @@
 
 namespace App\Services\API;
 
+use App\Models\CustomerDeviceToken;
 use App\Repositories\API\CustomerRepository;
 
 class CustomerService
@@ -16,6 +17,11 @@ class CustomerService
     public function login($data)
     {
         return $this->customerRepository->login($data);
+    }
+
+    public function mainData()
+    {
+        return $this->customerRepository->mainData();
     }
 
     public function createAccount(array $data): array
@@ -48,6 +54,11 @@ class CustomerService
         return $this->customerRepository->getCompany($id);
     }
 
+    public function getCompanyBySlug(string $slug): array
+    {
+        return $this->customerRepository->getCompanyBySlug($slug);
+    }
+
     public function getServices()
     {
         return $this->customerRepository->getServices();
@@ -62,7 +73,6 @@ class CustomerService
     {
         return $this->customerRepository->getCarousels();
     }
-
 
     public function storeQuote(array $data): array
     {
@@ -84,16 +94,73 @@ class CustomerService
         return $this->customerRepository->rejectOffer($data);
     }
 
+    public function submitRating(array $data): array
+    {
+        return $this->customerRepository->submitRating($data);
+    }
+
+    public function getRatingForm(): array
+    {
+        return $this->customerRepository->getRatingForm();
+    }
+
     public function getProjectProgress(int $projectId)
     {
         return $this->customerRepository->getProjectProgress($projectId);
+    }
+
+    public function saveCustomerDeviceToken(
+        int $customerId,
+        string $token,
+        string $platform,
+        string $lang = 'en',
+        ?string $deviceName = null,
+        ?bool $isActive = null
+    ): CustomerDeviceToken {
+        return $this->customerRepository->saveCustomerDeviceToken(
+            $customerId,
+            $token,
+            $platform,
+            $lang,
+            $deviceName,
+            $isActive
+        );
+    }
+
+    public function getCustomerNotifications(array $filters = []): array
+    {
+        return $this->customerRepository->getCustomerNotifications($filters);
+    }
+
+    public function markNotificationAsRead($notificationId): array
+    {
+        return $this->customerRepository->markNotificationAsRead($notificationId);
+    }
+
+    public function markAllNotificationsAsRead(): array
+    {
+        return $this->customerRepository->markAllNotificationsAsRead();
+    }
+
+    public function forgotPassword(array $data): array
+    {
+        return $this->customerRepository->forgotPassword($data);
+    }
+
+    public function verifyPasswordResetOtp(array $data): array
+    {
+        return $this->customerRepository->verifyPasswordResetOtp($data);
+    }
+
+    public function resetPassword(array $data): array
+    {
+        return $this->customerRepository->resetPassword($data);
     }
 
     public function deleteAccount(): array
     {
         return $this->customerRepository->deleteAccount();
     }
-
 
     public function logout()
     {

@@ -4,7 +4,7 @@
     $isEditing = isset($company) && $company->exists;
 
     $pageTitle = $isEditing ? 'Update Company' : 'Add New Company';
-    $pageBreadcrumb = $isEditing ? 'Solar companies / Update company' : 'Solar companies / Add new';
+    $pageBreadcrumb = $isEditing ? 'Update company' : 'Solar companies / Add new';
 
     $formAction = $isEditing ? route('admin.companies.update', $company->id) : route('admin.companies.store');
 @endphp
@@ -102,7 +102,7 @@
                     <div class="form-group">
                         <label for="phone">Phone Number <b style="color: red">*</b></label>
                         <input class="form-control" type="text" id="phone" name="phone" maxlength="30" required
-                            value="{{ old('phone', $company->phone ?? '') }}" placeholder="+249...">
+                            value="{{ old('phone', $company->phone ?? '') }}" placeholder="09...">
                         @error('phone')
                             <small class="field-error">{{ $message }}</small>
                         @enderror
@@ -162,17 +162,13 @@
                         @enderror
                     </div>
 
-
-
                     <div class="form-group">
                         <label for="password">
-                            <label for="password">
-                                @if ($isEditing)
-                                    Change Password (Optional)
-                                @else
-                                    Initial Password <span style="color: red;">*</span>
-                                @endif
-                            </label>
+                            @if ($isEditing)
+                                Change Password (Optional)
+                            @else
+                                Initial Password <b style="color: red">*</b>
+                            @endif
                         </label>
                         <input class="form-control" type="password" id="password" name="password" minlength="8"
                             autocomplete="new-password"
@@ -191,6 +187,10 @@
                                 Company Services <b style="color: red">*</b>
                             </label>
 
+                            <div class="editor-hint">
+                                List the main services, separated by commas.
+                            </div>
+
                             <textarea class="form-control" name="services" id="services" rows="3"
                                 placeholder="Commercial solar, Hybrid systems, Off-grid systems" required>{{ old('services', $company->services ?? '') }}</textarea>
 
@@ -204,6 +204,10 @@
                                 Company Services (Arabic) <b style="color: red">*</b>
                             </label>
 
+                            <div class="editor-hint" dir="rtl" lang="ar">
+                                اكتب الخدمات الرئيسية مفصولة بفواصل.
+                            </div>
+
                             <textarea class="form-control" name="ar_services" id="ar_services" rows="3" dir="rtl" lang="ar"
                                 placeholder="الطاقة الشمسية التجارية، الأنظمة الهجينة، الأنظمة خارج الشبكة" required>{{ old('ar_services', $company->ar_services ?? '') }}</textarea>
 
@@ -211,10 +215,6 @@
                                 <small class="field-error">{{ $message }}</small>
                             @enderror
                         </div>
-
-
-
-
                     </div>
 
                     {{-- Company Profiles: English + Arabic --}}
@@ -259,49 +259,6 @@
                         </div>
 
                     </div>
-
-
-                    {{-- Company Profiles: English + Arabic --}}
-                    {{-- <div class="company-profile-grid">
-
-                        <div class="form-group">
-                            <label for="companyEditor">
-                                Company Profile <b style="color: red">*</b>
-                            </label>
-
-
-
-                            <input class="form-control" type="text" id="license_number" name="license_number"
-                                value="{{ old('license_number', $company->license_number ?? '') }}"
-                                placeholder="Enter your company's official license number"
-                                @if (!$isEditing || empty($company->license_number)) required @endif>
-
-                            @error('description')
-                                <small class="field-error">{{ $message }}</small>
-                            @enderror
-                        </div>
-
-                        <div class="form-group">
-                            <label for="companyEditorAr">
-                                Company Profile (Arabic) <b style="color: red">*</b>
-                            </label>
-
-                            <input class="form-control" type="text" id="license_number" name="license_number"
-                                value="{{ old('license_number', $company->license_number ?? '') }}"
-                                placeholder="Enter your company's official license number"
-                                @if (!$isEditing || empty($company->license_number)) required @endif>
-
-                            @error('ar_description')
-                                <small class="field-error">{{ $message }}</small>
-                            @enderror
-                        </div>
-
-                    </div> --}}
-
-
-
-
-
 
 
                 </div>

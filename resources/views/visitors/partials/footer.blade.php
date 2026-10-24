@@ -1,7 +1,7 @@
     <footer class="footer">
         <div class="container footer-grid">
-            <div><a class="brand footer-brand" href="{{ url('/') }}"><img
-                        src="{{ asset('images/sunxfinder-logo.png') }}" alt="SunXFinder" loading="lazy"><span
+            <div><a class="brand footer-brand" href="{{ url('/') }}"><picture><source type="image/webp" srcset="{{ asset_v('visitors/images/sunxfinder-logo.webp') }}"><img
+                        src="{{ asset_v('visitors/images/sunxfinder-logo-480.png') }}" alt="SunXFinder" loading="lazy" decoding="async" width="240" height="84"></picture><span
                         class="brand-fallback">Sun<span>X</span>Finder</span></a>
                 <p>Find. Compare. Connect.<br>Helping you discover the right energy partner.</p>
             </div>
