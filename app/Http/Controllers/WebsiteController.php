@@ -161,7 +161,7 @@ class WebsiteController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => ['required', 'string', 'min:2', 'max:100'],
             'email' => ['required', 'email', 'max:150'],
-            'phone' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+\s()-]+$/'],
+            'phone' => ['nullable', 'string', 'max:10','min:9', 'regex:/^[0-9+\s()-]+$/'],
             'sender_type' => ['required', Rule::in(['customer', 'company', 'other'])],
             'subject' => ['required', 'string', 'min:3', 'max:150'],
             'message' => ['required', 'string', 'min:10', 'max:3000'],
@@ -217,7 +217,7 @@ class WebsiteController extends Controller
                 Rule::unique('tbl_solar_companies', 'email'),
             ],
 
-            'phone' => ['required', 'string', 'max:10', 'min:10'],
+            'phone' => ['required', 'string', 'max:10', 'min:9'],
             'city' => ['required', 'string', 'max:100'],
             'services' => ['required', 'string', 'max:5000'],
             'ar_services' => ['required', 'string', 'max:5000'],
@@ -405,7 +405,7 @@ class WebsiteController extends Controller
                 'required',
                 'string',
                 'max:10',
-                'min:10',
+                'min:9',
                 'unique:tbl_customers,phone',
             ],
             'email' => [
