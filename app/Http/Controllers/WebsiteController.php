@@ -201,7 +201,7 @@ class WebsiteController extends Controller
     {
 
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:100', 'min:10', 'regex:/\A[A-Za-z0-9\s.,&\'()\-]+\z/',],
+            'name' => ['required', 'string', 'max:200', 'min:10', 'regex:/\A[A-Za-z0-9\s.,&\'()\-\p{Arabic}]+\z/u',],
             'username' => [
                 'required',
                 'string',
