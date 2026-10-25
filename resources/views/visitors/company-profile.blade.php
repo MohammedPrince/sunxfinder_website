@@ -97,8 +97,7 @@
                     <section class="profile-panel" id="company-about">
                         <span class="eyebrow">{{ trans('messages.COMPANY OVERVIEW') }}</span>
                         <h2 style="text-align:left;"> <em>{{ $companyName }}</em></h2>
-                        <p class="company-about-copy">{!! \Mews\Purifier\Facades\Purifier::clean($companyDescription) !!}
-                        </p>
+                        <p class="company-about-copy" dir="auto">{{ $companyDescription }}</p>
                         <div class="company-facts">
                             <div class="company-fact"><span class="fact-icon">☀</span>
                                 <div>

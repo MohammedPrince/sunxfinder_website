@@ -185,7 +185,8 @@ class Helper
             return [];
         }
 
-        return collect(preg_split('/[,\r\n]+/', $value))
+        // English comma, Arabic comma (،), semicolons (; ؛) or new lines.
+        return collect(preg_split('/[,،;؛\r\n]+/u', $value))
             ->map(fn($item) => trim($item))
             ->filter()
             ->values()

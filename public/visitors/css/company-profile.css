@@ -247,6 +247,8 @@
     color: #60718a;
     line-height: 1.9;
     margin: 0;
+    /* Long words or links must wrap inside the card, never push past it. */
+    overflow-wrap: anywhere;
 }
 
 .company-facts {

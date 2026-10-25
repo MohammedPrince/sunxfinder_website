@@ -328,18 +328,17 @@ class WebsiteController extends Controller
             ? ($company->ar_description ?: $company->description)
             : ($company->description ?: $company->ar_description);
 
-        // The existing Blade view displays this value as escaped text.
-        $companyDescription = strip_tags($companyDescription ?? '');
+        // Plain text for the view. Text pasted into the editor often joins words with
+        // &nbsp; (non-breaking spaces), which stops the browser wrapping the line.
+        $companyDescription = html_entity_decode(strip_tags($companyDescription ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $companyDescription = trim(preg_replace('/[\x{00A0}\x{202F}\s]+/u', ' ', $companyDescription));
 
         $services = $isArabic
             ? ($company->ar_services ?: $company->services)
             : ($company->services ?: $company->ar_services);
 
-        $companyServices = collect(explode(',', $services ?? ''))
-            ->map(fn($service) => trim($service))
-            ->filter()
-            ->values()
-            ->all();
+        // One card per service: split on English or Arabic commas (، ) like the app does.
+        $companyServices = app(Helper::class)->splitList(strip_tags($services ?? ''));
 
         $companyLogo = $company->logo_path
             ? asset('storage/' . $company->logo_path)
@@ -353,7 +352,7 @@ class WebsiteController extends Controller
         $companyRating = $ratingSummary['rating'];
         $companyReviews = $ratingSummary['reviews'];
 
-        $companyYears = null;
+        $companyYears = $company->year_of_exp;
         $companyProducts = $company->products;
         $companyReviewsList = $this->mainService->getCompanyReviews($company->id);
 
