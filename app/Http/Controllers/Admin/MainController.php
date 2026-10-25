@@ -783,8 +783,10 @@ class MainController extends Controller
 
         $apk = \App\Support\ApkDownload::info();
         $apkChunkBytes = \App\Support\ApkDownload::chunkBytes();
+        $playStoreButton = \App\Models\Setting::showPlayStoreButton();
+        $playStoreUrl = $versions->firstWhere('platform', 'android')?->app_url;
 
-        return view('admin.app-versions.index', compact('versions', 'missingPlatforms', 'apk', 'apkChunkBytes'));
+        return view('admin.app-versions.index', compact('versions', 'missingPlatforms', 'apk', 'apkChunkBytes', 'playStoreButton', 'playStoreUrl'));
     }
 
     public function createAppVersion()
@@ -900,6 +902,14 @@ class MainController extends Controller
     public function toggleApkDownload(Request $request)
     {
         $result = $this->adminService->setApkDownloadEnabled($request->boolean('enabled'));
+
+        return redirect()->route('admin.app-versions.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function togglePlayStoreButton(Request $request)
+    {
+        $result = $this->adminService->setPlayStoreButtonEnabled($request->boolean('enabled'));
 
         return redirect()->route('admin.app-versions.index')
             ->with($result['success'] ? 'success' : 'error', $result['message']);

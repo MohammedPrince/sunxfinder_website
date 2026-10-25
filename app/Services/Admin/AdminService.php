@@ -342,6 +342,11 @@ class AdminService
         return $this->adminRepository->deleteApk();
     }
 
+    public function setPlayStoreButtonEnabled(bool $enabled): array
+    {
+        return $this->adminRepository->setPlayStoreButtonEnabled($enabled);
+    }
+
     //APK Direct Download End
 
     //Quote Requests Start

@@ -2085,6 +2085,19 @@ class AdminRepository
         }
     }
 
+    public function setPlayStoreButtonEnabled(bool $enabled): array
+    {
+        Setting::set('play_store_button_enabled', $enabled ? '1' : '0');
+        cache()->forget(Setting::PLAY_STORE_BUTTON_CACHE_KEY);
+
+        return [
+            'success' => true,
+            'message' => $enabled
+                ? 'The Google Play button is now shown on the home page.'
+                : 'The Google Play button is now hidden on the home page.',
+        ];
+    }
+
     //APK Direct Download End
 
     // Call from your existing public/mobile home-data repository/service.

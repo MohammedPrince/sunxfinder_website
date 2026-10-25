@@ -173,6 +173,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::post('/apk/finish', 'finishApkUpload')->name('apk.finish');
                 Route::patch('/apk/visibility', 'toggleApkDownload')->name('apk.visibility');
                 Route::delete('/apk', 'deleteApk')->name('apk.destroy');
+
+                // Show/hide the home page Google Play button
+                Route::patch('/play-store/visibility', 'togglePlayStoreButton')->name('play-store.visibility');
             });
 
             // Quote requests: view, plus cancel / reassign / nudge companies

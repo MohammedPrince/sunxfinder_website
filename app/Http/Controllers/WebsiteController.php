@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\Helper;
 use App\Services\MainService;
+use App\Models\Setting;
 use App\Support\ApkDownload;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -35,6 +36,11 @@ class WebsiteController extends Controller
         $this->mainService->recordVisitor($sessionId);
         $visitorCount = Cache::remember('home:visitor-count', 300, fn() => $this->mainService->getVisitorCount());
         $appLinks = $this->mainService->getAppDownloadLinks();
+
+        // Admin → App Versions can hide the Google Play button (both places on the home page).
+        if (!Setting::showPlayStoreButton()) {
+            unset($appLinks['android']);
+        }
 
         // App section buttons: the uploaded APK (when the admin shows it) and the
         // Android store link only when it really points to Google Play.
