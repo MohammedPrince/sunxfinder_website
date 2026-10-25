@@ -107,6 +107,46 @@
         </div>
     </section>
 
+    {{-- Google Play button on the home page --}}
+    @php
+        $isPlayLink = str_contains((string) $playStoreUrl, 'play.google.com');
+    @endphp
+    <section class="panel" style="margin-top:24px">
+        <div class="panel-heading">
+            <div>
+                <h2>
+                    Google Play button
+                    <span class="pill {{ $playStoreButton && $isPlayLink ? 'pill-green' : 'pill-blue' }}">
+                        {{ $playStoreButton && $isPlayLink ? 'Shown on home page' : 'Hidden' }}
+                    </span>
+                </h2>
+                <p>
+                    Shows "Get it on Google Play" on the home page, linking to the Android store link above.
+                    @unless ($isPlayLink)
+                        It only appears once the Android store link is a Google Play address (play.google.com).
+                    @endunless
+                </p>
+            </div>
+        </div>
+
+        <div class="panel-body">
+            <form action="{{ route('admin.app-versions.play-store.visibility') }}" method="POST">
+                @csrf
+                @method('PATCH')
+                <label class="toggle-card" for="play_store_enabled">
+                    <span class="toggle-card-copy">
+                        <strong>Show the Google Play button</strong>
+                        <small>Beside "Get started" and in the "Get the app" section of the home page.</small>
+                    </span>
+                    <input type="hidden" name="enabled" value="0">
+                    <input class="toggle-input" type="checkbox" id="play_store_enabled" name="enabled" value="1"
+                        @checked($playStoreButton) onchange="this.form.submit()">
+                    <span class="toggle-switch" aria-hidden="true"></span>
+                </label>
+            </form>
+        </div>
+    </section>
+
     {{-- Android APK offered as "Direct Download" / "تحميل" on the home page --}}
     <section class="panel" style="margin-top:24px">
         <div class="panel-heading">

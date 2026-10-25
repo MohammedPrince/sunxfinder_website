@@ -33,6 +33,22 @@ class Setting extends Model
         static::query()->updateOrCreate(['key' => $key], ['value' => $value]);
     }
 
+    /** Cache key for the home page Google Play button switch. */
+    public const PLAY_STORE_BUTTON_CACHE_KEY = 'play-store-button';
+
+    /**
+     * Whether the home page shows the Google Play button (Admin → App Versions).
+     * On by default; cached for a minute since every home page view reads it.
+     */
+    public static function showPlayStoreButton(): bool
+    {
+        return (bool) cache()->remember(
+            self::PLAY_STORE_BUTTON_CACHE_KEY,
+            60,
+            fn() => (string) static::get('play_store_button_enabled', '1') === '1'
+        );
+    }
+
     /** Highest limit an admin can give one customer (Settings → Quote requests). */
     public const MAX_OPEN_QUOTES_PER_CUSTOMER = 5;
 
