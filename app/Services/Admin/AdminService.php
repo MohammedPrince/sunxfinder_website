@@ -514,6 +514,16 @@ class AdminService
         return $this->adminRepository->setCustomerQuoteLimit($customerId, $limit);
     }
 
+    public function getCompanyEmailOptions()
+    {
+        return $this->adminRepository->getCompanyEmailOptions();
+    }
+
+    public function sendCompanyEmail(array $data): array
+    {
+        return $this->adminRepository->sendCompanyEmail($data);
+    }
+
     public function createApiEndpoint(array $data): array
     {
         return $this->adminRepository->createApiEndpoint($data);

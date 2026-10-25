@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Helpers\Helper;
 use App\Jobs\SendCustomerWelcomeEmail;
 use App\Mail\ContactMessageMail;
+use App\Mail\NewCompanyRegisteredMail;
 use Illuminate\Support\Facades\Mail;
 use App\Models\AppVersion;
 use App\Models\CompanyCarousel;
@@ -89,6 +90,24 @@ class MainRepository
         return app(Helper::class)->companyReviews($companyId);
     }
 
+    /** Queues the "new company sign-up" email to the admin. Never fails the sign-up. */
+    private function notifyAdminOfNewCompany(SolarCompany $company): void
+    {
+        try {
+            Mail::to(config('mail.admin_notify_address'))->queue(new NewCompanyRegisteredMail([
+                'id' => (int) $company->id,
+                'name' => (string) $company->name,
+                'username' => (string) $company->username,
+                'email' => $company->email,
+                'phone' => $company->phone,
+                'city' => $company->city,
+                'registered_at' => now()->format('M d, Y H:i'),
+            ]));
+        } catch (Throwable $e) {
+            report($e);
+        }
+    }
+
     public function registerCompany(array $data): array
     {
         try {
@@ -133,6 +152,8 @@ class MainRepository
 
                 return $company;
             });
+
+            $this->notifyAdminOfNewCompany($company);
 
             return [
                 'success' => true,

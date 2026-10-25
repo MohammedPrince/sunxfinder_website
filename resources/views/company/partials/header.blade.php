@@ -100,7 +100,21 @@
             </a>
         @endcomponent
 
-        @component('partials.nav-group', ['key' => 'customers', 'label' => 'Customers', 'icon' => 'chat', 'routes' => ['company.notifications.*', 'company.ratings.*']])
+        @component('partials.nav-group', ['key' => 'customers', 'label' => 'Customers', 'icon' => 'chat', 'routes' => ['company.customers.*', 'company.notifications.*', 'company.ratings.*']])
+            <a class="nav-link {{ request()->routeIs('company.customers.*') ? 'active' : '' }}"
+                href="{{ route('company.customers.index') }}">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="10" cy="7" r="4" />
+                        <path d="M20 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                </span>
+                <span>Company Customers</span>
+                <span class="nav-count warm">{{ $companyCustomersCount ?? 0 }}</span>
+            </a>
             <a class="nav-link {{ request()->routeIs('company.notifications.*') ? 'active' : '' }}"
                 href="{{ route('company.notifications.index') }}">
                 <span class="nav-icon">

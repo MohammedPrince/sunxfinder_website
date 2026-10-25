@@ -233,7 +233,7 @@
         <div class="panel-heading">
             <div>
                 <h2>Company performance</h2>
-                <p>Offers and wins in this period; projects and products are current totals</p>
+                <p>Offers and wins in this period; customers, projects and products are current totals</p>
             </div>
             <a class="btn btn-light no-print"
                 href="{{ route('admin.reports.export', ['section' => 'companies'] + $exportQuery) }}">↓ CSV</a>
@@ -248,6 +248,7 @@
                         <th>Win rate</th>
                         <th>Avg offer (SDG)</th>
                         <th>Avg response</th>
+                        <th title="Customers who accepted an offer from this company">Customers</th>
                         <th>Active projects</th>
                         <th>Completed</th>
                         <th>Avg progress</th>
@@ -275,6 +276,7 @@
                             <td>{{ $company['win_rate'] !== null ? $company['win_rate'] . '%' : '—' }}</td>
                             <td>{{ $money($company['avg_price_sdg']) }}</td>
                             <td>{{ $company['avg_response_hours'] !== null ? $company['avg_response_hours'] . ' h' : '—' }}</td>
+                            <td><strong>{{ $company['customers'] }}</strong></td>
                             <td>{{ $company['active_projects'] }}</td>
                             <td>{{ $company['completed_projects'] }}</td>
                             <td>{{ $company['avg_progress'] !== null ? $company['avg_progress'] . '%' : '—' }}</td>
@@ -288,7 +290,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="10" class="dashboard-empty"><strong>No companies yet.</strong></td>
+                            <td colspan="11" class="dashboard-empty"><strong>No companies yet.</strong></td>
                         </tr>
                     @endforelse
                 </tbody>

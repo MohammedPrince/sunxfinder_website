@@ -156,4 +156,7 @@ return [
         'name' => env('MAIL_OFFER_FROM_NAME', 'SunXFinder (No-Reply)'),
     ],
 
+    // Admin who is told about new company sign-ups.
+    'admin_notify_address' => env('MAIL_ADMIN_NOTIFY_ADDRESS', 'mohammed.beng@gmail.com'),
+
 ];

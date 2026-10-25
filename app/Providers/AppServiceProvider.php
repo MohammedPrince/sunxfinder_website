@@ -112,6 +112,7 @@ class AppServiceProvider extends ServiceProvider
             $myActiveProjectCount = 0;
             $notificationsCount = 0;
             $ratingsCount = 0;
+            $companyCustomersCount = 0;
 
             if ($company) {
                 $companyId = $company->getAuthIdentifier();
@@ -125,10 +126,12 @@ class AppServiceProvider extends ServiceProvider
                 $myActiveProjectCount = Project::query()->where('company_id', $companyId)->count();
                 $notificationsCount = Notification::query()->where('sender_id', $companyId)->count();
                 $ratingsCount = Rating::query()->visible()->where('company_id', $companyId)->count();
+                $companyCustomersCount = Project::query()->where('company_id', $companyId)->distinct()->count('customer_id');
             }
 
 
             $view->with([
+                'companyCustomersCount' => $companyCustomersCount,
                 'myCompanyQuoteCount' => $myCompanyQuoteCount,
                 'productsCount' => $productsCount,
                 'myActiveProjectCount' => $myActiveProjectCount,

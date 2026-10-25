@@ -2,6 +2,7 @@
 
 namespace App\Repositories\Admin;
 
+use App\Mail\CompanyJoinRequestMail;
 use App\Mail\CompanyRequestWaitingMail;
 use App\Models\ActivityLog;
 use App\Models\Admin;
@@ -322,11 +323,11 @@ class AdminRepository
         if ($section === 'companies') {
             return [
                 'filename' => "company-performance_{$suffix}.csv",
-                'headers' => ['Company', 'City', 'Status', 'Verified', 'Offers', 'Selected', 'Not selected', 'Withdrawn', 'Win rate %', 'Avg offer (SDG)', 'Avg response (hours)', 'Active projects', 'Completed projects', 'Avg progress %', 'Products'],
+                'headers' => ['Company', 'City', 'Status', 'Verified', 'Offers', 'Selected', 'Not selected', 'Withdrawn', 'Win rate %', 'Avg offer (SDG)', 'Avg response (hours)', 'Customers', 'Active projects', 'Completed projects', 'Avg progress %', 'Products'],
                 'rows' => array_map(fn($c) => [
                     $c['name'], $c['city'], $c['status'], $c['is_verified'] ? 'Yes' : 'No', $c['offers'], $c['selected'],
                     $c['not_selected'], $c['withdrawn'], $c['win_rate'] ?? '', $c['avg_price_sdg'] ?? '',
-                    $c['avg_response_hours'] ?? '', $c['active_projects'], $c['completed_projects'],
+                    $c['avg_response_hours'] ?? '', $c['customers'], $c['active_projects'], $c['completed_projects'],
                     $c['avg_progress'] ?? '', $c['products'],
                 ], $this->reportCompanyPerformance($from, $to)),
             ];
@@ -626,6 +627,8 @@ class AdminRepository
         $projects = DB::table('tbl_projects')
             ->whereNull('deleted_at')
             ->selectRaw('company_id')
+            // A company's customers: everyone who accepted one of its offers (= has a project with it).
+            ->selectRaw('COUNT(DISTINCT customer_id) as customers')
             ->selectRaw("SUM(status IN ('accepted', 'in_progress')) as active_projects")
             ->selectRaw("SUM(status = 'completed') as completed_projects")
             ->selectRaw("AVG(CASE WHEN status IN ('accepted', 'in_progress') THEN progress_percent END) as avg_progress")
@@ -644,7 +647,7 @@ class AdminRepository
             ->get([
                 'sc.id', 'sc.name', 'sc.city', 'sc.status', 'sc.is_verified', 'sc.is_active',
                 'o.offers', 'o.selected', 'o.not_selected', 'o.withdrawn', 'o.avg_price_sdg', 'o.avg_response_minutes',
-                'p.active_projects', 'p.completed_projects', 'p.avg_progress', 'pr.products',
+                'p.customers', 'p.active_projects', 'p.completed_projects', 'p.avg_progress', 'pr.products',
             ])
             ->map(function ($r) {
                 $selected = (int) $r->selected;
@@ -664,6 +667,7 @@ class AdminRepository
                     'win_rate' => $decided > 0 ? (int) round($selected / $decided * 100) : null,
                     'avg_price_sdg' => $r->avg_price_sdg !== null ? round((float) $r->avg_price_sdg, 2) : null,
                     'avg_response_hours' => $r->avg_response_minutes !== null ? round($r->avg_response_minutes / 60, 1) : null,
+                    'customers' => (int) $r->customers,
                     'active_projects' => (int) $r->active_projects,
                     'completed_projects' => (int) $r->completed_projects,
                     'avg_progress' => $r->avg_progress !== null ? (int) round($r->avg_progress) : null,
@@ -1098,7 +1102,22 @@ class AdminRepository
 
     public function getCustomers(int $perPage = 10, ?string $status = null)
     {
+        // The last company the customer dealt with = the company of their latest project
+        // (a project is created when the customer accepts that company's offer).
+        $lastProject = fn(string $column) => DB::table('tbl_projects as lp')
+            ->join('tbl_solar_companies as lc', 'lc.id', '=', 'lp.company_id')
+            ->whereColumn('lp.customer_id', 'tbl_customers.id')
+            ->whereNull('lp.deleted_at')
+            ->orderByDesc('lp.created_at')
+            ->orderByDesc('lp.id')
+            ->limit(1)
+            ->select($column);
+
         return Customer::query()
+            ->select('tbl_customers.*')
+            ->selectSub($lastProject('lc.id'), 'last_company_id')
+            ->selectSub($lastProject('lc.name'), 'last_company_name')
+            ->selectSub($lastProject('lp.created_at'), 'last_company_at')
             // tokens_count > 0 means the customer is signed in on the app.
             ->withCount('tokens')
             // e.g. ?status=pending from the "Customers waiting for approval" alert.
@@ -3273,6 +3292,47 @@ class AdminRepository
             'api_endpoints' => ApiEndpoint::query()->orderByDesc('is_active')->orderBy('name')->get(),
         ];
     }
+
+    //Send Email Start
+
+    /** Companies offered as suggestions in the "Email to" field. */
+    public function getCompanyEmailOptions()
+    {
+        return SolarCompany::query()
+            ->whereNotNull('email')
+            ->where('email', '!=', '')
+            ->orderBy('name')
+            ->get(['id', 'name', 'email']);
+    }
+
+    /** Sends the admin's email from info@ (bcc to the owner) and logs it. */
+    public function sendCompanyEmail(array $data): array
+    {
+        $companyName = SolarCompany::query()->where('email', $data['email'])->value('name');
+
+        try {
+            Mail::to($data['email'])->send(new CompanyJoinRequestMail(
+                $data['subject'],
+                $data['message'],
+                $data['lang'],
+                $companyName
+            ));
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'The email could not be sent: ' . $e->getMessage()];
+        }
+
+        ActivityLogger::log('email_sent', "Admin emailed {$data['email']}: {$data['subject']}", null, [
+            'to' => $data['email'],
+            'subject' => $data['subject'],
+            'lang' => $data['lang'],
+        ], null, 'notifications');
+
+        return ['success' => true, 'message' => "Email sent to {$data['email']}."];
+    }
+
+    //Send Email End
 
     //API Endpoints Start
 

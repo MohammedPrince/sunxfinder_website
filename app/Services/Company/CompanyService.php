@@ -221,6 +221,21 @@ class CompanyService
     //Notifications End
 
     //Ratings Start
+    public function getCompanyCustomers(array $filters = []): LengthAwarePaginator
+    {
+        return $this->companyRepository->getCompanyCustomers($filters);
+    }
+
+    public function getCompanyCustomerIds(): array
+    {
+        return $this->companyRepository->getCompanyCustomerIds();
+    }
+
+    public function getCompanyCustomerSummary(): array
+    {
+        return $this->companyRepository->getCompanyCustomerSummary();
+    }
+
     public function getCompanyRatings(array $filters = []): LengthAwarePaginator
     {
         return $this->companyRepository->getCompanyRatings($filters);

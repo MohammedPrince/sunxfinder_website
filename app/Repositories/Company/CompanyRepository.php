@@ -1664,6 +1664,64 @@ class CompanyRepository
     //Ratings Start
 
     /** This company's visible ratings, newest first. Hidden ones were removed by admin. */
+    /**
+     * "Company Customers": customers who chose this company, i.e. accepted one of its
+     * offers (which creates a project). One row per customer, most recent first.
+     */
+    public function getCompanyCustomers(array $filters = []): LengthAwarePaginator
+    {
+        $search = trim((string) ($filters['search'] ?? ''));
+
+        return DB::table('tbl_projects as p')
+            ->join('tbl_customers as c', 'c.id', '=', 'p.customer_id')
+            ->where('p.company_id', $this->authenticatedCompanyId())
+            ->whereNull('p.deleted_at')
+            ->when($search !== '', fn($q) => $q->where(fn($w) => $w
+                ->where('c.full_name', 'like', "%{$search}%")
+                ->orWhere('c.username', 'like', "%{$search}%")
+                ->orWhere('c.phone', 'like', "%{$search}%")
+                ->orWhere('c.city', 'like', "%{$search}%")))
+            ->groupBy('c.id', 'c.full_name', 'c.username', 'c.phone', 'c.email', 'c.city')
+            ->select('c.id', 'c.full_name', 'c.username', 'c.phone', 'c.email', 'c.city')
+            ->selectRaw('COUNT(*) as projects')
+            ->selectRaw("SUM(p.status IN ('accepted', 'in_progress')) as active_projects")
+            ->selectRaw("SUM(p.status = 'completed') as completed_projects")
+            ->selectRaw('MIN(p.created_at) as first_project_at')
+            ->selectRaw('MAX(p.created_at) as last_project_at')
+            ->selectRaw('MAX(p.id) as last_project_id')
+            ->orderByDesc('last_project_at')
+            ->paginate(15)
+            ->withQueryString();
+    }
+
+    /** Ids of every customer who accepted one of this company's offers. */
+    public function getCompanyCustomerIds(): array
+    {
+        return DB::table('tbl_projects')
+            ->where('company_id', $this->authenticatedCompanyId())
+            ->whereNull('deleted_at')
+            ->distinct()
+            ->pluck('customer_id')
+            ->map(fn($id) => (int) $id)
+            ->all();
+    }
+
+    /** Totals for the Company Customers page. */
+    public function getCompanyCustomerSummary(): array
+    {
+        $projects = DB::table('tbl_projects')
+            ->where('company_id', $this->authenticatedCompanyId())
+            ->whereNull('deleted_at');
+
+        return [
+            'customers' => (clone $projects)->distinct()->count('customer_id'),
+            'repeat' => (clone $projects)->select('customer_id')->groupBy('customer_id')
+                ->havingRaw('COUNT(*) > 1')->get()->count(),
+            'active' => (clone $projects)->whereIn('status', ['accepted', 'in_progress'])->distinct()->count('customer_id'),
+            'this_month' => (clone $projects)->where('created_at', '>=', now()->startOfMonth())->distinct()->count('customer_id'),
+        ];
+    }
+
     public function getCompanyRatings(array $filters = []): LengthAwarePaginator
     {
         return Rating::query()
