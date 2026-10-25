@@ -278,7 +278,8 @@
                     @if ($companyQuotation?->status === 'selected')
                         <span class="offer-eyebrow" style="color:#172b45;">YOUR OFFER WON</span>
                         <h2>The customer chose you</h2>
-                        <p style="font-size:14px;">Plan the installation and keep the customer updated from the project page.</p>
+                        <p style="font-size:14px;">Plan the installation and keep the customer updated from the project page.
+                        </p>
                     @elseif ($canEditOffer)
                         <span class="offer-eyebrow" style="color:#172b45;">OFFER SENT</span>
                         <h2>Customer is comparing offers</h2>
@@ -347,15 +348,15 @@
 
                             <center>
                                 @if ($companyQuotation?->status === 'selected' && $project)
-                                    <div class="selected-offer-actions">
-                                        <a href="{{ route('company.projects.show', $project->id) }}" class="btn btn-primary">
-                                            {{ match ($project->status) {
-                                                'completed' => 'View Project',
-                                                'in_progress' => 'Update Project Progress',
-                                                default => "Let's Start the Project",
-                                            } }} →
-                                        </a>
-                                    </div>
+                                                    <div class="selected-offer-actions">
+                                                        <a href="{{ route('company.projects.show', $project->id) }}" class="btn btn-primary">
+                                                            {{ match ($project->status) {
+                                        'completed' => 'View Project',
+                                        'in_progress' => 'Update Project Progress',
+                                        default => "Let's Start the Project",
+                                    } }} →
+                                                        </a>
+                                                    </div>
                                 @endif
                             </center>
 
@@ -473,19 +474,20 @@
 
                                 <textarea name="message" id="message" class="form-control" rows="5" required maxlength="2000"
                                     placeholder="Describe the proposed solar system, including panels, inverter, batteries, installation, warranty, delivery time, 
-                                                                                                    and what is included in the total price.">{{ old('message', $companyQuotation?->message ?? 'Thank you for considering our company for your solar energy project. This offer includes the proposed solar equipment, 
-                                                                                                    installation, system testing, and warranty as specified in the quotation. Please review the details and contact us if you have any questions.') }}</textarea>
+                                                                                                            and what is included in the total price.">{{ old('message', $companyQuotation?->message ?? 'Thank you for considering our company for your solar energy project. This offer includes the proposed solar equipment, 
+                                                                                                            installation, system testing, and warranty as specified in the quotation. Please review the details and contact us if you have any questions.') }}</textarea>
                             </div>
 
                             <div class="form-group">
-                                <label for="ar_message"><span style="color:#dc2626">*</span> Message to customer (Arabic)</label>
+                                <label for="ar_message"><span style="color:#dc2626">*</span> Message to customer
+                                    (Arabic)</label>
 
                                 <textarea name="ar_message" id="ar_message" class="form-control" rows="5" dir="rtl" lang="ar"
                                     required maxlength="2000"
                                     placeholder="اكتب تفاصيل عرض السعر، والألواح الشمسية،
-                                                                                                     والعاكس، والبطاريات، والتركيب، والضمان، ومدة التنفيذ...">{{ old('ar_message', $companyQuotation?->ar_message ??'شكرًا لاختياركم شركتنا لتقديم عرض لنظام الطاقة الشمسية.
-                                                                                                      يشمل هذا العرض المعدات المقترحة وأعمال التركيب واختبار النظام والضمان وفقًا للتفاصيل الموضحة في عرض السعر.
-                                                                                                      يرجى مراجعة التفاصيل والتواصل معنا إذا كانت لديكم أي استفسارات.') }}</textarea>
+                                                                                                             والعاكس، والبطاريات، والتركيب، والضمان، ومدة التنفيذ...">{{ old('ar_message', $companyQuotation?->ar_message ?? 'شكرًا لاختياركم شركتنا لتقديم عرض لنظام الطاقة الشمسية.
+                                                                                                              يشمل هذا العرض المعدات المقترحة وأعمال التركيب واختبار النظام والضمان وفقًا للتفاصيل الموضحة في عرض السعر.
+                                                                                                              يرجى مراجعة التفاصيل والتواصل معنا إذا كانت لديكم أي استفسارات.') }}</textarea>
 
                                 @error('ar_message')
                                     <small class="field-error">{{ $message }}</small>
@@ -613,31 +615,147 @@
                     $batteryCount = '—';
                     $systemType = '—';
 
-                    if (preg_match('/Estimated load:\s*([^,.\r\n]+(?:\.\d+)?\s*kWh\/day)/i', $loadSummary, $matches)) {
-                        $dailyEnergy = trim($matches[1]);
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Daily energy
+                    |--------------------------------------------------------------------------
+                    | English: Estimated load: 22.4 kWh/day
+                    | Arabic:  الحمل التقديري: 22.4 كيلوواط ساعة/يوم
+                    */
+                    if (
+                        preg_match(
+                            '/Estimated load:\s*([\d.]+)\s*kWh\/day/i',
+                            $loadSummary,
+                            $matches
+                        )
+                    ) {
+                        $dailyEnergy = $matches[1] . ' kWh/day';
+                    } elseif (
+                        preg_match(
+                            '/الحمل التقديري:\s*([\d.]+)\s*كيلوواط\s*ساعة\/يوم/u',
+                            $loadSummary,
+                            $matches
+                        )
+                    ) {
+                        $dailyEnergy = $matches[1] . ' كيلوواط ساعة/يوم';
                     }
 
-                    if (preg_match('/peak\s*([^,\r\n]+?)(?=\.\s*Suggested system:|[\r\n]|$)/i', $loadSummary, $matches)) {
-                        $peakLoad = trim($matches[1]);
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Peak load
+                    |--------------------------------------------------------------------------
+                    */
+                    if (
+                        preg_match(
+                            '/peak\s*([\d.]+)\s*kW/i',
+                            $loadSummary,
+                            $matches
+                        )
+                    ) {
+                        $peakLoad = $matches[1] . ' kW';
+                    } elseif (
+                        preg_match(
+                            '/الحمل الأقصى\s*([\d.]+)\s*كيلوواط/u',
+                            $loadSummary,
+                            $matches
+                        )
+                    ) {
+                        $peakLoad = $matches[1] . ' كيلوواط';
                     }
 
-                    if (preg_match('/Suggested system:\s*(\d+)\s*panels?/i', $loadSummary, $matches)) {
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Solar panels
+                    |--------------------------------------------------------------------------
+                    */
+                    if (
+                        preg_match(
+                            '/Suggested system:\s*(\d+)\s*panels?/i',
+                            $loadSummary,
+                            $matches
+                        )
+                    ) {
+                        $panelCount = $matches[1];
+                    } elseif (
+                        preg_match(
+                            '/المنظومة المقترحة:\s*(\d+)\s*ألواح/u',
+                            $loadSummary,
+                            $matches
+                        )
+                    ) {
                         $panelCount = $matches[1];
                     }
 
-                    if (preg_match('/Suggested system:.*?(\d+(?:\.\d+)?)\s*kW\s*inverter/i', $loadSummary, $matches)) {
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Inverter size
+                    |--------------------------------------------------------------------------
+                    */
+                    if (
+                        preg_match(
+                            '/Suggested system:.*?([\d.]+)\s*kW\s*inverter/i',
+                            $loadSummary,
+                            $matches
+                        )
+                    ) {
                         $inverterSize = $matches[1] . ' kW';
+                    } elseif (
+                        preg_match(
+                            '/المنظومة المقترحة:.*?محوّل\s*([\d.]+)\s*كيلوواط/u',
+                            $loadSummary,
+                            $matches
+                        )
+                    ) {
+                        $inverterSize = $matches[1] . ' كيلوواط';
                     }
 
-                    if (preg_match('/Suggested system:.*?(\d+)\s*batter(?:y|ies)/i', $loadSummary, $matches)) {
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Batteries
+                    |--------------------------------------------------------------------------
+                    */
+                    if (
+                        preg_match(
+                            '/Suggested system:.*?(\d+)\s*batter(?:y|ies)/i',
+                            $loadSummary,
+                            $matches
+                        )
+                    ) {
+                        $batteryCount = $matches[1];
+                    } elseif (
+                        preg_match(
+                            '/المنظومة المقترحة:.*?(\d+)\s*بطاريات/u',
+                            $loadSummary,
+                            $matches
+                        )
+                    ) {
                         $batteryCount = $matches[1];
                     }
 
-                    if (preg_match('/System type:\s*([^\r\n]+)/i', $loadSummary, $matches)) {
+                    /*
+                    |--------------------------------------------------------------------------
+                    | System type
+                    |--------------------------------------------------------------------------
+                    */
+                    if (
+                        preg_match(
+                            '/System type:\s*([^\r\n]+)/i',
+                            $loadSummary,
+                            $matches
+                        )
+                    ) {
+                        $systemType = trim($matches[1]);
+                    } elseif (
+                        preg_match(
+                            '/نوع المنظومة:\s*([^\r\n،,.]+)/u',
+                            $loadSummary,
+                            $matches
+                        )
+                    ) {
                         $systemType = trim($matches[1]);
                     }
                 @endphp
-
+               
                 <div class="quote-subsection">
                     <div class="quote-subsection-heading">
                         <h3>Estimated load summary</h3>

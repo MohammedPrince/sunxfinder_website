@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Helpers\Helper;
 use App\Services\MainService;
+use App\Support\ApkDownload;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
@@ -25,23 +27,40 @@ class WebsiteController extends Controller
     {
         $companies = $this->mainService->getWebsiteCompanyCarousel();
 
-        $verifiedCount = $this->mainService->verifiedCount();
-        $pendingCount = $this->mainService->pendingCount();
-        $inactiveCount = $this->mainService->inactiveCount();
+        // Counts are only display numbers: a few minutes old is fine, and it saves
+        // a COUNT(*) on the ever-growing visitors table for every home page view.
+        $verifiedCount = Cache::remember('home:verified-count', 300, fn() => $this->mainService->verifiedCount());
 
         $sessionId = session()->getId();
         $this->mainService->recordVisitor($sessionId);
-        $visitorCount = $this->mainService->getVisitorCount();
+        $visitorCount = Cache::remember('home:visitor-count', 300, fn() => $this->mainService->getVisitorCount());
         $appLinks = $this->mainService->getAppDownloadLinks();
+
+        // App section buttons: the uploaded APK (when the admin shows it) and the
+        // Android store link only when it really points to Google Play.
+        $apkDownloadUrl = ApkDownload::info()['visible'] ? route('app.download') : null;
+        $playStoreUrl = str_contains((string) ($appLinks['android'] ?? ''), 'play.google.com')
+            ? $appLinks['android']
+            : null;
 
         return view('visitors.home', compact(
             'companies',
             'verifiedCount',
-            'pendingCount',
-            'inactiveCount',
             'visitorCount',
-            'appLinks'
+            'appLinks',
+            'apkDownloadUrl',
+            'playStoreUrl'
         ));
+    }
+
+    public function downloadApk()
+    {
+        abort_unless(ApkDownload::info()['visible'] && is_file(ApkDownload::path()), 404);
+
+        return response()->download(ApkDownload::path(), ApkDownload::downloadName(), [
+            'Content-Type' => 'application/vnd.android.package-archive',
+            'Cache-Control' => 'no-cache',
+        ]);
     }
 
     /**
@@ -240,6 +259,7 @@ class WebsiteController extends Controller
                 $file->move($destinationPath, $fileName);
 
                 $uploadedPath = $destinationPath . DIRECTORY_SEPARATOR . $fileName;
+                Helper::shrinkImage($uploadedPath);
 
                 // Store the relative path in the database.
                 $validated['logo_path'] = asset(

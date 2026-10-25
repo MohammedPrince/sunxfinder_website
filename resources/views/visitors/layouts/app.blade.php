@@ -16,7 +16,7 @@
     <meta name="description" content="{{ trans('messages.Find, compare, and connect with trusted solar companies.') }}">
     <title>@yield('title', 'SunXFinder-Solar Solutions')</title>
 
-    <link rel="icon" type="image/png" href="{{ asset_v('visitors/images/sun.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset_v('visitors/images/favicon-64.png') }}">
 
     {{-- Logo is above the fold: start downloading it immediately --}}
     <link rel="preload" as="image" type="image/webp" href="{{ asset_v('visitors/images/logo-128.webp') }}"

@@ -781,7 +781,10 @@ class MainController extends Controller
             $versions->keyBy('platform')->all()
         );
 
-        return view('admin.app-versions.index', compact('versions', 'missingPlatforms'));
+        $apk = \App\Support\ApkDownload::info();
+        $apkChunkBytes = \App\Support\ApkDownload::chunkBytes();
+
+        return view('admin.app-versions.index', compact('versions', 'missingPlatforms', 'apk', 'apkChunkBytes'));
     }
 
     public function createAppVersion()
@@ -854,6 +857,63 @@ class MainController extends Controller
     }
 
     //App Versions End
+
+    //APK Direct Download Start
+
+    /** One piece of a chunked APK upload (see ApkDownload::chunkBytes()). */
+    public function uploadApkChunk(Request $request)
+    {
+        $data = $request->validate([
+            'upload_id' => ['required', 'string', 'regex:/^[A-Za-z0-9]{16,64}$/'],
+            'index' => ['required', 'integer', 'min:0', 'max:5000'],
+            'chunk' => ['required', 'file'],
+        ]);
+
+        $result = $this->adminService->storeApkChunk(
+            $data['upload_id'],
+            (int) $data['index'],
+            $request->file('chunk')->getRealPath()
+        );
+
+        return response()->json($result, $result['success'] ? 200 : 500);
+    }
+
+    public function finishApkUpload(Request $request)
+    {
+        $data = $request->validate([
+            'upload_id' => ['required', 'string', 'regex:/^[A-Za-z0-9]{16,64}$/'],
+            'total' => ['required', 'integer', 'min:1', 'max:5000'],
+            'version' => ['nullable', 'string', 'max:20', 'regex:/^\d+(\.\d+){0,3}$/'],
+        ], [
+            'version.regex' => 'Use numbers separated by dots, e.g. 1.6.2.',
+        ]);
+
+        $result = $this->adminService->finishApkUpload($data['upload_id'], (int) $data['total'], $data['version'] ?? null);
+
+        if ($result['success']) {
+            session()->flash('success', $result['message']);
+        }
+
+        return response()->json($result, $result['success'] ? 200 : 422);
+    }
+
+    public function toggleApkDownload(Request $request)
+    {
+        $result = $this->adminService->setApkDownloadEnabled($request->boolean('enabled'));
+
+        return redirect()->route('admin.app-versions.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function deleteApk()
+    {
+        $result = $this->adminService->deleteApk();
+
+        return redirect()->route('admin.app-versions.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    //APK Direct Download End
 
     //Quote Requests Start
 
@@ -1159,6 +1219,86 @@ class MainController extends Controller
         $result = $this->adminService->updateSettings($data);
 
         return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    /** Raise (or reset with an empty limit) one customer's open-request limit. */
+    public function updateCustomerQuoteLimit(Request $request)
+    {
+        $data = $request->validate([
+            'customer_id' => ['required', 'integer'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:' . \App\Models\Setting::MAX_OPEN_QUOTES_PER_CUSTOMER],
+        ], [
+            'customer_id.required' => 'Choose a customer.',
+        ]);
+
+        $result = $this->adminService->setCustomerQuoteLimit(
+            (int) $data['customer_id'],
+            isset($data['limit']) ? (int) $data['limit'] : null
+        );
+
+        return redirect()->route('admin.settings.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    // API endpoints (Settings → API selector / accessibility)
+
+    public function storeApiEndpoint(Request $request)
+    {
+        $result = $this->adminService->createApiEndpoint($this->validatedApiEndpoint($request));
+
+        return redirect()->to(route('admin.settings.index') . '#api-endpoints')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function updateApiEndpoint(Request $request, int $id)
+    {
+        $result = $this->adminService->updateApiEndpoint($id, $this->validatedApiEndpoint($request, $id));
+
+        return redirect()->to(route('admin.settings.index') . '#api-endpoints')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function activateApiEndpoint(int $id)
+    {
+        $result = $this->adminService->activateApiEndpoint($id);
+
+        return redirect()->to(route('admin.settings.index') . '#api-endpoints')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function destroyApiEndpoint(int $id)
+    {
+        $result = $this->adminService->deleteApiEndpoint($id);
+
+        return redirect()->to(route('admin.settings.index') . '#api-endpoints')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    private function validatedApiEndpoint(Request $request, ?int $ignoreId = null): array
+    {
+        // Compare URLs the way they are saved (no trailing slash).
+        $request->merge(['base_url' => rtrim(trim((string) $request->input('base_url')), '/')]);
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:30', 'regex:/^[A-Za-z0-9 _-]+$/'],
+            'base_url' => [
+                'required',
+                'url:https',
+                'max:191',
+                Rule::unique('tbl_api_endpoints', 'base_url')->ignore($ignoreId),
+            ],
+            'is_online' => ['nullable', 'boolean'],
+            'offline_message_en' => ['nullable', 'string', 'max:500'],
+            'offline_message_ar' => ['nullable', 'string', 'max:500'],
+        ], [
+            'name.regex' => 'Use letters, numbers, spaces, - or _ (e.g. PRD, DEV).',
+            'base_url.url' => 'Enter a full https:// address, e.g. https://sunxfinder.com/api/v1/customer.',
+            'base_url.unique' => 'This API address is already in the list.',
+        ]);
+
+        $data['is_online'] = $request->boolean('is_online');
+
+        return $data;
     }
 
     //Settings End

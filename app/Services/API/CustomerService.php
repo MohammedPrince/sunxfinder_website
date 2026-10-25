@@ -24,6 +24,11 @@ class CustomerService
         return $this->customerRepository->mainData();
     }
 
+    public function getApiConfig(): array
+    {
+        return $this->customerRepository->getApiConfig();
+    }
+
     public function createAccount(array $data): array
     {
         return $this->customerRepository->createAccount($data);

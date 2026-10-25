@@ -51,42 +51,19 @@ class MainController extends Controller
         ], $result['code']);
     }
 
-    public function mainData(): JsonResponse
+
+    /**
+     * GET /api/v1/api-config (no login). The app calls this on start: use data.active.base_url
+     * for every request; if data.active.is_online is false, show data.active.offline_message.
+     */
+    public function apiConfig()
     {
         try {
-            $result = $this->customerService->mainData();
-
-            if (!$result['success']) {
-                return response()->json([
-                    'status' => 'error',
-                    'code' => $result['code'],
-                    'error' => $result['message'],
-                ], $result['code']);
-            }
-
             return response()->json([
                 'status' => 'success',
                 'code' => 200,
-                'message' => 'Main Data Retrieved Successfully',
-                'data' => [
-                    'profile' => $result['profile'],
-                    'cities' => $result['cities'],
-                    'services' => $result['services'],
-                    'services_ar' => $result['services_ar'],
-                    'carousels' => $result['carousels'],
-                    'companies' => $result['companies'],
-                    'calculator' => $result['calculator'],
-                    'my_quotes' => $result['my_quotes'],
-                    'notifications' => $result['notifications'],
-                    'app_version' => $result['app_version'],
-                    // {"status":"active"|"stopped","message":"...in app language", ...}. Set by admin per customer.
-                    'app_status' => $result['app_status'],
-                    // e.g. {"max_open_quotes": 2}, editable from admin Settings.
-                    'settings' => $result['settings'],
-                    // Rating questions and the 1-4 answer labels.
-                    'rating_form' => $result['rating_form'],
-                ],
-                'meta' => $result['meta'],
+                'message' => 'API Config Retrieved Successfully',
+                'data' => $this->customerService->getApiConfig(),
             ]);
         } catch (Throwable $e) {
             report($e);
@@ -94,7 +71,7 @@ class MainController extends Controller
             return response()->json([
                 'status' => 'error',
                 'code' => 500,
-                'error' => 'Unable to retrieve main data.',
+                'error' => 'Unable to retrieve the API config.',
             ], 500);
         }
     }
@@ -109,11 +86,11 @@ class MainController extends Controller
                 'min:6',
                 'regex:/^[a-zA-Z0-9_]+$/',
             ],
-            'first_name' => ['nullable', 'string', 'max:15', 'min:3'],
+            'first_name' => ['required', 'string', 'max:15', 'min:3'],
             'second_name' => ['nullable', 'string', 'max:15', 'min:3'],
             'third_name' => ['nullable', 'string', 'max:15'],
             'phone' => ['required', 'string', 'max:10', 'min:10'],
-            'email' => ['nullable', 'email', 'max:50'],
+            'email' => ['required', 'email', 'max:50'],
             'gender' => ['nullable', 'in:male,female'],
             'city' => ['nullable', 'string', 'max:15', 'min:3'],
             'address' => ['nullable', 'string', 'max:500'],
@@ -216,6 +193,54 @@ class MainController extends Controller
                 'exception' => get_class($e),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
+            ], 500);
+        }
+    }
+
+    public function mainData(): JsonResponse
+    {
+        try {
+            $result = $this->customerService->mainData();
+
+            if (!$result['success']) {
+                return response()->json([
+                    'status' => 'error',
+                    'code' => $result['code'],
+                    'error' => $result['message'],
+                ], $result['code']);
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'code' => 200,
+                'message' => 'Main Data Retrieved Successfully',
+                'data' => [
+                    'profile' => $result['profile'],
+                    'cities' => $result['cities'],
+                    'services' => $result['services'],
+                    'services_ar' => $result['services_ar'],
+                    'carousels' => $result['carousels'],
+                    'companies' => $result['companies'],
+                    'calculator' => $result['calculator'],
+                    'my_quotes' => $result['my_quotes'],
+                    'notifications' => $result['notifications'],
+                    'app_version' => $result['app_version'],
+                    // {"status":"active"|"stopped","message":"...in app language", ...}. Set by admin per customer.
+                    'app_status' => $result['app_status'],
+                    // e.g. {"max_open_quotes": 2}: this customer's limit (admin Settings default, or up to 5 if raised for them).
+                    'settings' => $result['settings'],
+                    // Rating questions and the 1-4 answer labels.
+                    'rating_form' => $result['rating_form'],
+                ],
+                'meta' => $result['meta'],
+            ]);
+        } catch (Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'status' => 'error',
+                'code' => 500,
+                'error' => 'Unable to retrieve main data.',
             ], 500);
         }
     }

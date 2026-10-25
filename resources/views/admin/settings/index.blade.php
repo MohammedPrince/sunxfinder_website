@@ -3,7 +3,7 @@
 @section('breadcrumb', 'Settings')
 @section('eyebrow', 'SYSTEM')
 @section('page-title', 'Settings')
-@section('page-description', 'App rules and website maintenance mode.')
+@section('page-description', 'App rules, website maintenance mode and which API the app uses.')
 
 @section('content')
     @if (session('success'))
@@ -51,6 +51,89 @@
                             <small class="field-error">{{ $message }}</small>
                         @enderror
                     </div>
+                </div>
+
+                {{-- Higher limit for one customer. These fields belong to #customerQuoteLimitForm
+                     (below the main form: forms cannot be nested), via the form="" attribute. --}}
+                @php
+                    $limitCustomers = $settings['quote_limit_customers'];
+                    $defaultLimit = $settings['max_open_quotes'];
+                    $maxPerCustomer = \App\Models\Setting::MAX_OPEN_QUOTES_PER_CUSTOMER;
+                    $raisedCustomers = $limitCustomers->filter(fn($c) => $c->max_open_quotes !== null);
+                    $customerLabel = fn($c) => ($c->full_name ?: $c->username) . ' · ' . $c->phone;
+                @endphp
+
+                <div style="margin-top:22px;padding-top:18px;border-top:1px solid #e6edf5">
+                    <h3 style="margin:0 0 4px;font-size:16px">Limit for a specific customer</h3>
+                    <p class="form-hint" style="margin:0 0 14px">
+                        Everyone gets the default above ({{ $defaultLimit }}). You can set a customer's own limit from 1 to
+                        {{ $maxPerCustomer }} open requests. Only registered customers with at least one completed
+                        project are listed.
+                    </p>
+
+                    @if ($limitCustomers->isEmpty())
+                        <p class="form-hint">No customer has a completed project yet.</p>
+                    @else
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="limit_customer_id">Customer</label>
+                                <select class="form-control" id="limit_customer_id" name="customer_id"
+                                    form="customerQuoteLimitForm" required>
+                                    <option value="">Choose a customer…</option>
+                                    @foreach ($limitCustomers as $customer)
+                                        <option value="{{ $customer->id }}">
+                                            {{ $customerLabel($customer) }}
+                                            ({{ $customer->completed_projects }} completed{{ $customer->max_open_quotes !== null ? ', now ' . $customer->max_open_quotes : '' }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="limit_value">Open requests allowed</label>
+                                <select class="form-control" id="limit_value" name="limit" form="customerQuoteLimitForm" required>
+                                    @for ($n = 1; $n <= $maxPerCustomer; $n++)
+                                        <option value="{{ $n }}" @selected($n === min($defaultLimit + 1, $maxPerCustomer))>
+                                            {{ $n }} {{ $n === 1 ? 'request' : 'requests' }}{{ $n === $defaultLimit ? ' (default)' : '' }}
+                                        </option>
+                                    @endfor
+                                </select>
+                            </div>
+                        </div>
+                        <p></p>
+                        <button type="submit" class="btn btn-primary" form="customerQuoteLimitForm">Save customer limit</button>
+                    @endif
+
+                    @if ($raisedCustomers->isNotEmpty())
+                        <div class="table-responsive" style="margin-top:18px">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Customer</th>
+                                        <th>Completed projects</th>
+                                        <th>Open requests allowed</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($raisedCustomers as $customer)
+                                        <tr>
+                                            <td><strong>{{ $customerLabel($customer) }}</strong></td>
+                                            <td>{{ $customer->completed_projects }}</td>
+                                            <td><span class="pill pill-green">{{ $customer->max_open_quotes }}</span></td>
+                                            <td>
+                                                <button type="submit" class="btn btn-light" style="margin-top:8px" form="customerQuoteLimitResetForm"
+                                                    name="customer_id" value="{{ $customer->id }}"
+                                                    onclick="return confirm('Set this customer back to the default limit of {{ $defaultLimit }}?');">
+                                                    Back to default
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
                 </div>
 
             </div>
@@ -147,5 +230,144 @@
                 </div>
             </div>
         </section>
+    </form>
+
+    {{-- API selector + accessibility. The app reads this from GET /api/v1/api-config. --}}
+    @php
+        $apiEndpoints = $settings['api_endpoints'];
+        $activeApi = $apiEndpoints->firstWhere('is_active', true);
+    @endphp
+    <section class="panel" id="api-endpoints" style="margin-top:24px">
+        <div class="panel-heading">
+            <div>
+                <h2>
+                    API selector &amp; accessibility
+                    @if ($activeApi)
+                        <span class="pill {{ $activeApi->is_online ? 'pill-green' : 'pill-red' }}">
+                            App uses {{ $activeApi->name }} · {{ $activeApi->is_online ? 'Online' : 'Offline' }}
+                        </span>
+                    @endif
+                </h2>
+                <p>
+                    The mobile app asks <code>{{ url('/api/v1/api-config') }}</code> on start which API to call.
+                    Exactly one API is active at a time. Turn an API offline to stop the app using it; while the active
+                    API is offline, the app shows its offline message instead.
+                </p>
+            </div>
+        </div>
+
+        <div class="panel-body" style="display:grid;gap:16px">
+            @forelse ($apiEndpoints as $endpoint)
+                <div style="border:1px solid {{ $endpoint->is_active ? '#fc5202' : '#e6edf5' }};border-radius:14px;padding:16px">
+                    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px">
+                        <strong style="font-size:16px">{{ $endpoint->name }}</strong>
+                        @if ($endpoint->is_active)
+                            <span class="pill pill-blue">Active: the app uses this API</span>
+                        @endif
+                        <span class="pill {{ $endpoint->is_online ? 'pill-green' : 'pill-red' }}">
+                            {{ $endpoint->is_online ? 'Online' : 'Offline' }}
+                        </span>
+                    </div>
+
+                    <form method="POST" action="{{ route('admin.settings.api-endpoints.update', $endpoint->id) }}">
+                        @csrf
+                        @method('PUT')
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="api_name_{{ $endpoint->id }}">Name</label>
+                                <input class="form-control" type="text" id="api_name_{{ $endpoint->id }}" name="name"
+                                    maxlength="30" required value="{{ $endpoint->name }}">
+                            </div>
+                            <div class="form-group">
+                                <label for="api_url_{{ $endpoint->id }}">Base URL</label>
+                                <input class="form-control" type="url" id="api_url_{{ $endpoint->id }}" name="base_url"
+                                    maxlength="191" required value="{{ $endpoint->base_url }}" dir="ltr">
+                            </div>
+                        </div>
+
+                        <label class="toggle-card" for="api_online_{{ $endpoint->id }}" style="margin-top:12px">
+                            <span class="toggle-card-copy">
+                                <strong>Online</strong>
+                                <small>Off = the app treats this API as unavailable.</small>
+                            </span>
+                            <input type="hidden" name="is_online" value="0">
+                            <input class="toggle-input" type="checkbox" id="api_online_{{ $endpoint->id }}" name="is_online"
+                                value="1" @checked($endpoint->is_online)>
+                            <span class="toggle-switch" aria-hidden="true"></span>
+                        </label>
+
+                        <details style="margin-top:12px" @if (!$endpoint->is_online) open @endif>
+                            <summary style="cursor:pointer">Offline message (optional)</summary>
+                            <div class="form-grid" style="margin-top:10px">
+                                <div class="form-group">
+                                    <label for="api_off_en_{{ $endpoint->id }}">English</label>
+                                    <textarea class="form-control" id="api_off_en_{{ $endpoint->id }}" name="offline_message_en"
+                                        rows="2" maxlength="500" placeholder="Default: SunXFinder is temporarily unavailable for maintenance. Please try again later.">{{ $endpoint->offline_message_en }}</textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="api_off_ar_{{ $endpoint->id }}">Arabic</label>
+                                    <textarea class="form-control" id="api_off_ar_{{ $endpoint->id }}" name="offline_message_ar"
+                                        rows="2" maxlength="500" dir="rtl" lang="ar" placeholder="الافتراضي: تطبيق SunXFinder غير متاح مؤقتاً للصيانة. يرجى المحاولة لاحقاً.">{{ $endpoint->offline_message_ar }}</textarea>
+                                </div>
+                            </div>
+                        </details>
+
+                        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px">
+                            <button type="submit" class="btn btn-primary">Save {{ $endpoint->name }}</button>
+                            @unless ($endpoint->is_active)
+                                <button type="submit" class="btn btn-light" form="apiActivate{{ $endpoint->id }}">Make active</button>
+                                <button type="submit" class="btn btn-light" form="apiDelete{{ $endpoint->id }}">Delete</button>
+                            @endunless
+                        </div>
+                    </form>
+
+                    @unless ($endpoint->is_active)
+                        <form id="apiActivate{{ $endpoint->id }}" method="POST"
+                            action="{{ route('admin.settings.api-endpoints.activate', $endpoint->id) }}"
+                            onsubmit="return confirm('Switch the app to {{ $endpoint->name }} ({{ $endpoint->base_url }})? Apps pick this up on their next start.');">
+                            @csrf
+                            @method('PATCH')
+                        </form>
+                        <form id="apiDelete{{ $endpoint->id }}" method="POST"
+                            action="{{ route('admin.settings.api-endpoints.destroy', $endpoint->id) }}"
+                            onsubmit="return confirm('Delete the {{ $endpoint->name }} API?');">
+                            @csrf
+                            @method('DELETE')
+                        </form>
+                    @endunless
+                </div>
+            @empty
+                <p class="form-hint">No API yet. The first one you add becomes the active API.</p>
+            @endforelse
+
+            <details @if ($apiEndpoints->isEmpty() || old('base_url')) open @endif>
+                <summary style="cursor:pointer;font-weight:700">+ Add API</summary>
+                <form method="POST" action="{{ route('admin.settings.api-endpoints.store') }}" style="margin-top:12px">
+                    @csrf
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="api_new_name">Name</label>
+                            <input class="form-control" type="text" id="api_new_name" name="name" maxlength="30" required
+                                placeholder="e.g. STG" value="{{ old('name') }}">
+                        </div>
+                        <div class="form-group">
+                            <label for="api_new_url">Base URL</label>
+                            <input class="form-control" type="url" id="api_new_url" name="base_url" maxlength="191" required
+                                placeholder="https://example.com/api/v1/customer" value="{{ old('base_url') }}" dir="ltr">
+                        </div>
+                    </div>
+                    <input type="hidden" name="is_online" value="1">
+                    <button type="submit" class="btn btn-primary" style="margin-top:12px">Add API</button>
+                </form>
+            </details>
+        </div>
+    </section>
+
+    {{-- Targets of the per-customer limit fields in the Quote requests panel --}}
+    <form id="customerQuoteLimitForm" method="POST" action="{{ route('admin.settings.customer-quote-limit') }}">
+        @csrf
+    </form>
+    <form id="customerQuoteLimitResetForm" method="POST" action="{{ route('admin.settings.customer-quote-limit') }}">
+        @csrf
     </form>
 @endsection

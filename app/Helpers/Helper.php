@@ -205,6 +205,62 @@ class Helper
         return asset(ltrim($path, '/'));
     }
 
+    /**
+     * Shrinks an uploaded image in place so its longest side is at most $maxSide px,
+     * keeping the same file name and format (stored URLs stay valid).
+     * Uploads can be 2 MB; a 512px logo is a few dozen KB. Never fails the upload.
+     */
+    public static function shrinkImage(string $path, int $maxSide = 512): void
+    {
+        try {
+            if (!function_exists('imagecreatefromstring') || !is_file($path)) {
+                return;
+            }
+
+            [$width, $height, $type] = getimagesize($path) ?: [0, 0, 0];
+
+            if (!$width || !$height) {
+                return;
+            }
+
+            $scale = min(1, $maxSide / max($width, $height));
+            $newWidth = max(1, (int) round($width * $scale));
+            $newHeight = max(1, (int) round($height * $scale));
+
+            $source = imagecreatefromstring(file_get_contents($path));
+
+            if (!$source) {
+                return;
+            }
+
+            $target = imagecreatetruecolor($newWidth, $newHeight);
+            imagealphablending($target, false);
+            imagesavealpha($target, true);
+            imagecopyresampled($target, $source, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+
+            $tmp = $path . '.tmp';
+
+            $saved = match ($type) {
+                IMAGETYPE_JPEG => imagejpeg($target, $tmp, 82),
+                IMAGETYPE_PNG => imagepng($target, $tmp, 9),
+                IMAGETYPE_WEBP => imagewebp($target, $tmp, 82),
+                default => false,
+            };
+
+            imagedestroy($source);
+            imagedestroy($target);
+
+            // Keep the original if re-encoding didn't make it smaller.
+            if ($saved && filesize($tmp) < filesize($path)) {
+                rename($tmp, $path);
+            } elseif (is_file($tmp)) {
+                unlink($tmp);
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
+    }
+
     public function parseSocialLinks(?string $value): array
     {
         $links = [
@@ -263,7 +319,8 @@ class Helper
 
     /**
      * Builds the push title/body for a customer in the app language.
-     * Supported types: offer_new, offer_updated, start_installation, project_completed, account_approved. $price is shown as given
+     * Supported types: offer_new, offer_updated, start_installation, project_completed, account_approved,
+     * request_cancelled ($price carries the request reference). $price is shown as given
      * (e.g. "1,500 SDG").
      */
     public function notificationsTemplate($customer_id, $lang, $type, $price = null): array
@@ -325,12 +382,12 @@ class Helper
             // :price carries the request reference here, e.g. "#Q-00031".
             'request_cancelled' => [
                 'en' => [
-                    'title' => 'Quote request closed',
-                    'body' => 'Your quote request :price was closed by the SunXFinder team. Contact us if you have any questions.',
+                    'title' => 'Quote request cancelled',
+                    'body' => 'Your quote request :price has been cancelled by the SunXFinder team, and any waiting offers were withdrawn. You can send a new request from the app at any time, or contact us if you have any questions.',
                 ],
                 'ar' => [
-                    'title' => 'تم إغلاق طلب عرض السعر',
-                    'body' => 'تم إغلاق طلب عرض السعر :price من قبل فريق SunXFinder. تواصل معنا إذا كان لديك أي استفسار.',
+                    'title' => 'تم إلغاء طلب عرض السعر',
+                    'body' => 'تم إلغاء طلب عرض السعر :price من قبل فريق SunXFinder، وتم سحب العروض المنتظرة. يمكنك إرسال طلب جديد من التطبيق في أي وقت، أو التواصل معنا إذا كان لديك أي استفسار.',
                 ],
             ],
             'project_completed' => [

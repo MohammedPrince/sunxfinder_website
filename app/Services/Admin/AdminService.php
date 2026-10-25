@@ -320,6 +320,30 @@ class AdminService
 
     //App Versions End
 
+    //APK Direct Download Start
+
+    public function storeApkChunk(string $uploadId, int $index, string $chunkPath): array
+    {
+        return $this->adminRepository->storeApkChunk($uploadId, $index, $chunkPath);
+    }
+
+    public function finishApkUpload(string $uploadId, int $total, ?string $version): array
+    {
+        return $this->adminRepository->finishApkUpload($uploadId, $total, $version);
+    }
+
+    public function setApkDownloadEnabled(bool $enabled): array
+    {
+        return $this->adminRepository->setApkDownloadEnabled($enabled);
+    }
+
+    public function deleteApk(): array
+    {
+        return $this->adminRepository->deleteApk();
+    }
+
+    //APK Direct Download End
+
     //Quote Requests Start
     public function getQuoteRequests(array $filters = [])
     {
@@ -478,6 +502,31 @@ class AdminService
     public function updateSettings(array $data): array
     {
         return $this->adminRepository->updateSettings($data);
+    }
+
+    public function setCustomerQuoteLimit(int $customerId, ?int $limit): array
+    {
+        return $this->adminRepository->setCustomerQuoteLimit($customerId, $limit);
+    }
+
+    public function createApiEndpoint(array $data): array
+    {
+        return $this->adminRepository->createApiEndpoint($data);
+    }
+
+    public function updateApiEndpoint(int $id, array $data): array
+    {
+        return $this->adminRepository->updateApiEndpoint($id, $data);
+    }
+
+    public function activateApiEndpoint(int $id): array
+    {
+        return $this->adminRepository->activateApiEndpoint($id);
+    }
+
+    public function deleteApiEndpoint(int $id): array
+    {
+        return $this->adminRepository->deleteApiEndpoint($id);
     }
     //Settings End
 

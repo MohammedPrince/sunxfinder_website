@@ -10,20 +10,20 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use App\Repositories\OtpRepository;
 use App\Support\ActivityLogger;
+use App\Support\ApkDownload;
 use App\Support\DatabaseBackup;
 use App\Models\Appliance;
 use App\Models\ApplianceGroup;
 use App\Models\AppVersion;
 use App\Models\CompanyCarousel;
 use App\Models\CompanyQuotation;
+use App\Models\ApiEndpoint;
 use App\Models\Customer;
+use App\Models\Project;
 use App\Models\CustomerNotification;
 use App\Models\Notification;
 use App\Models\Product;
 use App\Models\ProductSpec;
-use App\Models\Project;
-use App\Models\ProjectMilestone;
-use App\Models\ProjectUpdate;
 use App\Models\Quote;
 use App\Models\Rating;
 use App\Models\RatingQuestion;
@@ -203,19 +203,20 @@ class AdminRepository
     {
         $today = now()->startOfDay();
 
+        // The top bar sorts by count; this order breaks ties.
         $attention = [
-            [
-                'label' => 'Companies waiting for approval',
-                'hint' => 'Review their details and approve or reject.',
-                'count' => SolarCompany::query()->where('status', 'pending')->count(),
-                'url' => route('admin.companies.index'),
-                'tone' => 'orange',
-            ],
             [
                 'label' => 'Customers waiting for approval',
                 'hint' => 'New sign-ups who cannot log in to the app until approved.',
                 'count' => Customer::query()->where('status', 'pending')->count(),
                 'url' => route('admin.customers.index', ['status' => 'pending']),
+                'tone' => 'orange',
+            ],
+            [
+                'label' => 'Companies waiting for approval',
+                'hint' => 'Review their details and approve or reject.',
+                'count' => SolarCompany::query()->where('status', 'pending')->count(),
+                'url' => route('admin.companies.index'),
                 'tone' => 'orange',
             ],
             [
@@ -2016,6 +2017,76 @@ class AdminRepository
 
     //App Versions End
 
+    //APK Direct Download Start
+
+    public function storeApkChunk(string $uploadId, int $index, string $chunkPath): array
+    {
+        try {
+            ApkDownload::storeChunk($uploadId, $index, $chunkPath);
+
+            return ['success' => true, 'message' => 'Chunk saved.'];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Upload failed. Please try again.'];
+        }
+    }
+
+    public function finishApkUpload(string $uploadId, int $total, ?string $version): array
+    {
+        try {
+            ApkDownload::assemble($uploadId, $total);
+
+            Setting::set('apk_version', $version);
+            Setting::set('apk_uploaded_at', now()->toDateTimeString());
+            ApkDownload::forgetCache();
+
+            return ['success' => true, 'message' => 'APK uploaded successfully.'];
+        } catch (\RuntimeException $e) {
+            return ['success' => false, 'message' => $e->getMessage()];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to save the APK. Please try again.'];
+        }
+    }
+
+    public function setApkDownloadEnabled(bool $enabled): array
+    {
+        if ($enabled && !is_file(ApkDownload::path())) {
+            return ['success' => false, 'message' => 'Upload an APK before showing the download button.'];
+        }
+
+        Setting::set('apk_download_enabled', $enabled ? '1' : '0');
+        ApkDownload::forgetCache();
+
+        return [
+            'success' => true,
+            'message' => $enabled
+                ? 'The Direct Download button is now shown on the home page.'
+                : 'The Direct Download button is now hidden.',
+        ];
+    }
+
+    public function deleteApk(): array
+    {
+        try {
+            ApkDownload::delete();
+            Setting::set('apk_download_enabled', '0');
+            Setting::set('apk_version', null);
+            Setting::set('apk_uploaded_at', null);
+            ApkDownload::forgetCache();
+
+            return ['success' => true, 'message' => 'APK deleted. The download button is hidden.'];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to delete the APK. Please try again.'];
+        }
+    }
+
+    //APK Direct Download End
+
     // Call from your existing public/mobile home-data repository/service.
     public function getCompanyCarouselForPlatform(string $platform)
     {
@@ -3185,7 +3256,186 @@ class AdminRepository
         return [
             'max_open_quotes' => Setting::maxOpenQuotes(),
             'maintenance' => Setting::maintenance(),
+            'quote_limit_customers' => $this->getQuoteLimitCustomers(),
+            'api_endpoints' => ApiEndpoint::query()->orderByDesc('is_active')->orderBy('name')->get(),
         ];
+    }
+
+    //API Endpoints Start
+
+    public function createApiEndpoint(array $data): array
+    {
+        try {
+            $endpoint = DB::transaction(function () use ($data) {
+                // The first endpoint becomes the active one, so one is always active.
+                $isFirst = !ApiEndpoint::query()->exists();
+
+                return ApiEndpoint::create($this->apiEndpointFields($data) + ['is_active' => $isFirst]);
+            });
+
+            cache()->forget(ApiEndpoint::CONFIG_CACHE_KEY);
+
+            return ['success' => true, 'message' => "API {$endpoint->name} added."];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to add the API. Please try again.'];
+        }
+    }
+
+    public function updateApiEndpoint(int $id, array $data): array
+    {
+        try {
+            $endpoint = ApiEndpoint::find($id);
+
+            if (!$endpoint) {
+                return ['success' => false, 'message' => 'API not found.'];
+            }
+
+            $endpoint->update($this->apiEndpointFields($data));
+            cache()->forget(ApiEndpoint::CONFIG_CACHE_KEY);
+
+            return [
+                'success' => true,
+                'message' => "API {$endpoint->name} saved" . ($endpoint->is_online ? ' (online).' : ' (offline).'),
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to save the API. Please try again.'];
+        }
+    }
+
+    /** Makes this endpoint the only active one, in one transaction (never two at once). */
+    public function activateApiEndpoint(int $id): array
+    {
+        try {
+            $endpoint = DB::transaction(function () use ($id) {
+                $endpoint = ApiEndpoint::query()->lockForUpdate()->find($id);
+
+                if (!$endpoint) {
+                    return null;
+                }
+
+                ApiEndpoint::query()->whereKeyNot($id)->where('is_active', true)->update(['is_active' => false]);
+                $endpoint->update(['is_active' => true]);
+
+                return $endpoint;
+            });
+
+            if (!$endpoint) {
+                return ['success' => false, 'message' => 'API not found.'];
+            }
+
+            cache()->forget(ApiEndpoint::CONFIG_CACHE_KEY);
+
+            return [
+                'success' => true,
+                'message' => "The app now uses {$endpoint->name} ({$endpoint->base_url})."
+                    . ($endpoint->is_online ? '' : ' It is offline, so the app shows the offline message until you turn it online.'),
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to change the active API. Please try again.'];
+        }
+    }
+
+    public function deleteApiEndpoint(int $id): array
+    {
+        try {
+            $endpoint = ApiEndpoint::find($id);
+
+            if (!$endpoint) {
+                return ['success' => false, 'message' => 'API not found.'];
+            }
+
+            if ($endpoint->is_active) {
+                return ['success' => false, 'message' => 'The active API cannot be deleted. Make another API active first.'];
+            }
+
+            $endpoint->delete();
+            cache()->forget(ApiEndpoint::CONFIG_CACHE_KEY);
+
+            return ['success' => true, 'message' => "API {$endpoint->name} deleted."];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to delete the API. Please try again.'];
+        }
+    }
+
+    private function apiEndpointFields(array $data): array
+    {
+        return [
+            'name' => strtoupper(trim($data['name'])),
+            'base_url' => rtrim(trim($data['base_url']), '/'),
+            'is_online' => (bool) ($data['is_online'] ?? false),
+            'offline_message_en' => $data['offline_message_en'] ?? null,
+            'offline_message_ar' => $data['offline_message_ar'] ?? null,
+        ];
+    }
+
+    //API Endpoints End
+
+    /**
+     * Customers who may get a higher open-request limit: registered (active) and with
+     * at least one completed project. Customers already raised come first.
+     */
+    public function getQuoteLimitCustomers()
+    {
+        $completedProjects = Project::query()
+            ->selectRaw('COUNT(*)')
+            ->whereColumn('tbl_projects.customer_id', 'tbl_customers.id')
+            ->where('status', 'completed');
+
+        return Customer::query()
+            ->where('status', 'active')
+            ->where('is_active', true)
+            ->whereExists(fn($q) => $q->from('tbl_projects')
+                ->whereColumn('tbl_projects.customer_id', 'tbl_customers.id')
+                ->where('status', 'completed')
+                ->whereNull('tbl_projects.deleted_at'))
+            ->select(['id', 'username', 'full_name', 'phone', 'max_open_quotes'])
+            ->selectSub($completedProjects, 'completed_projects')
+            ->orderByRaw('max_open_quotes IS NULL')
+            ->orderBy('full_name')
+            ->get();
+    }
+
+    public function setCustomerQuoteLimit(int $customerId, ?int $limit): array
+    {
+        try {
+            $customer = $this->getQuoteLimitCustomers()->firstWhere('id', $customerId);
+
+            if (!$customer) {
+                return [
+                    'success' => false,
+                    'message' => 'Only registered customers with at least one completed project can get a higher limit.',
+                ];
+            }
+
+            $default = Setting::maxOpenQuotes();
+            $name = $customer->full_name ?: $customer->username;
+
+            // Removing, or choosing the default itself, just goes back to the default.
+            $customer = Customer::find($customerId);
+            $customer->max_open_quotes = $limit !== null && $limit !== $default ? $limit : null;
+            $customer->save();
+
+            $own = $customer->max_open_quotes;
+
+            return [
+                'success' => true,
+                'message' => $own
+                    ? "{$name} can now have up to {$own} open " . Str::plural('request', $own) . '.'
+                    : "{$name} is back to the default limit of {$default} open " . Str::plural('request', $default) . '.',
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to update the customer limit. Please try again.'];
+        }
     }
 
     public function updateSettings(array $data): array

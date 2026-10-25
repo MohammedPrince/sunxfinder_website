@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#182634">
     <title>Reset password · SunXFinder</title>
-    <link rel="icon" type="image/png" href="{{ asset('admin/images/sun.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('admin/images/favicon-64.png') }}">
     <link rel="stylesheet" href="{{ asset_v('admin/css/admin.css') }}">
 </head>
 

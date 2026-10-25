@@ -3,7 +3,9 @@
 namespace App\Repositories\API;
 
 use App\Helpers\Helper;
+use App\Models\ApiEndpoint;
 use App\Jobs\SendCompanyOfferDecisionEmail;
+use App\Jobs\SendCustomerWelcomeEmail;
 use App\Mail\CompanyOfferDecisionMail;
 use App\Models\ApplianceGroup;
 use App\Models\AppVersion;
@@ -45,6 +47,7 @@ class CustomerRepository
 
     public function login(array $data): array
     {
+
         $username = trim($data['username'] ?? '');
         $password = $data['password'] ?? '';
 
@@ -108,7 +111,7 @@ class CustomerRepository
             return [
                 'success' => false,
                 'code' => 403,
-                'message' => 'Account inactive or deleted.',
+                'message' => 'Account inactive, waiting for approval.',
             ];
         }
 
@@ -213,9 +216,10 @@ class CustomerRepository
 
             $profile = $profileResult['profile'] ?? null;
 
-            // Admin-editable app settings the app reads on start.
+            // Admin-editable app settings the app reads on start. max_open_quotes is this
+            // customer's limit: the Settings default, or more if the admin raised it for them.
             $settings = [
-                'max_open_quotes' => Setting::maxOpenQuotes(),
+                'max_open_quotes' => Setting::maxOpenQuotesFor((int) $customer->id),
             ];
 
             // Services: getServices() returns both languages under data.
@@ -420,6 +424,43 @@ class CustomerRepository
         return $result;
     }
 
+    /**
+     * The API server the app must call, plus whether it is online. Read on every app
+     * start, so cached for a minute; cleared whenever an admin changes an endpoint.
+     */
+    public function getApiConfig(): array
+    {
+        return cache()->remember(ApiEndpoint::CONFIG_CACHE_KEY, 60, function () {
+            $format = fn(ApiEndpoint $endpoint) => [
+                'name' => $endpoint->name,
+                'base_url' => $endpoint->base_url,
+                'is_active' => $endpoint->is_active,
+                'is_online' => $endpoint->is_online,
+                'status' => $endpoint->is_online ? 'online' : 'offline',
+            ];
+
+            $endpoints = ApiEndpoint::query()->orderByDesc('is_active')->orderBy('name')->get();
+            $active = $endpoints->firstWhere('is_active', true);
+
+            $defaultMessage = [
+                'en' => 'SunXFinder is temporarily unavailable for maintenance. Please try again later.',
+                'ar' => 'تطبيق SunXFinder غير متاح مؤقتاً للصيانة. يرجى المحاولة لاحقاً.',
+            ];
+
+            return [
+                'active' => $active ? $format($active) + [
+                    // Shown by the app when the active API is offline.
+                    'offline_message' => $active->is_online ? null : [
+                        'en' => $active->offline_message_en ?: $defaultMessage['en'],
+                        'ar' => $active->offline_message_ar ?: $defaultMessage['ar'],
+                    ],
+                ] : null,
+                'endpoints' => $endpoints->map($format)->values()->all(),
+                'updated_at' => optional($endpoints->max('updated_at'))->toISOString(),
+            ];
+        });
+    }
+
     public function createAccount($data): array
     {
         // Only an active account (is_active = 1) reserves the username, phone or email.
@@ -507,6 +548,19 @@ class CustomerRepository
                 $deviceTokenSaved = true;
             } catch (Throwable $e) {
                 // The account exists; a token problem must not fail sign-up.
+                report($e);
+            }
+        }
+
+        // Same welcome email as the website sign-up (emails/customer/welcome-{en,ar}).
+        if (!empty($customer->email)) {
+            try {
+                SendCustomerWelcomeEmail::dispatch(
+                    (int) $customer->id,
+                    $data['lang'] ?? app()->getLocale()
+                );
+            } catch (Throwable $e) {
+                // A queue problem must not fail sign-up either.
                 report($e);
             }
         }
@@ -1126,7 +1180,7 @@ class CustomerRepository
         }
 
         // Open = still pending, i.e. no offer accepted yet. Accepting an offer frees a slot.
-        $maxOpenQuotes = Setting::maxOpenQuotes();
+        $maxOpenQuotes = Setting::maxOpenQuotesFor((int) $data['customer_id']);
 
         $openQuotes = Quote::query()
             ->where('customer_id', $data['customer_id'])

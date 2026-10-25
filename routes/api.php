@@ -9,6 +9,9 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 
+// App start-up: which API server to call and whether it is online (Admin → Settings). No login.
+Route::get('/v1/api-config', [MainController::class, 'apiConfig'])->middleware(['json.res', 'throttle:120,1']);
+
 Route::prefix('v1/customer')->middleware('json.res')->group(function () {
     // Public routes
     Route::post('/login', [MainController::class, 'login'])->middleware('throttle:5,1');
