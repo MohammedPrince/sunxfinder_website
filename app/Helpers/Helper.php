@@ -199,8 +199,14 @@ class Helper
             return null;
         }
 
+        // Uploaded logos were saved as full URLs with the host at upload time
+        // (e.g. http://127.0.0.1:8001/main/images/...). Rebuild those on the current host.
         if (Str::startsWith($path, ['http://', 'https://'])) {
-            return $path;
+            $localPath = Str::after((string) parse_url($path, PHP_URL_PATH), '/');
+
+            return Str::startsWith($localPath, 'main/images/') && is_file(public_path($localPath))
+                ? asset($localPath)
+                : $path;
         }
 
         return asset(ltrim($path, '/'));

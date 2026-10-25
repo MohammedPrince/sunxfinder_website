@@ -2913,6 +2913,21 @@ html[dir="ltr"] .cta-content {
    font-weight: 800;
 }
 
+/* Company's own logo: white tile so transparent or white logos stay visible */
+.company-logo-placeholder.has-logo {
+   overflow: hidden;
+   border: 1px solid #e6edf5;
+   background: #fff;
+}
+
+.company-logo-placeholder img {
+   display: block;
+   width: 100%;
+   height: 100%;
+   object-fit: contain;
+   padding: 4px;
+}
+
 .company-logo-placeholder.orange-logo {
    background: linear-gradient(135deg, #fd5103, #ffb900);
 }
@@ -2989,6 +3004,13 @@ html[dir="ltr"] .cta-content {
    color: #64748b;
    font-size: 14px;
    line-height: 1.8;
+   overflow-wrap: anywhere;
+   /* Same card height for every company: at most 3 lines, then "…" (full text on the profile) */
+   display: -webkit-box;
+   -webkit-box-orient: vertical;
+   -webkit-line-clamp: 3;
+   line-clamp: 3;
+   overflow: hidden;
 }
 
 .company-specialties {

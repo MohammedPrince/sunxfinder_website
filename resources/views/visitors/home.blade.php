@@ -369,10 +369,17 @@
                             ? ($company->ar_services ?: $company->services)
                             : ($company->services ?: $company->ar_services);
 
-                        $serviceList = collect(preg_split('/[,،]/u', $services ?? ''))
-                            ->map(fn($service) => trim($service))
-                            ->filter()
+                        $serviceList = collect(app(\App\Helpers\Helper::class)->splitList(strip_tags($services ?? '')))
                             ->take(3);
+
+                        // Plain text: editor HTML and &nbsp; (which stops lines wrapping) removed.
+                        $description = trim(preg_replace(
+                            '/[\x{00A0}\x{202F}\s]+/u',
+                            ' ',
+                            html_entity_decode(strip_tags($description ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')
+                        ));
+
+                        $logoUrl = app(\App\Helpers\Helper::class)->publicUrl($company->logo_path);
 
                         $reviewCount = (int) ($company->visible_reviews ?? 0);
                         $rating = $reviewCount > 0 ? round((float) $company->visible_rating, 1) : null;
@@ -381,8 +388,14 @@
 
                     <article class="company-card" data-interval="{{ $carouselEntry->interval_seconds }}">
                         <div class="company-card-top">
-                            <div class="company-logo-placeholder">
-                                {{ mb_strtoupper(mb_substr($company->name, 0, 1)) }}
+                            <div class="company-logo-placeholder {{ $logoUrl ? 'has-logo' : '' }}">
+                                @if ($logoUrl)
+                                    <img src="{{ $logoUrl }}" alt="{{ $company->name }}" width="56" height="56"
+                                        loading="lazy" decoding="async"
+                                        onerror="this.parentElement.classList.remove('has-logo');this.replaceWith(document.createTextNode({{ json_encode(mb_strtoupper(mb_substr($company->name, 0, 1))) }}))">
+                                @else
+                                    {{ mb_strtoupper(mb_substr($company->name, 0, 1)) }}
+                                @endif
                             </div>
 
                             <div class="company-main-info">
@@ -424,9 +437,7 @@
                         @endif
 
                         @if ($description)
-                            <div class="company-description">
-                                {!! \Mews\Purifier\Facades\Purifier::clean($description) !!}
-                            </div>
+                            <p class="company-description" dir="auto" title="{{ $description }}">{{ $description }}</p>
                         @endif
 
                         @if ($serviceList->isNotEmpty())
