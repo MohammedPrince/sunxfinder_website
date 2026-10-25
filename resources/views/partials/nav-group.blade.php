@@ -18,13 +18,15 @@
         'briefcase' => '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/>',
         'chat' => '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z"/>',
     ];
+
+    $iconSvg = $icons[(string) ($icon ?? 'grid')] ?? $icons['grid'];
 @endphp
 
 <div class="nav-group {{ $isActiveGroup ? 'is-open has-active' : 'is-open' }}" data-nav-group="{{ $key }}">
     <button type="button" class="nav-group-toggle" aria-expanded="true" aria-controls="nav-group-{{ $key }}">
         <span class="nav-group-icon">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
-                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{!! $icons[$icon] ?? $icons['grid'] !!}</svg>
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{!! $iconSvg !!}</svg>
         </span>
         <span class="nav-group-label">{{ $label }}</span>
         <svg class="nav-group-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"

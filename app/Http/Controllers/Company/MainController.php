@@ -193,6 +193,7 @@ class MainController extends Controller
             }
 
             $request->file('logo')->move($directory, $filename);
+            \App\Helpers\Helper::shrinkImage($directory . DIRECTORY_SEPARATOR . $filename);
 
             // Keep the URL format used by the existing company records.
             $validated['logo_path'] = asset(

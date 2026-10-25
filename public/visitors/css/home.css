@@ -179,6 +179,18 @@
    box-shadow: none;
 }
 
+/* Get started + Direct download + Google Play */
+.hx-app-actions {
+   align-items: center;
+}
+
+@media (max-width: 760px) {
+   .hx-app-actions>* {
+      flex: 1 1 100%;
+      justify-content: center;
+   }
+}
+
 html[lang="ar"] .hx-app-copy h2 {
    letter-spacing: 0;
 }

@@ -40,6 +40,7 @@ class Customer extends Authenticatable
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
             'app_status_changed_at' => 'datetime',
+            'max_open_quotes' => 'integer',
         ];
     }
 

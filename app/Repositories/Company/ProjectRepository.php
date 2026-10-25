@@ -6,6 +6,7 @@ use App\Helpers\Helper;
 use App\Models\Project;
 use App\Models\ProjectMilestone;
 use App\Models\ProjectUpdate;
+use App\Models\SolarCompany;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -379,6 +380,13 @@ class ProjectRepository
             }
 
             $project->save();
+
+            // Completed projects are locked, so this runs once per project.
+            if ($oldStatus !== 'completed' && $newStatus === 'completed') {
+                SolarCompany::query()
+                    ->whereKey($companyId)
+                    ->update(['number_of_projects' => DB::raw('COALESCE(number_of_projects, 0) + 1')]);
+            }
 
             ProjectUpdate::query()->create([
                 'project_id' => $project->id,

@@ -173,12 +173,34 @@
                     </li>
                 </ul>
 
-                <a class="hx-btn hx-btn-primary" href="{{ $customerRegisterUrl }}">
-                    {{ $isArabic ? 'ابدأ الآن' : 'Get started' }}
-                    <span aria-hidden="true">
-                        {{ $isArabic ? '←' : '→' }}
-                    </span>
-                </a>
+                <div class="hx-actions hx-app-actions">
+                    <a class="hx-btn hx-btn-primary" href="{{ $customerRegisterUrl }}">
+                        {{ $isArabic ? 'ابدأ الآن' : 'Get started' }}
+                        <span aria-hidden="true">
+                            {{ $isArabic ? '←' : '→' }}
+                        </span>
+                    </a>
+
+                    {{-- Shown only while the admin has it switched on (Admin → App Versions) --}}
+                    @if (!empty($apkDownloadUrl))
+                        <a class="hx-btn hx-btn-outline" href="{{ $apkDownloadUrl }}" download rel="nofollow">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M12 3v12" />
+                                <path d="m7 10 5 5 5-5" />
+                                <path d="M5 21h14" />
+                            </svg>
+                            {{ $isArabic ? 'تحميل' : 'Direct Download' }}
+                        </a>
+                    @endif
+
+                    @if (!empty($playStoreUrl))
+                        <a class="hx-store" href="{{ $playStoreUrl }}" target="_blank" rel="noopener">
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M4 3.5v17l9.5-8.5L4 3.5Zm11 7L6.5 2.3l10.3 5.9L15 10.5Zm0 3 1.8 2.3L6.5 21.7 15 13.5Zm1.4-1.5L19.7 10l2.3 1.3c.6.4.6 1.1 0 1.4L19.7 14l-3.3-2Z"/></svg>
+                            <span><small>{{ __('messages.Get it on') }}</small>Google Play</span>
+                        </a>
+                    @endif
+                </div>
             </div>
 
             {{-- App screenshots slider --}}
@@ -324,10 +346,11 @@
                 @if ($companies->count() > 1)
                     <div class="company-slider-controls">
                         <button type="button" class="company-slider-btn" id="companiesPrev" aria-label="{{ __('messages.Previous companies') }}">
-                            <span aria-hidden="true">{{ $isArabic ? '→' : '←' }}</span>
+                            {{-- The controls are forced LTR in Arabic too, so the glyphs never swap --}}
+                            <span aria-hidden="true">←</span>
                         </button>
                         <button type="button" class="company-slider-btn" id="companiesNext" aria-label="{{ __('messages.Next companies') }}">
-                            <span aria-hidden="true">{{ $isArabic ? '←' : '→' }}</span>
+                            <span aria-hidden="true">→</span>
                         </button>
                     </div>
                 @endif

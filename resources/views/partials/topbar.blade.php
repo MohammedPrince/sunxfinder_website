@@ -5,7 +5,9 @@
     optional $accountBadge [label, class] and $greetingName (defaults to the first word of $userName).
 --}}
 @php
+    // Biggest counts first; usort is stable, so ties keep the repository's order.
     $attention = $topbar['attention'] ?? [];
+    usort($attention, fn($a, $b) => $b['count'] <=> $a['count']);
     $attentionTotal = (int) ($topbar['attentionTotal'] ?? 0);
     $today = $topbar['today'] ?? [];
     $greetingName = $greetingName ?? \Illuminate\Support\Str::before($userName, ' ');

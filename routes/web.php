@@ -29,6 +29,9 @@ Route::controller(WebsiteController::class)->middleware('site.maintenance')->gro
     Route::get('/.well-known/assetlinks.json', 'androidAssetLinks')->name('app.assetlinks');
     Route::get('/.well-known/apple-app-site-association', 'appleAppSiteAssociation')->name('app.aasa');
 
+    // Android APK "Direct download" (404 while the admin has it hidden)
+    Route::get('/download/android', 'downloadApk')->middleware('throttle:20,1')->name('app.download');
+
     // Home page "Contact us" form (emails info@sunxfinder.com)
     Route::post('/contact', 'sendContactMessage')->middleware('throttle:5,1')->name('contact.send');
 
@@ -164,6 +167,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::get('/{id}/edit', 'editAppVersion')->whereNumber('id')->name('edit');
                 Route::put('/{id}', 'updateAppVersion')->whereNumber('id')->name('update');
                 Route::delete('/{id}', 'destroyAppVersion')->whereNumber('id')->name('destroy');
+
+                // Android APK for the home page "Direct download" (stored in storage/app/private/apk)
+                Route::post('/apk/chunk', 'uploadApkChunk')->name('apk.chunk');
+                Route::post('/apk/finish', 'finishApkUpload')->name('apk.finish');
+                Route::patch('/apk/visibility', 'toggleApkDownload')->name('apk.visibility');
+                Route::delete('/apk', 'deleteApk')->name('apk.destroy');
             });
 
             // Quote requests: view, plus cancel / reassign / nudge companies
@@ -219,6 +228,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
             // App settings (open quote limit, ...)
             Route::get('/settings', 'settings')->name('settings.index');
             Route::put('/settings', 'updateSettings')->name('settings.update');
+            Route::post('/settings/customer-quote-limit', 'updateCustomerQuoteLimit')->name('settings.customer-quote-limit');
+
+            // API servers the app can use: one active, each online/offline (GET /api/v1/api-config)
+            Route::prefix('settings/api-endpoints')->name('settings.api-endpoints.')->group(function () {
+                Route::post('/', 'storeApiEndpoint')->name('store');
+                Route::put('/{id}', 'updateApiEndpoint')->whereNumber('id')->name('update');
+                Route::patch('/{id}/activate', 'activateApiEndpoint')->whereNumber('id')->name('activate');
+                Route::delete('/{id}', 'destroyApiEndpoint')->whereNumber('id')->name('destroy');
+            });
 
             // Database backups: create, download, delete (files in storage/app/private/db)
             Route::prefix('database-backups')->name('backups.')->group(function () {

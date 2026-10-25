@@ -33,10 +33,29 @@ class Setting extends Model
         static::query()->updateOrCreate(['key' => $key], ['value' => $value]);
     }
 
+    /** Highest limit an admin can give one customer (Settings → Quote requests). */
+    public const MAX_OPEN_QUOTES_PER_CUSTOMER = 5;
+
     /** How many pending (no accepted offer) requests a customer may have. */
     public static function maxOpenQuotes(): int
     {
         return max(1, (int) static::get('max_open_quotes'));
+    }
+
+    /** The limit for one customer: their admin-set limit (1-5) if any, otherwise the default. */
+    public static function maxOpenQuotesFor(?int $customerId): int
+    {
+        $default = static::maxOpenQuotes();
+
+        if (!$customerId) {
+            return $default;
+        }
+
+        $own = Customer::query()->whereKey($customerId)->value('max_open_quotes');
+
+        return $own !== null
+            ? max(1, min((int) $own, self::MAX_OPEN_QUOTES_PER_CUSTOMER))
+            : $default;
     }
 
     /** Cache key for the maintenance settings (read on every public page). */
