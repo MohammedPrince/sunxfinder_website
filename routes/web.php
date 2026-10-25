@@ -228,6 +228,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/rating-values', 'ratingValues')->name('rating-values.index');
             Route::put('/rating-values', 'updateRatingValues')->name('rating-values.update');
 
+            // Send Email: admin writes to a solar company (from info@, bcc the owner)
+            Route::get('/send-email', 'sendEmail')->name('send-email.index');
+            Route::post('/send-email', 'sendEmailSubmit')->middleware('throttle:20,1')->name('send-email.send');
+
             // App settings (open quote limit, ...)
             Route::get('/settings', 'settings')->name('settings.index');
             Route::put('/settings', 'updateSettings')->name('settings.update');
@@ -329,6 +333,9 @@ Route::prefix('company')->name('company.')->group(function () {
                 Route::get('/{notification}', 'showNotification')->whereNumber('notification')->name('show');
                 Route::delete('/{notification}', 'destroyNotification')->whereNumber('notification')->name('destroy');
             });
+
+            // Customers who accepted this company's offers
+            Route::get('/customers', 'companyCustomers')->name('customers.index');
 
             // Ratings customers gave this company
             Route::get('/ratings', 'ratings')->name('ratings.index');

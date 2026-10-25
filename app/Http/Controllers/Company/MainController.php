@@ -446,12 +446,18 @@ class MainController extends Controller
         ]);
     }
 
-    public function createNotification()
+    public function createNotification(Request $request)
     {
         $result = $this->companyService->getNotificationFormData();
 
+        // Opened from Company Customers: ?customer_ids[]=5 (one customer) or ?to=company-customers (all of them).
+        $preselected = $request->query('to') === 'company-customers'
+            ? $this->companyService->getCompanyCustomerIds()
+            : array_map('intval', array_filter((array) $request->query('customer_ids', []), 'is_numeric'));
+
         return view('company.notifications.create', [
             'customers' => $result['customers'],
+            'preselected' => $preselected,
         ]);
     }
 
@@ -523,6 +529,19 @@ class MainController extends Controller
     //Notifications Managment Start
 
     //Ratings Start
+
+    /** Customers who accepted this company's offers (Customers → Company Customers). */
+    public function companyCustomers(Request $request)
+    {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $customers = $this->companyService->getCompanyCustomers($filters);
+        $summary = $this->companyService->getCompanyCustomerSummary();
+
+        return view('company.customers.index', compact('customers', 'summary'));
+    }
 
     public function ratings(Request $request)
     {

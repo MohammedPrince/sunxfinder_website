@@ -1250,6 +1250,31 @@ class MainController extends Controller
             ->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
+    // Send Email (System → Send Email): admin writes to a solar company from info@
+
+    public function sendEmail()
+    {
+        $companies = $this->adminService->getCompanyEmailOptions();
+
+        return view('admin.send-email.index', compact('companies'));
+    }
+
+    public function sendEmailSubmit(Request $request)
+    {
+        $data = $request->validate([
+            'subject' => ['required', 'string', 'max:150'],
+            'email' => ['required', 'email', 'max:191'],
+            'lang' => ['required', 'in:en,ar'],
+            'message' => ['required', 'string', 'max:5000'],
+        ]);
+
+        $result = $this->adminService->sendCompanyEmail($data);
+
+        return $result['success']
+            ? redirect()->route('admin.send-email.index')->with('success', $result['message'])
+            : back()->withInput()->with('error', $result['message']);
+    }
+
     // API endpoints (Settings → API selector / accessibility)
 
     public function storeApiEndpoint(Request $request)

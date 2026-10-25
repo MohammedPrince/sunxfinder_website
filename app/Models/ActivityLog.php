@@ -42,6 +42,7 @@ class ActivityLog extends Model
         'cancelled' => 'Cancelled',
         'reassigned' => 'Reassigned',
         'nudged' => 'Reminder sent',
+        'email_sent' => 'Email sent',
         'job_retried' => 'Job retried',
         'job_deleted' => 'Job deleted',
     ];

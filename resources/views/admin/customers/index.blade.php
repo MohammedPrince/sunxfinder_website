@@ -99,6 +99,7 @@
                         <th>Email</th>
                         <th>Gender</th>
                         <th>City</th>
+                        <th title="Company whose offer the customer accepted most recently">Last company</th>
                         <th>Joined</th>
                         <th>Last login</th>
                         <th>Status</th>
@@ -137,6 +138,20 @@
 
                             {{-- City --}}
                             <td>{{ $customer->city ?: '—' }}</td>
+
+                            {{-- Last company: whose offer the customer accepted most recently --}}
+                            <td>
+                                @if ($customer->last_company_id)
+                                    <a href="{{ route('admin.companies.edit', $customer->last_company_id) }}">
+                                        <strong>{{ $customer->last_company_name }}</strong>
+                                    </a>
+                                    <small style="display:block">
+                                        {{ \Illuminate\Support\Carbon::parse($customer->last_company_at)->format('M d, Y') }}
+                                    </small>
+                                @else
+                                    —
+                                @endif
+                            </td>
 
                             {{-- Registration date --}}
                             <td>
@@ -244,7 +259,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="10" class="text-center">
+                            <td colspan="11" class="text-center">
                                 No customers found.
                             </td>
                         </tr>
