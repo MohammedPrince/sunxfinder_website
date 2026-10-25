@@ -83,12 +83,10 @@
                             <div class="provider-field provider-field-full">
                                 <label for="name">{{ __('messages.Company name') }} <b>*</b></label>
                                 <input type="text" id="name" name="name" value="{{ old('name') }}" minlength="10"
-                                    maxlength="100" required autocomplete="organization"
-                                    placeholder="Sunshine Solar Solutions" data-latin-only
-                                    data-latin-message="{{ __('messages.Please write the company name in English letters.') }}"
+                                    maxlength="200" required autocomplete="organization" dir="auto"
+                                    placeholder="Sunshine Solar Solutions"
                                     @class(['is-invalid' => $errors->has('name')])>
-                                <small>{{ __('messages.Your registered name in English, 10 to 100 characters.') }}</small>
-                                <small class="provider-field-error" data-latin-error hidden></small>
+                                <small>{{ __('messages.Your registered name in English or Arabic, 10 to 200 characters.') }}</small>
                                 @error('name')
                                     <small class="provider-field-error">{{ $message }}</small>
                                 @enderror
@@ -230,7 +228,7 @@
                                     maxlength="191" required autocomplete="username" data-latin-only
                                     data-latin-message="{{ __('messages.Please use English letters only for your username.') }}"
                                     @class(['is-invalid' => $errors->has('username')])>
-                                <small>{{ __('messages.English letters and numbers.') }}</small>
+                                <small>{{ __('messages.English letters, numbers and _ (e.g. tesla_solar).') }}</small>
                                 <small class="provider-field-error" data-latin-error hidden></small>
                                 @error('username')
                                     <small class="provider-field-error">{{ $message }}</small>

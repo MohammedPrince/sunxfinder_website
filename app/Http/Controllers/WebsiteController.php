@@ -206,7 +206,8 @@ class WebsiteController extends Controller
                 'required',
                 'string',
                 'max:191',
-                'regex:/\A[A-Za-z0-9\s.,&\'()\-]+\z/',
+                // English letters, numbers and _ (e.g. tesla_solar), plus the separators allowed before.
+                'regex:/\A[A-Za-z0-9_\s.,&\'()\-]+\z/',
                 Rule::unique('tbl_solar_companies', 'username'),
             ],
 
@@ -242,6 +243,8 @@ class WebsiteController extends Controller
             ],
             'year_of_exp' => ['required', 'integer', 'min:1'],
             'number_of_projects' => ['required', 'integer', 'min:1'],
+        ], [
+            'name.regex' => trans("messages.The company name may only contain English or Arabic letters, numbers, spaces and . , & ' ( ) -"),
         ]);
 
         $uploadedPath = null;

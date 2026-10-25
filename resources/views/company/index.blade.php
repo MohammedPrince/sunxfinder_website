@@ -147,9 +147,9 @@
                     <div class="form-grid">
                         <div class="form-group">
                             <label for="name">Company Name <b class="required-mark">*</b></label>
-                            <input class="form-control" type="text" id="name" name="name" maxlength="191"
-                                placeholder="Enter your company's official name" value="{{ old('name', $company->name) }}"
-                                required>
+                            <input class="form-control" type="text" id="name" name="name" minlength="10" maxlength="200"
+                                dir="auto" placeholder="Enter your company's official name (English or Arabic)"
+                                value="{{ old('name', $company->name) }}" required>
                             @error('name')
                                 <small class="field-error">{{ $message }}</small>
                             @enderror
