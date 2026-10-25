@@ -857,6 +857,8 @@ class AdminRepository
     public function getCompanies()
     {
         return SolarCompany::query()
+            ->withAvg(['ratings as visible_rating_avg' => fn($query) => $query->visible()], 'stars')
+            ->withCount(['ratings as visible_rating_count' => fn($query) => $query->visible()])
             ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
             ->latest()
             ->paginate(10);

@@ -69,8 +69,8 @@ class AuthController extends Controller
                 ], ActivityLogger::actorFor($company), 'auth');
 
                 Auth::guard('company')->logout();
+                $request->session()->forget(['company_id', 'admin_company_impersonation']);
 
-                $request->session()->invalidate();
                 $request->session()->regenerateToken();
 
                 return back()
@@ -83,6 +83,7 @@ class AuthController extends Controller
             $request->session()->regenerate();
 
             // Store the company ID in the session.
+            $request->session()->forget('admin_company_impersonation');
             $request->session()->put('company_id', $company->id);
 
             ActivityLogger::log('login', 'Signed in to the company panel', $company, [], ActivityLogger::actorFor($company), 'auth');
@@ -111,12 +112,30 @@ class AuthController extends Controller
             ActivityLogger::log('logout', 'Signed out of the company panel', $company, [], ActivityLogger::actorFor($company), 'auth');
         }
 
+        $impersonation = $request->session()->pull('admin_company_impersonation');
         Auth::guard('company')->logout();
 
-        $request->session()->invalidate();
+        $previousCompanyId = $impersonation['previous_company_id'] ?? null;
+        $previousCompany = $previousCompanyId
+            ? \App\Models\SolarCompany::query()->find($previousCompanyId)
+            : null;
+
+        if (
+            $previousCompany &&
+            $previousCompany->is_active &&
+            in_array($previousCompany->status, ['pending', 'approved'], true)
+        ) {
+            Auth::guard('company')->login($previousCompany);
+            $request->session()->put('company_id', $previousCompany->id);
+        } else {
+            $request->session()->forget('company_id');
+        }
+
         $request->session()->regenerateToken();
 
-        return redirect()->route('company.login');
+        return $previousCompany && Auth::guard('company')->check()
+            ? redirect()->route('company.dashboard')
+            : redirect()->route('company.login');
     }
 
     // Branding shared by the login and reset password pages.
