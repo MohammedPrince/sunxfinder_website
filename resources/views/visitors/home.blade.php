@@ -142,139 +142,131 @@
             </div>
 
 
-<div class="hx-app-walkthrough">
-    {{-- App description --}}
-    <div class="hx-app-copy">
-        <span class="hx-kicker">
-            {{ $isArabic ? 'تطبيق SunXFinder' : 'THE SUNXFINDER APP' }}
-        </span>
+        <div class="hx-app-walkthrough">
+            {{-- App description --}}
+            <div class="hx-app-copy">
+                <span class="hx-kicker">
+                    {{ $isArabic ? 'تطبيق SunXFinder' : 'THE SUNXFINDER APP' }}
+                </span>
 
-        <h2>
-            {{ $isArabic
-                ? 'كل ما تحتاجه للطاقة الشمسية في تطبيق واحد'
-                : 'Your solar project, made simple' }}
-        </h2>
+                <h2>
+                    {{ $isArabic
+                        ? 'كل ما تحتاجه للطاقة الشمسية في تطبيق واحد'
+                        : 'Your solar project, made simple' }}
+                </h2>
 
-        <p>
-            {{ $isArabic
-                ? 'اكتشف الشركات الموثوقة، وقارن العروض، وتابع مشروعك بسهولة من هاتفك.'
-                : 'Find trusted companies, compare offers, and follow your project, all from your phone.' }}
-        </p>
+                <p>
+                    {{ $isArabic
+                        ? 'اكتشف الشركات الموثوقة، وقارن العروض، وتابع مشروعك بسهولة من هاتفك.'
+                        : 'Find trusted companies, compare offers, and follow your project, all from your phone.' }}
+                </p>
 
-        <ul class="hx-app-highlights">
-            <li>
-                {{ $isArabic ? 'اطلب عروضاً تناسب احتياجاتك' : 'Request offers for your needs' }}
-            </li>
-            <li>
-                {{ $isArabic ? 'قارن الأسعار والتفاصيل بسهولة' : 'Compare prices and details' }}
-            </li>
-            <li>
-                {{ $isArabic ? 'تابع مشروعك خطوة بخطوة' : 'Follow your project step by step' }}
-            </li>
-        </ul>
+                <ul class="hx-app-highlights">
+                    <li>
+                        {{ $isArabic ? 'اطلب عروضاً تناسب احتياجاتك' : 'Request offers for your needs' }}
+                    </li>
+                    <li>
+                        {{ $isArabic ? 'قارن الأسعار والتفاصيل بسهولة' : 'Compare prices and details' }}
+                    </li>
+                    <li>
+                        {{ $isArabic ? 'تابع مشروعك خطوة بخطوة' : 'Follow your project step by step' }}
+                    </li>
+                </ul>
 
-        <a class="hx-btn hx-btn-primary" href="{{ $customerRegisterUrl }}">
-            {{ $isArabic ? 'ابدأ الآن' : 'Get started' }}
-            <span aria-hidden="true">
-                {{ $isArabic ? '←' : '→' }}
-            </span>
-        </a>
-    </div>
-
-    {{-- App screenshots slider --}}
-    @php
-        $sliderImages = $isArabic
-            ? [
-                '1.png',
-                '2.png',
-                '3.png',
-                '4.png',
-                '5.png',
-                '6.png',
-                '8.png',
-                '9.png',
-                '10.png',
-            ]
-            : [
-                '1.png',
-                '2.png',
-                '3.png',
-                '4.png',
-                '5.png',
-                '6.png',
-                '8.png',
-                '9.png',
-                '10.png',
-            ];
-
-        $sliderFolder = $isArabic
-            ? 'visitors/images/app-slider/ar'
-            : 'visitors/images/app-slider/en';
-    @endphp
-
-    <div class="hx-app-visual">
-        <div
-            class="hx-app-slider"
-            data-app-slider
-            dir="{{ $isArabic ? 'rtl' : 'ltr' }}"
-            aria-label="{{ $isArabic ? 'صور تطبيق SunXFinder' : 'SunXFinder app screenshots' }}"
-            aria-roledescription="{{ $isArabic ? 'عارض صور' : 'carousel' }}"
-        >
-            <div class="hx-app-slider-track">
-                @foreach ($sliderImages as $index => $image)
-                    <div
-                        class="hx-app-slide {{ $index === 0 ? 'is-active' : '' }}"
-                        aria-hidden="{{ $index === 0 ? 'false' : 'true' }}"
-                    >
-                        <img
-                            src="{{ asset_v($sliderFolder . '/' . $image) }}"
-                            alt="{{ $isArabic
-                                ? 'شاشة تطبيق SunXFinder رقم ' . ($index + 1)
-                                : 'SunXFinder app screen ' . ($index + 1) }}"
-                            loading="{{ $index === 0 ? 'eager' : 'lazy' }}"
-                            decoding="async"
-                        >
-                    </div>
-                @endforeach
+                <a class="hx-btn hx-btn-primary" href="{{ $customerRegisterUrl }}">
+                    {{ $isArabic ? 'ابدأ الآن' : 'Get started' }}
+                    <span aria-hidden="true">
+                        {{ $isArabic ? '←' : '→' }}
+                    </span>
+                </a>
             </div>
 
-            <button
-                type="button"
-                class="hx-app-slider-arrow hx-app-slider-prev"
-                data-slider-prev
-                aria-label="{{ $isArabic ? 'الصورة السابقة' : 'Previous image' }}"
-            >
-                &#10094;
-            </button>
+            {{-- App screenshots slider --}}
+            @php
+                // Each screen has {n}.png (fallback), {n}.webp (720w) and {n}-360.webp
+                $sliderImages = [1, 2, 3, 4, 5, 6, 8, 9, 10];
 
-            <button
-                type="button"
-                class="hx-app-slider-arrow hx-app-slider-next"
-                data-slider-next
-                aria-label="{{ $isArabic ? 'الصورة التالية' : 'Next image' }}"
-            >
-                &#10095;
-            </button>
+                $sliderFolder = $isArabic
+                    ? 'visitors/images/app-slider/ar'
+                    : 'visitors/images/app-slider/en';
+            @endphp
 
-            <div
-                class="hx-app-slider-dots"
-                aria-label="{{ $isArabic ? 'اختيار الصورة' : 'Choose image' }}"
-            >
-                @foreach ($sliderImages as $index => $image)
+            <div class="hx-app-visual">
+                <div
+                    class="hx-app-slider"
+                    data-app-slider
+                    dir="{{ $isArabic ? 'rtl' : 'ltr' }}"
+                    aria-label="{{ $isArabic ? 'صور تطبيق SunXFinder' : 'SunXFinder app screenshots' }}"
+                    aria-roledescription="{{ $isArabic ? 'عارض صور' : 'carousel' }}"
+                >
+                    <div class="hx-app-slider-track">
+                        @foreach ($sliderImages as $index => $image)
+                            <div
+                                class="hx-app-slide {{ $index === 0 ? 'is-active' : '' }}"
+                                aria-hidden="{{ $index === 0 ? 'false' : 'true' }}"
+                            >
+                                <picture>
+                                    <source
+                                        type="image/webp"
+                                        srcset="{{ asset_v($sliderFolder . '/' . $image . '-360.webp') }} 360w,
+                                                {{ asset_v($sliderFolder . '/' . $image . '.webp') }} 720w"
+                                        sizes="(max-width: 760px) 240px, 290px"
+                                    >
+                                    <img
+                                        src="{{ asset_v($sliderFolder . '/' . $image . '.png') }}"
+                                        width="720"
+                                        height="1280"
+                                        alt="{{ $isArabic
+                                            ? 'شاشة تطبيق SunXFinder رقم ' . ($index + 1)
+                                            : 'SunXFinder app screen ' . ($index + 1) }}"
+                                        loading="{{ $index === 0 ? 'eager' : 'lazy' }}"
+                                        @if ($index === 0) fetchpriority="high" @endif
+                                        decoding="async"
+                                    >
+                                </picture>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    {{-- Arrows point the direction they move, so they swap glyphs in RTL.
+                         dir="ltr" stops the browser mirroring the brackets a second time. --}}
                     <button
                         type="button"
-                        class="hx-app-slider-dot {{ $index === 0 ? 'is-active' : '' }}"
-                        data-slide-to="{{ $index }}"
-                        aria-label="{{ $isArabic
-                            ? 'الصورة ' . ($index + 1)
-                            : 'Image ' . ($index + 1) }}"
-                        aria-current="{{ $index === 0 ? 'true' : 'false' }}"
-                    ></button>
-                @endforeach
+                        class="hx-app-slider-arrow hx-app-slider-prev"
+                        data-slider-prev
+                        aria-label="{{ $isArabic ? 'الصورة السابقة' : 'Previous image' }}"
+                    >
+                        <span aria-hidden="true" dir="ltr">{!! $isArabic ? '&#10095;' : '&#10094;' !!}</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        class="hx-app-slider-arrow hx-app-slider-next"
+                        data-slider-next
+                        aria-label="{{ $isArabic ? 'الصورة التالية' : 'Next image' }}"
+                    >
+                        <span aria-hidden="true" dir="ltr">{!! $isArabic ? '&#10094;' : '&#10095;' !!}</span>
+                    </button>
+
+                    <div
+                        class="hx-app-slider-dots"
+                        aria-label="{{ $isArabic ? 'اختيار الصورة' : 'Choose image' }}"
+                    >
+                        @foreach ($sliderImages as $index => $image)
+                            <button
+                                type="button"
+                                class="hx-app-slider-dot {{ $index === 0 ? 'is-active' : '' }}"
+                                data-slide-to="{{ $index }}"
+                                aria-label="{{ $isArabic
+                                    ? 'الصورة ' . ($index + 1)
+                                    : 'Image ' . ($index + 1) }}"
+                                aria-current="{{ $index === 0 ? 'true' : 'false' }}"
+                            ></button>
+                        @endforeach
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-</div>
 
 
 

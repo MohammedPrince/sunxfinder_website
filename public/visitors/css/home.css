@@ -1396,56 +1396,104 @@ html[lang="ar"] .hx-kicker {
    }
 }
 
+/* App screenshots slider: phone frame with crossfading slides */
+.hx-app-visual::before {
+   content: "";
+   position: absolute;
+   top: 50%;
+   left: 50%;
+   width: min(440px, 90%);
+   aspect-ratio: 1;
+   border-radius: 50%;
+   background: radial-gradient(circle, rgba(252, 82, 2, 0.16) 0%, rgba(255, 179, 26, 0.1) 45%, transparent 70%);
+   transform: translate(-50%, -50%);
+   pointer-events: none;
+}
+
 .hx-app-slider {
+   --hx-phone-width: 290px;
    position: relative;
-   width: 100%;
-   overflow: hidden;
-   border-radius: 24px;
-   box-shadow: 0 12px 32px rgba(253, 81, 3, 0.12);
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+   gap: 18px;
+   padding-inline: 60px;
 }
 
 .hx-app-slider-track {
    position: relative;
-   width: 100%;
+   width: var(--hx-phone-width);
+   aspect-ratio: 720 / 1280;
+   overflow: hidden;
+   border: 9px solid var(--hx-navy);
+   border-radius: 38px;
+   background: var(--hx-soft);
+   box-shadow: 0 24px 48px rgba(11, 45, 92, 0.22), 0 6px 14px rgba(11, 45, 92, 0.12);
 }
 
 .hx-app-slide {
-   display: none;
-   width: 100%;
+   position: absolute;
+   inset: 0;
+   opacity: 0;
+   visibility: hidden;
+   transition: opacity 0.45s ease, visibility 0s linear 0.45s;
 }
 
 .hx-app-slide.is-active {
-   display: block;
+   opacity: 1;
+   visibility: visible;
+   transition: opacity 0.45s ease;
 }
 
-.hx-app-slide img {
+.hx-app-slider .hx-app-slide img {
    display: block;
    width: 100%;
-   height: auto;
-   border-radius: 24px;
+   height: 100%;
+   max-height: none;
+   object-fit: cover;
+   object-position: top;
 }
 
 .hx-app-slider-arrow {
    position: absolute;
-   top: 50%;
-   transform: translateY(-50%);
+   /* Centre on the phone, not on the phone + dots */
+   top: calc(50% - 16px);
    z-index: 2;
-   width: 42px;
-   height: 42px;
-   border: 1px solid rgba(253, 81, 3, 0.15);
+   display: grid;
+   place-items: center;
+   width: 44px;
+   height: 44px;
+   padding: 0;
+   border: 1px solid rgba(252, 82, 2, 0.18);
    border-radius: 50%;
-   background: rgba(255, 255, 255, 0.95);
-   color: #fd5103;
-   box-shadow: 0 4px 16px rgba(253, 81, 3, 0.12);
+   background: #fff;
+   color: var(--hx-orange);
+   font-size: 16px;
+   box-shadow: 0 6px 18px rgba(11, 45, 92, 0.12);
+   transform: translateY(-50%);
    cursor: pointer;
+   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.hx-app-slider-arrow:hover,
+.hx-app-slider-arrow:focus-visible {
+   border-color: var(--hx-orange);
+   background: var(--hx-orange);
+   color: #fff;
+}
+
+.hx-app-slider-arrow:focus-visible,
+.hx-app-slider-dot:focus-visible {
+   outline: 2px solid var(--hx-orange);
+   outline-offset: 3px;
 }
 
 .hx-app-slider-prev {
-   left: 12px;
+   inset-inline-start: 0;
 }
 
 .hx-app-slider-next {
-   right: 12px;
+   inset-inline-end: 0;
 }
 
 .hx-app-slider-dots {
@@ -1453,7 +1501,7 @@ html[lang="ar"] .hx-kicker {
    justify-content: center;
    align-items: center;
    gap: 8px;
-   padding: 16px 0 4px;
+   height: 14px;
 }
 
 .hx-app-slider-dot {
@@ -1462,7 +1510,7 @@ html[lang="ar"] .hx-kicker {
    padding: 0;
    border: 0;
    border-radius: 50%;
-   background: #dce7ef;
+   background: #cfdbe7;
    cursor: pointer;
    transition: width 0.25s ease, background 0.25s ease;
 }
@@ -1470,43 +1518,29 @@ html[lang="ar"] .hx-kicker {
 .hx-app-slider-dot.is-active {
    width: 24px;
    border-radius: 10px;
-   background: #fd5103;
+   background: var(--hx-orange);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-   .hx-app-slide img {
-      animation: hx-slide-fade 0.35s ease;
+@media (max-width: 760px) {
+   .hx-app-slider {
+      --hx-phone-width: 240px;
+      padding-inline: 52px;
+   }
+
+   .hx-app-slider-track {
+      border-width: 7px;
+      border-radius: 32px;
+   }
+
+   .hx-app-slider-arrow {
+      width: 40px;
+      height: 40px;
    }
 }
 
-@keyframes hx-slide-fade {
-   from {
-      opacity: 0.65;
+@media (prefers-reduced-motion: reduce) {
+   .hx-app-slide,
+   .hx-app-slide.is-active {
+      transition: none;
    }
-
-   to {
-      opacity: 1;
-   }
-}
-
-/* Arabic slider arrow positions */
-.hx-app-slider[dir="rtl"] .hx-app-slider-prev {
-   left: auto;
-   right: 0;
-}
-
-.hx-app-slider[dir="rtl"] .hx-app-slider-next {
-   right: auto;
-   left: 0;
-}
-
-/* English slider arrow positions */
-.hx-app-slider[dir="ltr"] .hx-app-slider-prev {
-   left: 0;
-   right: auto;
-}
-
-.hx-app-slider[dir="ltr"] .hx-app-slider-next {
-   right: 0;
-   left: auto;
 }
