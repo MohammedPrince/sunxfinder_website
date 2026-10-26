@@ -39,7 +39,7 @@
 
             <div class="login-feature-row">
                 <span class="login-feature-icon">✦</span>
-                <span><strong>One-time code</strong><small>Valid for 1 minute and usable once.</small></span>
+                <span><strong>One-time code</strong><small>Valid for 5 minutes and usable once.</small></span>
             </div>
         </section>
 

@@ -422,7 +422,7 @@ return [
     'The company name may only contain English or Arabic letters, numbers, spaces and . , & \' ( ) -' => 'The company name may only contain English or Arabic letters, numbers, spaces and . , & \' ( ) -',
     'Solar projects your company has completed so far.' => 'Solar projects your company has completed so far.',
     'Optional. One link per line: Facebook, Instagram, LinkedIn or your website.' => 'Optional. One link per line: Facebook, Instagram, LinkedIn or your website.',
-    'Customers see these on your company page. Separate services with commas.' => 'Customers see these on your company page. Separate services with commas.',
+    'Customers see these on your company page. Separate services with commas.' => 'Customers see these on your company page.',
     'You will use these to sign in to your company dashboard.' => 'You will use these to sign in to your company dashboard.',
     'English letters and numbers.' => 'English letters and numbers.',
     'We send approval news and password resets here.' => 'We send approval news and password resets here.',
@@ -471,5 +471,10 @@ return [
     'e.g. 0912345678' => 'e.g. 0912345678',
     'What is your message about?' => 'What is your message about?',
     'Write your message here. Include your request number if it is about a quote.' => 'Write your message here. Include your request number if it is about a quote.',
+    'Services in English Add' => 'Add a service in English',
+    'Services in Arabic Add' => 'Add a service in Arabic',
+    'Service' => 'Add Service',
 
+    'Services in English must not contain Arabic letters.' => 'Services in English may only contain English letters, numbers, spaces and . & \' ( ) - / +',
+    'Services in Arabic must not contain English letters.' => 'Services in Arabic may only contain Arabic letters, numbers, spaces and . & \' ( ) - / +',
 ];

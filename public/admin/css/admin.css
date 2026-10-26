@@ -2683,9 +2683,22 @@ html[dir=rtl] .nav-link.active {
     border-color: #ffc9a9;
 }
 
-.company-delete-form {
+.company-delete-form,
+.company-login-form {
     display: inline-flex;
     margin: 0;
+}
+
+.company-actions .row-action-login {
+    color: #1c9b69;
+    border-color: #d1f0e2;
+}
+
+.company-actions .row-action-icon:disabled {
+    color: #b8c1cc;
+    background: #f5f7fa;
+    border-color: #e8edf2;
+    cursor: not-allowed;
 }
 
 .company-actions .row-action-delete {
@@ -2775,6 +2788,43 @@ html[dir=rtl] .nav-link.active {
 .form-grid > .company-profile-grid textarea.form-control {
     min-height: 110px;
     resize: vertical;
+}
+
+/* Services editor: one input per service (admin/partials/services-editor) */
+.provider-service-inputs {
+    display: grid;
+    gap: 8px;
+}
+
+.provider-service-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.provider-service-row input {
+    flex: 1;
+    min-width: 0;
+}
+
+.provider-service-add,
+.provider-service-remove {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--blue);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.provider-service-remove {
+    flex: none;
+    margin-top: 0;
+    color: #c0392b;
 }
 
 @media (max-width: 768px) {

@@ -1163,13 +1163,7 @@ class AdminRepository
     public function forceLogoutAllCustomers(): array
     {
         try {
-            $customers = Customer::query()->has('tokens')->count();
-
-            DB::table('personal_access_tokens')
-                ->where('tokenable_type', Customer::class)
-                ->delete();
-
-            CustomerDeviceToken::query()->update(['is_active' => false]);
+            $customers = $this->revokeAllCustomerSessions();
         } catch (Throwable $e) {
             report($e);
 
@@ -1182,6 +1176,20 @@ class AdminRepository
                 ? "{$customers} customer" . ($customers === 1 ? ' was' : 's were') . ' signed out of the app.'
                 : 'No customers were signed in.',
         ];
+    }
+
+    /** Deletes every customer API token and turns off all device push tokens. Returns customers signed out. */
+    private function revokeAllCustomerSessions(): int
+    {
+        $customers = Customer::query()->has('tokens')->count();
+
+        DB::table('personal_access_tokens')
+            ->where('tokenable_type', Customer::class)
+            ->delete();
+
+        CustomerDeviceToken::query()->update(['is_active' => false]);
+
+        return $customers;
     }
 
     /** Deletes the customer's API tokens and turns off their device push tokens. Returns tokens removed. */
@@ -3370,9 +3378,15 @@ class AdminRepository
             $endpoint->update($this->apiEndpointFields($data));
             cache()->forget(ApiEndpoint::CONFIG_CACHE_KEY);
 
+            // The app now talks to a new URL: old tokens are useless there, so customers log in again.
+            $signedOut = $endpoint->is_active && $endpoint->wasChanged('base_url')
+                ? $this->revokeAllCustomerSessions()
+                : 0;
+
             return [
                 'success' => true,
-                'message' => "API {$endpoint->name} saved" . ($endpoint->is_online ? ' (online).' : ' (offline).'),
+                'message' => "API {$endpoint->name} saved" . ($endpoint->is_online ? ' (online).' : ' (offline).')
+                    . ($signedOut ? " {$signedOut} customer(s) were signed out and must log in again." : ''),
             ];
         } catch (Throwable $e) {
             report($e);
@@ -3404,10 +3418,14 @@ class AdminRepository
 
             cache()->forget(ApiEndpoint::CONFIG_CACHE_KEY);
 
+            // Switched to another API: customers log in again against it.
+            $signedOut = $endpoint->wasChanged('is_active') ? $this->revokeAllCustomerSessions() : 0;
+
             return [
                 'success' => true,
                 'message' => "The app now uses {$endpoint->name} ({$endpoint->base_url})."
-                    . ($endpoint->is_online ? '' : ' It is offline, so the app shows the offline message until you turn it online.'),
+                    . ($endpoint->is_online ? '' : ' It is offline, so the app shows the offline message until you turn it online.')
+                    . ($signedOut ? " {$signedOut} customer(s) were signed out and must log in again." : ''),
             ];
         } catch (Throwable $e) {
             report($e);

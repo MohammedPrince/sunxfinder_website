@@ -110,16 +110,30 @@ class MainController extends Controller
             'This company account is inactive or not eligible to log in.'
         );
 
+        $guard = Auth::guard('company');
+        $impersonation = $request->session()->get('admin_company_impersonation');
+
         // Keep a company already signed in through the normal login form so it
-        // can be restored when the admin finishes this company session.
-        if (!$request->session()->has('admin_company_impersonation')) {
-            $currentCompanyId = Auth::guard('company')->id();
+        // can be restored when the admin finishes this company session. If the
+        // admin is already in another company, that one is simply replaced and
+        // the original real company stays remembered.
+        $realCompanyId = $impersonation
+            ? ($impersonation['previous_company_id'] ?? null)
+            : $guard->id();
+
+        // Never use $guard->logout() here: it cycles the remember token and would
+        // sign the switched-out company out of its own devices too.
+        $guard->login($company);
+
+        if ($realCompanyId && (int) $realCompanyId === $company->id) {
+            // Back to the real company itself: nothing to restore later.
+            $request->session()->forget('admin_company_impersonation');
+        } else {
             $request->session()->put('admin_company_impersonation', [
-                'previous_company_id' => $currentCompanyId,
+                'previous_company_id' => $realCompanyId,
+                'company_id' => $company->id,
             ]);
         }
-
-        Auth::guard('company')->login($company);
         $request->session()->regenerate();
         $request->session()->put('company_id', $company->id);
 

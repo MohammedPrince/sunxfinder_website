@@ -2428,12 +2428,12 @@ class CustomerRepository
     {
         $messages = [
             'code_sent_email' => [
-                'en' => 'We sent a 6-digit code to your email. It expires in 1 minute.',
-                'ar' => 'أرسلنا رمزاً من 6 أرقام إلى بريدك الإلكتروني. تنتهي صلاحيته خلال دقيقة واحدة.',
+                'en' => 'We sent a 6-digit code to your email. It expires in 5 minutes.',
+                'ar' => 'أرسلنا رمزاً من 6 أرقام إلى بريدك الإلكتروني. تنتهي صلاحيته خلال خمس دقائق.',
             ],
             'code_sent_sms' => [
-                'en' => 'We sent a 6-digit code to your phone. It expires in 1 minute.',
-                'ar' => 'أرسلنا رمزاً من 6 أرقام إلى هاتفك. تنتهي صلاحيته خلال دقيقة واحدة.',
+                'en' => 'We sent a 6-digit code to your phone. It expires in 5 minutes.',
+                'ar' => 'أرسلنا رمزاً من 6 أرقام إلى هاتفك. تنتهي صلاحيته خلال خمس دقائق.',
             ],
             'code_verified' => [
                 'en' => 'Code verified. You can now set a new password.',

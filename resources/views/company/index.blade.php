@@ -14,12 +14,6 @@
             $companyLogo = asset($companyLogo);
         }
 
-        $servicesValue = is_array($company->services) ? implode(', ', $company->services) : $company->services ?? '';
-
-        $arabicServicesValue = is_array($company->ar_services)
-            ? implode('، ', $company->ar_services)
-            : $company->ar_services ?? '';
-
         $plainDescription = html_entity_decode(
             strip_tags($company->description ?? ''),
             ENT_QUOTES | ENT_HTML5,
@@ -346,27 +340,10 @@
                             @enderror
                         </div>
 
-                        <div class="form-group">
-                            <label for="services">Company Services (English) <b class="required-mark">*</b></label>
-                            <textarea class="form-control" id="services" name="services" rows="4" maxlength="3000"
-                                placeholder="Commercial solar, Hybrid systems, Off-grid systems"
-                                required>{{ old('services', $servicesValue) }}</textarea>
-                            <small class="form-hint">Separate each service with a comma.</small>
-                            @error('services')
-                                <small class="field-error">{{ $message }}</small>
-                            @enderror
-                        </div>
-
-                        <div class="form-group">
-                            <label for="ar_services">Company Services (Arabic) <b class="required-mark">*</b></label>
-                            <textarea class="form-control" id="ar_services" name="ar_services" rows="4" maxlength="3000"
-                                dir="rtl" required lang="ar"
-                                placeholder="الطاقة الشمسية التجارية، الأنظمة الهجينة، الأنظمة خارج الشبكة">{{ old('ar_services', $arabicServicesValue) }}</textarea>
-                            <small class="form-hint">افصل بين كل خدمة والأخرى بفاصلة.</small>
-                            @error('ar_services')
-                                <small class="field-error">{{ $message }}</small>
-                            @enderror
-                        </div>
+                        @include('admin.partials.services-editor', [
+                            'services' => $company->services ?? '',
+                            'arServices' => $company->ar_services ?? '',
+                        ])
                     </div>
                 </div>
             </section>
@@ -449,6 +426,7 @@
 
     @push('scripts')
         <script src="{{ asset('main/js/script.js') }}"></script>
+        <script src="{{ asset_v('main/js/services-editor.js') }}"></script>
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 const logoInput = document.getElementById('logo');

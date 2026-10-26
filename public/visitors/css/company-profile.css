@@ -907,6 +907,41 @@
     color: #a0acbb;
 }
 
+.provider-service-inputs {
+    display: grid;
+    gap: 8px;
+}
+
+.provider-service-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.provider-service-row input {
+    flex: 1;
+    min-width: 0;
+}
+
+.provider-service-add,
+.provider-service-remove {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border: 1px solid #dbe4ef;
+    border-radius: 8px;
+    background: #fff;
+    color: #245d8d;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.provider-service-remove {
+    flex: none;
+    margin-top: 0;
+}
+
 .provider-field small {
     display: block;
     margin-top: 7px;

@@ -180,42 +180,10 @@
                     </div>
 
                     {{-- Company Services: English + Arabic --}}
-                    <div class="company-profile-grid">
-
-                        <div class="form-group">
-                            <label for="services">
-                                Company Services <b style="color: red">*</b>
-                            </label>
-
-                            <div class="editor-hint">
-                                List the main services, separated by commas.
-                            </div>
-
-                            <textarea class="form-control" name="services" id="services" rows="3"
-                                placeholder="Commercial solar, Hybrid systems, Off-grid systems" required>{{ old('services', $company->services ?? '') }}</textarea>
-
-                            @error('services')
-                                <small class="field-error">{{ $message }}</small>
-                            @enderror
-                        </div>
-
-                        <div class="form-group">
-                            <label for="ar_services">
-                                Company Services (Arabic) <b style="color: red">*</b>
-                            </label>
-
-                            <div class="editor-hint" dir="rtl" lang="ar">
-                                اكتب الخدمات الرئيسية مفصولة بفواصل.
-                            </div>
-
-                            <textarea class="form-control" name="ar_services" id="ar_services" rows="3" dir="rtl" lang="ar"
-                                placeholder="الطاقة الشمسية التجارية، الأنظمة الهجينة، الأنظمة خارج الشبكة" required>{{ old('ar_services', $company->ar_services ?? '') }}</textarea>
-
-                            @error('ar_services')
-                                <small class="field-error">{{ $message }}</small>
-                            @enderror
-                        </div>
-                    </div>
+                    @include('admin.partials.services-editor', [
+                        'services' => $company->services ?? '',
+                        'arServices' => $company->ar_services ?? '',
+                    ])
 
                     {{-- Company Profiles: English + Arabic --}}
                     <div class="company-profile-grid">
@@ -356,6 +324,7 @@
     {{-- Quill editor scripts --}}
 @section('scripts')
     <script src="{{ asset('main/js/script.js') }}"></script>
+    <script src="{{ asset_v('main/js/services-editor.js') }}"></script>
 @endsection
 
 

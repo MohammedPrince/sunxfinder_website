@@ -476,7 +476,7 @@ return [
     'The company name may only contain English or Arabic letters, numbers, spaces and . , & \' ( ) -' => 'يمكن أن يحتوي اسم الشركة على حروف عربية أو إنجليزية وأرقام ومسافات والرموز . , & \' ( ) - فقط.',
     'Solar projects your company has completed so far.' => 'مشاريع الطاقة الشمسية التي أنجزتها شركتك حتى الآن.',
     'Optional. One link per line: Facebook, Instagram, LinkedIn or your website.' => 'اختياري. رابط واحد في كل سطر: فيسبوك أو إنستغرام أو لينكدإن أو موقعك الإلكتروني.',
-    'Customers see these on your company page. Separate services with commas.' => 'تظهر للعملاء في صفحة شركتك. افصل بين الخدمات بفواصل.',
+    'Customers see these on your company page. Separate services with commas.' => 'تظهر للعملاء في صفحة شركتك.',
     'You will use these to sign in to your company dashboard.' => 'ستستخدمها للدخول إلى لوحة تحكم شركتك.',
     'English letters and numbers.' => 'أحرف إنجليزية وأرقام.',
     'We send approval news and password resets here.' => 'نرسل إليك هنا إشعار الموافقة ورموز استعادة كلمة المرور.',
@@ -525,5 +525,12 @@ return [
     'e.g. 0912345678' => 'مثال: 0912345678',
     'What is your message about?' => 'عن ماذا تدور رسالتك؟',
     'Write your message here. Include your request number if it is about a quote.' => 'اكتب رسالتك هنا. أضف رقم طلبك إذا كانت تتعلق بعرض سعر.',
+    'Services in English Add' => 'أضف خدمة باللغة الإنجليزية',
+    'Services in Arabic Add' => 'أضف خدمة باللغة العربية',
+    'Service' => 'إضافة خدمة',
 
+
+
+    'Services in English must not contain Arabic letters.' => 'يجب أن تحتوي الخدمات بالإنجليزية على أحرف إنجليزية وأرقام ومسافات و . & \' ( ) - / + فقط.',
+    'Services in Arabic must not contain English letters.' => 'يجب أن تحتوي الخدمات بالعربية على أحرف عربية وأرقام ومسافات و . & \' ( ) - / + فقط.',
 ];

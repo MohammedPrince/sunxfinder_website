@@ -88,7 +88,6 @@
                         <th>Status</th>
                         <th>Verification</th>
                         <th>Rating</th>
-                        <th>Login</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -184,19 +183,6 @@
                                     <span class="text-muted">No ratings</span>
                                 @endif
                             </td>
-                            <td>
-                                @if ($company->is_active && in_array($company->status, ['pending', 'approved'], true))
-                                    <form action="{{ route('admin.companies.login', $company->id) }}" method="POST"
-                                        target="_blank">
-                                        @csrf
-                                        <button type="submit" class="row-action" title="Open company dashboard"
-                                            aria-label="Log in as {{ $company->name }}">Login</button>
-                                    </form>
-                                @else
-                                    <button type="button" class="row-action" disabled
-                                        title="This company account is inactive or not eligible to log in">Login</button>
-                                @endif
-                            </td>
                             {{-- Actions --}}
                             <td>
                                 <div class="company-actions">
@@ -225,6 +211,27 @@
                                         </svg>
                                     </a>
 
+                                    {{-- Log in as company (opens the company dashboard in a new tab) --}}
+                                    @php
+                                        $loginIcon = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /><path d="m10 17 5-5-5-5" /><path d="M15 12H3" /></svg>';
+                                    @endphp
+                                    @if ($company->is_active && in_array($company->status, ['pending', 'approved'], true))
+                                        <form action="{{ route('admin.companies.login', $company->id) }}" method="POST"
+                                            class="company-login-form" target="_blank">
+                                            @csrf
+                                            <button type="submit" class="row-action row-action-icon row-action-login"
+                                                title="Log in as company" aria-label="Log in as {{ $company->name }}">
+                                                {!! $loginIcon !!}
+                                            </button>
+                                        </form>
+                                    @else
+                                        <button type="button" class="row-action row-action-icon" disabled
+                                            title="This company account is inactive or not eligible to log in"
+                                            aria-label="Log in as {{ $company->name }} (not available)">
+                                            {!! $loginIcon !!}
+                                        </button>
+                                    @endif
+
                                     {{-- Delete company --}}
                                     <form action="{{ route('admin.companies.destroy', $company->id) }}" method="POST"
                                         class="company-delete-form"
@@ -251,7 +258,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="text-center">
+                            <td colspan="7" class="text-center">
                                 No companies found.
                                 <a href="{{ route('admin.companies.create') }}">
                                     Add your first company

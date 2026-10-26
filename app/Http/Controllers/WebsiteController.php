@@ -220,8 +220,10 @@ class WebsiteController extends Controller
 
             'phone' => ['required', 'string', 'max:10', 'min:9'],
             'city' => ['required', 'string', 'max:100'],
-            'services' => ['required', 'string', 'max:5000'],
-            'ar_services' => ['required', 'string', 'max:5000'],
+            // Comma-separated list. English: Latin letters only. Arabic: Arabic letters only.
+            // Digits, spaces and . , & ' ( ) - / + are allowed in both (same as the form script).
+            'services' => ['required', 'string', 'max:5000', 'regex:/\A[A-Za-z0-9\s.,&\'()\-\/+]+\z/'],
+            'ar_services' => ['required', 'string', 'max:5000', 'regex:/\A[\x{0600}-\x{06FF}\x{0750}-\x{077F}\x{08A0}-\x{08FF}0-9\s.,&\'()\-\/+]+\z/u'],
             'description' => ['required', 'string'],
             'ar_description' => ['required', 'string'],
             'password' => [
@@ -245,6 +247,8 @@ class WebsiteController extends Controller
             'number_of_projects' => ['required', 'integer', 'min:1'],
         ], [
             'name.regex' => trans("messages.The company name may only contain English or Arabic letters, numbers, spaces and . , & ' ( ) -"),
+            'services.regex' => trans('messages.Services in English must not contain Arabic letters.'),
+            'ar_services.regex' => trans('messages.Services in Arabic must not contain English letters.'),
         ]);
 
         $uploadedPath = null;

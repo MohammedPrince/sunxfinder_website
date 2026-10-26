@@ -15,7 +15,7 @@
 
 <body style="margin:0;padding:0;background:#f4f6f8;color:#10366b;font-family:Arial,Helvetica,sans-serif;">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your SunXFinder password reset code is
-        {{ $code }}. It expires in 1 minute.</div>
+        {{ $code }}. It expires in 5 minutes.</div>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f6f8;">
         <tr>
             <td align="center" style="padding:24px 10px;">
@@ -61,7 +61,7 @@
                             </table>
 
                             <p style="font-size:14px;line-height:1.7;color:#b54708;margin:20px 0 0;text-align:center;">
-                                ⏱ This code expires in <strong>1 minute</strong> and can only be used once.</p>
+                                ⏱ This code expires in <strong>5 minutes</strong> and can only be used once.</p>
                         </td>
                     </tr>
                     <tr>

@@ -19,7 +19,7 @@ class AuthController extends Controller
     {
         $this->companyService = $companyService;
     }
-    public function showLogin()
+    public function showLogin(Request $request)
     {
         if (Auth::guard('company')->check()) {
             $company = Auth::guard('company')->user();
@@ -32,7 +32,9 @@ class AuthController extends Controller
                 return redirect()->route('company.dashboard');
             }
 
-            Auth::guard('company')->logout();
+            // This browser only: keep the company signed in on its other devices.
+            Auth::guard('company')->logoutCurrentDevice();
+            $request->session()->forget(['company_id', 'admin_company_impersonation']);
         }
 
         return view('admin.auth.login', array_merge($this->portalViewData(), [
@@ -108,13 +110,30 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        if ($company = Auth::guard('company')->user()) {
-            ActivityLogger::log('logout', 'Signed out of the company panel', $company, [], ActivityLogger::actorFor($company), 'auth');
+        $guard = Auth::guard('company');
+        $impersonation = $request->session()->pull('admin_company_impersonation');
+
+        if ($company = $guard->user()) {
+            ActivityLogger::log(
+                $impersonation ? 'admin_company_logout' : 'logout',
+                $impersonation ? "Admin signed out of company {$company->name}" : 'Signed out of the company panel',
+                $company,
+                [],
+                $impersonation ? ActivityLogger::actorFor(Auth::guard('admin')->user()) : ActivityLogger::actorFor($company),
+                'auth'
+            );
         }
 
-        $impersonation = $request->session()->pull('admin_company_impersonation');
-        Auth::guard('company')->logout();
+        if (!$impersonation) {
+            $guard->logout();
+            $request->session()->forget('company_id');
+            $request->session()->regenerateToken();
 
+            return redirect()->route('company.login');
+        }
+
+        // Admin session: only this browser leaves the company. logoutCurrentDevice()
+        // keeps the company's remember token, so its own devices stay signed in.
         $previousCompanyId = $impersonation['previous_company_id'] ?? null;
         $previousCompany = $previousCompanyId
             ? \App\Models\SolarCompany::query()->find($previousCompanyId)
@@ -125,9 +144,11 @@ class AuthController extends Controller
             $previousCompany->is_active &&
             in_array($previousCompany->status, ['pending', 'approved'], true)
         ) {
-            Auth::guard('company')->login($previousCompany);
+            // Restore the real company without clearing its "remember me" cookie.
+            $guard->login($previousCompany);
             $request->session()->put('company_id', $previousCompany->id);
         } else {
+            $guard->logoutCurrentDevice();
             $request->session()->forget('company_id');
         }
 
