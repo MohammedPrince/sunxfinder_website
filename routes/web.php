@@ -101,6 +101,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::get('/create', 'createCompany')->name('create');
                 Route::post('/', 'addNewCompany')->name('store');
+                Route::get('/{id}', 'companyDetails')->whereNumber('id')->name('details');
+                Route::post('/{id}/login', 'loginAsCompany')->whereNumber('id')->name('login');
                 Route::get('/{id}/edit', 'editCompany')->whereNumber('id')->name('edit');
                 Route::put('/{id}', 'updateCompany')->whereNumber('id')->name('update');
                 Route::delete('/{id}', 'deleteCompany')->whereNumber('id')->name('destroy');

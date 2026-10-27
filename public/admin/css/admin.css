@@ -2683,9 +2683,22 @@ html[dir=rtl] .nav-link.active {
     border-color: #ffc9a9;
 }
 
-.company-delete-form {
+.company-delete-form,
+.company-login-form {
     display: inline-flex;
     margin: 0;
+}
+
+.company-actions .row-action-login {
+    color: #1c9b69;
+    border-color: #d1f0e2;
+}
+
+.company-actions .row-action-icon:disabled {
+    color: #b8c1cc;
+    background: #f5f7fa;
+    border-color: #e8edf2;
+    cursor: not-allowed;
 }
 
 .company-actions .row-action-delete {
@@ -2775,6 +2788,43 @@ html[dir=rtl] .nav-link.active {
 .form-grid > .company-profile-grid textarea.form-control {
     min-height: 110px;
     resize: vertical;
+}
+
+/* Services editor: one input per service (admin/partials/services-editor) */
+.provider-service-inputs {
+    display: grid;
+    gap: 8px;
+}
+
+.provider-service-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.provider-service-row input {
+    flex: 1;
+    min-width: 0;
+}
+
+.provider-service-add,
+.provider-service-remove {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--blue);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.provider-service-remove {
+    flex: none;
+    margin-top: 0;
+    color: #c0392b;
 }
 
 @media (max-width: 768px) {
@@ -6382,4 +6432,483 @@ html[dir=rtl] .topbar-dropdown {
     border-color: #f6c4bd;
     background: #fdecea;
     color: #b42318;
+}
+
+/* Admin company details */
+.company-details-header {
+    overflow: hidden;
+}
+
+.company-details-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.company-details-identity {
+    min-width: 0;
+}
+
+.company-details-identity > div:last-child {
+    min-width: 0;
+}
+
+.company-details-identity h2 {
+    margin: 0 0 4px;
+    color: #142b45;
+    font-size: 18px;
+}
+
+.company-details-identity p {
+    margin: 0;
+    color: #738195;
+    font-size: 12px;
+}
+
+.company-details-badges {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.company-details-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.company-details-summary .quote-summary-item:nth-child(3n) {
+    border-right: 0;
+}
+
+.company-details-summary .quote-summary-item:nth-child(n + 4) {
+    border-top: 1px solid #edf0f4;
+}
+
+.company-details-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.company-detail-field {
+    min-width: 0;
+    padding: 14px 16px;
+    border: 1px solid #e9eef3;
+    border-radius: 10px;
+    background: #fbfcfd;
+}
+
+.company-detail-field-wide {
+    grid-column: 1 / -1;
+}
+
+.company-detail-label {
+    display: block;
+    margin-bottom: 6px;
+    color: #738195;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: .02em;
+}
+
+.company-detail-value {
+    min-width: 0;
+    margin: 0;
+    color: #263449;
+    font-size: 13px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.company-detail-copy {
+    white-space: pre-wrap;
+}
+
+.company-detail-status-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.company-detail-status-card {
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid #e9eef3;
+    border-radius: 10px;
+    background: #fbfcfd;
+}
+
+.company-detail-status-card h3 {
+    margin: 0 0 12px;
+    color: #263449;
+    font-size: 13px;
+}
+
+.company-detail-status-card p {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 7px 0 0;
+    color: #66758a;
+    font-size: 12px;
+}
+
+.company-detail-status-card p strong {
+    color: #142b45;
+}
+
+/* Company details: header, stats, profile, activity bars */
+.cd-print-title {
+    display: none;
+}
+
+.cd-hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 24px;
+    background: linear-gradient(120deg, #fff 55%, #fff4ec 100%);
+}
+
+.cd-hero-main {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    min-width: 0;
+}
+
+.cd-logo {
+    flex: 0 0 76px;
+    width: 76px;
+    height: 76px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #123566, #0878c9);
+    color: #fff;
+    font-size: 30px;
+    font-weight: 800;
+}
+
+.cd-logo.has-logo {
+    border: 1px solid #e6edf5;
+    background: #fff;
+}
+
+.cd-logo img {
+    width: 100%;
+    height: 100%;
+    padding: 6px;
+    object-fit: contain;
+}
+
+.cd-identity {
+    min-width: 0;
+}
+
+.cd-identity h2 {
+    margin: 0 0 4px;
+    color: #142b45;
+    font-size: 22px;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.cd-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 12px;
+    color: #738195;
+    font-size: 13px;
+}
+
+.cd-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.cd-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid #e6edf5;
+    border-radius: 999px;
+    background: #fff;
+    color: #263449;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.cd-chip svg {
+    color: #fc5202;
+}
+
+a.cd-chip:hover {
+    border-color: #fc5202;
+    color: #fc5202;
+}
+
+.cd-stats {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.cd-stat {
+    padding: 16px;
+    border: 1px solid #e9eef3;
+    border-radius: 14px;
+    background: #fff;
+}
+
+.cd-stat span {
+    display: block;
+    margin-bottom: 6px;
+    color: #738195;
+    font-size: 12px;
+}
+
+.cd-stat strong {
+    color: #142b45;
+    font-size: 22px;
+}
+
+.cd-profile {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    gap: 20px;
+    align-items: start;
+}
+
+.cd-facts {
+    margin: 0;
+}
+
+.cd-facts > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 11px 0;
+    border-bottom: 1px solid #eef2f6;
+}
+
+.cd-facts > div:last-child {
+    border-bottom: 0;
+}
+
+.cd-facts dt {
+    color: #738195;
+    font-size: 13px;
+}
+
+.cd-facts dd {
+    margin: 0;
+    color: #142b45;
+    font-size: 13px;
+    font-weight: 650;
+    text-align: end;
+    overflow-wrap: anywhere;
+}
+
+.cd-about {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.cd-about h3 {
+    margin: 0 0 10px;
+    color: #263449;
+    font-size: 13px;
+}
+
+.cd-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.cd-tags span {
+    padding: 5px 10px;
+    border-radius: 8px;
+    background: #f1f5f9;
+    color: #263449;
+    font-size: 12px;
+}
+
+.cd-tags em {
+    color: #738195;
+}
+
+.cd-copy {
+    margin: 0;
+    color: #4b5b70;
+    font-size: 13px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.company-detail-status-card h3 small {
+    float: inline-end;
+    color: #738195;
+    font-weight: 600;
+}
+
+.cd-bar-row p {
+    margin-top: 10px;
+}
+
+.cd-bar {
+    height: 6px;
+    margin-top: 5px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #edf1f5;
+}
+
+.cd-bar span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: #fc5202;
+}
+
+@media (max-width: 1100px) {
+    .cd-stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .cd-profile {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .cd-hero {
+        flex-direction: column;
+    }
+
+    .cd-hero-main {
+        align-items: flex-start;
+    }
+
+    .cd-stats,
+    .cd-about {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cd-about {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* Print / Save PDF: a clean report on A4 */
+@media print {
+    .cd-print-title {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #fc5202;
+        font-size: 10pt;
+    }
+
+    .cd-hero {
+        padding: 12px !important;
+        background: #fff !important;
+        box-shadow: none !important;
+        border: 1px solid #d8dee7 !important;
+    }
+
+    .cd-stats {
+        grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+        gap: 6px !important;
+    }
+
+    .cd-stat {
+        padding: 8px !important;
+    }
+
+    .cd-stat strong {
+        font-size: 14pt !important;
+    }
+
+    .cd-profile {
+        grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) !important;
+        gap: 10px !important;
+    }
+
+    .company-detail-status-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    }
+
+    .cd-hero,
+    .cd-stat,
+    .cd-profile .panel,
+    .company-detail-status-card,
+    .data-table tr {
+        break-inside: avoid;
+    }
+
+    .panel {
+        box-shadow: none !important;
+    }
+
+    a.cd-chip {
+        color: #263449 !important;
+    }
+}
+
+@media (max-width: 900px) {
+    .company-detail-status-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .company-details-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .company-details-badges {
+        justify-content: flex-start;
+    }
+
+    .company-details-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .company-details-summary .quote-summary-item:nth-child(3n) {
+        border-right: 1px solid #edf0f4;
+    }
+
+    .company-details-summary .quote-summary-item:nth-child(2n) {
+        border-right: 0;
+    }
+
+    .company-details-summary .quote-summary-item:nth-child(n + 3) {
+        border-top: 1px solid #edf0f4;
+    }
+
+    .company-details-grid,
+    .company-detail-status-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .company-detail-field-wide {
+        grid-column: auto;
+    }
 }

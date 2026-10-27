@@ -247,6 +247,8 @@
     color: #60718a;
     line-height: 1.9;
     margin: 0;
+    /* Long words or links must wrap inside the card, never push past it. */
+    overflow-wrap: anywhere;
 }
 
 .company-facts {
@@ -903,6 +905,41 @@
 .provider-field input::placeholder,
 .provider-field textarea::placeholder {
     color: #a0acbb;
+}
+
+.provider-service-inputs {
+    display: grid;
+    gap: 8px;
+}
+
+.provider-service-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.provider-service-row input {
+    flex: 1;
+    min-width: 0;
+}
+
+.provider-service-add,
+.provider-service-remove {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border: 1px solid #dbe4ef;
+    border-radius: 8px;
+    background: #fff;
+    color: #245d8d;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.provider-service-remove {
+    flex: none;
+    margin-top: 0;
 }
 
 .provider-field small {

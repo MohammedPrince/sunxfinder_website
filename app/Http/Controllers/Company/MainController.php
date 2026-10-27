@@ -104,7 +104,8 @@ class MainController extends Controller
         }
 
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:191'],
+            // English and/or Arabic letters, digits and . , & ' ( ) - (same rule as sign-up).
+            'name' => ['required', 'string', 'max:200', 'min:10', 'regex:/\A[A-Za-z0-9\s.,&\'()\-\p{Arabic}]+\z/u'],
             'city' => [
                 'required',
                 'string',
@@ -159,6 +160,8 @@ class MainController extends Controller
             ],
             'year_of_exp' => ['required', 'integer', 'min:1'],
             'number_of_projects' => ['required', 'integer', 'min:1'],
+        ], [
+            'name.regex' => "The company name may only contain English or Arabic letters, numbers, spaces and . , & ' ( ) -",
         ]);
 
         /*

@@ -15,7 +15,7 @@
 
                     <div class="company-profile-logo">
                         @if ($companyLogo)
-                            <img src="{{ asset($company->logo_path) }}" alt="{{ $company->name }} logo" loading="lazy">
+                            <img src="{{ app(\App\Helpers\Helper::class)->publicUrl($company->logo_path) }}" alt="{{ $company->name }} logo" loading="lazy">
                         @else
                             <span>{{ mb_strtoupper(mb_substr($companyName, 0, 1)) }}</span>
                         @endif
@@ -97,8 +97,7 @@
                     <section class="profile-panel" id="company-about">
                         <span class="eyebrow">{{ trans('messages.COMPANY OVERVIEW') }}</span>
                         <h2 style="text-align:left;"> <em>{{ $companyName }}</em></h2>
-                        <p class="company-about-copy">{!! \Mews\Purifier\Facades\Purifier::clean($companyDescription) !!}
-                        </p>
+                        <p class="company-about-copy" dir="auto">{{ $companyDescription }}</p>
                         <div class="company-facts">
                             <div class="company-fact"><span class="fact-icon">☀</span>
                                 <div>

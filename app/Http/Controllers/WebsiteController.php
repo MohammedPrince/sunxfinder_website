@@ -161,7 +161,7 @@ class WebsiteController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => ['required', 'string', 'min:2', 'max:100'],
             'email' => ['required', 'email', 'max:150'],
-            'phone' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+\s()-]+$/'],
+            'phone' => ['nullable', 'string', 'max:10','min:9', 'regex:/^[0-9+\s()-]+$/'],
             'sender_type' => ['required', Rule::in(['customer', 'company', 'other'])],
             'subject' => ['required', 'string', 'min:3', 'max:150'],
             'message' => ['required', 'string', 'min:10', 'max:3000'],
@@ -201,12 +201,13 @@ class WebsiteController extends Controller
     {
 
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:100', 'min:10', 'regex:/\A[A-Za-z0-9\s.,&\'()\-]+\z/',],
+            'name' => ['required', 'string', 'max:200', 'min:10', 'regex:/\A[A-Za-z0-9\s.,&\'()\-\p{Arabic}]+\z/u',],
             'username' => [
                 'required',
                 'string',
                 'max:191',
-                'regex:/\A[A-Za-z0-9\s.,&\'()\-]+\z/',
+                // English letters, numbers and _ (e.g. tesla_solar), plus the separators allowed before.
+                'regex:/\A[A-Za-z0-9_\s.,&\'()\-]+\z/',
                 Rule::unique('tbl_solar_companies', 'username'),
             ],
 
@@ -217,10 +218,12 @@ class WebsiteController extends Controller
                 Rule::unique('tbl_solar_companies', 'email'),
             ],
 
-            'phone' => ['required', 'string', 'max:10', 'min:10'],
+            'phone' => ['required', 'string', 'max:10', 'min:9'],
             'city' => ['required', 'string', 'max:100'],
-            'services' => ['required', 'string', 'max:5000'],
-            'ar_services' => ['required', 'string', 'max:5000'],
+            // Comma-separated list. English: Latin letters only. Arabic: Arabic letters only.
+            // Digits, spaces and . , & ' ( ) - / + are allowed in both (same as the form script).
+            'services' => ['required', 'string', 'max:5000', 'regex:/\A[A-Za-z0-9\s.,&\'()\-\/+]+\z/'],
+            'ar_services' => ['required', 'string', 'max:5000', 'regex:/\A[\x{0600}-\x{06FF}\x{0750}-\x{077F}\x{08A0}-\x{08FF}0-9\s.,&\'()\-\/+]+\z/u'],
             'description' => ['required', 'string'],
             'ar_description' => ['required', 'string'],
             'password' => [
@@ -242,6 +245,10 @@ class WebsiteController extends Controller
             ],
             'year_of_exp' => ['required', 'integer', 'min:1'],
             'number_of_projects' => ['required', 'integer', 'min:1'],
+        ], [
+            'name.regex' => trans("messages.The company name may only contain English or Arabic letters, numbers, spaces and . , & ' ( ) -"),
+            'services.regex' => trans('messages.Services in English must not contain Arabic letters.'),
+            'ar_services.regex' => trans('messages.Services in Arabic must not contain English letters.'),
         ]);
 
         $uploadedPath = null;
@@ -325,18 +332,17 @@ class WebsiteController extends Controller
             ? ($company->ar_description ?: $company->description)
             : ($company->description ?: $company->ar_description);
 
-        // The existing Blade view displays this value as escaped text.
-        $companyDescription = strip_tags($companyDescription ?? '');
+        // Plain text for the view. Text pasted into the editor often joins words with
+        // &nbsp; (non-breaking spaces), which stops the browser wrapping the line.
+        $companyDescription = html_entity_decode(strip_tags($companyDescription ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $companyDescription = trim(preg_replace('/[\x{00A0}\x{202F}\s]+/u', ' ', $companyDescription));
 
         $services = $isArabic
             ? ($company->ar_services ?: $company->services)
             : ($company->services ?: $company->ar_services);
 
-        $companyServices = collect(explode(',', $services ?? ''))
-            ->map(fn($service) => trim($service))
-            ->filter()
-            ->values()
-            ->all();
+        // One card per service: split on English or Arabic commas (، ) like the app does.
+        $companyServices = app(Helper::class)->splitList(strip_tags($services ?? ''));
 
         $companyLogo = $company->logo_path
             ? asset('storage/' . $company->logo_path)
@@ -350,7 +356,7 @@ class WebsiteController extends Controller
         $companyRating = $ratingSummary['rating'];
         $companyReviews = $ratingSummary['reviews'];
 
-        $companyYears = null;
+        $companyYears = $company->year_of_exp;
         $companyProducts = $company->products;
         $companyReviewsList = $this->mainService->getCompanyReviews($company->id);
 
@@ -405,7 +411,7 @@ class WebsiteController extends Controller
                 'required',
                 'string',
                 'max:10',
-                'min:10',
+                'min:9',
                 'unique:tbl_customers,phone',
             ],
             'email' => [

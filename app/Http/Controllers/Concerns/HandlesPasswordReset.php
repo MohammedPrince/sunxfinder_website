@@ -143,7 +143,7 @@ trait HandlesPasswordReset
 
         $this->rememberPasswordResetRequest($request, $pending['email'], $result['expires_at']);
 
-        return back()->with('status', 'A new code was sent to your email. It expires in 1 minute.');
+        return back()->with('status', 'A new code was sent to your email. It expires in 5 minutes.');
     }
 
     private function passwordResetSessionKey(): string

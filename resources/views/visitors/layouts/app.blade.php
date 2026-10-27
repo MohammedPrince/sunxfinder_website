@@ -16,10 +16,11 @@
     <meta name="description" content="{{ trans('messages.Find, compare, and connect with trusted solar companies.') }}">
     <title>@yield('title', 'SunXFinder-Solar Solutions')</title>
 
-    <link rel="icon" type="image/png" href="{{ asset_v('visitors/images/favicon-64.png') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ asset_v('favicon.svg') }}">
+    <link rel="icon" type="image/png" sizes="64x64" href="{{ asset_v('visitors/images/favicon-64.png') }}">
 
     {{-- Logo is above the fold: start downloading it immediately --}}
-    <link rel="preload" as="image" type="image/webp" href="{{ asset_v('visitors/images/logo-128.webp') }}"
+    <link rel="preload" as="image" href="{{ asset_v($isHome ? 'visitors/images/sunxfinder-logo-home-128.webp' : 'visitors/images/logo-128.webp') }}"
         fetchpriority="high">
 
     {{-- Google Fonts loaded without blocking first render (display=swap shows fallback text meanwhile).
@@ -121,13 +122,9 @@
             <div class="container footer-grid">
                 <div>
                     <a class="brand footer-brand" href="{{ $homeUrl }}">
-                        <picture>
-                            <source type="image/webp"
-                                srcset="{{ asset_v('visitors/images/logo-128.webp') }} 1x, {{ asset_v('visitors/images/logo-256.webp') }} 2x">
-                            <img src="{{ asset_v('visitors/images/logo-128.png') }}" alt="SunXFinder"
-                                width="88" height="88" loading="lazy" decoding="async"
-                                onerror="this.style.display='none';this.closest('a').querySelector('.brand-fallback').hidden=false">
-                        </picture>
+                        <img src="{{ asset_v('visitors/images/sunxfinder-logo-home-128.webp') }}" alt="SunXFinder"
+                            width="67" height="48" loading="lazy" decoding="async"
+                            onerror="this.style.display='none';this.closest('a').querySelector('.brand-fallback').hidden=false">
                         <span class="brand-fallback" hidden>Sun<span>X</span>Finder</span>
                     </a>
 

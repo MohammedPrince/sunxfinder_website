@@ -45,7 +45,7 @@
                         <label for="email">Email to <b style="color: red">*</b></label>
                         <input class="form-control" type="email" id="email" name="email" list="companyEmails"
                             maxlength="191" required dir="ltr" placeholder="company@example.com"
-                            value="{{ old('email') }}">
+                            value="{{ old('email', $prefillEmail ?? '') }}">
                         <datalist id="companyEmails">
                             @foreach ($companies as $company)
                                 <option value="{{ $company->email }}">{{ $company->name }}</option>
@@ -72,7 +72,7 @@
                         <label for="subject">Subject <b style="color: red">*</b></label>
                         <input class="form-control" type="text" id="subject" name="subject" maxlength="150" required
                             placeholder="e.g. Join SunXFinder and receive solar quote requests"
-                            value="{{ old('subject') }}">
+                            value="{{ old('subject', $prefillSubject ?? '') }}">
                         @error('subject')
                             <small class="field-error">{{ $message }}</small>
                         @enderror

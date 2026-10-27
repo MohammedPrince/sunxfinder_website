@@ -7,11 +7,17 @@ use App\Models\ActivityLog;
 use App\Models\AppVersion;
 use App\Repositories\Admin\AdminRepository;
 use App\Models\Customer;
+use App\Models\CompanyQuotation;
 use App\Models\Product;
+use App\Models\Project;
+use App\Models\Quote;
+use App\Models\Rating;
 use App\Models\RatingValue;
 use App\Models\SolarCompany;
 use App\Services\Admin\AdminService;
+use App\Support\ActivityLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
@@ -91,6 +97,139 @@ class MainController extends Controller
             'verifiedCount',
             'pendingCount',
             'inactiveCount'
+        ));
+    }
+
+    public function loginAsCompany(Request $request, int $id)
+    {
+        $company = SolarCompany::query()->findOrFail($id);
+
+        abort_unless(
+            $company->is_active && in_array($company->status, ['pending', 'approved'], true),
+            403,
+            'This company account is inactive or not eligible to log in.'
+        );
+
+        $guard = Auth::guard('company');
+        $impersonation = $request->session()->get('admin_company_impersonation');
+
+        // Keep a company already signed in through the normal login form so it
+        // can be restored when the admin finishes this company session. If the
+        // admin is already in another company, that one is simply replaced and
+        // the original real company stays remembered.
+        $realCompanyId = $impersonation
+            ? ($impersonation['previous_company_id'] ?? null)
+            : $guard->id();
+
+        // Never use $guard->logout() here: it cycles the remember token and would
+        // sign the switched-out company out of its own devices too.
+        $guard->login($company);
+
+        if ($realCompanyId && (int) $realCompanyId === $company->id) {
+            // Back to the real company itself: nothing to restore later.
+            $request->session()->forget('admin_company_impersonation');
+        } else {
+            $request->session()->put('admin_company_impersonation', [
+                'previous_company_id' => $realCompanyId,
+                'company_id' => $company->id,
+            ]);
+        }
+        $request->session()->regenerate();
+        $request->session()->put('company_id', $company->id);
+
+        ActivityLogger::log(
+            'admin_company_login',
+            "Admin signed in as company {$company->name}",
+            $company,
+            ['company_id' => $company->id],
+            ActivityLogger::actorFor(Auth::guard('admin')->user()),
+            'auth'
+        );
+
+        return redirect()->route('company.dashboard');
+    }
+
+    public function companyDetails(int $id)
+    {
+        $company = SolarCompany::query()->findOrFail($id);
+        $companyId = (int) $company->id;
+
+        $offerBase = CompanyQuotation::query()->where('company_id', $companyId);
+        $projectBase = Project::query()->where('company_id', $companyId);
+        $ratingBase = Rating::query()->where('company_id', $companyId);
+        $quoteBase = Quote::query()->where(function ($query) use ($companyId) {
+            $query->where('company_id', $companyId)
+                ->orWhereHas('companyQuotations', fn($offers) => $offers->where('company_id', $companyId));
+        });
+
+        $customerQuoteIds = Quote::query()
+            ->where(function ($query) use ($companyId) {
+                $query->where('company_id', $companyId)
+                    ->orWhereHas('companyQuotations', fn($offers) => $offers->where('company_id', $companyId));
+            })
+            ->select('customer_id');
+
+        $customersBase = Customer::query()->where(function ($query) use ($companyId, $customerQuoteIds) {
+            $query->whereIn('id', $customerQuoteIds)
+                ->orWhereIn('id', Project::query()->where('company_id', $companyId)->select('customer_id'))
+                ->orWhereIn('id', Rating::query()->where('company_id', $companyId)->select('customer_id'));
+        });
+
+        $quoteStatusCounts = (clone $quoteBase)
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+        $offerStatusCounts = (clone $offerBase)
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+        $projectStatusCounts = (clone $projectBase)
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $quotes = (clone $quoteBase)
+            ->with(['customer:id,full_name,username', 'project:id,quote_id,status,progress_percent'])
+            ->withCount(['companyQuotations as company_offers_count' => fn($offers) => $offers->where('company_id', $companyId)])
+            ->latest()
+            ->paginate(10, ['*'], 'quotes_page');
+
+        $customers = (clone $customersBase)
+            ->latest()
+            ->paginate(10, ['*'], 'customers_page');
+
+        $projects = (clone $projectBase)
+            ->with(['customer:id,full_name,username', 'quote:id,quote_name'])
+            ->latest()
+            ->paginate(10, ['*'], 'projects_page');
+
+        $ratings = (clone $ratingBase)
+            ->with('customer:id,full_name,username')
+            ->latest()
+            ->paginate(10, ['*'], 'ratings_page');
+
+        $ratingSummary = $company->ratingSummary();
+        $quoteCount = (clone $quoteBase)->count();
+        $offerCount = (clone $offerBase)->count();
+        $projectCount = (clone $projectBase)->count();
+        $ratingCount = (clone $ratingBase)->count();
+        $customerCount = (clone $customersBase)->distinct()->count('id');
+
+        return view('admin.companies.company-details', compact(
+            'company',
+            'quotes',
+            'customers',
+            'projects',
+            'ratings',
+            'quoteStatusCounts',
+            'offerStatusCounts',
+            'projectStatusCounts',
+            'ratingSummary',
+            'quoteCount',
+            'offerCount',
+            'projectCount',
+            'ratingCount',
+            'customerCount'
         ));
     }
 
@@ -862,7 +1001,6 @@ class MainController extends Controller
 
     //APK Direct Download Start
 
-    /** One piece of a chunked APK upload (see ApkDownload::chunkBytes()). */
     public function uploadApkChunk(Request $request)
     {
         $data = $request->validate([
@@ -1252,11 +1390,16 @@ class MainController extends Controller
 
     // Send Email (System → Send Email): admin writes to a solar company from info@
 
-    public function sendEmail()
+    public function sendEmail(Request $request)
     {
         $companies = $this->adminService->getCompanyEmailOptions();
+        $prefillEmail = $request->query('email');
+        $prefillEmail = is_string($prefillEmail) && filter_var($prefillEmail, FILTER_VALIDATE_EMAIL)
+            ? $prefillEmail
+            : '';
+        $prefillSubject = $prefillEmail;
 
-        return view('admin.send-email.index', compact('companies'));
+        return view('admin.send-email.index', compact('companies', 'prefillEmail', 'prefillSubject'));
     }
 
     public function sendEmailSubmit(Request $request)

@@ -205,8 +205,13 @@
             <a href="{{ url()->current() }}?lang=en" class="{{ $isArabic ? '' : 'active' }}" lang="en">English</a>
             <a href="{{ url()->current() }}?lang=ar" class="{{ $isArabic ? 'active' : '' }}" lang="ar">العربية</a>
         </nav>
-
-        <footer>© {{ date('Y') }} SunXFinder</footer>
+        <p>
+            {{ $isArabic ? 'عدد الزيارات' : 'Visitors' }}: {{ number_format($visitorCount ?? 0) }}
+        </p>
+        <footer>
+            <span aria-hidden="true"> </span>
+            Sun<b style="color: #fc5202;">X</b>Finder
+        </footer>
     </main>
 </body>
 

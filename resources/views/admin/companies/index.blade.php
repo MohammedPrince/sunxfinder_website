@@ -83,11 +83,11 @@
                 <thead>
                     <tr>
                         <th>Company</th>
-                        <th>City</th>
                         <th>Email</th>
                         <th>Joined</th>
                         <th>Status</th>
                         <th>Verification</th>
+                        <th>Rating</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -98,22 +98,47 @@
                             {{-- Company --}}
                             <td>
                                 <div class="company-cell">
-                                    <span class="company-avatar solar">
-                                        {{ strtoupper(substr($company->name, 0, 1)) }}
-                                    </span>
+                                    @if (!empty($company->logo_path))
+                                        <img class="company-avatar solar"
+                                            src="{{ app(\App\Helpers\Helper::class)->publicUrl($company->logo_path) }}"
+                                            alt="{{ $company->name }} logo" loading="lazy"
+                                            style="object-fit: cover;">
+                                    @else
+                                        @php
+                                            preg_match('/^\X/u', $company->name ?? '', $initialMatch);
+                                            $companyInitial = mb_strtoupper($initialMatch[0] ?? '?', 'UTF-8');
+                                        @endphp
+                                        <span class="company-avatar solar" dir="auto">
+                                            {{ $companyInitial }}
+                                        </span>
+                                    @endif
 
                                     <span>
-                                        <strong>{{ $company->name }}</strong>
+                                        <strong>
+                                            @if ($company->slug && $company->status === 'approved' && $company->is_active)
+                                                <a href="{{ route('company-profile.show', ['slug' => $company->slug]) }}"
+                                                    target="_blank" rel="noopener noreferrer">
+                                                    {{ $company->name }}
+                                                </a>
+                                            @else
+                                                {{ $company->name }}
+                                            @endif
+                                        </strong>
                                         <small>{{ $company->username }}</small>
                                     </span>
                                 </div>
                             </td>
 
-                            {{-- City --}}
-                            <td>{{ $company->city ?: '—' }}</td>
-
                             {{-- Email --}}
-                            <td>{{ $company->email ?: '—' }}</td>
+                            <td>
+                                @if ($company->email)
+                                    <a href="{{ route('admin.send-email.index', ['email' => $company->email]) }}">
+                                        {{ $company->email }}
+                                    </a>
+                                @else
+                                    —
+                                @endif
+                            </td>
 
                             {{-- Registration date --}}
                             <td>
@@ -148,6 +173,16 @@
                                     <span class="verify pending">◷ Unverified</span>
                                 @endif
                             </td>
+                            <td>
+                                @if ($company->visible_rating_count > 0)
+                                    <span title="{{ $company->visible_rating_count }} visible ratings">
+                                        ★ {{ number_format((float) $company->visible_rating_avg, 1) }}
+                                        <small>({{ $company->visible_rating_count }})</small>
+                                    </span>
+                                @else
+                                    <span class="text-muted">No ratings</span>
+                                @endif
+                            </td>
                             {{-- Actions --}}
                             <td>
                                 <div class="company-actions">
@@ -163,6 +198,39 @@
                                             <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z" />
                                         </svg>
                                     </a>
+
+                                    {{-- Company details --}}
+                                    <a href="{{ route('admin.companies.details', $company->id) }}"
+                                        class="row-action row-action-icon" title="Company details"
+                                        aria-label="View details for {{ $company->name }}">
+                                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+                                            stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                                            stroke-linejoin="round" aria-hidden="true">
+                                            <circle cx="12" cy="12" r="9" />
+                                            <path d="M12 11v5M12 8h.01" />
+                                        </svg>
+                                    </a>
+
+                                    {{-- Log in as company (opens the company dashboard in a new tab) --}}
+                                    @php
+                                        $loginIcon = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /><path d="m10 17 5-5-5-5" /><path d="M15 12H3" /></svg>';
+                                    @endphp
+                                    @if ($company->is_active && in_array($company->status, ['pending', 'approved'], true))
+                                        <form action="{{ route('admin.companies.login', $company->id) }}" method="POST"
+                                            class="company-login-form" target="_blank">
+                                            @csrf
+                                            <button type="submit" class="row-action row-action-icon row-action-login"
+                                                title="Log in as company" aria-label="Log in as {{ $company->name }}">
+                                                {!! $loginIcon !!}
+                                            </button>
+                                        </form>
+                                    @else
+                                        <button type="button" class="row-action row-action-icon" disabled
+                                            title="This company account is inactive or not eligible to log in"
+                                            aria-label="Log in as {{ $company->name }} (not available)">
+                                            {!! $loginIcon !!}
+                                        </button>
+                                    @endif
 
                                     {{-- Delete company --}}
                                     <form action="{{ route('admin.companies.destroy', $company->id) }}" method="POST"

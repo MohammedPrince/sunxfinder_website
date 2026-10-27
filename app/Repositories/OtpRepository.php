@@ -20,7 +20,7 @@ use Throwable;
  */
 class OtpRepository
 {
-    public const EXPIRES_SECONDS = 60;
+    public const EXPIRES_SECONDS = 300;
 
     public const MAX_ATTEMPTS = 5;
 
@@ -75,8 +75,8 @@ class OtpRepository
                 app(SmsSender::class)->send(
                     (string) $phone,
                     $isArabic
-                    ? "رمز إعادة تعيين كلمة المرور في SunXFinder: {$code}. صالح لمدة دقيقة واحدة. لا تشاركه مع أحد."
-                    : "Your SunXFinder password reset code is {$code}. It expires in 1 minute. Do not share it."
+                    ? "رمز إعادة تعيين كلمة المرور في SunXFinder: {$code}. صالح لمدة خمس دقائق. لا تشاركه مع أحد."
+                    : "Your SunXFinder password reset code is {$code}. It expires in 5 minutes. Do not share it."
                 );
             } else {
                 Mail::mailer('password_reset')
@@ -111,8 +111,8 @@ class OtpRepository
         return [
             'success' => true,
             'message' => $channel === 'sms'
-                ? 'We sent a 6-digit code to your phone. It expires in 1 minute.'
-                : 'We sent a 6-digit code to your email. It expires in 1 minute.',
+                ? 'We sent a 6-digit code to your phone. It expires in 5 minutes.'
+                : 'We sent a 6-digit code to your email. It expires in 5 minutes.',
             'channel' => $channel,
             'expires_at' => $otp->expires_at,
         ];

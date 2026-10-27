@@ -30,7 +30,7 @@ class EnsureCompanyAuthenticated
         if (!$isAllowed) {
             $guard->logout();
 
-            $request->session()->invalidate();
+            $request->session()->forget('company_id');
             $request->session()->regenerateToken();
 
             return redirect()

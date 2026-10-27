@@ -33,10 +33,12 @@ class SiteMaintenance
         }
 
         $isArabic = app()->getLocale() === 'ar';
+        $visitorCount = $this->recordMaintenanceVisit();
 
         return response()
             ->view('visitors.maintenance', [
                 'isArabic' => $isArabic,
+                'visitorCount' => $visitorCount,
                 'title' => $isArabic
                     ? ($maintenance['title_ar'] ?: $maintenance['title_en'])
                     : ($maintenance['title_en'] ?: $maintenance['title_ar']),
@@ -47,5 +49,50 @@ class SiteMaintenance
             ], 503)
             // Tells search engines the outage is temporary.
             ->header('Retry-After', '3600');
+    }
+
+    /** Count each browser session once while maintenance mode is enabled. */
+    private function recordMaintenanceVisit(): int
+    {
+        $directory = storage_path('app/private');
+
+        if (!is_dir($directory) && !@mkdir($directory, 0750, true) && !is_dir($directory)) {
+            return 0;
+        }
+
+        $handle = @fopen($directory . DIRECTORY_SEPARATOR . 'maintenance-visitors.txt', 'c+');
+
+        if ($handle === false) {
+            return 0;
+        }
+
+        try {
+            if (!flock($handle, LOCK_EX)) {
+                return 0;
+            }
+
+            rewind($handle);
+            $contents = trim((string) stream_get_contents($handle));
+            $sessions = $contents === '' || ctype_digit($contents)
+                ? []
+                : array_filter(array_unique(preg_split('/\R/', $contents) ?: []));
+            $sessionId = hash('sha256', session()->getId());
+
+            if (!in_array($sessionId, $sessions, true)) {
+                $sessions[] = $sessionId;
+            }
+
+            $count = count($sessions);
+
+            rewind($handle);
+            ftruncate($handle, 0);
+            fwrite($handle, implode(PHP_EOL, $sessions));
+            fflush($handle);
+            flock($handle, LOCK_UN);
+
+            return $count;
+        } finally {
+            fclose($handle);
+        }
     }
 }

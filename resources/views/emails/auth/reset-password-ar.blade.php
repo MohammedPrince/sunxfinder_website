@@ -25,7 +25,7 @@
 <body dir="rtl"
     style="margin:0;padding:0;background:#f4f6f8;color:#10366b;font-family:Tahoma,Arial,sans-serif;direction:rtl;">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;">رمز إعادة تعيين كلمة المرور في SunXFinder هو
-        {{ $code }}. تنتهي صلاحيته خلال دقيقة واحدة.
+        {{ $code }}. تنتهي صلاحيته خلال &#1582;&#1605;&#1587; &#1583;&#1602;&#1575;&#1574;&#1602;.
     </div>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f6f8;">
         <tr>
@@ -75,7 +75,7 @@
                             </table>
 
                             <p style="font-size:14px;line-height:1.9;color:#b54708;margin:20px 0 0;text-align:center;">
-                                ⏱ تنتهي صلاحية هذا الرمز خلال <strong>دقيقة واحدة</strong> ويمكن استخدامه مرة واحدة
+                                ⏱ تنتهي صلاحية هذا الرمز خلال <strong>&#1582;&#1605;&#1587; &#1583;&#1602;&#1575;&#1574;&#1602;</strong> ويمكن استخدامه مرة واحدة
                                 فقط.</p>
                         </td>
                     </tr>

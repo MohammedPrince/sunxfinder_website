@@ -83,12 +83,10 @@
                             <div class="provider-field provider-field-full">
                                 <label for="name">{{ __('messages.Company name') }} <b>*</b></label>
                                 <input type="text" id="name" name="name" value="{{ old('name') }}" minlength="10"
-                                    maxlength="100" required autocomplete="organization"
-                                    placeholder="Sunshine Solar Solutions" data-latin-only
-                                    data-latin-message="{{ __('messages.Please write the company name in English letters.') }}"
+                                    maxlength="200" required autocomplete="organization" dir="auto"
+                                    placeholder="Sunshine Solar Solutions"
                                     @class(['is-invalid' => $errors->has('name')])>
-                                <small>{{ __('messages.Your registered name in English, 10 to 100 characters.') }}</small>
-                                <small class="provider-field-error" data-latin-error hidden></small>
+                                <small>{{ __('messages.Your registered name in English or Arabic, 10 to 200 characters.') }}</small>
                                 @error('name')
                                     <small class="provider-field-error">{{ $message }}</small>
                                 @enderror
@@ -156,6 +154,10 @@
                     </section>
 
                     {{-- 2. Services --}}
+                    @php
+                        $englishServices = array_values(array_filter(array_map('trim', explode(',', old('services', ''))), fn ($service) => $service !== '')) ?: [''];
+                        $arabicServices = array_values(array_filter(array_map('trim', explode(',', old('ar_services', ''))), fn ($service) => $service !== '')) ?: [''];
+                    @endphp
                     <section class="provider-form-section">
                         <div class="provider-section-heading">
                             <span class="provider-section-number">2</span>
@@ -165,22 +167,36 @@
                             </div>
                         </div>
 
-                        <div class="provider-form-grid">
+                        <div class="provider-form-grid" data-services-editor data-remove-label="{{ $isArabic ? 'حذف' : 'Remove' }}">
                             <div class="provider-field">
-                                <label for="services">{{ __('messages.Services in English') }} <b>*</b></label>
-                                <textarea name="services" id="services" rows="3" required maxlength="5000" 
-                                    placeholder="Home solar, Hybrid systems, Water pumps"
-                                    @class(['is-invalid' => $errors->has('services')])>{{ old('services') }}</textarea>
+                                <label for="services-0">{{ __('messages.Services in English') }} <b>*</b></label>
+                                <div class="provider-service-inputs" data-service-inputs="services" data-placeholder="{{ __('messages.Services in English Add') }}">
+                                    @foreach ($englishServices as $index => $service)
+                                        <div class="provider-service-row">
+                                            <input type="text" id="services-{{ $index }}" value="{{ $service }}" maxlength="5000"
+                                                placeholder="{{ __('messages.Services in English Add') }}" @if ($index === 0) required @endif>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                <input type="hidden" name="services" id="services" value="{{ old('services') }}">
+                                <button type="button" class="provider-service-add" data-add-service="services">{{ $isArabic ? 'إضافة خدمة أخري' : 'Add other service' }}</button>
                                 @error('services')
                                     <small class="provider-field-error">{{ $message }}</small>
                                 @enderror
                             </div>
 
                             <div class="provider-field">
-                                <label for="ar_services">{{ __('messages.Services in Arabic') }} <b>*</b></label>
-                                <textarea name="ar_services" id="ar_services" rows="3" dir="rtl" lang="ar" required maxlength="5000"
-                                    placeholder="طاقة شمسية للمنازل، أنظمة هجينة، مضخات مياه"
-                                    @class(['is-invalid' => $errors->has('ar_services')])>{{ old('ar_services') }}</textarea>
+                                <label for="ar_services-0">{{ __('messages.Services in Arabic') }} <b>*</b></label>
+                                <div class="provider-service-inputs" data-service-inputs="ar_services" data-placeholder="{{ __('messages.Services in Arabic Add') }}" dir="rtl">
+                                    @foreach ($arabicServices as $index => $service)
+                                        <div class="provider-service-row">
+                                            <input type="text" id="ar_services-{{ $index }}" value="{{ $service }}" maxlength="5000" dir="rtl" lang="ar"
+                                                placeholder="{{ __('messages.Services in Arabic Add') }}" @if ($index === 0) required @endif>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                <input type="hidden" name="ar_services" id="ar_services" value="{{ old('ar_services') }}">
+                                <button type="button" class="provider-service-add" data-add-service="ar_services">{{ $isArabic ? 'إضافة خدمة أخري' : 'Add other service' }}</button>
                                 @error('ar_services')
                                     <small class="provider-field-error">{{ $message }}</small>
                                 @enderror
@@ -230,7 +246,7 @@
                                     maxlength="191" required autocomplete="username" data-latin-only
                                     data-latin-message="{{ __('messages.Please use English letters only for your username.') }}"
                                     @class(['is-invalid' => $errors->has('username')])>
-                                <small>{{ __('messages.English letters and numbers.') }}</small>
+                                <small>{{ __('messages.English letters, numbers and _ (e.g. tesla_solar).') }}</small>
                                 <small class="provider-field-error" data-latin-error hidden></small>
                                 @error('username')
                                     <small class="provider-field-error">{{ $message }}</small>
@@ -277,4 +293,5 @@
 @section('scripts')
     <script src="{{ asset_v('main/js/script.js') }}"></script>
     <script src="{{ asset_v('visitors/js/register.js') }}" defer></script>
+    <script src="{{ asset_v('main/js/services-editor.js') }}"></script>
 @endsection
