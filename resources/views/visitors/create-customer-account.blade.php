@@ -43,9 +43,10 @@
                     <span class="provider-success-icon" aria-hidden="true">✓</span>
                     <h2>{{ __('messages.Your account was created') }}</h2>
                     <p>{{ session('success') }}</p>
-                    <p>{{ __('messages.We will email you when it is approved. Then log in to the SunXFinder app with your username and password.') }}</p>
+                    <p>{{ __('messages.We will email you when your account is approved. Then open the SunXFinder app and log in with your username and password.') }}</p>
 
                     @if ($appLinks)
+                        <p>{{ __('messages.Download the SunXFinder app:') }}</p>
                         <div class="provider-success-actions">
                             @isset($appLinks['android'])
                                 <a class="provider-submit-button" href="{{ $appLinks['android'] }}" target="_blank" rel="noopener">{{ __('messages.Get it on') }} Google Play</a>
@@ -213,6 +214,19 @@
                             {{-- Must match the "min:5" password rule in WebsiteController::storeCustomer --}}
                             @include('visitors.partials.password-fields', ['minLength' => 5])
                         </div>
+                        <p class="provider-login-link" role="note">
+                            {{ __('messages.After your account is approved, remember to log in using the SunXFinder app with the username and password you created here.') }}
+                        </p>
+                        @if (!empty($appLinks))
+                            <div class="provider-success-actions">
+                                @isset($appLinks['android'])
+                                    <a class="provider-submit-button" href="{{ $appLinks['android'] }}" target="_blank" rel="noopener">{{ __('messages.Get it on') }} Google Play</a>
+                                @endisset
+                                @isset($appLinks['ios'])
+                                    <a class="provider-submit-button" href="{{ $appLinks['ios'] }}" target="_blank" rel="noopener">{{ __('messages.Download on the') }} App Store</a>
+                                @endisset
+                            </div>
+                        @endif
                     </section>
 
                     <footer class="provider-register-footer">

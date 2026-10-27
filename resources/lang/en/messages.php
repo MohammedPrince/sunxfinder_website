@@ -378,6 +378,7 @@ return [
     'Request offers, compare them and follow your project from your phone.' => 'Request offers, compare them and follow your project from your phone.',
     'Get it on' => 'Get it on',
     'Download on the' => 'Download on the',
+    'Download the SunXFinder app:' => 'Download the SunXFinder app:',
     'Your solar project starts with one free request.' => 'Your solar project starts with one free request.',
     'I am a solar company' => 'I am a solar company',
     'The easy way to find, compare and choose a solar company.' => 'The easy way to find, compare and choose a solar company.',
@@ -403,6 +404,7 @@ return [
     'Companies use it to plan the site visit and the installation.' => 'Companies use it to plan the site visit and the installation.',
     'Login details' => 'Login details',
     'You will use these to log in to the SunXFinder app.' => 'You will use these to log in to the SunXFinder app.',
+    'After your account is approved, remember to log in using the SunXFinder app with the username and password you created here.' => 'After your account is approved, remember to log in using the SunXFinder app with the username and password you created here.',
     'Please use English letters only for your username.' => 'Please use English letters only for your username.',
     '6 to 15 English letters, numbers or _ (no spaces).' => '6 to 15 English letters, numbers or _ (no spaces).',
     'By creating an account, you agree to our' => 'By creating an account, you agree to our',
@@ -477,4 +479,6 @@ return [
 
     'Services in English must not contain Arabic letters.' => 'Services in English may only contain English letters, numbers, spaces and . & \' ( ) - / +',
     'Services in Arabic must not contain English letters.' => 'Services in Arabic may only contain Arabic letters, numbers, spaces and . & \' ( ) - / +',
+
+    'We will email you when your account is approved. Then open the SunXFinder app and log in with your username and password.' => 'We will email you when your account is approved. Then open the SunXFinder app and log in with your username and password.',
 ];

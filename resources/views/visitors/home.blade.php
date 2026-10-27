@@ -62,26 +62,37 @@
                 <div class="hx-sun-glow"></div>
                 <div class="hx-logo-disc">
                     <picture>
-                        <source type="image/webp" srcset="{{ asset_v('visitors/images/logo-256.webp') }} 1x, {{ asset_v('visitors/images/logo-512.webp') }} 2x">
-                        <img src="{{ asset_v('visitors/images/logo-256.png') }}" alt="" width="256" height="256" fetchpriority="high">
+                        <source type="image/webp" srcset="{{ asset_v('visitors/images/cozysunxfinder-logo-home-512.webp') }}">
+                        <img src="{{ asset_v('visitors/images/sunxfinder-logo-home-512.png') }}" alt="SunXFinder Logo"
+                            width="512" height="368" fetchpriority="high">
                     </picture>
                 </div>
 
                 <div class="hx-chip hx-chip-find">
                     <span class="hx-chip-icon">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round">
+                            <circle cx="11" cy="11" r="7" />
+                            <path d="m20 20-3.5-3.5" />
+                        </svg>
                     </span>
                     <span><strong>{{ __('messages.Find') }}</strong><small>{{ __('messages.Verified solar companies') }}</small></span>
                 </div>
                 <div class="hx-chip hx-chip-compare">
                     <span class="hx-chip-icon">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 7h14M5 7l-3 7a4 4 0 0 0 6 0L5 7Zm14 0-3 7a4 4 0 0 0 6 0l-3-7Z"/></svg>
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 3v18M5 7h14M5 7l-3 7a4 4 0 0 0 6 0L5 7Zm14 0-3 7a4 4 0 0 0 6 0l-3-7Z" />
+                        </svg>
                     </span>
                     <span><strong>{{ __('messages.Compare') }}</strong><small>{{ __('messages.Offers side by side') }}</small></span>
                 </div>
                 <div class="hx-chip hx-chip-connect">
                     <span class="hx-chip-icon">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 6 9 17l-5-5" />
+                        </svg>
                     </span>
                     <span><strong>{{ __('messages.Connect') }}</strong><small>{{ __('messages.Choose and go solar') }}</small></span>
                 </div>
@@ -104,191 +115,178 @@
             <div class="hx-heading">
                 <span class="hx-kicker">{{ __('messages.How it works') }}</span>
                 <h2>{{ __('messages.Three simple steps to go solar') }}</h2>
-                <p>{{ __('messages.No phone calls, no guessing. Tell us what you need and let the companies come to you.') }}</p>
+                <p>{{ __('messages.No phone calls, no guessing. Tell us what you need and let the companies come to you.') }}
+                </p>
             </div>
 
             <ol class="hx-steps">
                 <li class="hx-step hx-step-find">
                     <span class="hx-step-no">1</span>
                     <span class="hx-step-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                        <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round">
+                            <circle cx="11" cy="11" r="7" />
+                            <path d="m20 20-3.5-3.5" />
+                        </svg>
                     </span>
                     <h3>{{ __('messages.Find') }}</h3>
-                    <p>{{ __('messages.Tell us what you need for your home, business or farm. We show your request to verified solar companies.') }}</p>
+                    <p>{{ __('messages.Tell us what you need for your home, business or farm. We show your request to verified solar companies.') }}
+                    </p>
                 </li>
 
                 <li class="hx-step hx-step-compare">
                     <span class="hx-step-no">2</span>
                     <span class="hx-step-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 7h14M5 7l-3 7a4 4 0 0 0 6 0L5 7Zm14 0-3 7a4 4 0 0 0 6 0l-3-7Z"/></svg>
+                        <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 3v18M5 7h14M5 7l-3 7a4 4 0 0 0 6 0L5 7Zm14 0-3 7a4 4 0 0 0 6 0l-3-7Z" />
+                        </svg>
                     </span>
                     <h3>{{ __('messages.Compare') }}</h3>
-                    <p>{{ __('messages.Receive offers from several companies and compare prices, details and experience in one place.') }}</p>
+                    <p>{{ __('messages.Receive offers from several companies and compare prices, details and experience in one place.') }}
+                    </p>
                 </li>
 
                 <li class="hx-step hx-step-connect">
                     <span class="hx-step-no">3</span>
                     <span class="hx-step-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                        <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 6 9 17l-5-5" />
+                        </svg>
                     </span>
                     <h3>{{ __('messages.Connect') }}</h3>
-                    <p>{{ __('messages.Accept the offer you like best, then follow your installation step by step until it is done.') }}</p>
+                    <p>{{ __('messages.Accept the offer you like best, then follow your installation step by step until it is done.') }}
+                    </p>
                 </li>
             </ol>
 
             <div class="hx-center">
-                <a class="hx-btn hx-btn-primary" href="{{ $customerRegisterUrl }}">{{ __('messages.Start with step 1') }}</a>
+                <a class="hx-btn hx-btn-primary"
+                    href="{{ $customerRegisterUrl }}">{{ __('messages.Start with step 1') }}</a>
                 <small class="hx-note">{{ __('messages.It is free and takes about 2 minutes.') }}</small>
             </div>
 
 
-        <div class="hx-app-walkthrough">
-            {{-- App description --}}
-            <div class="hx-app-copy">
-                <span class="hx-kicker">
-                    {{ $isArabic ? 'تطبيق SunXFinder' : 'THE SUNXFINDER APP' }}
-                </span>
+            <div class="hx-app-walkthrough">
+                {{-- App description --}}
+                <div class="hx-app-copy">
+                    <span class="hx-kicker">
+                        {{ $isArabic ? 'تطبيق SunXFinder' : 'THE SUNXFINDER APP' }}
+                    </span>
 
-                <h2>
-                    {{ $isArabic
-                        ? 'كل ما تحتاجه للطاقة الشمسية في تطبيق واحد'
-                        : 'Your solar project, made simple' }}
-                </h2>
+                    <h2>
+                        {{ $isArabic
+        ? 'كل ما تحتاجه للطاقة الشمسية في تطبيق واحد'
+        : 'Your solar project, made simple' }}
+                    </h2>
 
-                <p>
-                    {{ $isArabic
-                        ? 'اكتشف الشركات الموثوقة، وقارن العروض، وتابع مشروعك بسهولة من هاتفك.'
-                        : 'Find trusted companies, compare offers, and follow your project, all from your phone.' }}
-                </p>
+                    <p>
+                        {{ $isArabic
+        ? 'اكتشف الشركات الموثوقة، وقارن العروض، وتابع مشروعك بسهولة من هاتفك.'
+        : 'Find trusted companies, compare offers, and follow your project, all from your phone.' }}
+                    </p>
 
-                <ul class="hx-app-highlights">
-                    <li>
-                        {{ $isArabic ? 'اطلب عروضاً تناسب احتياجاتك' : 'Request offers for your needs' }}
-                    </li>
-                    <li>
-                        {{ $isArabic ? 'قارن الأسعار والتفاصيل بسهولة' : 'Compare prices and details' }}
-                    </li>
-                    <li>
-                        {{ $isArabic ? 'تابع مشروعك خطوة بخطوة' : 'Follow your project step by step' }}
-                    </li>
-                </ul>
+                    <ul class="hx-app-highlights">
+                        <li>
+                            {{ $isArabic ? 'اطلب عروضاً تناسب احتياجاتك' : 'Request offers for your needs' }}
+                        </li>
+                        <li>
+                            {{ $isArabic ? 'قارن الأسعار والتفاصيل بسهولة' : 'Compare prices and details' }}
+                        </li>
+                        <li>
+                            {{ $isArabic ? 'تابع مشروعك خطوة بخطوة' : 'Follow your project step by step' }}
+                        </li>
+                    </ul>
 
-                <div class="hx-actions hx-app-actions">
-                    <a class="hx-btn hx-btn-primary" href="{{ $customerRegisterUrl }}">
-                        {{ $isArabic ? 'ابدأ الآن' : 'Get started' }}
-                        <span aria-hidden="true">
-                            {{ $isArabic ? '←' : '→' }}
-                        </span>
-                    </a>
-
-                    {{-- Shown only while the admin has it switched on (Admin → App Versions) --}}
-                    @if (!empty($apkDownloadUrl))
-                        <a class="hx-btn hx-btn-outline" href="{{ $apkDownloadUrl }}" download rel="nofollow">
-                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="M12 3v12" />
-                                <path d="m7 10 5 5 5-5" />
-                                <path d="M5 21h14" />
-                            </svg>
-                            {{ $isArabic ? 'تحميل' : 'Direct Download' }}
+                    <div class="hx-actions hx-app-actions">
+                        <a class="hx-btn hx-btn-primary" href="{{ $customerRegisterUrl }}">
+                            {{ $isArabic ? 'ابدأ الآن' : 'Get started' }}
+                            <span aria-hidden="true">
+                                {{ $isArabic ? '←' : '→' }}
+                            </span>
                         </a>
-                    @endif
 
-                    @if (!empty($playStoreUrl))
-                        <a class="hx-store" href="{{ $playStoreUrl }}" target="_blank" rel="noopener">
-                            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M4 3.5v17l9.5-8.5L4 3.5Zm11 7L6.5 2.3l10.3 5.9L15 10.5Zm0 3 1.8 2.3L6.5 21.7 15 13.5Zm1.4-1.5L19.7 10l2.3 1.3c.6.4.6 1.1 0 1.4L19.7 14l-3.3-2Z"/></svg>
-                            <span><small>{{ __('messages.Get it on') }}</small>Google Play</span>
-                        </a>
-                    @endif
-                </div>
-            </div>
+                        {{-- Shown only while the admin has it switched on (Admin → App Versions) --}}
+                        @if (!empty($apkDownloadUrl))
+                            <a class="hx-btn hx-btn-outline" href="{{ $apkDownloadUrl }}" download rel="nofollow">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M12 3v12" />
+                                    <path d="m7 10 5 5 5-5" />
+                                    <path d="M5 21h14" />
+                                </svg>
+                                {{ $isArabic ? 'تحميل' : 'Direct Download' }}
+                            </a>
+                        @endif
 
-            {{-- App screenshots slider --}}
-            @php
-                // Each screen has {n}.png (fallback), {n}.webp (720w) and {n}-360.webp
-                $sliderImages = [1, 2, 3, 4, 5, 6, 8, 9, 10];
-
-                $sliderFolder = $isArabic
-                    ? 'visitors/images/app-slider/ar'
-                    : 'visitors/images/app-slider/en';
-            @endphp
-
-            <div class="hx-app-visual">
-                <div
-                    class="hx-app-slider"
-                    data-app-slider
-                    dir="{{ $isArabic ? 'rtl' : 'ltr' }}"
-                    aria-label="{{ $isArabic ? 'صور تطبيق SunXFinder' : 'SunXFinder app screenshots' }}"
-                    aria-roledescription="{{ $isArabic ? 'عارض صور' : 'carousel' }}"
-                >
-                    <div class="hx-app-slider-track">
-                        @foreach ($sliderImages as $index => $image)
-                            <div
-                                class="hx-app-slide {{ $index === 0 ? 'is-active' : '' }}"
-                                aria-hidden="{{ $index === 0 ? 'false' : 'true' }}"
-                            >
-                                <picture>
-                                    <source
-                                        type="image/webp"
-                                        srcset="{{ asset_v($sliderFolder . '/' . $image . '-360.webp') }} 360w,
-                                                {{ asset_v($sliderFolder . '/' . $image . '.webp') }} 720w"
-                                        sizes="(max-width: 760px) 240px, 290px"
-                                    >
-                                    <img
-                                        src="{{ asset_v($sliderFolder . '/' . $image . '.png') }}"
-                                        width="720"
-                                        height="1280"
-                                        alt="{{ $isArabic
-                                            ? 'شاشة تطبيق SunXFinder رقم ' . ($index + 1)
-                                            : 'SunXFinder app screen ' . ($index + 1) }}"
-                                        loading="{{ $index === 0 ? 'eager' : 'lazy' }}"
-                                        @if ($index === 0) fetchpriority="high" @endif
-                                        decoding="async"
-                                    >
-                                </picture>
-                            </div>
-                        @endforeach
+                        @if (!empty($playStoreUrl))
+                            <a class="hx-store" href="{{ $playStoreUrl }}" target="_blank" rel="noopener">
+                                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+                                    <path
+                                        d="M4 3.5v17l9.5-8.5L4 3.5Zm11 7L6.5 2.3l10.3 5.9L15 10.5Zm0 3 1.8 2.3L6.5 21.7 15 13.5Zm1.4-1.5L19.7 10l2.3 1.3c.6.4.6 1.1 0 1.4L19.7 14l-3.3-2Z" />
+                                </svg>
+                                <span><small>{{ __('messages.Get it on') }}</small>Google Play</span>
+                            </a>
+                        @endif
                     </div>
+                </div>
 
-                    {{-- Arrows point the direction they move, so they swap glyphs in RTL.
-                         dir="ltr" stops the browser mirroring the brackets a second time. --}}
-                    <button
-                        type="button"
-                        class="hx-app-slider-arrow hx-app-slider-prev"
-                        data-slider-prev
-                        aria-label="{{ $isArabic ? 'الصورة السابقة' : 'Previous image' }}"
-                    >
-                        <span aria-hidden="true" dir="ltr">{!! $isArabic ? '&#10095;' : '&#10094;' !!}</span>
-                    </button>
+                {{-- App screenshots slider --}}
+                @php
+                    // Each screen is stored as a WebP image.
+                    $sliderImages = [1, 2, 3, 4, 5, 6, 8, 9, 10];
 
-                    <button
-                        type="button"
-                        class="hx-app-slider-arrow hx-app-slider-next"
-                        data-slider-next
-                        aria-label="{{ $isArabic ? 'الصورة التالية' : 'Next image' }}"
-                    >
-                        <span aria-hidden="true" dir="ltr">{!! $isArabic ? '&#10094;' : '&#10095;' !!}</span>
-                    </button>
+                    $sliderFolder = $isArabic
+                        ? 'visitors/images/app-slider/ar'
+                        : 'visitors/images/app-slider/en';
+                @endphp
 
-                    <div
-                        class="hx-app-slider-dots"
-                        aria-label="{{ $isArabic ? 'اختيار الصورة' : 'Choose image' }}"
-                    >
-                        @foreach ($sliderImages as $index => $image)
-                            <button
-                                type="button"
-                                class="hx-app-slider-dot {{ $index === 0 ? 'is-active' : '' }}"
-                                data-slide-to="{{ $index }}"
-                                aria-label="{{ $isArabic
-                                    ? 'الصورة ' . ($index + 1)
-                                    : 'Image ' . ($index + 1) }}"
-                                aria-current="{{ $index === 0 ? 'true' : 'false' }}"
-                            ></button>
-                        @endforeach
+                <div class="hx-app-visual">
+                    <div class="hx-app-slider" data-app-slider dir="{{ $isArabic ? 'rtl' : 'ltr' }}"
+                        aria-label="{{ $isArabic ? 'صور تطبيق SunXFinder' : 'SunXFinder app screenshots' }}"
+                        aria-roledescription="{{ $isArabic ? 'عارض صور' : 'carousel' }}">
+                        <div class="hx-app-slider-track">
+                            @foreach ($sliderImages as $index => $image)
+                                                <div class="hx-app-slide {{ $index === 0 ? 'is-active' : '' }}"
+                                                    aria-hidden="{{ $index === 0 ? 'false' : 'true' }}">
+                                                    <picture>
+                                                        <source type="image/webp" srcset="{{ asset_v($sliderFolder . '/' . $image . '.webp') }}">
+                                                        <img src="{{ asset_v($sliderFolder . '/' . $image . '.webp') }}" width="720"
+                                                            height="1280" alt="{{ $isArabic
+                                ? 'شاشة تطبيق SunXFinder رقم ' . ($index + 1)
+                                : 'SunXFinder app screen ' . ($index + 1) }}"
+                                                            loading="{{ $index === 0 ? 'eager' : 'lazy' }}" @if ($index === 0)
+                                                            fetchpriority="high" @endif decoding="async">
+                                                    </picture>
+                                                </div>
+                            @endforeach
+                        </div>
+
+                        {{-- Arrows point the direction they move, so they swap glyphs in RTL.
+                        dir="ltr" stops the browser mirroring the brackets a second time. --}}
+                        <button type="button" class="hx-app-slider-arrow hx-app-slider-prev" data-slider-prev
+                            aria-label="{{ $isArabic ? 'الصورة السابقة' : 'Previous image' }}">
+                            <span aria-hidden="true" dir="ltr">{!! $isArabic ? '&#10095;' : '&#10094;' !!}</span>
+                        </button>
+
+                        <button type="button" class="hx-app-slider-arrow hx-app-slider-next" data-slider-next
+                            aria-label="{{ $isArabic ? 'الصورة التالية' : 'Next image' }}">
+                            <span aria-hidden="true" dir="ltr">{!! $isArabic ? '&#10094;' : '&#10095;' !!}</span>
+                        </button>
+
+                        <div class="hx-app-slider-dots" aria-label="{{ $isArabic ? 'اختيار الصورة' : 'Choose image' }}">
+                            @foreach ($sliderImages as $index => $image)
+                                                <button type="button" class="hx-app-slider-dot {{ $index === 0 ? 'is-active' : '' }}"
+                                                    data-slide-to="{{ $index }}" aria-label="{{ $isArabic
+                                ? 'الصورة ' . ($index + 1)
+                                : 'Image ' . ($index + 1) }}"
+                                                    aria-current="{{ $index === 0 ? 'true' : 'false' }}"></button>
+                            @endforeach
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
 
 
@@ -308,7 +306,12 @@
             <div class="hx-solutions">
                 <article class="hx-solution">
                     <span class="hx-solution-icon hx-tone-blue" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>
+                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m3 11 9-7 9 7" />
+                            <path d="M5 10v10h14V10" />
+                            <path d="M10 20v-6h4v6" />
+                        </svg>
                     </span>
                     <h3>{{ __('messages.Home energy') }}</h3>
                     <p>{{ __('messages.Solar panels, batteries and backup power for homeowners.') }}</p>
@@ -316,7 +319,11 @@
 
                 <article class="hx-solution">
                     <span class="hx-solution-icon hx-tone-orange" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M9 7h1M14 7h1M9 11h1M14 11h1M9 15h1M14 15h1M10 21v-3h4v3"/></svg>
+                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="4" y="3" width="16" height="18" rx="1.5" />
+                            <path d="M9 7h1M14 7h1M9 11h1M14 11h1M9 15h1M14 15h1M10 21v-3h4v3" />
+                        </svg>
                     </span>
                     <h3>{{ __('messages.Business & industry') }}</h3>
                     <p>{{ __('messages.Energy options for shops, offices, facilities and operations.') }}</p>
@@ -324,7 +331,13 @@
 
                 <article class="hx-solution">
                     <span class="hx-solution-icon hx-tone-green" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V11"/><path d="M12 11c0-4 3-7 7-7 0 4-3 7-7 7Z"/><path d="M12 14c0-3-2.5-5.5-6-5.5 0 3.5 2.5 5.5 6 5.5Z"/><path d="M4 21h16"/></svg>
+                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 21V11" />
+                            <path d="M12 11c0-4 3-7 7-7 0 4-3 7-7 7Z" />
+                            <path d="M12 14c0-3-2.5-5.5-6-5.5 0 3.5 2.5 5.5 6 5.5Z" />
+                            <path d="M4 21h16" />
+                        </svg>
                     </span>
                     <h3>{{ __('messages.Farms & water pumps') }}</h3>
                     <p>{{ __('messages.Solar-powered irrigation and remote energy systems.') }}</p>
@@ -345,11 +358,13 @@
 
                 @if ($companies->count() > 1)
                     <div class="company-slider-controls">
-                        <button type="button" class="company-slider-btn" id="companiesPrev" aria-label="{{ __('messages.Previous companies') }}">
+                        <button type="button" class="company-slider-btn" id="companiesPrev"
+                            aria-label="{{ __('messages.Previous companies') }}">
                             {{-- The controls are forced LTR in Arabic too, so the glyphs never swap --}}
                             <span aria-hidden="true">←</span>
                         </button>
-                        <button type="button" class="company-slider-btn" id="companiesNext" aria-label="{{ __('messages.Next companies') }}">
+                        <button type="button" class="company-slider-btn" id="companiesNext"
+                            aria-label="{{ __('messages.Next companies') }}">
                             <span aria-hidden="true">→</span>
                         </button>
                     </div>
@@ -390,8 +405,8 @@
                         <div class="company-card-top">
                             <div class="company-logo-placeholder {{ $logoUrl ? 'has-logo' : '' }}">
                                 @if ($logoUrl)
-                                    <img src="{{ $logoUrl }}" alt="{{ $company->name }}" width="56" height="56"
-                                        loading="lazy" decoding="async"
+                                    <img src="{{ $logoUrl }}" alt="{{ $company->name }}" width="56" height="56" loading="lazy"
+                                        decoding="async"
                                         onerror="this.parentElement.classList.remove('has-logo');this.replaceWith(document.createTextNode({{ json_encode(mb_strtoupper(mb_substr($company->name, 0, 1))) }}))">
                                 @else
                                     {{ mb_strtoupper(mb_substr($company->name, 0, 1)) }}
@@ -407,10 +422,12 @@
 
                                 <div class="hx-company-rating" dir="ltr">
                                     @if ($rating !== null)
-                                        <span class="hx-stars" aria-label="{{ $rating }} out of 5 stars">{{ str_repeat('★', $filledStars) }}<span
+                                        <span class="hx-stars"
+                                            aria-label="{{ $rating }} out of 5 stars">{{ str_repeat('★', $filledStars) }}<span
                                                 class="hx-stars-off">{{ str_repeat('★', 5 - $filledStars) }}</span></span>
                                         <strong>{{ number_format($rating, 1) }}</strong>
-                                        <span class="hx-rating-count">({{ number_format($reviewCount) }} {{ __('messages.customer reviews') }})</span>
+                                        <span class="hx-rating-count">({{ number_format($reviewCount) }}
+                                            {{ __('messages.customer reviews') }})</span>
                                     @else
                                         <span class="hx-rating-empty">{{ __('messages.Not rated yet') }}</span>
                                     @endif
@@ -470,7 +487,8 @@
             <div>
                 <span class="hx-kicker hx-kicker-light">{{ __('messages.For solar companies') }}</span>
                 <h2>{{ __('messages.Get customers who are ready to go solar') }}</h2>
-                <p>{{ __('messages.Customers send their needs. You send your offer, win the project and keep the customer updated, all from one dashboard.') }}</p>
+                <p>{{ __('messages.Customers send their needs. You send your offer, win the project and keep the customer updated, all from one dashboard.') }}
+                </p>
 
                 <a class="hx-btn hx-btn-primary" href="{{ $companyRegisterUrl }}">
                     {{ $companyLoggedIn ? __('messages.Go to your dashboard') : __('messages.Join as a company') }}
@@ -509,13 +527,19 @@
                 <div class="hx-app-buttons">
                     @isset($appLinks['android'])
                         <a class="hx-store" href="{{ $appLinks['android'] }}" target="_blank" rel="noopener">
-                            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M4 3.5v17l9.5-8.5L4 3.5Zm11 7L6.5 2.3l10.3 5.9L15 10.5Zm0 3 1.8 2.3L6.5 21.7 15 13.5Zm1.4-1.5L19.7 10l2.3 1.3c.6.4.6 1.1 0 1.4L19.7 14l-3.3-2Z"/></svg>
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+                                <path
+                                    d="M4 3.5v17l9.5-8.5L4 3.5Zm11 7L6.5 2.3l10.3 5.9L15 10.5Zm0 3 1.8 2.3L6.5 21.7 15 13.5Zm1.4-1.5L19.7 10l2.3 1.3c.6.4.6 1.1 0 1.4L19.7 14l-3.3-2Z" />
+                            </svg>
                             <span><small>{{ __('messages.Get it on') }}</small>Google Play</span>
                         </a>
                     @endisset
                     @isset($appLinks['ios'])
                         <a class="hx-store" href="{{ $appLinks['ios'] }}" target="_blank" rel="noopener">
-                            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.5 2-3.6 2.1-3.7-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.9-1.1-2.9-4.2ZM13.9 5c.7-.8 1.2-2 1-3.2-1 .1-2.2.7-3 1.5-.6.7-1.2 1.9-1 3.1 1.1.1 2.3-.6 3-1.4Z"/></svg>
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+                                <path
+                                    d="M16.4 12.6c0-2.5 2-3.6 2.1-3.7-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.9-1.1-2.9-4.2ZM13.9 5c.7-.8 1.2-2 1-3.2-1 .1-2.2.7-3 1.5-.6.7-1.2 1.9-1 3.1 1.1.1 2.3-.6 3-1.4Z" />
+                            </svg>
                             <span><small>{{ __('messages.Download on the') }}</small>App Store</span>
                         </a>
                     @endisset
@@ -576,12 +600,13 @@
             <div class="hx-contact-info">
                 <span class="hx-kicker">{{ __('messages.Contact us') }}</span>
                 <h2>{{ __('messages.We are here to help') }}</h2>
-                <p>{{ __('messages.Have a question about a quote, a company or your account? Send us a message and our team will get back to you by email.') }}</p>
+                <p>{{ __('messages.Have a question about a quote, a company or your account? Send us a message and our team will get back to you by email.') }}
+                </p>
 
                 <a class="hx-contact-card" href="mailto:{{ $contactEmail }}">
                     <span class="hx-contact-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"
-                            stroke-linecap="round" stroke-linejoin="round" >
+                            stroke-linecap="round" stroke-linejoin="round">
                             <rect x="3" y="5" width="18" height="14" rx="2" />
                             <path d="m3 7 9 6 9-6" />
                         </svg>
@@ -607,7 +632,8 @@
                 @elseif (session('contact_error'))
                     <div class="hx-contact-alert hx-contact-alert-error" role="alert">
                         <strong>{{ __('messages.Your message could not be sent.') }}</strong>
-                        <span>{{ __('messages.Please try again, or email us directly at') }} <a href="mailto:{{ $contactEmail }}" dir="ltr">{{ $contactEmail }}</a>.</span>
+                        <span>{{ __('messages.Please try again, or email us directly at') }} <a
+                                href="mailto:{{ $contactEmail }}" dir="ltr">{{ $contactEmail }}</a>.</span>
                     </div>
                 @elseif ($contactErrors->any())
                     <div class="hx-contact-alert hx-contact-alert-error" role="alert">
@@ -615,7 +641,8 @@
                     </div>
                 @endif
 
-                <form method="POST" action="{{ route('contact.send', ['lang' => $locale]) }}" class="hx-contact-form" novalidate>
+                <form method="POST" action="{{ route('contact.send', ['lang' => $locale]) }}" class="hx-contact-form"
+                    novalidate>
                     @csrf
 
                     {{-- Honeypot: hidden from people, bots fill it in. --}}
@@ -637,7 +664,8 @@
                         <div class="hx-field {{ $contactErrors->has('email') ? 'has-error' : '' }}">
                             <label for="contact_email">{{ __('messages.Email address') }} <b>*</b></label>
                             <input id="contact_email" type="email" name="email" value="{{ old('email') }}" maxlength="150"
-                                autocomplete="email" dir="ltr" placeholder="{{ __('messages.e.g. name@example.com') }}" required>
+                                autocomplete="email" dir="ltr" placeholder="{{ __('messages.e.g. name@example.com') }}"
+                                required>
                             @if ($contactErrors->has('email'))
                                 <small>{{ $contactErrors->first('email') }}</small>
                             @endif
@@ -646,7 +674,8 @@
 
                     <div class="hx-contact-row">
                         <div class="hx-field {{ $contactErrors->has('phone') ? 'has-error' : '' }}">
-                            <label for="contact_phone">{{ __('messages.Phone number') }} <span>({{ __('messages.optional') }})</span></label>
+                            <label for="contact_phone">{{ __('messages.Phone number') }}
+                                <span>({{ __('messages.optional') }})</span></label>
                             <input id="contact_phone" type="tel" name="phone" value="{{ old('phone') }}" maxlength="20"
                                 autocomplete="tel" dir="ltr" placeholder="{{ __('messages.e.g. 0912345678') }}">
                             @if ($contactErrors->has('phone'))
@@ -658,7 +687,8 @@
                             <label for="contact_sender_type">{{ __('messages.I am a') }} <b>*</b></label>
                             <select id="contact_sender_type" name="sender_type" required>
                                 @foreach (['customer' => __('messages.Customer / homeowner'), 'company' => __('messages.Solar company'), 'other' => __('messages.Other')] as $value => $label)
-                                    <option value="{{ $value }}" @selected(old('sender_type', 'customer') === $value)>{{ $label }}</option>
+                                    <option value="{{ $value }}" @selected(old('sender_type', 'customer') === $value)>{{ $label }}
+                                    </option>
                                 @endforeach
                             </select>
                             @if ($contactErrors->has('sender_type'))
@@ -679,7 +709,8 @@
                     <div class="hx-field {{ $contactErrors->has('message') ? 'has-error' : '' }}">
                         <label for="contact_message">{{ __('messages.Message') }} <b>*</b></label>
                         <textarea id="contact_message" name="message" rows="5" maxlength="3000"
-                            placeholder="{{ __('messages.Write your message here. Include your request number if it is about a quote.') }}" required>{{ old('message') }}</textarea>
+                            placeholder="{{ __('messages.Write your message here. Include your request number if it is about a quote.') }}"
+                            required>{{ old('message') }}</textarea>
                         @if ($contactErrors->has('message'))
                             <small>{{ $contactErrors->first('message') }}</small>
                         @endif
@@ -704,104 +735,105 @@
             <p>{{ __('messages.Your solar project starts with one free request.') }}</p>
             <div class="hx-actions hx-actions-center">
                 <a class="hx-btn hx-btn-primary" href="{{ $customerRegisterUrl }}">{{ __('messages.Get free offers') }}</a>
-                <a class="hx-btn hx-btn-light" href="{{ $companyRegisterUrl }}">{{ __('messages.I am a solar company') }}</a>
+                <a class="hx-btn hx-btn-light"
+                    href="{{ $companyRegisterUrl }}">{{ __('messages.I am a solar company') }}</a>
             </div>
         </div>
     </section>
 
     <script>
 
-document.querySelectorAll('[data-app-slider]').forEach((slider) => {
-    if (slider.dataset.sliderInitialized === 'true') return;
-    slider.dataset.sliderInitialized = 'true';
+        document.querySelectorAll('[data-app-slider]').forEach((slider) => {
+            if (slider.dataset.sliderInitialized === 'true') return;
+            slider.dataset.sliderInitialized = 'true';
 
-    const slides = Array.from(
-        slider.querySelectorAll('.hx-app-slide')
-    );
+            const slides = Array.from(
+                slider.querySelectorAll('.hx-app-slide')
+            );
 
-    const dots = Array.from(
-        slider.querySelectorAll('.hx-app-slider-dot')
-    );
+            const dots = Array.from(
+                slider.querySelectorAll('.hx-app-slider-dot')
+            );
 
-    const prevButton = slider.querySelector('[data-slider-prev]');
-    const nextButton = slider.querySelector('[data-slider-next]');
+            const prevButton = slider.querySelector('[data-slider-prev]');
+            const nextButton = slider.querySelector('[data-slider-next]');
 
-    if (!slides.length) return;
+            if (!slides.length) return;
 
-    let currentIndex = 0;
-    let autoplayTimer = null;
+            let currentIndex = 0;
+            let autoplayTimer = null;
 
-    function showSlide(index) {
-        currentIndex = (index + slides.length) % slides.length;
+            function showSlide(index) {
+                currentIndex = (index + slides.length) % slides.length;
 
-        slides.forEach((slide, i) => {
-            const active = i === currentIndex;
+                slides.forEach((slide, i) => {
+                    const active = i === currentIndex;
 
-            slide.classList.toggle('is-active', active);
-            slide.setAttribute('aria-hidden', String(!active));
-        });
+                    slide.classList.toggle('is-active', active);
+                    slide.setAttribute('aria-hidden', String(!active));
+                });
 
-        dots.forEach((dot, i) => {
-            const active = i === currentIndex;
+                dots.forEach((dot, i) => {
+                    const active = i === currentIndex;
 
-            dot.classList.toggle('is-active', active);
-            dot.setAttribute('aria-current', String(active));
-        });
-    }
+                    dot.classList.toggle('is-active', active);
+                    dot.setAttribute('aria-current', String(active));
+                });
+            }
 
-    function stopAutoplay() {
-        if (autoplayTimer !== null) {
-            clearInterval(autoplayTimer);
-            autoplayTimer = null;
-        }
-    }
+            function stopAutoplay() {
+                if (autoplayTimer !== null) {
+                    clearInterval(autoplayTimer);
+                    autoplayTimer = null;
+                }
+            }
 
-    function startAutoplay() {
-        stopAutoplay();
+            function startAutoplay() {
+                stopAutoplay();
 
-        if (
-            slides.length < 2 ||
-            window.matchMedia('(prefers-reduced-motion: reduce)').matches
-        ) {
-            return;
-        }
+                if (
+                    slides.length < 2 ||
+                    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+                ) {
+                    return;
+                }
 
-        autoplayTimer = setInterval(() => {
-            showSlide(currentIndex + 1);
-        }, 4000);
-    }
+                autoplayTimer = setInterval(() => {
+                    showSlide(currentIndex + 1);
+                }, 4000);
+            }
 
-    prevButton?.addEventListener('click', () => {
-        showSlide(currentIndex - 1);
-        startAutoplay();
-    });
+            prevButton?.addEventListener('click', () => {
+                showSlide(currentIndex - 1);
+                startAutoplay();
+            });
 
-    nextButton?.addEventListener('click', () => {
-        showSlide(currentIndex + 1);
-        startAutoplay();
-    });
+            nextButton?.addEventListener('click', () => {
+                showSlide(currentIndex + 1);
+                startAutoplay();
+            });
 
-    dots.forEach((dot, index) => {
-        dot.addEventListener('click', () => {
-            showSlide(index);
+            dots.forEach((dot, index) => {
+                dot.addEventListener('click', () => {
+                    showSlide(index);
+                    startAutoplay();
+                });
+            });
+
+            slider.addEventListener('mouseenter', stopAutoplay);
+            slider.addEventListener('mouseleave', startAutoplay);
+            slider.addEventListener('focusin', stopAutoplay);
+            slider.addEventListener('focusout', (event) => {
+                if (!slider.contains(event.relatedTarget)) {
+                    startAutoplay();
+                }
+            });
+
+            showSlide(0);
             startAutoplay();
         });
-    });
-
-    slider.addEventListener('mouseenter', stopAutoplay);
-    slider.addEventListener('mouseleave', startAutoplay);
-    slider.addEventListener('focusin', stopAutoplay);
-    slider.addEventListener('focusout', (event) => {
-        if (!slider.contains(event.relatedTarget)) {
-            startAutoplay();
-        }
-    });
-
-    showSlide(0);
-    startAutoplay();
-});
 
 
-</script>
+    </script>
 
 @endsection

@@ -1001,7 +1001,6 @@ class MainController extends Controller
 
     //APK Direct Download Start
 
-    /** One piece of a chunked APK upload (see ApkDownload::chunkBytes()). */
     public function uploadApkChunk(Request $request)
     {
         $data = $request->validate([

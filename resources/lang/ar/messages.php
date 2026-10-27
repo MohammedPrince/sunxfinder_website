@@ -432,6 +432,7 @@ return [
     'Request offers, compare them and follow your project from your phone.' => 'اطلب العروض وقارن بينها وتابع مشروعك من هاتفك.',
     'Get it on' => 'احصل عليه من',
     'Download on the' => 'حمّله من',
+    'Download the SunXFinder app:' => 'حمّل تطبيق SunXFinder:',
     'Your solar project starts with one free request.' => 'مشروعك للطاقة الشمسية يبدأ بطلب واحد مجاني.',
     'I am a solar company' => 'سجل معنا كشركة',
     'The easy way to find, compare and choose a solar company.' => 'الطريقة الأسهل لاكتشاف شركات الطاقة الشمسية ومقارنتها واختيار الأنسب.',
@@ -457,6 +458,7 @@ return [
     'Companies use it to plan the site visit and the installation.' => 'تستخدمه الشركات لترتيب زيارة الموقع والتركيب.',
     'Login details' => 'بيانات الدخول',
     'You will use these to log in to the SunXFinder app.' => 'ستستخدمها لتسجيل الدخول إلى تطبيق SunXFinder.',
+    'After your account is approved, remember to log in using the SunXFinder app with the username and password you created here.' => 'بعد اعتماد حسابك، تذكّر تسجيل الدخول إلى تطبيق SunXFinder باستخدام اسم المستخدم وكلمة المرور اللذين أنشأتهما هنا.',
     'Please use English letters only for your username.' => 'يرجى استخدام الأحرف الإنجليزية فقط لاسم المستخدم.',
     '6 to 15 English letters, numbers or _ (no spaces).' => 'من 6 إلى 15 حرفاً إنجليزياً أو رقماً أو _ (بدون مسافات).',
     'By creating an account, you agree to our' => 'بإنشاء حساب، فإنك توافق على',
@@ -529,8 +531,8 @@ return [
     'Services in Arabic Add' => 'أضف خدمة باللغة العربية',
     'Service' => 'إضافة خدمة',
 
-
-
     'Services in English must not contain Arabic letters.' => 'يجب أن تحتوي الخدمات بالإنجليزية على أحرف إنجليزية وأرقام ومسافات و . & \' ( ) - / + فقط.',
     'Services in Arabic must not contain English letters.' => 'يجب أن تحتوي الخدمات بالعربية على أحرف عربية وأرقام ومسافات و . & \' ( ) - / + فقط.',
+
+    'We will email you when your account is approved. Then open the SunXFinder app and log in with your username and password.' => 'سنراسلك عبر البريد الإلكتروني عند اعتماد حسابك. بعد ذلك، افتح تطبيق SunXFinder وسجّل الدخول باستخدام اسم المستخدم وكلمة المرور.',
 ];

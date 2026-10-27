@@ -4,13 +4,9 @@
 <header class="header">
     <div class="container nav">
         <a class="brand" href="{{ $homeUrl }}" aria-label="SunXFinder">
-            <picture>
-                <source type="image/webp"
-                    srcset="{{ asset_v('visitors/images/logo-128.webp') }} 1x, {{ asset_v('visitors/images/logo-256.webp') }} 2x">
-                <img class="brand-logo" src="{{ asset_v('visitors/images/logo-128.png') }}" alt="SunXFinder logo"
-                    width="64" height="64" fetchpriority="high" decoding="async"
-                    onerror="this.style.display='none';this.closest('a').querySelector('.brand-fallback').hidden=false">
-            </picture>
+            <img class="brand-logo" src="{{ asset_v($isHome ? 'visitors/images/sunxfinder-logo-home-128.webp' : 'visitors/images/logo-128.png') }}" alt="SunXFinder logo"
+                width="78" height="56" fetchpriority="high" decoding="async"
+                onerror="this.style.display='none';this.closest('a').querySelector('.brand-fallback').hidden=false">
             <span class="brand-tagline">{{ trans('messages.Find.') }} <span class="slogan-compare">{{ trans('messages.Compare.') }}</span> {{ trans('messages.Connect.') }}</span>
             <span class="brand-fallback" hidden>Sun<span>X</span>Finder</span>
         </a>
