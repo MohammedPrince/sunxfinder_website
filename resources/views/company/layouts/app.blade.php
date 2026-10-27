@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Company') · SunXFinder</title>
-    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
-    <link rel="icon" type="image/png" sizes="64x64" href="{{ asset('admin/images/favicon-64.png') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ asset_v('favicon.svg') }}">
+    <link rel="icon" type="image/png" sizes="64x64" href="{{ asset_v('admin/images/favicon-64.png') }}">
     <link rel="stylesheet" href="{{ asset_v('admin/css/admin.css') }}">
     <link rel="stylesheet" href="{{ asset_v('company/css/company-profile.css') }}">
     <link rel="stylesheet" href="{{ asset('main/css/quill.snow.css') }}">
