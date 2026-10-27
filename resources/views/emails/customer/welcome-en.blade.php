@@ -36,10 +36,9 @@
                                             style="display:block;border:0;max-width:180px;height:auto;">
 
                                     </td>
-                                    <td align="right" valign="middle"
-                                        style="font-size:14px;line-height:1.7;color:#10366b;font-weight:bold;">Find
-                                        Solar Solutions<br><span style="font-weight:normal;">Connect with Trusted
-                                            Companies</span></td>
+                                    <td align="right" valign="middle">
+                                        @include('emails.partials.brand-tagline', ['emailTaglineLocale' => 'en'])
+                                    </td>
                                 </tr>
                             </table>
                         </td>

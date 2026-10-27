@@ -43,6 +43,7 @@
                                             موثوقة</span></td>
                                 </tr>
                             </table>
+                            @include('emails.partials.brand-tagline', ['emailTaglineLocale' => 'ar'])
                         </td>
                     </tr>
                     <tr>

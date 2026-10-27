@@ -3318,28 +3318,53 @@ class AdminRepository
     /** Sends the admin's email from info@ (bcc to the owner) and logs it. */
     public function sendCompanyEmail(array $data): array
     {
-        $companyName = SolarCompany::query()->where('email', $data['email'])->value('name');
+        $sent = [];
+        $failed = [];
 
-        try {
-            Mail::to($data['email'])->send(new CompanyJoinRequestMail(
-                $data['subject'],
-                $data['message'],
-                $data['lang'],
-                $companyName
-            ));
-        } catch (Throwable $e) {
-            report($e);
+        foreach ($data['emails'] as $email) {
+            try {
+                $companyName = SolarCompany::query()->where('email', $email)->value('name');
 
-            return ['success' => false, 'message' => 'The email could not be sent: ' . $e->getMessage()];
+                Mail::to($email)->send(new CompanyJoinRequestMail(
+                    $data['subject'],
+                    $data['message'],
+                    $data['lang'],
+                    $companyName
+                ));
+                $sent[] = $email;
+            } catch (Throwable $e) {
+                report($e);
+                $failed[] = $email;
+            }
         }
 
-        ActivityLogger::log('email_sent', "Admin emailed {$data['email']}: {$data['subject']}", null, [
-            'to' => $data['email'],
-            'subject' => $data['subject'],
-            'lang' => $data['lang'],
-        ], null, 'notifications');
+        if ($sent) {
+            ActivityLogger::log('email_sent', 'Admin emailed ' . count($sent) . ' recipient(s): ' . $data['subject'], null, [
+                'to' => $sent,
+                'subject' => $data['subject'],
+                'lang' => $data['lang'],
+            ], null, 'notifications');
+        }
 
-        return ['success' => true, 'message' => "Email sent to {$data['email']}."];
+        if (! $sent) {
+            return [
+                'success' => false,
+                'message' => 'The email could not be sent to any of the selected recipients.',
+            ];
+        }
+
+        if ($failed) {
+            return [
+                'success' => false,
+                'message' => 'Sent to ' . count($sent) . ' recipient(s). Failed: ' . implode(', ', $failed)
+                    . '. Retry only the failed addresses.',
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Email sent separately to ' . count($sent) . ' recipient(s).',
+        ];
     }
 
     //Send Email End

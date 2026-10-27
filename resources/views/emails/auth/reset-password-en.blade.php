@@ -33,6 +33,7 @@
                                     <td align="right" valign="middle"
                                         style="font-size:14px;line-height:1.7;color:#10366b;font-weight:bold;">Account
                                         Security<br><span style="font-weight:normal;">Password reset request</span>
+                                        @include('emails.partials.brand-tagline', ['emailTaglineLocale' => 'en'])
                                     </td>
                                 </tr>
                             </table>

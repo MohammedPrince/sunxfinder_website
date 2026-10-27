@@ -1404,12 +1404,36 @@ class MainController extends Controller
 
     public function sendEmailSubmit(Request $request)
     {
+        $rawEmails = $request->input('email', '');
+        $parsedEmails = is_string($rawEmails)
+            ? preg_split('/[,\s]+/', trim($rawEmails), -1, PREG_SPLIT_NO_EMPTY)
+            : [];
+
+        $emails = [];
+        $seenEmails = [];
+        foreach ($parsedEmails as $email) {
+            $email = trim($email);
+            $normalizedEmail = strtolower($email);
+            if ($email !== '' && ! isset($seenEmails[$normalizedEmail])) {
+                $emails[] = $email;
+                $seenEmails[$normalizedEmail] = true;
+            }
+        }
+
+        $request->merge(['recipient_emails' => $emails]);
+
         $data = $request->validate([
             'subject' => ['required', 'string', 'max:150'],
-            'email' => ['required', 'email', 'max:191'],
+            'email' => ['required', 'string', 'max:5000'],
+            'recipient_emails' => ['required', 'array', 'min:1', 'max:50'],
+            'recipient_emails.*' => ['required', 'email', 'max:191'],
             'lang' => ['required', 'in:en,ar'],
             'message' => ['required', 'string', 'max:5000'],
+        ], [
+            'recipient_emails.max' => 'You can send to up to 50 email addresses at a time.',
+            'recipient_emails.*.email' => 'Enter valid email addresses separated by commas or spaces.',
         ]);
+        $data['emails'] = $data['recipient_emails'];
 
         $result = $this->adminService->sendCompanyEmail($data);
 

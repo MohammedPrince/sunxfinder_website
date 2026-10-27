@@ -3,7 +3,7 @@
 @section('breadcrumb', 'Send Email')
 @section('eyebrow', 'SYSTEM')
 @section('page-title', 'Send Email')
-@section('page-description', 'Write to a solar company, e.g. to invite it to join SunXFinder.')
+@section('page-description', 'Write to one or more solar companies, e.g. to invite them to join SunXFinder.')
 
 @section('content')
     @if (session('success'))
@@ -42,9 +42,9 @@
             <div class="panel-body">
                 <div class="form-grid">
                     <div class="form-group">
-                        <label for="email">Email to <b style="color: red">*</b></label>
-                        <input class="form-control" type="email" id="email" name="email" list="companyEmails"
-                            maxlength="191" required dir="ltr" placeholder="company@example.com"
+                        <label for="email">Email recipients <b style="color: red">*</b></label>
+                        <input class="form-control" type="text" id="email" name="email" list="companyEmails"
+                            maxlength="5000" required dir="ltr" placeholder="company@example.com, another@example.com"
                             value="{{ old('email', $prefillEmail ?? '') }}">
                         <datalist id="companyEmails">
                             @foreach ($companies as $company)
@@ -52,7 +52,8 @@
                             @endforeach
                         </datalist>
                         <small class="form-hint">
-                            Type any address, or pick a registered company. A registered company is greeted by name.
+                            Enter multiple addresses separated by commas (spaces also work), or pick a registered company.
+                            Each recipient gets a separate email, and registered companies are greeted by name.
                         </small>
                         @error('email')
                             <small class="field-error">{{ $message }}</small>
