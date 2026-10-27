@@ -16,7 +16,7 @@
                     <tr>
                         <td style="padding:22px 28px;background:#fff;" align="right">
                             <img src="https://dev.sunxfinder.com/visitors/images/sunxfinder-logo-email.png"
-                                alt="SunXFinder" width="180" style="display:block;border:0;max-width:180px;height:auto;">
+                                alt="SunXFinder" width="180" style="display:block;margin:0 auto;border:0;max-width:180px;height:auto;">
                             @include('emails.partials.brand-tagline', ['emailTaglineLocale' => 'ar'])
                         </td>
                     </tr>
@@ -30,7 +30,13 @@
                                 <strong>{{ $companyName ? "مرحباً {$companyName}،" : 'مرحباً،' }}</strong>
                             </p>
                             <div style="font-size:15px;line-height:1.9;color:#243b60;margin:0 0 22px;">
-                                {!! nl2br(e($messageText)) !!}
+                                @php
+                                    $safeMessage = nl2br(e($messageText));
+                                    $safePhone = e($whatsappPhone);
+                                    $whatsappLink = '<a href="' . e($whatsappUrl) . '" style="color:#075fe4;text-decoration:underline;" dir="ltr">' . $safePhone . '</a>';
+                                    $safeMessage = str_replace($safePhone, $whatsappLink, $safeMessage);
+                                @endphp
+                                {!! $safeMessage !!}
                             </div>
                             <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="right">
                                 <tr>

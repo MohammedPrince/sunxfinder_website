@@ -40,7 +40,7 @@
                                     <td align="right" valign="middle" width="140">
                                         <img src="https://dev.sunxfinder.com/visitors/images/sunxfinder-logo-email.png"
                                             alt="SunXFinder" width="180"
-                                            style="display:block;border:0;max-width:180px;height:auto;">
+                                            style="display:block;margin:0 auto;border:0;max-width:180px;height:auto;">
                                     </td>
                                     <td align="left" valign="middle"
                                         style="font-size:14px;line-height:1.8;color:#10366b;font-weight:bold;">أمان
