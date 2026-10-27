@@ -59,13 +59,9 @@
 
             {{-- Logo with the three steps around it --}}
             <div class="hx-hero-art" aria-hidden="true">
-                <div class="hx-sun-glow"></div>
                 <div class="hx-logo-disc">
-                    <picture>
-                        <source type="image/webp" srcset="{{ asset_v('visitors/images/cozysunxfinder-logo-home-512.webp') }}">
-                        <img src="{{ asset_v('visitors/images/sunxfinder-logo-home-512.png') }}" alt="SunXFinder Logo"
-                            width="512" height="368" fetchpriority="high">
-                    </picture>
+                    <img src="{{ asset_v('visitors/images/sunxfinder-solar-badge.webp') }}" alt="SunXFinder Logo"
+                        width="512" height="512" fetchpriority="high" decoding="async">
                 </div>
 
                 <div class="hx-chip hx-chip-find">

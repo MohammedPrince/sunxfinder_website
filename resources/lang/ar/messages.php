@@ -535,4 +535,6 @@ return [
     'Services in Arabic must not contain English letters.' => 'يجب أن تحتوي الخدمات بالعربية على أحرف عربية وأرقام ومسافات و . & \' ( ) - / + فقط.',
 
     'We will email you when your account is approved. Then open the SunXFinder app and log in with your username and password.' => 'سنراسلك عبر البريد الإلكتروني عند اعتماد حسابك. بعد ذلك، افتح تطبيق SunXFinder وسجّل الدخول باستخدام اسم المستخدم وكلمة المرور.',
+    'Contact us on WhatsApp' => 'تواصل معنا عبر واتساب',
+    'Hello, I would like to contact SunXFinder.' => 'مرحبًا، أود التواصل مع SunXFinder.',
 ];

@@ -35,6 +35,10 @@ return [
         ],
     ],
 
+    'whatsapp' => [
+        'phone_number' => env('PHONE_NUMBER'),
+    ],
+
     // SMS for OTP codes. Keep disabled until a provider is connected:
     // the API then only offers the "email" channel.
     'sms' => [

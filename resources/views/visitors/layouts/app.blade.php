@@ -591,6 +591,7 @@
             <script src="{{ asset_v('main/js/quill.js') }}"></script>
         @endif
         @yield('scripts')
+        @include('visitors.partials.whatsapp-button')
 </body>
 
 </html>
