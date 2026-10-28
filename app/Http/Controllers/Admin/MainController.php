@@ -14,6 +14,7 @@ use App\Models\Quote;
 use App\Models\Rating;
 use App\Models\RatingValue;
 use App\Models\SolarCompany;
+use App\Models\SentEmail;
 use App\Services\Admin\AdminService;
 use App\Support\ActivityLogger;
 use Illuminate\Http\Request;
@@ -1399,7 +1400,9 @@ class MainController extends Controller
             : '';
         $prefillSubject = $prefillEmail;
 
-        return view('admin.send-email.index', compact('companies', 'prefillEmail', 'prefillSubject'));
+        $sentEmails = SentEmail::query()->latest('sent_at')->paginate(15);
+
+        return view('admin.send-email.index', compact('companies', 'prefillEmail', 'prefillSubject', 'sentEmails'));
     }
 
     public function sendEmailSubmit(Request $request)
@@ -1440,6 +1443,27 @@ class MainController extends Controller
         return $result['success']
             ? redirect()->route('admin.send-email.index')->with('success', $result['message'])
             : back()->withInput()->with('error', $result['message']);
+    }
+
+    public function resendSentEmail(SentEmail $sentEmail)
+    {
+        $result = $this->adminService->sendCompanyEmail([
+            'emails' => [$sentEmail->recipient_email],
+            'subject' => $sentEmail->subject,
+            'message' => $sentEmail->message,
+            'lang' => $sentEmail->lang,
+            'company_name' => $sentEmail->recipient_name,
+        ]);
+
+        return redirect()->route('admin.send-email.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function deleteSentEmail(SentEmail $sentEmail)
+    {
+        $sentEmail->delete();
+
+        return redirect()->route('admin.send-email.index')->with('success', 'Sent email removed from history.');
     }
 
     // API endpoints (Settings → API selector / accessibility)

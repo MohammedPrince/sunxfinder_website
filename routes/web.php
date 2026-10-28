@@ -233,6 +233,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             // Send Email: admin writes to a solar company (from info@, bcc the owner)
             Route::get('/send-email', 'sendEmail')->name('send-email.index');
             Route::post('/send-email', 'sendEmailSubmit')->middleware('throttle:20,1')->name('send-email.send');
+            Route::post('/send-email/{sentEmail}/resend', 'resendSentEmail')->name('send-email.resend');
+            Route::delete('/send-email/{sentEmail}', 'deleteSentEmail')->name('send-email.delete');
 
             // App settings (open quote limit, ...)
             Route::get('/settings', 'settings')->name('settings.index');

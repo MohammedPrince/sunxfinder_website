@@ -31,6 +31,7 @@ use App\Models\RatingQuestion;
 use App\Models\RatingValue;
 use App\Models\Setting;
 use App\Models\SolarCompany;
+use App\Models\SentEmail;
 use App\Models\Supplier;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use App\Support\ReportPeriod;
@@ -2425,7 +2426,7 @@ class AdminRepository
             ->whereIn('id', $companyIds)
             ->whereNotNull('email')
             ->where('email', '!=', '')
-            ->get(['id', 'name', 'email']);
+            ->get(['id', 'name', 'email', 'phone']);
 
         foreach ($companies as $company) {
             Mail::mailer('offer')->to($company->email)->queue(new CompanyRequestWaitingMail([
@@ -3323,7 +3324,7 @@ class AdminRepository
 
         foreach ($data['emails'] as $email) {
             try {
-                $companyName = SolarCompany::query()->where('email', $email)->value('name');
+                $companyName = $data['company_name'] ?? SolarCompany::query()->where('email', $email)->value('name');
 
                 Mail::to($email)->send(new CompanyJoinRequestMail(
                     $data['subject'],
@@ -3331,6 +3332,14 @@ class AdminRepository
                     $data['lang'],
                     $companyName
                 ));
+                SentEmail::query()->create([
+                    'recipient_email' => $email,
+                    'recipient_name' => $companyName,
+                    'subject' => $data['subject'],
+                    'message' => $data['message'],
+                    'lang' => $data['lang'],
+                    'sent_at' => now(),
+                ]);
                 $sent[] = $email;
             } catch (Throwable $e) {
                 report($e);
