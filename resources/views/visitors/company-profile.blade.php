@@ -15,7 +15,7 @@
 
                     <div class="company-profile-logo">
                         @if ($companyLogo)
-                            <img src="{{ $companyLogo }}"
+                            <img src="{{ app(\App\Helpers\Helper::class)->publicUrl($company->logo_path) }}"
                                 alt="{{ $company->name }} logo" loading="lazy">
                         @else
                             <span>{{ mb_strtoupper(mb_substr($companyName, 0, 1)) }}</span>

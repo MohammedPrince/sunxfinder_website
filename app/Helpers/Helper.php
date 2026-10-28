@@ -195,21 +195,42 @@ class Helper
 
     public function publicUrl(?string $path): ?string
     {
-        if (!$path) {
+        $path = trim((string) $path);
+
+        if ($path === '') {
             return null;
         }
 
-        // Uploaded logos were saved as full URLs with the host at upload time
-        // (e.g. http://127.0.0.1:8001/main/images/...). Rebuild those on the current host.
-        if (Str::startsWith($path, ['http://', 'https://'])) {
-            $localPath = Str::after((string) parse_url($path, PHP_URL_PATH), '/');
+        $originalPath = $path;
 
-            return Str::startsWith($localPath, 'main/images/') && is_file(public_path($localPath))
-                ? asset($localPath)
-                : $path;
+        // Older company uploads stored the host as part of logo_path. Convert local
+        // company image URLs to the current host so dev/prod hostnames do not persist.
+        // Keep genuinely external image URLs intact.
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            $urlHost = strtolower((string) parse_url($path, PHP_URL_HOST));
+
+            // Preserve local test URLs as-is; APP_URL may use the other loopback host.
+            if (in_array($urlHost, ['localhost', '127.0.0.1', '::1'], true)) {
+                return $originalPath;
+            }
+
+            $urlPath = parse_url($path, PHP_URL_PATH);
+            $path = is_string($urlPath) ? $urlPath : '';
+
+            if (!Str::startsWith(ltrim($path, '/'), ['main/images/', 'company/'])) {
+                return $originalPath;
+            }
         }
 
-        return asset(ltrim($path, '/'));
+        $relativePath = str_replace('\\', '/', ltrim($path, '/'));
+        $relativePath = preg_replace('#^(?:public/)+#', '', $relativePath);
+
+        if (!Str::startsWith($relativePath, 'main/images/')) {
+            // Company logo paths without a folder are relative to main/images.
+            $relativePath = 'main/images/' . $relativePath;
+        }
+
+        return asset($relativePath);
     }
 
     /**
