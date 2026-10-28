@@ -276,9 +276,8 @@
 
 
                         <div class="form-group">
-                            <label for="social_media">Social Media Links <b class="required-mark">*</b></label>
+                            <label for="social_media">Social Media Links</label>
                             <textarea class="form-control" id="social_media" name="social_media" rows="3" maxlength="2000"
-                                required
                                 placeholder="Enter one URL per line">{{ old('social_media', $company->social_media) }}</textarea>
                             <small class="form-hint">Enter one URL per line.</small>
                             @error('social_media')

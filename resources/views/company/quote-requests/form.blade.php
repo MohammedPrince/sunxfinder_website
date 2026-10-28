@@ -716,6 +716,30 @@
                     */
                     if (
                         preg_match(
+                            '/Suggested system:.*?([\d.]+)\s*kWh\s*batter(?:y|ies)/i',
+                            $loadSummary,
+                            $matches
+                        )
+                    ) {
+                        $batteryCount = $matches[1] . ' kWh';
+                    } elseif (
+                        preg_match(
+                            '/\p{Arabic}+\s*([\d.]+)\s*kWh/u',
+                            $loadSummary,
+                            $matches
+                        )
+                    ) {
+                        $batteryCount = $matches[1] . ' kWh';
+                    } elseif (
+                        preg_match(
+                            '/([\d.]+)\s*kWh\s*\p{Arabic}+/u',
+                            $loadSummary,
+                            $matches
+                        )
+                    ) {
+                        $batteryCount = $matches[1] . ' kWh';
+                    } elseif (
+                        preg_match(
                             '/Suggested system:.*?(\d+)\s*batter(?:y|ies)/i',
                             $loadSummary,
                             $matches
