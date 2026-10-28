@@ -1398,11 +1398,9 @@ class MainController extends Controller
         $prefillEmail = is_string($prefillEmail) && filter_var($prefillEmail, FILTER_VALIDATE_EMAIL)
             ? $prefillEmail
             : '';
-        $prefillSubject = $prefillEmail;
-
         $sentEmails = SentEmail::query()->latest('sent_at')->paginate(15);
 
-        return view('admin.send-email.index', compact('companies', 'prefillEmail', 'prefillSubject', 'sentEmails'));
+        return view('admin.send-email.index', compact('companies', 'prefillEmail', 'sentEmails'));
     }
 
     public function sendEmailSubmit(Request $request)

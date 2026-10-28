@@ -222,7 +222,7 @@
                             required
                             dir="{{ $selectedLanguage === 'ar' ? 'rtl' : 'ltr' }}"
                             placeholder="Email subject"
-                            value="{{ old('subject', $prefillSubject ?? $defaultSubject) }}"
+                            value="{{ old('subject', $defaultSubject) }}"
                         >
 
                         @error('subject')
