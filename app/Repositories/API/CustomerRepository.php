@@ -1401,6 +1401,8 @@ class CustomerRepository
 
                         // Overall customer quote-request status.
                         'status' => $quote->status,
+                        // The app uses this to allow deletion only when no project exists or it is complete.
+                        'offer_status' => $quote->project?->status,
 
                         'created_at' => $quote->created_at?->toISOString(),
                         'updated_at' => $quote->updated_at?->toISOString(),

@@ -184,6 +184,16 @@
                     <strong>{{ number_format($companies['other']) }} <small>{{ $otherShare }}%</small></strong>
                 </div>
             </div>
+            <div class="visitor-country-insight">
+                <span class="visitor-country-insight-label">Most website visitors are from</span>
+                @if ($topVisitorCountry)
+                    <strong>{{ $topVisitorCountry['name'] }}</strong>
+                    <small>{{ number_format($topVisitorCountry['visitors']) }} visitors recorded</small>
+                @else
+                    <strong>Not available yet</strong>
+                    <small>Country data is provided by the hosting proxy or CDN.</small>
+                @endif
+            </div>
             <a class="text-link" href="{{ route('admin.companies.index') }}">Review companies →</a>
         </article>
     </section>

@@ -673,6 +673,31 @@ button {
     color: #98a2ae
 }
 
+.visitor-country-insight {
+    display: grid;
+    gap: 4px;
+    margin: 16px 0;
+    padding: 12px 14px;
+    border: 1px solid #e9eef3;
+    border-radius: 9px;
+    background: #f8fafc;
+}
+
+.visitor-country-insight-label {
+    color: #748193;
+    font-size: 10px;
+}
+
+.visitor-country-insight strong {
+    color: var(--ink);
+    font-size: 17px;
+}
+
+.visitor-country-insight small {
+    color: #98a2ae;
+    font-size: 10px;
+}
+
 .text-link {
     color: var(--orange);
     font-size: 11px;

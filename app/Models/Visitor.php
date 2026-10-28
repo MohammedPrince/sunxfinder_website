@@ -10,5 +10,6 @@ class Visitor extends Model
 
     protected $fillable = [
         'session_id',
+        'country',
     ];
 }

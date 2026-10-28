@@ -33,6 +33,7 @@ use App\Models\Setting;
 use App\Models\SolarCompany;
 use App\Models\SentEmail;
 use App\Models\Supplier;
+use App\Models\Visitor;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use App\Support\ReportPeriod;
 use Illuminate\Support\Carbon;
@@ -188,12 +189,35 @@ class AdminRepository
             ->limit(5)
             ->get(['id', 'name', 'username', 'city', 'status', 'is_verified', 'is_active', 'created_at']);
 
+        $topVisitorCountryRow = Visitor::query()
+            ->whereNotNull('country')
+            ->selectRaw('country, COUNT(*) as visitors')
+            ->groupBy('country')
+            ->orderByDesc('visitors')
+            ->orderBy('country')
+            ->first();
+
+        $topVisitorCountry = null;
+        if ($topVisitorCountryRow) {
+            $countryCode = strtoupper($topVisitorCountryRow->country);
+            $countryName = class_exists(\Locale::class)
+                ? \Locale::getDisplayRegion('en_' . $countryCode, 'en')
+                : '';
+
+            $topVisitorCountry = [
+                'name' => $countryName && $countryName !== $countryCode ? $countryName : $countryCode,
+                'code' => $countryCode,
+                'visitors' => (int) $topVisitorCountryRow->visitors,
+            ];
+        }
+
         return [
             'companies' => $companies,
             'quotes' => $quotes,
             'customers' => $customers,
             'activity' => $activity,
             'latestCompanies' => $latestCompanies,
+            'topVisitorCountry' => $topVisitorCountry,
         ];
     }
 

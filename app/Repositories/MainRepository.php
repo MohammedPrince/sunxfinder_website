@@ -301,9 +301,28 @@ class MainRepository
 
     public function recordVisitor(string $sessionId): void
     {
-        Visitor::firstOrCreate([
-            'session_id' => $sessionId,
-        ]);
+        // GeoIP country headers must be set or overwritten by the trusted CDN/proxy.
+        $country = strtoupper(trim((string) (
+            request()->header('CF-IPCountry')
+            ?? request()->header('CloudFront-Viewer-Country')
+            ?? request()->header('X-Country-Code')
+            ?? ''
+        )));
+
+        if (!preg_match('/^[A-Z]{2}$/', $country) || in_array($country, ['XX', 'T1'], true)) {
+            $country = null;
+        }
+
+        $visitor = Visitor::firstOrCreate(
+            ['session_id' => $sessionId],
+            ['country' => $country]
+        );
+
+        // Existing sessions may have been recorded before country lookup was enabled.
+        if (!$visitor->country && $country) {
+            $visitor->country = $country;
+            $visitor->save();
+        }
     }
 
     public function getVisitorCount(): int
