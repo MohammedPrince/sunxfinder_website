@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Models\ArchivedItem;
 use App\Models\AppVersion;
 use App\Repositories\Admin\AdminRepository;
 use App\Models\Customer;
@@ -1459,6 +1460,7 @@ class MainController extends Controller
 
     public function deleteSentEmail(SentEmail $sentEmail)
     {
+        app(\App\Helpers\Helper::class)->archiveItem($sentEmail, 'sent_email', null, 'website');
         $sentEmail->delete();
 
         return redirect()->route('admin.send-email.index')->with('success', 'Sent email removed from history.');
@@ -1560,6 +1562,48 @@ class MainController extends Controller
     }
 
     //Database Backups End
+
+    //Archives Start
+
+    public function archives(Request $request)
+    {
+        $filters = $request->validate([
+            'type' => ['nullable', 'string', Rule::in([
+                'customer', 'product', 'prodcut', 'product_spec', 'offer', 'requestd_quote', 'requested_quote',
+                'notification', 'customer_notification', 'company', 'project', 'project_milestone', 'project_update',
+                'rating', 'rating_answer', 'supplier', 'appliance', 'appliance_group', 'company_carousel', 'app_version',
+                'rating_question', 'customer_device_token', 'api_endpoint', 'sent_email', 'other',
+            ])],
+            'source' => ['nullable', Rule::in(['website', 'app'])],
+            'customer_id' => ['nullable', 'integer', 'min:1'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $archives = $this->adminService->getArchivedItems($filters);
+        $types = [
+            'customer' => 'Customer', 'product' => 'Product', 'prodcut' => 'Product (legacy)', 'product_spec' => 'Product spec',
+            'offer' => 'Offer', 'requestd_quote' => 'Quote request (app)', 'requested_quote' => 'Quote request',
+            'notification' => 'Notification', 'customer_notification' => 'Customer notification', 'company' => 'Company',
+            'project' => 'Project', 'project_milestone' => 'Project milestone', 'project_update' => 'Project update',
+            'rating' => 'Rating', 'rating_answer' => 'Rating answer', 'supplier' => 'Supplier', 'appliance' => 'Appliance',
+            'appliance_group' => 'Appliance group', 'company_carousel' => 'Company carousel', 'app_version' => 'App version',
+            'rating_question' => 'Rating question', 'customer_device_token' => 'Device token', 'api_endpoint' => 'API endpoint',
+            'sent_email' => 'Sent email', 'other' => 'Other',
+        ];
+
+        return view('admin.archives.index', compact('archives', 'filters', 'types'));
+    }
+
+    public function deleteArchivedItem(ArchivedItem $archivedItem)
+    {
+        $this->adminService->deleteArchivedItem($archivedItem);
+
+        return redirect()->route('admin.archives.index', request()->query())->with('success', 'Archive entry moved to trash.');
+    }
+
+    //Archives End
 
     //Activity Logs Start
 

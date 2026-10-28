@@ -2,6 +2,7 @@
 
 namespace App\Services\Company;
 
+use App\Helpers\Helper;
 use App\Models\CompanyQuotation;
 use App\Models\Product;
 use App\Models\Quote;
@@ -117,6 +118,9 @@ class CompanyService
                 );
 
             // Reconcile the product's name/value specifications.
+            foreach ($product->specs as $spec) {
+                app(Helper::class)->archiveItem($spec, 'product_spec', null, 'website');
+            }
             $product->specs()->delete();
 
             foreach ($specs as $spec) {

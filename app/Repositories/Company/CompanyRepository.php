@@ -207,7 +207,11 @@ class CompanyRepository
     ): bool {
         $product = $this->findForCompany($companyId, $productId);
 
-        return (bool) $product->delete();
+        return DB::transaction(function () use ($product) {
+            $this->helper->archiveItem($product, 'product', null, 'website');
+
+            return (bool) $product->delete();
+        });
     }
 
     //Company profile END
@@ -1245,8 +1249,25 @@ class CompanyRepository
         }
 
         try {
-            CustomerNotification::query()->where('notification_id', $notification->id)->delete();
-            $notification->delete();
+            DB::transaction(function () use ($notification) {
+                $this->helper->archiveItem($notification, 'notification', null, 'website');
+
+                $customerNotifications = CustomerNotification::query()
+                    ->where('notification_id', $notification->id)
+                    ->get();
+
+                foreach ($customerNotifications as $customerNotification) {
+                    $this->helper->archiveItem(
+                        $customerNotification,
+                        'customer_notification',
+                        (int) $customerNotification->customer_id,
+                        'website'
+                    );
+                }
+
+                CustomerNotification::query()->where('notification_id', $notification->id)->delete();
+                $notification->delete();
+            });
         } catch (Throwable $e) {
             report($e);
 

@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use App\Models\SolarCompany;
+use App\Models\ArchivedItem;
 use Illuminate\Support\Str;
 use App\Models\Product;
 use App\Models\ProductSpec;
@@ -525,19 +526,96 @@ class Helper
      *
      * @return array{quotes: int, offers: int, projects: int}
      */
-    public function softDeleteCustomerData(\App\Models\Customer $customer): array
+    public function archiveItem(
+        \Illuminate\Database\Eloquent\Model $item,
+        string $type,
+        ?int $customerId = null,
+        string $source = 'website'
+    ): ArchivedItem {
+        $attributes = $item->attributesToArray();
+
+        // Archive useful item data without copying credentials or device tokens.
+        foreach (array_keys($attributes) as $key) {
+            if (preg_match('/password|token|secret|credential/i', $key)) {
+                unset($attributes[$key]);
+            }
+        }
+
+        $archive = ArchivedItem::withTrashed()
+            ->where('customer_id', $customerId)
+            ->where('type', $type)
+            ->where('item_id', $item->getKey())
+            ->first();
+
+        if (!$archive) {
+            $archive = new ArchivedItem([
+                'customer_id' => $customerId,
+                'type' => $type,
+                'item_id' => $item->getKey(),
+            ]);
+        }
+
+        $archive->fill([
+            'data' => $attributes,
+            'source' => $source,
+        ]);
+
+        if ($archive->trashed()) {
+            $archive->restore();
+        }
+
+        $archive->save();
+
+        return $archive;
+    }
+
+    public function softDeleteCustomerData(\App\Models\Customer $customer, string $source = 'website'): array
     {
-        $counts = DB::transaction(function () use ($customer) {
+        $counts = DB::transaction(function () use ($customer, $source) {
+            $quoteRows = Quote::query()->where('customer_id', $customer->id)->get();
+            $quoteIds = $quoteRows->modelKeys();
+
+            $projectRows = Project::query()
+                ->where(function ($query) use ($customer, $quoteIds) {
+                    $query->where('customer_id', $customer->id)
+                        ->orWhereIn('quote_id', $quoteIds);
+                })
+                ->get();
+            $projectIds = $projectRows->modelKeys();
+
+            $offerRows = CompanyQuotation::query()->whereIn('quote_id', $quoteIds)->get();
+            $milestoneRows = ProjectMilestone::query()->whereIn('project_id', $projectIds)->get();
+            $updateRows = ProjectUpdate::query()->whereIn('project_id', $projectIds)->get();
+            $notificationRows = CustomerNotification::query()->where('customer_id', $customer->id)->get();
+            $ratingRows = Rating::query()->where('customer_id', $customer->id)->get();
+
+            // Keep a recoverable snapshot of every customer-owned record before soft deletion.
+            $this->archiveItem($customer, 'customer', $customer->id, $source);
+            foreach ($quoteRows as $quote) {
+                $this->archiveItem($quote, 'requestd_quote', $customer->id, $source);
+            }
+            foreach ($offerRows as $offer) {
+                $this->archiveItem($offer, 'offer', $customer->id, $source);
+            }
+            foreach ($projectRows as $project) {
+                $this->archiveItem($project, 'project', $customer->id, $source);
+            }
+            foreach ($milestoneRows as $milestone) {
+                $this->archiveItem($milestone, 'project_milestone', $customer->id, $source);
+            }
+            foreach ($updateRows as $update) {
+                $this->archiveItem($update, 'project_update', $customer->id, $source);
+            }
+            foreach ($notificationRows as $notification) {
+                $this->archiveItem($notification, 'customer_notification', $customer->id, $source);
+            }
+            foreach ($ratingRows as $rating) {
+                $this->archiveItem($rating, 'rating', $customer->id, $source);
+            }
+
             $customer->status = 'deleted';
             $customer->is_active = false;
             $customer->save();
-
-            $quoteIds = Quote::query()->where('customer_id', $customer->id)->pluck('id');
-
-            $projectIds = Project::query()
-                ->where('customer_id', $customer->id)
-                ->orWhereIn('quote_id', $quoteIds)
-                ->pluck('id');
 
             // Builder delete() on SoftDeletes models only sets deleted_at.
             ProjectMilestone::query()->whereIn('project_id', $projectIds)->delete();

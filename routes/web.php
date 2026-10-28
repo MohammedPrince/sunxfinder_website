@@ -257,6 +257,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::delete('/{file}', 'deleteDatabaseBackup')->where('file', '[A-Za-z0-9_\-]+\.sql')->name('destroy');
             });
 
+            // Archived website and app records. Removing an archive entry is a soft delete.
+            Route::get('/archives', 'archives')->name('archives.index');
+            Route::delete('/archives/{archivedItem}', 'deleteArchivedItem')->whereNumber('archivedItem')->name('archives.destroy');
+
             // Activity logs (admins, companies and customers). Admin only.
             Route::prefix('activity-logs')->name('logs.')->group(function () {
                 Route::get('/', 'activityLogs')->name('index');

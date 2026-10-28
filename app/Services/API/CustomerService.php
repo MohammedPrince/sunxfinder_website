@@ -89,6 +89,11 @@ class CustomerService
         return $this->customerRepository->getMyQuotes($filters);
     }
 
+    public function archiveQuote(array $data): array
+    {
+        return $this->customerRepository->archiveQuote($data);
+    }
+
     public function acceptOffer(array $data)
     {
         return $this->customerRepository->acceptOffer($data);

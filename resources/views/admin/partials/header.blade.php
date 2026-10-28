@@ -187,7 +187,7 @@
         </a>
         @endcomponent
 
-        @component('partials.nav-group', ['key' => 'system', 'label' => 'System', 'icon' => 'gear', 'routes' => ['admin.send-email.*', 'admin.logs.*', 'admin.queue.*', 'admin.settings.*', 'admin.backups.*']])
+        @component('partials.nav-group', ['key' => 'system', 'label' => 'System', 'icon' => 'gear', 'routes' => ['admin.send-email.*', 'admin.logs.*', 'admin.queue.*', 'admin.settings.*', 'admin.backups.*', 'admin.archives.*']])
         <a class="nav-link {{ request()->routeIs('admin.send-email.*') ? 'active' : '' }}"
             href="{{ route('admin.send-email.index') }}">
             <span class="nav-icon">
@@ -250,6 +250,17 @@
                 </svg>
             </span>
             <span>Database Backups</span>
+        </a>
+        <a class="nav-link {{ request()->routeIs('admin.archives.*') ? 'active' : '' }}"
+            href="{{ route('admin.archives.index') }}">
+            <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 4h18v4H3z" />
+                    <path d="M5 8v12h14V8M10 12h4" />
+                </svg>
+            </span>
+            <span>Archives</span>
         </a>
 
         @endcomponent

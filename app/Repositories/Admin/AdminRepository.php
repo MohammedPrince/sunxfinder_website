@@ -5,6 +5,7 @@ namespace App\Repositories\Admin;
 use App\Mail\CompanyJoinRequestMail;
 use App\Mail\CompanyRequestWaitingMail;
 use App\Models\ActivityLog;
+use App\Models\ArchivedItem;
 use App\Models\Admin;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -1062,6 +1063,8 @@ class AdminRepository
                 ];
             }
 
+            app(Helper::class)->archiveItem($company, 'company', null, 'website');
+
             // Keep the status in step with the soft delete.
             $company->forceFill(['status' => 'deleted'])->save();
             $company->delete();
@@ -1596,6 +1599,7 @@ class AdminRepository
                 $removedRows = $removedAppliances->get();
 
                 $removedRows->each(function (Appliance $appliance) {
+                    app(Helper::class)->archiveItem($appliance, 'appliance', null, 'website');
                     $appliance->delete();
                 });
 
@@ -1635,9 +1639,11 @@ class AdminRepository
 
                 $appliances
                     ->each(function (Appliance $appliance) {
+                        app(Helper::class)->archiveItem($appliance, 'appliance', null, 'website');
                         $appliance->delete();
                     });
 
+                app(Helper::class)->archiveItem($group, 'appliance_group', null, 'website');
                 $group->delete();
 
                 return [
@@ -1719,6 +1725,7 @@ class AdminRepository
             return ['success' => false, 'message' => 'Supplier not found.'];
         if ($supplier->products_count > 0)
             return ['success' => false, 'message' => 'This supplier still has products. Delete or reassign its products first.'];
+        app(Helper::class)->archiveItem($supplier, 'supplier', null, 'website');
         $supplier->delete();
         return ['success' => true, 'message' => 'Supplier deleted successfully.'];
     }
@@ -1797,12 +1804,20 @@ class AdminRepository
         $product = Product::find($id);
         if (!$product)
             return ['success' => false, 'message' => 'Product not found.'];
+
+        foreach ($product->specs as $spec) {
+            app(Helper::class)->archiveItem($spec, 'product_spec', null, 'website');
+        }
+        app(Helper::class)->archiveItem($product, 'product', null, 'website');
         $product->delete();
         return ['success' => true, 'message' => 'Product deleted successfully.'];
     }
 
     private function syncProductSpecs(Product $product, array $specs): void
     {
+        foreach ($product->specs as $spec) {
+            app(Helper::class)->archiveItem($spec, 'product_spec', null, 'website');
+        }
         $product->specs()->delete();
         $seen = [];
         foreach ($specs as $spec) {
@@ -1955,6 +1970,7 @@ class AdminRepository
             $entry = CompanyCarousel::find($id);
             if (!$entry)
                 return ['success' => false, 'message' => 'Carousel entry not found.'];
+            app(Helper::class)->archiveItem($entry, 'company_carousel', null, 'website');
             $entry->delete();
             return ['success' => true, 'message' => 'Carousel entry deleted successfully.'];
         } catch (Throwable $e) {
@@ -2046,6 +2062,7 @@ class AdminRepository
                 return ['success' => false, 'message' => 'App version not found.'];
             }
 
+            app(Helper::class)->archiveItem($version, 'app_version', null, 'website');
             $version->delete();
 
             return ['success' => true, 'message' => 'App version deleted successfully.'];
@@ -2994,8 +3011,24 @@ class AdminRepository
         }
 
         try {
-            CustomerNotification::query()->where('notification_id', $notification->id)->delete();
-            $notification->delete();
+            DB::transaction(function () use ($notification) {
+                app(Helper::class)->archiveItem($notification, 'notification', null, 'website');
+                $customerNotifications = CustomerNotification::query()
+                    ->where('notification_id', $notification->id)
+                    ->get();
+
+                foreach ($customerNotifications as $customerNotification) {
+                    app(Helper::class)->archiveItem(
+                        $customerNotification,
+                        'customer_notification',
+                        (int) $customerNotification->customer_id,
+                        'website'
+                    );
+                }
+
+                CustomerNotification::query()->where('notification_id', $notification->id)->delete();
+                $notification->delete();
+            });
         } catch (Throwable $e) {
             report($e);
 
@@ -3179,6 +3212,10 @@ class AdminRepository
             }
 
             DB::transaction(function () use ($rating) {
+                foreach ($rating->answers as $answer) {
+                    app(Helper::class)->archiveItem($answer, 'rating_answer', null, 'website');
+                }
+                app(Helper::class)->archiveItem($rating, 'rating', (int) $rating->customer_id, 'website');
                 $rating->answers()->delete();
                 $rating->delete();
             });
@@ -3262,6 +3299,7 @@ class AdminRepository
                 return ['success' => false, 'message' => 'Question not found.'];
             }
 
+            app(Helper::class)->archiveItem($question, 'rating_question', null, 'website');
             $question->delete();
 
             return ['success' => true, 'message' => 'Question deleted. Past answers to it are kept.'];
@@ -3505,6 +3543,7 @@ class AdminRepository
                 return ['success' => false, 'message' => 'The active API cannot be deleted. Make another API active first.'];
             }
 
+            app(Helper::class)->archiveItem($endpoint, 'api_endpoint', null, 'website');
             $endpoint->delete();
             cache()->forget(ApiEndpoint::CONFIG_CACHE_KEY);
 
@@ -3750,4 +3789,36 @@ class AdminRepository
     }
 
     //Activity Logs End
+
+    public function getArchivedItems(array $filters = []): LengthAwarePaginator
+    {
+        return ArchivedItem::query()
+            ->with('customer')
+            ->when(!empty($filters['type']), fn($q) => $q->where('type', $filters['type']))
+            ->when(!empty($filters['source']), fn($q) => $q->where('source', $filters['source']))
+            ->when(!empty($filters['customer_id']), fn($q) => $q->where('customer_id', (int) $filters['customer_id']))
+            ->when(!empty($filters['from']), fn($q) => $q->where('created_at', '>=', Carbon::parse($filters['from'])->startOfDay()))
+            ->when(!empty($filters['to']), fn($q) => $q->where('created_at', '<=', Carbon::parse($filters['to'])->endOfDay()))
+            ->when(!empty($filters['search']), function ($query) use ($filters) {
+                $search = trim($filters['search']);
+                $query->where(function ($q) use ($search) {
+                    $q->where('type', 'like', "%{$search}%")
+                        ->orWhere('source', 'like', "%{$search}%");
+
+                    if (ctype_digit($search)) {
+                        $q->orWhere('item_id', (int) $search)
+                            ->orWhere('customer_id', (int) $search);
+                    }
+                });
+            })
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(25)
+            ->withQueryString();
+    }
+
+    public function deleteArchivedItem(ArchivedItem $item): void
+    {
+        $item->delete();
+    }
 }

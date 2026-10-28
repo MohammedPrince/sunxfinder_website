@@ -581,6 +581,23 @@ class MainController extends Controller
         ], $result['code']);
     }
 
+    public function archiveQuote(Request $request)
+    {
+        $data = $request->validate([
+            'quote_id' => ['required', 'integer', 'min:1'],
+            'type' => ['required', 'in:requestd_quote'],
+        ]);
+
+        $result = $this->customerService->archiveQuote($data);
+        $httpCode = $result['code'] ?? 500;
+
+        return response()->json([
+            'status' => ($result['success'] ?? false) ? 'success' : 'error',
+            'code' => $httpCode,
+            'message' => $result['message'] ?? 'Unable to archive this item.',
+        ], $httpCode);
+    }
+
     public function acceptOffer(Request $request)
     {
         $validator = Validator::make($request->all(), [

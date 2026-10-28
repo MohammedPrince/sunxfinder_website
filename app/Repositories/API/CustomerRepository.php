@@ -15,6 +15,7 @@ use App\Models\Customer;
 use App\Models\CustomerDeviceToken;
 use App\Repositories\OtpRepository;
 use App\Models\CustomerNotification;
+use App\Models\ArchivedItem;
 use App\Models\Project;
 use App\Models\ProjectMilestone;
 use App\Models\ProjectUpdate;
@@ -1298,6 +1299,10 @@ class CustomerRepository
             // Build the query for this customer only.
             $query = Quote::query()
                 ->where('customer_id', $customerId)
+                ->whereNotIn('id', ArchivedItem::query()
+                    ->where('customer_id', $customerId)
+                    ->where('type', 'requestd_quote')
+                    ->select('item_id'))
                 ->with([
                     'companyQuotations' => function ($offerQuery) {
                         $offerQuery
@@ -1470,6 +1475,71 @@ class CustomerRepository
     }
 
 
+
+    public function archiveQuote(array $data): array
+    {
+        $lang = 'en';
+
+        try {
+            $customer = $this->helper->isCustomerAuthenticated();
+
+            if (!$customer) {
+                return [
+                    'success' => false,
+                    'code' => 401,
+                    'message' => 'Unauthenticated.',
+                ];
+            }
+
+            $lang = $this->customerPreferredLanguage($customer->id);
+
+            $quote = Quote::query()
+                ->with('project')
+                ->where('customer_id', $customer->id)
+                ->whereKey($data['quote_id'])
+                ->first();
+
+            if (!$quote) {
+                return [
+                    'success' => false,
+                    'code' => 404,
+                    'message' => $lang === 'ar'
+                        ? 'طلب عرض السعر غير موجود.'
+                        : 'Quote request not found.',
+                ];
+            }
+
+            if ($quote->project && $quote->project->status !== 'completed') {
+                return [
+                    'success' => false,
+                    'code' => 409,
+                    'message' => $lang === 'ar'
+                        ? 'لا يمكن أرشفة طلب عرض السعر أثناء وجود مشروع نشط مرتبط به.'
+                        : 'This quote cannot be archived while its project is active.',
+                ];
+            }
+
+            $this->helper->archiveItem($quote, 'requestd_quote', $customer->id, 'app');
+
+            return [
+                'success' => true,
+                'code' => 200,
+                'message' => $lang === 'ar'
+                    ? 'تمت أرشفة طلب عرض السعر بنجاح.'
+                    : 'Quote request archived successfully.',
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+                'message' => $lang === 'ar'
+                    ? 'تعذر أرشفة طلب عرض السعر. يرجى المحاولة مرة أخرى.'
+                    : 'Unable to archive this quote request. Please try again.',
+            ];
+        }
+    }
 
     public function acceptOffer(array $data): array
     {
@@ -2245,7 +2315,7 @@ class CustomerRepository
 
             // Soft deletes the account with all its quotes, offers, projects,
             // notifications and ratings, and signs out every device.
-            $counts = $this->helper->softDeleteCustomerData($customer);
+            $counts = $this->helper->softDeleteCustomerData($customer, 'app');
 
             ActivityLogger::log('account_deleted', 'Customer deleted their own account from the app', $customer, $counts, ActivityLogger::actorFor($customer), 'customers');
 

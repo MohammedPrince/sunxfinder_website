@@ -3,6 +3,7 @@
 namespace App\Services\Admin;
 
 use App\Models\ActivityLog;
+use App\Models\ArchivedItem;
 use App\Models\AppVersion;
 use App\Models\Quote;
 use App\Models\Rating;
@@ -615,6 +616,16 @@ class AdminService
         return $this->adminRepository->getActivityLogMetrics();
     }
     //Activity Logs End
+
+    public function getArchivedItems(array $filters = []): LengthAwarePaginator
+    {
+        return $this->adminRepository->getArchivedItems($filters);
+    }
+
+    public function deleteArchivedItem(ArchivedItem $item): void
+    {
+        $this->adminRepository->deleteArchivedItem($item);
+    }
 
 
 

@@ -14,6 +14,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#0b2d5c">
     <meta name="description" content="{{ trans('messages.Find, compare, and connect with trusted solar companies.') }}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ request()->url() }}">
+    <meta property="og:title" content="SunXFinder - Find. Compare. Connect.">
+    <meta property="og:description" content="{{ trans('messages.Find, compare, and connect with trusted solar companies.') }}">
+    <meta property="og:image" content="{{ asset_v('visitors/images/sunxfinder-logo-home-512.png') }}">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="512">
+    <meta property="og:image:height" content="368">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="{{ asset_v('visitors/images/sunxfinder-logo-home-512.png') }}">
     <title>@yield('title', 'SunXFinder-Solar Solutions')</title>
 
     <link rel="icon" type="image/svg+xml" href="{{ asset_v('favicon.svg') }}">
