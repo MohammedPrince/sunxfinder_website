@@ -51,6 +51,8 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
         // Ratings: rate the company whose offer was accepted (one per quote)
         Route::get('/rating-form', [MainController::class, 'getRatingForm'])->middleware('throttle:60,1');
         Route::post('/rating', [MainController::class, 'submitRating'])->middleware('throttle:20,1')->name('rating');
+        Route::patch('/rating/{id}', [MainController::class, 'updateRating'])->whereNumber('id')->middleware('throttle:20,1')->name('rating.update');
+        Route::delete('/rating/{id}', [MainController::class, 'deleteRating'])->whereNumber('id')->middleware('throttle:20,1')->name('rating.delete');
 
         Route::get('/profile', [MainController::class, 'getProfile'])->middleware('throttle:60,1');
         Route::post('/profile', [MainController::class, 'updateProfile'])->middleware('throttle:60,1');

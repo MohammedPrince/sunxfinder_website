@@ -135,9 +135,13 @@ class Helper
             ->limit($limit)
             ->get();
 
+        $currentCustomerId = auth('sanctum')->id();
+
         return $ratings
             ->map(fn(Rating $rating): array => [
                 'id' => (int) $rating->id,
+                'is_mine' => $currentCustomerId !== null
+                    && (int) $currentCustomerId === (int) $rating->customer_id,
                 // Full name as-is (falls back to username); the app shows the first word only.
                 'full_name' => trim((string) ($rating->customer?->full_name ?: $rating->customer?->username)) ?: null,
                 'username' => $rating->customer?->username,
@@ -149,6 +153,44 @@ class Helper
             ])
             ->values()
             ->all();
+    }
+
+    public function ratingResponseMessages(string $key, string $lang): array
+    {
+        $translations = [
+            'unauthenticated' => [
+                'en' => 'Unauthenticated.',
+                'ar' => 'يرجى تسجيل الدخول أولاً.',
+            ],
+            'not_found' => [
+                'en' => 'Rating not found.',
+                'ar' => 'لم يتم العثور على التقييم.',
+            ],
+            'update_success' => [
+                'en' => 'Rating updated successfully.',
+                'ar' => 'تم تحديث التقييم بنجاح.',
+            ],
+            'update_failed' => [
+                'en' => 'Unable to update your rating. Please try again.',
+                'ar' => 'تعذر تحديث تقييمك. يُرجى المحاولة مرة أخرى.',
+            ],
+            'delete_success' => [
+                'en' => 'Rating deleted successfully.',
+                'ar' => 'تم حذف التقييم بنجاح.',
+            ],
+            'delete_failed' => [
+                'en' => 'Unable to delete your rating. Please try again.',
+                'ar' => 'تعذر حذف تقييمك. يُرجى المحاولة مرة أخرى.',
+            ],
+        ];
+
+        $messages = $translations[$key] ?? $translations['update_failed'];
+
+        return [
+            'message' => $messages[$lang] ?? $messages['en'],
+            'message_en' => $messages['en'],
+            'message_ar' => $messages['ar'],
+        ];
     }
 
     public function shortCustomerName(?\App\Models\Customer $customer): string

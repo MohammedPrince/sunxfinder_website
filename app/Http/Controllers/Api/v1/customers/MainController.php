@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\v1\customers;
 
 use App\Http\Controllers\Controller;
+use App\Models\CustomerDeviceToken;
 use App\Services\API\CustomerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -717,6 +718,94 @@ class MainController extends Controller
             'message' => $result['message'] ?? 'Unable to load the rating form.',
             'data' => $result['data'] ?? null,
         ], $httpCode);
+    }
+
+    public function updateRating(Request $request, int $id)
+    {
+        $lang = $this->customerApiLanguage();
+        $validator = Validator::make($request->all(), [
+            'stars' => ['required', 'integer', 'min:1', 'max:5'],
+            'comment' => ['sometimes', 'nullable', 'string', 'max:500'],
+        ], $this->ratingValidationMessages($lang));
+
+        if ($validator->fails()) {
+            $messageEn = 'Validation failed.';
+            $messageAr = 'فشل التحقق من البيانات.';
+            return response()->json([
+                'status' => 'error',
+                'code' => 422,
+                'message' => $lang === 'ar' ? $messageAr : $messageEn,
+                'message_en' => $messageEn,
+                'message_ar' => $messageAr,
+                'errors' => $validator->errors(),
+                'data' => null,
+            ], 422);
+        }
+
+        $result = $this->customerService->updateRating($id, $validator->validated());
+        $httpCode = $result['code'] ?? 500;
+
+        return response()->json([
+            'status' => ($result['success'] ?? false) ? 'success' : 'error',
+            'code' => $httpCode,
+            'message' => $result['message'] ?? 'Unable to update your rating.',
+            'message_en' => $result['message_en'] ?? $result['message'] ?? 'Unable to update your rating.',
+            'message_ar' => $result['message_ar'] ?? $result['message'] ?? 'تعذر تحديث تقييمك. يُرجى المحاولة مرة أخرى.',
+            'data' => $result['data'] ?? null,
+        ], $httpCode);
+    }
+
+    public function deleteRating(int $id)
+    {
+        $result = $this->customerService->deleteRating($id);
+        $httpCode = $result['code'] ?? 500;
+
+        return response()->json([
+            'status' => ($result['success'] ?? false) ? 'success' : 'error',
+            'code' => $httpCode,
+            'message' => $result['message'] ?? 'Unable to delete your rating.',
+            'message_en' => $result['message_en'] ?? $result['message'] ?? 'Unable to delete your rating.',
+            'message_ar' => $result['message_ar'] ?? $result['message'] ?? 'تعذر حذف تقييمك. يُرجى المحاولة مرة أخرى.',
+            'data' => $result['data'] ?? null,
+        ], $httpCode);
+    }
+
+    private function customerApiLanguage(): string
+    {
+        $customerId = auth('sanctum')->id();
+        if (!$customerId) {
+            return 'en';
+        }
+
+        $lang = CustomerDeviceToken::query()
+            ->where('customer_id', $customerId)
+            ->orderByDesc('last_used_at')
+            ->value('lang');
+
+        return strtolower((string) $lang) === 'ar' ? 'ar' : 'en';
+    }
+
+    private function ratingValidationMessages(string $lang): array
+    {
+        if ($lang === 'ar') {
+            return [
+                'stars.required' => 'حقل التقييم مطلوب.',
+                'stars.integer' => 'يجب أن يكون التقييم رقمًا صحيحًا.',
+                'stars.min' => 'يجب ألا يقل التقييم عن نجمة واحدة.',
+                'stars.max' => 'يجب ألا يزيد التقييم عن 5 نجوم.',
+                'comment.string' => 'يجب أن يكون التعليق نصًا.',
+                'comment.max' => 'يجب ألا يتجاوز التعليق 500 حرف.',
+            ];
+        }
+
+        return [
+            'stars.required' => 'The stars field is required.',
+            'stars.integer' => 'Stars must be a whole number.',
+            'stars.min' => 'Stars must be at least 1.',
+            'stars.max' => 'Stars may not be greater than 5.',
+            'comment.string' => 'The comment must be text.',
+            'comment.max' => 'The comment may not be greater than 500 characters.',
+        ];
     }
 
     public function getProjectProgress(int $projectId)

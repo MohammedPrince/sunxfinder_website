@@ -1941,6 +1941,156 @@ class CustomerRepository
         }
     }
 
+    public function updateRating(int $ratingId, array $data): array
+    {
+        $lang = 'en';
+
+        try {
+            $customer = $this->helper->isCustomerAuthenticated();
+
+            if (!$customer) {
+                return [
+                    'success' => false,
+                    'code' => 401,
+                ] + $this->helper->ratingResponseMessages('unauthenticated', $lang) + [
+                    'data' => null,
+                ];
+            }
+
+            $lang = $this->customerApiLanguage((int) $customer->id);
+
+            // Scope by the token owner so a caller cannot confirm another customer's rating exists.
+            $rating = Rating::query()
+                ->where('customer_id', $customer->id)
+                ->find($ratingId);
+
+            if (!$rating) {
+                return [
+                    'success' => false,
+                    'code' => 404,
+                ] + $this->helper->ratingResponseMessages('not_found', $lang) + [
+                    'data' => null,
+                ];
+            }
+
+            $rating->stars = (int) $data['stars'];
+            if (array_key_exists('comment', $data)) {
+                // ConvertEmptyStringsToNull turns an explicitly cleared comment into null.
+                $rating->comment = $data['comment'];
+            }
+            $rating->save();
+
+            $summary = $this->companyRatingSummaries([(int) $rating->company_id])[(int) $rating->company_id]
+                ?? ['rating' => null, 'reviews' => 0];
+
+            return [
+                'success' => true,
+                'code' => 200,
+            ] + $this->helper->ratingResponseMessages('update_success', $lang) + [
+                'data' => [
+                    'ratingDetails' => [
+                        'id' => (int) $rating->id,
+                        'quote_id' => (int) $rating->quote_id,
+                        'company_id' => (int) $rating->company_id,
+                        'stars' => (int) $rating->stars,
+                        'rating' => (int) $rating->stars,
+                        'comment' => $rating->comment,
+                        'is_mine' => true,
+                        'company_rating' => $summary['rating'],
+                        'company_reviews' => $summary['reviews'],
+                    ],
+                ],
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+            ] + $this->helper->ratingResponseMessages('update_failed', $lang) + [
+                'data' => null,
+            ];
+        }
+    }
+
+    public function deleteRating(int $ratingId): array
+    {
+        $lang = 'en';
+
+        try {
+            $customer = $this->helper->isCustomerAuthenticated();
+
+            if (!$customer) {
+                return [
+                    'success' => false,
+                    'code' => 401,
+                ] + $this->helper->ratingResponseMessages('unauthenticated', $lang) + [
+                    'data' => null,
+                ];
+            }
+
+            $lang = $this->customerApiLanguage((int) $customer->id);
+
+            // Ownership is checked on the server for every delete request.
+            $rating = Rating::query()
+                ->where('customer_id', $customer->id)
+                ->find($ratingId);
+
+            if (!$rating) {
+                return [
+                    'success' => false,
+                    'code' => 404,
+                ] + $this->helper->ratingResponseMessages('not_found', $lang) + [
+                    'data' => null,
+                ];
+            }
+
+            $companyId = (int) $rating->company_id;
+
+            DB::transaction(function () use ($rating, $customer) {
+                foreach ($rating->answers()->get() as $answer) {
+                    $this->helper->archiveItem($answer, 'rating_answer', (int) $customer->id, 'app');
+                    $answer->delete();
+                }
+
+                $this->helper->archiveItem($rating, 'rating', (int) $customer->id, 'app');
+                $rating->delete();
+            });
+
+            $summary = $this->companyRatingSummaries([$companyId])[$companyId]
+                ?? ['rating' => null, 'reviews' => 0];
+
+            return [
+                'success' => true,
+                'code' => 200,
+            ] + $this->helper->ratingResponseMessages('delete_success', $lang) + [
+                'data' => [
+                    'company_rating' => $summary['rating'],
+                    'company_reviews' => $summary['reviews'],
+                ],
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+            ] + $this->helper->ratingResponseMessages('delete_failed', $lang) + [
+                'data' => null,
+            ];
+        }
+    }
+
+    private function customerApiLanguage(int $customerId): string
+    {
+        $lang = CustomerDeviceToken::query()
+            ->where('customer_id', $customerId)
+            ->orderByDesc('last_used_at')
+            ->value('lang');
+
+        return strtolower((string) $lang) === 'ar' ? 'ar' : 'en';
+    }
+
     /** Active questions and the 1-4 answer labels, for the app's rating screen. */
     public function getRatingForm(): array
     {

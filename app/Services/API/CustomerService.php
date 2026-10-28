@@ -109,6 +109,16 @@ class CustomerService
         return $this->customerRepository->submitRating($data);
     }
 
+    public function updateRating(int $ratingId, array $data): array
+    {
+        return $this->customerRepository->updateRating($ratingId, $data);
+    }
+
+    public function deleteRating(int $ratingId): array
+    {
+        return $this->customerRepository->deleteRating($ratingId);
+    }
+
     public function getRatingForm(): array
     {
         return $this->customerRepository->getRatingForm();
