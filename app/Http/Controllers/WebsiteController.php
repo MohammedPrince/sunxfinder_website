@@ -344,9 +344,9 @@ class WebsiteController extends Controller
         // One card per service: split on English or Arabic commas (، ) like the app does.
         $companyServices = app(Helper::class)->splitList(strip_tags($services ?? ''));
 
-        $companyLogo = $company->logo_path
-            ? asset('storage/' . $company->logo_path)
-            : null;
+        // Company profile uploads are stored under public/main/images/company
+        // and logo_path may contain a full URL from the host used at upload time.
+        $companyLogo = app(Helper::class)->publicUrl($company->logo_path);
 
         $companyCover = null;
         $companyVerified = (bool) $company->is_verified;

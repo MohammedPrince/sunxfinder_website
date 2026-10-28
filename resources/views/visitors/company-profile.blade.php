@@ -15,7 +15,8 @@
 
                     <div class="company-profile-logo">
                         @if ($companyLogo)
-                            <img src="{{ app(\App\Helpers\Helper::class)->publicUrl($company->logo_path) }}" alt="{{ $company->name }} logo" loading="lazy">
+                            <img src="{{ $companyLogo }}"
+                                alt="{{ $company->name }} logo" loading="lazy">
                         @else
                             <span>{{ mb_strtoupper(mb_substr($companyName, 0, 1)) }}</span>
                         @endif
@@ -60,15 +61,15 @@
 
                     <div class="company-profile-actions" dir="ltr">
                         {{-- @if ($companyEmail)
-                            <a class="btn btn-primary"
-                                href="mailto:{{ $companyEmail }}?subject={{ rawurlencode('Solar project inquiry - ' . $companyName) }}">
-                                {{ trans('messages.Contact company') }}
-                            </a>
+                        <a class="btn btn-primary"
+                            href="mailto:{{ $companyEmail }}?subject={{ rawurlencode('Solar project inquiry - ' . $companyName) }}">
+                            {{ trans('messages.Contact company') }}
+                        </a>
                         @else
-                            <a class="btn btn-primary"
-                                href="mailto:hello@sunxfinder.com?subject={{ rawurlencode('Contact request for ' . $companyName) }}">
-                                {{ trans('messages.Request contact') }}
-                            </a>
+                        <a class="btn btn-primary"
+                            href="mailto:hello@sunxfinder.com?subject={{ rawurlencode('Contact request for ' . $companyName) }}">
+                            {{ trans('messages.Request contact') }}
+                        </a>
                         @endif --}}
 
                         @php $isMobileDevice = (bool) preg_match('/android|iphone|ipad|ipod/i', (string) request()->userAgent()); @endphp
@@ -76,7 +77,7 @@
                         {{-- Phones and tablets only: open this company in the SunXFinder app --}}
                         @if ($isMobileDevice)
                             <a class="btn btn-quiet" href="{{ route('app.company', ['slug' => $company->slug]) }}">
-                                📱 {{ trans('messages.Open in App') }}
+                                {{ trans('messages.Open in App') }}
                             </a>
                         @endif
 
@@ -232,7 +233,8 @@
                                     @endphp
                                     <article class="company-review">
                                         <div class="review-head">
-                                            <span class="review-avatar" aria-hidden="true">{{ mb_strtoupper(mb_substr($reviewer, 0, 1)) }}</span>
+                                            <span class="review-avatar"
+                                                aria-hidden="true">{{ mb_strtoupper(mb_substr($reviewer, 0, 1)) }}</span>
                                             <span class="review-who">
                                                 <strong>{{ $reviewer }}</strong>
                                                 <small>{{ data_get($review, 'date', '') }}</small>
@@ -244,7 +246,8 @@
                                         @if (data_get($review, 'comment'))
                                             <p class="review-comment">“{{ data_get($review, 'comment') }}”</p>
                                         @else
-                                            <p class="review-comment review-comment-empty">{{ trans('messages.Rated without a comment.') }}</p>
+                                            <p class="review-comment review-comment-empty">
+                                                {{ trans('messages.Rated without a comment.') }}</p>
                                         @endif
                                     </article>
                                 @endforeach
@@ -366,7 +369,7 @@
 @section('scripts')
     {{-- Reviews slider: buttons, dots and swipe (native scroll-snap). Works in RTL. --}}
     <script>
-        (function() {
+        (function () {
             var track = document.querySelector('[data-review-slider]');
             if (!track) return;
 
@@ -405,7 +408,7 @@
                 if (prev) prev.disabled = isRtl ? page >= last : page <= 0;
                 if (next) next.disabled = isRtl ? page <= 0 : page >= last;
                 if (dotsBox) {
-                    Array.prototype.forEach.call(dotsBox.children, function(dot, i) {
+                    Array.prototype.forEach.call(dotsBox.children, function (dot, i) {
                         dot.classList.toggle('is-active', i === page);
                         dot.setAttribute('aria-current', i === page ? 'true' : 'false');
                     });
@@ -435,20 +438,20 @@
             }
 
             // Arrows point the way the cards move on screen ("→" shows what is to the right).
-            if (prev) prev.addEventListener('click', function() { goTo(page + (isRtl ? 1 : -1)); });
-            if (next) next.addEventListener('click', function() { goTo(page + (isRtl ? -1 : 1)); });
+            if (prev) prev.addEventListener('click', function () { goTo(page + (isRtl ? 1 : -1)); });
+            if (next) next.addEventListener('click', function () { goTo(page + (isRtl ? -1 : 1)); });
 
             // Finger swipe / trackpad: follow the scroll once it settles.
             var settle;
-            track.addEventListener('scroll', function() {
+            track.addEventListener('scroll', function () {
                 clearTimeout(settle);
-                settle = setTimeout(function() {
+                settle = setTimeout(function () {
                     page = Math.max(0, Math.min(pageCount() - 1, currentPage()));
                     render();
                 }, 120);
             }, { passive: true });
 
-            window.addEventListener('resize', function() {
+            window.addEventListener('resize', function () {
                 renderDots();
                 page = Math.max(0, Math.min(pageCount() - 1, currentPage()));
                 render();
