@@ -2406,7 +2406,7 @@ class CustomerRepository
             return $this->passwordResetError(404, 'account_not_found', $lang);
         }
 
-        if (!$customer->is_active) {
+        if ($customer->status !== 'active' || !$customer->is_active) {
             return $this->passwordResetError(403, 'account_inactive', $lang);
         }
 

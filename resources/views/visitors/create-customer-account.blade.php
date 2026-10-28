@@ -218,14 +218,14 @@
                             {{ __('messages.After your account is approved, remember to log in using the SunXFinder app with the username and password you created here.') }}
                         </p>
                         @if (!empty($appLinks))
-                            <div class="provider-success-actions">
+                            {{-- <div class="provider-success-actions">
                                 @isset($appLinks['android'])
                                     <a class="provider-submit-button" href="{{ $appLinks['android'] }}" target="_blank" rel="noopener">{{ __('messages.Get it on') }} Google Play</a>
                                 @endisset
                                 @isset($appLinks['ios'])
                                     <a class="provider-submit-button" href="{{ $appLinks['ios'] }}" target="_blank" rel="noopener">{{ __('messages.Download on the') }} App Store</a>
                                 @endisset
-                            </div>
+                            </div> --}}
                         @endif
                     </section>
 

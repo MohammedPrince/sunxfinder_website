@@ -217,12 +217,20 @@ class CompanyRepository
 
     public function companyEmailExists(string $email): bool
     {
-        return SolarCompany::query()->where('email', $email)->exists();
+        return SolarCompany::query()
+            ->where('email', $email)
+            ->where('status', 'approved')
+            ->where('is_active', true)
+            ->exists();
     }
 
     public function sendPasswordResetOtp(string $email, string $locale = 'en'): array
     {
-        $company = SolarCompany::query()->where('email', $email)->first();
+        $company = SolarCompany::query()
+            ->where('email', $email)
+            ->where('status', 'approved')
+            ->where('is_active', true)
+            ->first();
 
         if (!$company) {
             return ['success' => false, 'message' => 'No company account is registered with this email.'];
@@ -245,7 +253,11 @@ class CompanyRepository
             return $check;
         }
 
-        $company = SolarCompany::query()->where('email', $email)->first();
+        $company = SolarCompany::query()
+            ->where('email', $email)
+            ->where('status', 'approved')
+            ->where('is_active', true)
+            ->first();
 
         if (!$company) {
             return ['success' => false, 'message' => 'No company account is registered with this email.'];
