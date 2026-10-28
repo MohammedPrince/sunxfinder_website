@@ -2203,6 +2203,8 @@ class CustomerRepository
 
     public function deleteAccount(): array
     {
+        $lang = 'en';
+
         try {
             $customer = $this->helper->isCustomerAuthenticated();
 
@@ -2211,6 +2213,31 @@ class CustomerRepository
                     'success' => false,
                     'code' => 401,
                     'message' => 'Unauthenticated.',
+                ];
+            }
+
+            $lang = $this->customerPreferredLanguage($customer->id);
+
+            $hasUnfinishedProject = Project::query()
+                ->where('customer_id', $customer->id)
+                ->where(function ($query) {
+                    $query->whereNull('status')
+                        ->orWhere('status', '!=', 'completed')
+                        ->orWhereHas('milestones', function ($milestoneQuery) {
+                            $milestoneQuery
+                                ->whereNull('status')
+                                ->orWhere('status', '!=', 'completed');
+                        });
+                })
+                ->exists();
+
+            if ($hasUnfinishedProject) {
+                return [
+                    'success' => false,
+                    'code' => 409,
+                    'message' => $lang === 'ar'
+                        ? 'لا يمكن حذف حسابك لوجود مشروع نشط. يُرجى الانتظار حتى اكتمال المشروع.'
+                        : 'Your account cannot be deleted while you have an active project. Please wait until the project is completed.',
                 ];
             }
 
@@ -2223,7 +2250,9 @@ class CustomerRepository
             return [
                 'success' => true,
                 'code' => 200,
-                'message' => 'Your account has been deleted successfully.',
+                'message' => $lang === 'ar'
+                    ? 'تم حذف حسابك بنجاح.'
+                    : 'Your account has been deleted successfully.',
             ];
         } catch (Throwable $e) {
             report($e);
@@ -2231,9 +2260,19 @@ class CustomerRepository
             return [
                 'success' => false,
                 'code' => 500,
-                'message' => 'Unable to delete your account. Please try again.',
+                'message' => $lang === 'ar'
+                    ? 'تعذر حذف حسابك. يرجى المحاولة مرة أخرى.'
+                    : 'Unable to delete your account. Please try again.',
             ];
         }
+    }
+
+    private function customerPreferredLanguage(int $customerId): string
+    {
+        return strtolower((string) CustomerDeviceToken::query()
+            ->where('customer_id', $customerId)
+            ->orderByDesc('last_used_at')
+            ->value('lang')) === 'ar' ? 'ar' : 'en';
     }
 
     public function logout(): array
