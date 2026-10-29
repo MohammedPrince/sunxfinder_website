@@ -7622,9 +7622,13 @@ a.cd-chip:hover {
     font-size: 12px;
 }
 
-.slider-file-name {
-    color: #16784f !important;
+.slider-dropzone .slider-file-name {
+    color: #16784f;
     font-weight: 700;
+}
+
+.slider-dropzone .slider-file-name.is-error {
+    color: #b42318;
 }
 
 .slider-link-field {

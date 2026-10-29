@@ -1148,8 +1148,18 @@ class CustomerRepository
                 ->orderBy('sort_order')
                 ->orderBy('id')
                 ->limit(10)
-                ->get(['id', 'name', 'description_ar', 'description_en', 'image_path', 'image_width',
-                    'image_height', 'link_url', 'interval_seconds', 'sort_order'])
+                ->get([
+                    'id',
+                    'name',
+                    'description_ar',
+                    'description_en',
+                    'image_path',
+                    'image_width',
+                    'image_height',
+                    'link_url',
+                    'interval_seconds',
+                    'sort_order'
+                ])
                 ->toArray());
 
             // URLs are built per request so the cached rows don't pin one host name.

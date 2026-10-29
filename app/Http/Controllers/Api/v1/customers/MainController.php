@@ -390,6 +390,7 @@ class MainController extends Controller
         $customer = $request->user();
         abort_unless($customer instanceof \App\Models\Customer, 401);
 
+        /** @var \Illuminate\Pagination\LengthAwarePaginator<int, CustomerComplaint> $complaints */
         $complaints = CustomerComplaint::query()
             ->with('company:id,name')
             ->where('customer_id', $customer->id)

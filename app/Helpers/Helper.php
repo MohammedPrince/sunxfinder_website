@@ -334,6 +334,29 @@ class Helper
     }
 
     /**
+     * Largest upload PHP accepts on this server, in KB (upload_max_filesize / post_max_size).
+     * Files above it never reach Laravel and fail as "The image failed to upload."
+     */
+    public static function serverUploadLimitKb(): int
+    {
+        $toKb = function ($value): int {
+            $value = trim((string) $value);
+            $number = (float) $value;
+
+            return (int) match (strtolower(substr($value, -1))) {
+                'g' => $number * 1024 * 1024,
+                'm' => $number * 1024,
+                'k' => $number,
+                default => $number / 1024,
+            };
+        };
+
+        $limits = array_filter([$toKb(ini_get('upload_max_filesize')), $toKb(ini_get('post_max_size'))]);
+
+        return $limits ? min($limits) : 2048;
+    }
+
+    /**
      * Saves an uploaded image under public/$relativeDir as a WebP no wider than $maxWidth,
      * so the app downloads a light file. Falls back to the original format (shrunk) when
      * GD has no WebP support.

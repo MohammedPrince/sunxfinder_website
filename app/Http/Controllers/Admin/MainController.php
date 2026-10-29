@@ -934,6 +934,7 @@ class MainController extends Controller
         return view('admin.app-sliders.form', [
             'slider' => null,
             'nextSortOrder' => $this->adminService->getNextAppSliderSortOrder(),
+            'maxUploadKb' => $this->appSliderMaxUploadKb(),
         ]);
     }
 
@@ -952,7 +953,11 @@ class MainController extends Controller
         $slider = $this->adminService->findAppSlider($id);
         abort_unless($slider, 404);
 
-        return view('admin.app-sliders.form', ['slider' => $slider, 'nextSortOrder' => $slider->sort_order]);
+        return view('admin.app-sliders.form', [
+            'slider' => $slider,
+            'nextSortOrder' => $slider->sort_order,
+            'maxUploadKb' => $this->appSliderMaxUploadKb(),
+        ]);
     }
 
     public function updateAppSlider(Request $request, int $id)
@@ -980,14 +985,23 @@ class MainController extends Controller
             ->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
+    /** 4 MB, or less when the server's PHP upload limit is lower. */
+    private function appSliderMaxUploadKb(): int
+    {
+        return min(4096, \App\Helpers\Helper::serverUploadLimitKb());
+    }
+
     private function validateAppSlider(Request $request, bool $creating): array
     {
+        $maxKb = $this->appSliderMaxUploadKb();
+        $maxLabel = round($maxKb / 1024, 1) . ' MB';
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'description_ar' => ['nullable', 'string', 'max:255'],
             'description_en' => ['nullable', 'string', 'max:255'],
-            // 4 MB upload limit; the stored copy is converted to a light WebP.
-            'image' => [$creating ? 'required' : 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096', 'dimensions:min_width=600,min_height=200'],
+            // The browser shrinks large images first; the stored copy is converted to a light WebP.
+            'image' => [$creating ? 'required' : 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:' . $maxKb, 'dimensions:min_width=600,min_height=200'],
             'has_link' => ['nullable', 'boolean'],
             // Web links, or in-app links such as sunxfinder://company/{slug}.
             'link_url' => ['nullable', 'required_if:has_link,1', 'string', 'max:500', 'regex:#^(https?|sunxfinder)://[^\s]+$#i'],
@@ -998,6 +1012,8 @@ class MainController extends Controller
             'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
         ], [
             'image.dimensions' => 'The slide image must be at least 600 px wide and 200 px tall.',
+            'image.uploaded' => "The server rejected the image, usually because it is larger than {$maxLabel}. Choose a smaller image or compress it and try again.",
+            'image.max' => "The slide image may not be larger than {$maxLabel}.",
             'link_url.required_if' => 'Enter the link the slide opens, or turn off "Slide opens a link".',
             'link_url.regex' => 'The link must start with https://, http:// or sunxfinder://',
         ]);
