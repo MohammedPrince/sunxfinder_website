@@ -328,6 +328,7 @@
         <div class="report-subheading" id="stalled-projects">
             <h3>Stalled projects <span class="pill {{ count($projects['stalled']) ? 'pill-red' : 'pill-green' }}">{{ count($projects['stalled']) }}</span></h3>
             <p>Active projects with no progress update for {{ $stalledDays }} days or more.</p>
+            <a class="btn btn-light no-print" href="{{ route('admin.projects.index', ['stalled' => 1]) }}">Open full stalled queue</a>
         </div>
         <div class="table-responsive">
             <table class="data-table">
@@ -339,21 +340,32 @@
                         <th>Status</th>
                         <th>Progress</th>
                         <th>No update for</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($projects['stalled'] as $row)
                         <tr>
-                            <td><strong>Project #{{ $row['id'] }}</strong><small style="display:block">{{ $quoteRef($row['quote_id']) }}</small></td>
+                            <td><a href="{{ route('admin.projects.show', ['id' => $row['id']]) }}"><strong>Project #{{ $row['id'] }}</strong></a><small style="display:block">{{ $quoteRef($row['quote_id']) }}</small></td>
                             <td>{{ $row['company'] }}</td>
                             <td>{{ $row['customer'] }}</td>
                             <td><span class="pill pill-yellow">{{ \Illuminate\Support\Str::headline($row['status']) }}</span></td>
                             <td>{{ $row['progress'] }}%</td>
                             <td><span class="pill pill-red">{{ $row['idle_days'] }} days</span></td>
+                            <td>
+                                <a href="{{ route('admin.projects.show', ['id' => $row['id']]) }}" class="row-action row-action-icon"
+                                    title="Review project" aria-label="Review project #{{ $row['id'] }}">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                                        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+                                        <circle cx="12" cy="12" r="2.5" />
+                                    </svg>
+                                </a>
+                            </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="dashboard-empty"><strong>No stalled projects.</strong> Every active project was updated recently.</td>
+                            <td colspan="7" class="dashboard-empty"><strong>No stalled projects.</strong> Every active project was updated recently.</td>
                         </tr>
                     @endforelse
                 </tbody>

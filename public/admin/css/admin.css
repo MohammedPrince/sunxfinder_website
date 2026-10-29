@@ -6937,3 +6937,490 @@ a.cd-chip:hover {
         grid-column: auto;
     }
 }
+
+/* Admin project details page */
+
+.admin-project-hero {
+    padding: 22px 24px;
+}
+
+.admin-project-hero-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 18px 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #edf1f5;
+}
+
+.admin-project-hero-title {
+    min-width: 0;
+    flex: 1 1 320px;
+}
+
+.admin-project-hero-title h2 {
+    margin: 12px 0 6px;
+    color: #142b45;
+    font-size: 20px;
+    font-weight: 750;
+    letter-spacing: -.3px;
+    overflow-wrap: anywhere;
+}
+
+.admin-project-hero-title h2 a:hover {
+    color: var(--orange);
+}
+
+.admin-project-hero-title p {
+    margin: 0;
+    color: #738195;
+    font-size: 12px;
+}
+
+.admin-project-progress {
+    flex: 1 1 260px;
+    max-width: 380px;
+}
+
+.admin-project-progress-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.admin-project-progress-label span {
+    color: #738195;
+    font-size: 12px;
+}
+
+.admin-project-progress-label strong {
+    color: #142b45;
+    font-size: 24px;
+    letter-spacing: -.5px;
+}
+
+.admin-project-progress-bar {
+    height: 10px;
+    margin-top: 8px;
+}
+
+.admin-project-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding-top: 18px;
+}
+
+.admin-project-stats>div {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+    padding: 0 18px;
+    border-right: 1px solid #edf1f5;
+}
+
+.admin-project-stats>div:first-child {
+    padding-left: 0;
+}
+
+.admin-project-stats>div:last-child {
+    border-right: 0;
+}
+
+.admin-project-stats small {
+    color: #778597;
+    font-size: 11px;
+}
+
+.admin-project-stats strong {
+    color: #172337;
+    font-size: 18px;
+    overflow-wrap: anywhere;
+}
+
+.admin-project-stats span {
+    color: #98a2af;
+    font-size: 11px;
+}
+
+.admin-project-stats .admin-project-stalled {
+    color: #b42318;
+}
+
+.admin-project-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+    align-items: start;
+    gap: 17px;
+}
+
+.admin-project-main,
+.admin-project-side {
+    min-width: 0;
+}
+
+/* Milestone stepper */
+
+.admin-project-milestones {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.admin-project-milestones li {
+    position: relative;
+    display: flex;
+    gap: 14px;
+    padding-bottom: 18px;
+}
+
+.admin-project-milestones li:last-child {
+    padding-bottom: 0;
+}
+
+.admin-project-milestones li:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    top: 30px;
+    bottom: 4px;
+    left: 13px;
+    width: 2px;
+    border-radius: 2px;
+    background: #e6edf5;
+}
+
+.admin-project-milestones li.is-completed:not(:last-child)::before {
+    background: #b7efce;
+}
+
+.admin-project-milestone-marker {
+    display: grid;
+    flex: 0 0 28px;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    border: 2px solid #dbe3ec;
+    border-radius: 50%;
+    background: #fff;
+    color: #738195;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.is-in_progress .admin-project-milestone-marker {
+    border-color: #ffb31a;
+    background: #fff8e6;
+    color: #925b08;
+    box-shadow: 0 0 0 4px #fff2cc80;
+}
+
+.is-completed .admin-project-milestone-marker {
+    border-color: #1c9b69;
+    background: #1c9b69;
+    color: #fff;
+}
+
+.admin-project-milestone-body {
+    flex: 1;
+    min-width: 0;
+    padding-top: 3px;
+}
+
+.admin-project-milestone-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 12px;
+}
+
+.admin-project-milestone-head strong {
+    color: #24364c;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+.admin-project-milestone-body p {
+    margin: 6px 0 0;
+    color: #657790;
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.admin-project-milestone-body small {
+    display: block;
+    margin-top: 6px;
+    color: #8995a4;
+    font-size: 11px;
+}
+
+/* Update history timeline */
+
+.admin-project-timeline-item {
+    position: relative;
+    display: flex;
+    gap: 14px;
+    padding-bottom: 22px;
+}
+
+.admin-project-timeline-item:last-child {
+    padding-bottom: 0;
+}
+
+.admin-project-timeline-item:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    top: 17px;
+    bottom: 0;
+    left: 6px;
+    width: 2px;
+    background: #e6edf5;
+}
+
+.admin-project-timeline-dot {
+    position: relative;
+    z-index: 1;
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
+    margin-top: 3px;
+    border: 3px solid #e5efff;
+    border-radius: 50%;
+    background: #1268c4;
+}
+
+.admin-project-timeline-item.is-status .admin-project-timeline-dot {
+    border-color: #ffe8dc;
+    background: var(--orange);
+}
+
+.admin-project-timeline-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.admin-project-timeline-meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 4px 12px;
+}
+
+.admin-project-timeline-meta strong {
+    color: #172b45;
+    font-size: 13px;
+}
+
+.admin-project-timeline-meta time {
+    color: #8995a4;
+    font-size: 11px;
+}
+
+.admin-project-timeline-content p {
+    margin: 8px 0 0;
+    padding: 10px 12px;
+    border: 1px solid #edf1f5;
+    border-radius: 9px;
+    background: #fafbfd;
+    color: #4a5b70;
+    font-size: 12px;
+    line-height: 1.7;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+.admin-project-timeline-tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.admin-project-timeline-tags .pill {
+    padding: 4px 8px;
+    font-size: 10px;
+}
+
+.admin-project-tag {
+    padding: 4px 8px;
+    border: 1px solid #e4eaf0;
+    border-radius: 6px;
+    background: #fff;
+    color: #687689;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+/* Side column: contacts and dates */
+
+.admin-project-parties {
+    display: grid;
+    gap: 12px;
+}
+
+.admin-project-party {
+    padding: 14px;
+    border: 1px solid #edf1f5;
+    border-radius: 10px;
+    background: #fafbfd;
+}
+
+.admin-project-party-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+}
+
+.admin-project-party-head .person-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+}
+
+.admin-project-party-head>div {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    min-width: 0;
+}
+
+.admin-project-party-head small {
+    color: #8995a4;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+}
+
+.admin-project-party-head strong {
+    color: #172b45;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+.admin-project-party-head a:hover strong {
+    color: var(--orange);
+}
+
+.admin-project-party-city {
+    color: #738195;
+    font-size: 11px;
+}
+
+.admin-project-party-links {
+    display: grid;
+    gap: 6px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #edf1f5;
+}
+
+.admin-project-party-links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #1268c4;
+    font-size: 12px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.admin-project-party-links a:hover {
+    text-decoration: underline;
+}
+
+.admin-project-party-links svg {
+    flex-shrink: 0;
+    color: #98a2af;
+}
+
+.admin-project-party-links small {
+    color: #98a2af;
+    font-size: 11px;
+}
+
+.admin-project-dates {
+    margin: 0;
+}
+
+.admin-project-dates>div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px solid #f0f2f6;
+}
+
+.admin-project-dates>div:first-child {
+    padding-top: 0;
+}
+
+.admin-project-dates>div:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.admin-project-dates dt {
+    color: #738195;
+    font-size: 12px;
+}
+
+.admin-project-dates dd {
+    margin: 0;
+    color: #98a2af;
+    font-size: 12px;
+    text-align: right;
+}
+
+.admin-project-dates .is-done dd {
+    color: #24364c;
+    font-weight: 650;
+}
+
+.admin-project-dates dd small {
+    display: block;
+    margin-top: 2px;
+    color: #98a2af;
+    font-size: 10px;
+    font-weight: 400;
+}
+
+@media (max-width: 1100px) {
+    .admin-project-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .admin-project-side {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 0 17px;
+    }
+}
+
+@media (max-width: 760px) {
+    .admin-project-hero {
+        padding: 18px;
+    }
+
+    .admin-project-progress {
+        max-width: none;
+    }
+
+    .admin-project-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px 0;
+    }
+
+    .admin-project-stats>div:nth-child(2n) {
+        border-right: 0;
+    }
+
+    .admin-project-stats>div:nth-child(2n + 1) {
+        padding-left: 0;
+    }
+}

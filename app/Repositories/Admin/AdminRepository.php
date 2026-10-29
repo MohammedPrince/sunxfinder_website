@@ -2267,6 +2267,114 @@ class AdminRepository
             ->find($id);
     }
 
+    public function getAdminProjects(array $filters = []): LengthAwarePaginator
+    {
+        $query = $this->adminProjectsQuery($filters)
+            ->with([
+                'company' => fn($q) => $q->withTrashed(),
+                'customer' => fn($q) => $q->withTrashed(),
+                'quote',
+            ])
+            ->select('tbl_projects.*')
+            ->selectSub(
+                DB::table('tbl_project_updates')
+                    ->selectRaw('MAX(created_at)')
+                    ->whereColumn('project_id', 'tbl_projects.id')
+                    ->whereNull('deleted_at'),
+                'last_update_at'
+            )
+            ->orderByRaw($this->projectLastActivitySql() . ' DESC')
+            ->orderByDesc('tbl_projects.id');
+
+        return $query->paginate(25)->withQueryString();
+    }
+
+    public function getAdminProjectById(int $id): ?Project
+    {
+        return Project::query()
+            ->with([
+                'company' => fn($q) => $q->withTrashed(),
+                'customer' => fn($q) => $q->withTrashed(),
+                'quote',
+                'companyQuotation',
+                'milestones',
+                'updates',
+            ])
+            ->find($id);
+    }
+
+    public function getAdminProjectMetrics(): array
+    {
+        $query = Project::query();
+
+        return [
+            'total' => (clone $query)->count(),
+            'accepted' => (clone $query)->where('status', 'accepted')->count(),
+            'in_progress' => (clone $query)->where('status', 'in_progress')->count(),
+            'completed' => (clone $query)->where('status', 'completed')->count(),
+            'stalled' => (clone $query)
+                ->whereIn('status', ['accepted', 'in_progress'])
+                ->whereRaw($this->projectLastActivitySql() . ' < ?', [now()->subDays(ReportPeriod::STALLED_DAYS)])
+                ->count(),
+        ];
+    }
+
+    public function getAdminProjectCompanies()
+    {
+        return SolarCompany::withTrashed()->orderBy('name')->get(['id', 'name', 'deleted_at']);
+    }
+
+    private function adminProjectsQuery(array $filters)
+    {
+        return Project::query()
+            ->when(!empty($filters['status']), fn($q) => $q->where('status', $filters['status']))
+            ->when(!empty($filters['company_id']), fn($q) => $q->where('company_id', (int) $filters['company_id']))
+            ->when(!empty($filters['customer']), function ($query) use ($filters) {
+                $search = trim($filters['customer']);
+                $query->where(function ($q) use ($search) {
+                    if (ctype_digit($search)) {
+                        $q->orWhere('customer_id', (int) $search);
+                    }
+
+                    $q->orWhereHas('customer', function ($customerQuery) use ($search) {
+                        $customerQuery->withTrashed()
+                            ->where('full_name', 'like', "%{$search}%")
+                            ->orWhere('username', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%")
+                            ->orWhere('phone', 'like', "%{$search}%");
+                    });
+                });
+            })
+            ->when(!empty($filters['search']), function ($query) use ($filters) {
+                $search = trim($filters['search']);
+                $query->where(function ($q) use ($search) {
+                    if (ctype_digit($search)) {
+                        $q->orWhere('tbl_projects.id', (int) $search)
+                            ->orWhere('quote_id', (int) $search);
+                    }
+
+                    $q->orWhereHas('quote', fn($quoteQuery) => $quoteQuery->where('quote_name', 'like', "%{$search}%"))
+                        ->orWhereHas('company', fn($companyQuery) => $companyQuery->withTrashed()->where('name', 'like', "%{$search}%"));
+                });
+            })
+            ->when(!empty($filters['last_activity_from']), fn($q) => $q->whereRaw(
+                $this->projectLastActivitySql() . ' >= ?',
+                [Carbon::parse($filters['last_activity_from'])->startOfDay()]
+            ))
+            ->when(!empty($filters['last_activity_to']), fn($q) => $q->whereRaw(
+                $this->projectLastActivitySql() . ' <= ?',
+                [Carbon::parse($filters['last_activity_to'])->endOfDay()]
+            ))
+            ->when(!empty($filters['stalled']), fn($q) => $q
+                ->whereIn('status', ['accepted', 'in_progress'])
+                ->whereRaw($this->projectLastActivitySql() . ' < ?', [now()->subDays(ReportPeriod::STALLED_DAYS)]));
+    }
+
+    private function projectLastActivitySql(): string
+    {
+        return 'COALESCE((SELECT MAX(pu.created_at) FROM tbl_project_updates pu WHERE pu.project_id = tbl_projects.id AND pu.deleted_at IS NULL), tbl_projects.updated_at)';
+    }
+
     /** Hours before the same request can be nudged again. */
     public const NUDGE_COOLDOWN_HOURS = 12;
 

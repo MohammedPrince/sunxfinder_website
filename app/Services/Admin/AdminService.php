@@ -5,6 +5,7 @@ namespace App\Services\Admin;
 use App\Models\ActivityLog;
 use App\Models\ArchivedItem;
 use App\Models\AppVersion;
+use App\Models\Project;
 use App\Models\Quote;
 use App\Models\Rating;
 use App\Models\RatingQuestion;
@@ -364,6 +365,26 @@ class AdminService
     public function getQuoteRequestById(int $id): ?Quote
     {
         return $this->adminRepository->getQuoteRequestById($id);
+    }
+
+    public function getAdminProjects(array $filters = []): LengthAwarePaginator
+    {
+        return $this->adminRepository->getAdminProjects($filters);
+    }
+
+    public function getAdminProjectById(int $id): ?Project
+    {
+        return $this->adminRepository->getAdminProjectById($id);
+    }
+
+    public function getAdminProjectMetrics(): array
+    {
+        return $this->adminRepository->getAdminProjectMetrics();
+    }
+
+    public function getAdminProjectCompanies()
+    {
+        return $this->adminRepository->getAdminProjectCompanies();
     }
 
     public function getAssignableCompanies()

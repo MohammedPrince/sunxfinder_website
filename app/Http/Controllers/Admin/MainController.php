@@ -1100,6 +1100,40 @@ class MainController extends Controller
         return view('admin.quote-requests.form', compact('quote', 'assignableCompanies', 'nudgedAt'));
     }
 
+    public function projects(Request $request)
+    {
+        $filters = $request->validate([
+            'status' => ['nullable', Rule::in(['accepted', 'in_progress', 'completed'])],
+            'company_id' => ['nullable', 'integer', 'min:1'],
+            'customer' => ['nullable', 'string', 'max:100'],
+            'search' => ['nullable', 'string', 'max:100'],
+            'last_activity_from' => ['nullable', 'date'],
+            'last_activity_to' => ['nullable', 'date', 'after_or_equal:last_activity_from'],
+            'stalled' => ['nullable', 'boolean'],
+        ]);
+
+        $projects = $this->adminService->getAdminProjects($filters);
+        $metrics = $this->adminService->getAdminProjectMetrics();
+        $companies = $this->adminService->getAdminProjectCompanies();
+        $stalledDays = \App\Support\ReportPeriod::STALLED_DAYS;
+
+        return view('admin.projects.index', compact('projects', 'metrics', 'companies', 'filters', 'stalledDays'));
+    }
+
+    public function projectDetails(int $id)
+    {
+        $project = $this->adminService->getAdminProjectById($id);
+
+        abort_if(!$project, 404);
+
+        $stalledDays = \App\Support\ReportPeriod::STALLED_DAYS;
+        $lastActivity = $project->updates->first()?->created_at ?? $project->updated_at;
+        $isStalled = in_array($project->status, ['accepted', 'in_progress'], true)
+            && $lastActivity?->lt(now()->subDays($stalledDays));
+
+        return view('admin.projects.show', compact('project', 'stalledDays', 'lastActivity', 'isStalled'));
+    }
+
     public function cancelQuoteRequest(Request $request, int $id)
     {
         $data = $request->validate([

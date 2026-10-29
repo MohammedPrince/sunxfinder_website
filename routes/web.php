@@ -189,6 +189,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::post('/{id}/nudge', 'nudgeCompaniesForQuote')->whereNumber('id')->middleware('throttle:10,1')->name('nudge');
             });
 
+            // Platform-wide project oversight and stalled-project follow-up.
+            Route::prefix('projects')->name('projects.')->group(function () {
+                Route::get('/', 'projects')->name('index');
+                Route::get('/{id}', 'projectDetails')->whereNumber('id')->name('show');
+            });
+
             // Background jobs: queue health and failed emails/pushes with retry
             Route::prefix('background-jobs')->name('queue.')->group(function () {
                 Route::get('/', 'backgroundJobs')->name('index');
