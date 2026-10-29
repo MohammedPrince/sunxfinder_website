@@ -131,7 +131,7 @@
         </a>
         @endcomponent
 
-        @component('partials.nav-group', ['key' => 'quotes', 'label' => 'Quotes', 'icon' => 'file', 'routes' => ['admin.quote-requests.*', 'admin.projects.*', 'admin.notifications.*']])
+        @component('partials.nav-group', ['key' => 'quotes', 'label' => 'Quotes', 'icon' => 'file', 'routes' => ['admin.quote-requests.*', 'admin.projects.*', 'admin.complaints.*', 'admin.notifications.*']])
         <a class="nav-link {{ request()->routeIs('admin.quote-requests.*') ? 'active' : '' }}"
             href="{{ route('admin.quote-requests.index') }}">
             <span class="nav-icon">
@@ -156,6 +156,16 @@
                 </svg>
             </span>
             <span>Projects</span>
+        </a>
+        <a class="nav-link {{ request()->routeIs('admin.complaints.*') ? 'active' : '' }}"
+            href="{{ route('admin.complaints.index') }}">
+            <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 3 3.5 7v5c0 5 3.5 8 8.5 9 5-1 8.5-4 8.5-9V7L12 3Z" />
+                    <path d="M12 8v5m0 3h.01" />
+                </svg>
+            </span>
+            <span>Complaints</span>
         </a>
         <a class="nav-link {{ request()->routeIs('admin.notifications.*') ? 'active' : '' }}"
             href="{{ route('admin.notifications.index') }}">

@@ -21,6 +21,19 @@
         $statusClasses = ['accepted' => 'pill-orange', 'in_progress' => 'pill-blue', 'completed' => 'pill-green'];
     @endphp
 
+    @include('partials.page-guide', [
+        'key' => 'admin-projects',
+        'title' => 'How projects work',
+        'intro' => 'A project is created automatically when a customer accepts a company\'s offer on a quote request. The company then manages the installation from its own panel.',
+        'steps' => [
+            '<strong>Accepted</strong>: the customer chose this company. The company has not started the installation yet.',
+            '<strong>In progress</strong>: the company is working through the milestones and posts updates with a progress percentage.',
+            '<strong>Completed</strong>: the installation was handed over to the customer and the project is closed.',
+            '<strong>Stalled</strong>: an accepted or in-progress project with no update for ' . $stalledDays . ' days or more.',
+        ],
+        'note' => 'Use "Stalled projects" to find installations that need a follow-up, then open the project to contact the company or customer.',
+    ])
+
     <div class="metrics-strip">
         <div><small>All projects</small><strong>{{ number_format($metrics['total']) }}</strong></div>
         <div><small>Accepted</small><strong>{{ number_format($metrics['accepted']) }}</strong></div>

@@ -7398,7 +7398,13 @@ a.cd-chip:hover {
     .admin-project-side {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        align-items: start;
         gap: 0 17px;
+    }
+
+    /* Grid items keep their margins, so drop the stacked-panel gap. */
+    .admin-project-side>.panel+.panel {
+        margin-top: 0;
     }
 }
 
@@ -7422,5 +7428,116 @@ a.cd-chip:hover {
 
     .admin-project-stats>div:nth-child(2n + 1) {
         padding-left: 0;
+    }
+}
+
+/* Admin complaints (list and details reuse the admin-project-* layout above) */
+
+.complaint-category {
+    display: inline-block;
+    padding: 4px 8px;
+    border: 1px solid #e4eaf0;
+    border-radius: 6px;
+    background: #fafbfd;
+    color: #4a5b70;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.complaint-description {
+    padding: 14px 16px;
+    border: 1px solid #edf1f5;
+    border-radius: 10px;
+    background: #fafbfd;
+    color: #34445a;
+    font-size: 13px;
+    line-height: 1.75;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+.complaint-subheading {
+    margin: 22px 0 10px;
+    color: #263449;
+    font-size: 13px;
+    font-weight: 750;
+}
+
+.complaint-photos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+}
+
+.complaint-photos a {
+    display: block;
+    overflow: hidden;
+    aspect-ratio: 1;
+    border: 1px solid #e4eaf0;
+    border-radius: 10px;
+    background: #edf1f5;
+}
+
+.complaint-photos img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform .2s;
+}
+
+.complaint-photos a:hover img {
+    transform: scale(1.04);
+}
+
+.complaint-photos a:focus-visible {
+    outline: 2px solid var(--orange);
+    outline-offset: 2px;
+}
+
+.complaint-last-reply {
+    margin-bottom: 20px;
+    padding: 12px 14px;
+    border: 1px solid #c7dcff;
+    border-left: 3px solid #1268c4;
+    border-radius: 9px;
+    background: #f5f9ff;
+}
+
+.complaint-last-reply small {
+    color: #5a6e8a;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.complaint-last-reply p {
+    margin: 6px 0 0;
+    color: #34445a;
+    font-size: 12px;
+    line-height: 1.7;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+.complaint-notify-form {
+    display: grid;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.complaint-notify-form .btn[disabled] {
+    cursor: not-allowed;
+    opacity: .55;
+}
+
+.form-grid>.form-actions.full-width {
+    grid-column: 1 / -1;
+    margin-top: 0;
+}
+
+@media (max-width: 640px) {
+    .admin-project-main .form-grid {
+        grid-template-columns: minmax(0, 1fr);
     }
 }

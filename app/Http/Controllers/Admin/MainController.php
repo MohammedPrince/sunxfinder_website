@@ -8,6 +8,7 @@ use App\Models\ArchivedItem;
 use App\Models\AppVersion;
 use App\Repositories\Admin\AdminRepository;
 use App\Models\Customer;
+use App\Models\CustomerComplaint;
 use App\Models\CompanyQuotation;
 use App\Models\Product;
 use App\Models\Project;
@@ -20,6 +21,7 @@ use App\Services\Admin\AdminService;
 use App\Support\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
@@ -1132,6 +1134,96 @@ class MainController extends Controller
             && $lastActivity?->lt(now()->subDays($stalledDays));
 
         return view('admin.projects.show', compact('project', 'stalledDays', 'lastActivity', 'isStalled'));
+    }
+
+    public function complaints(Request $request)
+    {
+        $filters = $request->validate([
+            'status' => ['nullable', Rule::in(['pending', 'in_progress', 'resolved', 'rejected'])],
+            'category' => ['nullable', Rule::in(['product_issue', 'service_issue', 'pricing_issue', 'delivery_issue', 'customer_service', 'other'])],
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+        $query = CustomerComplaint::query()->with(['company:id,name', 'customer:id,full_name,username,email,phone']);
+        if (!empty($filters['status'])) $query->where('status', $filters['status']);
+        if (!empty($filters['category'])) $query->where('category', $filters['category']);
+        if (!empty($filters['search'])) {
+            $term = '%' . $filters['search'] . '%';
+            $query->where(fn ($q) => $q->where('description', 'like', $term)
+                ->orWhere('id', is_numeric($filters['search']) ? (int) $filters['search'] : -1)
+                ->orWhereHas('company', fn ($company) => $company->where('name', 'like', $term))
+                ->orWhereHas('customer', fn ($customer) => $customer->where('email', 'like', $term)->orWhere('username', 'like', $term)));
+        }
+        $complaints = $query->latest()->paginate(20)->withQueryString();
+        return view('admin.complaints.index', compact('complaints', 'filters'));
+    }
+
+    public function complaintDetails(int $id)
+    {
+        $complaint = CustomerComplaint::with(['company', 'customer'])->findOrFail($id);
+        return view('admin.complaints.show', compact('complaint'));
+    }
+
+    public function updateComplaint(Request $request, int $id)
+    {
+        $data = $request->validate([
+            'status' => ['required', Rule::in(['pending', 'in_progress', 'resolved', 'rejected'])],
+            'reply' => ['nullable', 'string', 'max:5000'],
+            'reply_channel' => ['nullable', Rule::in(['notification', 'email'])],
+        ]);
+        $complaint = CustomerComplaint::with(['company', 'customer'])->findOrFail($id);
+        $complaint->status = $data['status'];
+        if (array_key_exists('reply', $data) && $data['reply'] !== null && trim($data['reply']) !== '') {
+            $complaint->admin_reply = trim($data['reply']);
+        }
+        $complaint->save();
+
+        if (!empty($data['reply'])) {
+            $channel = $data['reply_channel'] ?? 'notification';
+            if ($channel === 'email') {
+                abort_unless(filter_var($complaint->customer?->email, FILTER_VALIDATE_EMAIL), 422, 'The customer has no valid email address.');
+                Mail::raw($data['reply'], function ($mail) use ($complaint) {
+                    $mail->to($complaint->customer->email)->subject('SunXFinder complaint update #' . $complaint->id);
+                });
+            } else {
+                $this->adminService->publishNotification([
+                    'sender_type' => 'admin',
+                    'sender_id' => Auth::id(),
+                    'audience_type' => 'selected',
+                    'customer_ids' => [$complaint->customer_id],
+                    'type' => 'support',
+                    'title_en' => 'Complaint update',
+                    'title_ar' => 'تحديث بشأن الشكوى',
+                    'message_en' => 'Complaint #' . $complaint->id . ': ' . $data['reply'],
+                    'message_ar' => 'الشكوى رقم ' . $complaint->id . ': ' . $data['reply'],
+                ]);
+            }
+            $complaint->forceFill(['customer_replied_at' => now()])->save();
+        }
+        return back()->with('success', 'Complaint updated successfully.');
+    }
+
+    public function emailComplaintToCompany(int $id)
+    {
+        $complaint = CustomerComplaint::with('company')->findOrFail($id);
+        abort_unless(filter_var($complaint->company?->email, FILTER_VALIDATE_EMAIL), 422, 'The company has no valid email address.');
+        $categories = [
+            'product_issue' => 'Product issue', 'service_issue' => 'Service issue', 'pricing_issue' => 'Pricing issue',
+            'delivery_issue' => 'Delivery issue', 'customer_service' => 'Customer service', 'other' => 'Other',
+        ];
+        $description = $complaint->description;
+        $customerName = trim((string) ($complaint->customer?->full_name ?? ''));
+        if ($customerName !== '') {
+            $description = str_ireplace($customerName, '[customer]', $description);
+        }
+        $body = "A customer submitted a complaint related to your company. The customer's name and contact details are intentionally omitted.\n\n"
+            . 'Complaint reference: #' . $complaint->id . "\n"
+            . 'Category: ' . ($categories[$complaint->category] ?? $complaint->category) . "\n\n"
+            . "Complaint details:\n" . $description . "\n\nPlease review this issue and follow up through your SunXFinder company account.";
+        Mail::raw($body, function ($mail) use ($complaint) {
+            $mail->to($complaint->company->email)->subject('Customer complaint #' . $complaint->id . ' - SunXFinder');
+        });
+        $complaint->forceFill(['company_notified_at' => now()])->save();
+        return back()->with('success', 'The company was emailed without customer identifying details.');
     }
 
     public function cancelQuoteRequest(Request $request, int $id)

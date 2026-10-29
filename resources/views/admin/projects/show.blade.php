@@ -53,6 +53,19 @@
         ];
     @endphp
 
+    @include('partials.page-guide', [
+        'key' => 'admin-project-details',
+        'title' => 'How to read this project',
+        'intro' => 'This page shows everything the company has recorded for this installation. Admins can review it here; progress and milestones are updated by the company.',
+        'steps' => [
+            '<strong>Overview</strong>: the current status, overall progress, accepted offer and the time of the last activity.',
+            '<strong>Milestones</strong>: the installation steps. A green tick is completed, amber is in progress, and a number has not started yet.',
+            '<strong>Update history</strong>: every company update, newest first. "Internal note" updates are hidden from the customer.',
+            '<strong>Follow-up</strong>: if there is no update for ' . $stalledDays . ' days, the project is marked as stalled. Use the contact cards to follow up.',
+        ],
+        'note' => 'To reassign the company or act on the original request, use "Open quote request".',
+    ])
+
     @if ($isStalled)
         <div class="alert alert-danger">
             <strong>Stalled project.</strong>

@@ -11,6 +11,8 @@ Route::get('/user', function (Request $request) {
 
 // App start-up: which API server to call and whether it is online (Admin → Settings). No login.
 Route::get('/v1/api-config', [MainController::class, 'apiConfig'])->middleware(['json.res', 'throttle:120,1']);
+// Public company picker endpoint; the authenticated customer-scoped alias remains available below.
+Route::get('/v1/companies', [MainController::class, 'getCompanies'])->middleware(['json.res', 'throttle:60,1']);
 
 Route::prefix('v1/customer')->middleware('json.res')->group(function () {
     // Public routes
@@ -34,6 +36,8 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
 
         Route::get('/cities', [MainController::class, 'getCities'])->middleware('throttle:60,1');
         Route::get('/companies', [MainController::class, 'getCompanies'])->middleware('throttle:60,1');
+        Route::post('/complaints', [MainController::class, 'storeComplaint'])->middleware('throttle:20,1');
+        Route::get('/complaints', [MainController::class, 'myComplaints'])->middleware('throttle:60,1');
         Route::get('/companies/{id}', [MainController::class, 'getCompany'])->whereNumber('id')->middleware('throttle:60,1');
         // For "Open in App" links from the website: sunxfinder://company/{slug}
         Route::get('/companies/slug/{slug}', [MainController::class, 'getCompanyBySlug'])->where('slug', '[A-Za-z0-9-]+')->middleware('throttle:60,1');

@@ -195,6 +195,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::get('/{id}', 'projectDetails')->whereNumber('id')->name('show');
             });
 
+            // Customer complaints and company follow-up.
+            Route::prefix('complaints')->name('complaints.')->group(function () {
+                Route::get('/', 'complaints')->name('index');
+                Route::get('/{id}', 'complaintDetails')->whereNumber('id')->name('show');
+                Route::put('/{id}', 'updateComplaint')->whereNumber('id')->name('update');
+                Route::post('/{id}/company-email', 'emailComplaintToCompany')->whereNumber('id')->name('company-email');
+            });
+
             // Background jobs: queue health and failed emails/pushes with retry
             Route::prefix('background-jobs')->name('queue.')->group(function () {
                 Route::get('/', 'backgroundJobs')->name('index');

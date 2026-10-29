@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\v1\customers;
 
 use App\Http\Controllers\Controller;
 use App\Models\CustomerDeviceToken;
+use App\Models\CustomerComplaint;
 use App\Services\API\CustomerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -334,6 +335,110 @@ class MainController extends Controller
             'code' => $result['code'],
             'error' => $result['message'],
         ], $result['code']);
+    }
+
+    public function storeComplaint(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'company_id' => ['required', 'integer', 'min:1', 'exists:tbl_solar_companies,id'],
+            'category' => ['required', 'in:product_issue,service_issue,pricing_issue,delivery_issue,customer_service,other'],
+            'description' => ['required', 'string', 'min:1', 'max:1000'],
+            'photos' => ['nullable', 'array', 'max:5'],
+            'photos.*' => ['file', 'mimes:jpg,jpeg,png', 'max:5120'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => 'Please check the complaint details.', 'errors' => $validator->errors()], 422);
+        }
+
+        if ($request->hasFile('photos')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Photo uploads are temporarily unavailable. Please submit the complaint without photos.',
+                'errors' => ['photos' => ['Photo storage is not configured yet.']],
+            ], 422);
+        }
+
+        $customer = $request->user();
+        abort_unless($customer instanceof \App\Models\Customer, 401);
+
+        $complaint = CustomerComplaint::create([
+            'customer_id' => $customer->id,
+            'company_id' => (int) $request->input('company_id'),
+            'category' => $request->input('category'),
+            'description' => $request->input('description'),
+            'status' => 'pending',
+            'photos' => null,
+        ])->load('company:id,name');
+
+        return response()->json([
+            'status' => 'success',
+            'code' => 201,
+            'message' => 'Complaint submitted successfully.',
+            'data' => ['complaint' => $this->complaintPayload($complaint)],
+        ], 201);
+    }
+
+    public function myComplaints(Request $request)
+    {
+        $data = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+        $customer = $request->user();
+        abort_unless($customer instanceof \App\Models\Customer, 401);
+
+        $complaints = CustomerComplaint::query()
+            ->with('company:id,name')
+            ->where('customer_id', $customer->id)
+            ->latest()
+            ->paginate((int) ($data['per_page'] ?? 20));
+
+        $response = [
+            'status' => 'success',
+            'code' => 200,
+            'message' => 'Complaints retrieved successfully.',
+            'data' => [
+                'complaints' => $complaints->getCollection()
+                    ->map(fn (CustomerComplaint $complaint) => $this->complaintPayload($complaint))
+                    ->values(),
+            ],
+        ];
+
+        if ($complaints->hasMorePages()) {
+            $response['meta'] = [
+                'current_page' => $complaints->currentPage(),
+                'per_page' => $complaints->perPage(),
+                'total' => $complaints->total(),
+                'last_page' => $complaints->lastPage(),
+            ];
+        }
+
+        return response()->json($response);
+    }
+
+    private function complaintPayload(CustomerComplaint $complaint): array
+    {
+        $helper = app(\App\Helpers\Helper::class);
+        return [
+            'id' => $complaint->id,
+            'company' => $complaint->company ? ['id' => $complaint->company->id, 'name' => $complaint->company->name] : null,
+            'category' => $complaint->category,
+            'description' => $complaint->description,
+            'status' => $complaint->status,
+            'created_at' => $complaint->created_at?->toISOString(),
+            'photos' => collect($complaint->photos ?? [])->map(function ($photo, $index) use ($helper) {
+                $path = is_array($photo) ? ($photo['path'] ?? $photo['url'] ?? null) : $photo;
+                $url = $path ? $helper->publicUrl($path) : null;
+
+                return $url ? [
+                    'id' => is_array($photo) ? ($photo['id'] ?? $index + 1) : $index + 1,
+                    'url' => $url,
+                ] : null;
+            })->filter()->values(),
+            'admin_reply' => $complaint->admin_reply,
+            'customer_replied_at' => $complaint->customer_replied_at?->toISOString(),
+        ];
     }
 
     public function getCompanies(Request $request)
