@@ -81,6 +81,7 @@ class AppServiceProvider extends ServiceProvider
                 'suppliersCount' => Supplier::count(),
                 'productsCount' => Product::count(),
                 'carouselCount' => CompanyCarousel::count(),
+                'appSliderCount' => \App\Models\AppSlider::count(),
                 'quoteCount' => Quote::count(),
                 'appVersionCount' => AppVersion::count(),
                 'notificationsCount' => Notification::count(),

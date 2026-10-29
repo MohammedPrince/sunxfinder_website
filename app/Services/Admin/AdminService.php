@@ -293,6 +293,48 @@ class AdminService
 
     //Company Carousel End
 
+    //App Slider Start
+
+    public function getAppSliderPageData(array $filters = []): array
+    {
+        return [
+            'sliders' => $this->adminRepository->getAppSliders($filters),
+            'metrics' => $this->adminRepository->getAppSliderMetrics(),
+        ];
+    }
+
+    public function findAppSlider(int $id)
+    {
+        return $this->adminRepository->findAppSlider($id);
+    }
+
+    public function getNextAppSliderSortOrder(): int
+    {
+        return $this->adminRepository->getNextAppSliderSortOrder();
+    }
+
+    public function createAppSlider(array $data, $image, ?int $adminId): array
+    {
+        return $this->adminRepository->createAppSlider($data, $image, $adminId);
+    }
+
+    public function updateAppSlider(int $id, array $data, $image): array
+    {
+        return $this->adminRepository->updateAppSlider($id, $data, $image);
+    }
+
+    public function toggleAppSlider(int $id): array
+    {
+        return $this->adminRepository->toggleAppSlider($id);
+    }
+
+    public function deleteAppSlider(int $id): array
+    {
+        return $this->adminRepository->deleteAppSlider($id);
+    }
+
+    //App Slider End
+
     //App Versions Start
 
     public function getAppVersions()

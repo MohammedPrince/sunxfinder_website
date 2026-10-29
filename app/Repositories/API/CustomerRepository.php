@@ -9,6 +9,7 @@ use App\Jobs\SendCustomerWelcomeEmail;
 use App\Mail\CompanyOfferDecisionMail;
 use App\Models\ApplianceGroup;
 use App\Models\AppVersion;
+use App\Models\AppSlider;
 use App\Models\CompanyCarousel;
 use App\Models\CompanyQuotation;
 use App\Models\Customer;
@@ -28,6 +29,7 @@ use App\Models\SolarCompany;
 use App\Support\ActivityLogger;
 use Carbon\Carbon;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
@@ -252,6 +254,9 @@ class CustomerRepository
 
             $carousels = $carouselsResult['carousels'] ?? [];
 
+            // Home slider: a failure here never blocks the rest of the home screen.
+            $sliders = $this->getAppSliders()['sliders'] ?? [];
+
             // Companies: method requires filters and returns a paginated result.
             $companiesResult = $this->getCompanies([
                 'per_page' => 50,
@@ -311,6 +316,7 @@ class CustomerRepository
                 'services' => $services,
                 'services_ar' => $servicesAr,
                 'carousels' => $carousels,
+                'sliders' => $sliders,
                 'companies' => $companies,
                 'calculator' => $calculator,
                 'my_quotes' => [
@@ -1121,6 +1127,63 @@ class CustomerRepository
         }
     }
 
+
+    /**
+     * Home screen slider (admin ads). Cached for a minute and cleared whenever an admin
+     * changes a slide, so the frequent main-data call stays cheap. Schedules are
+     * respected to within that minute.
+     */
+    public function getAppSliders(): array
+    {
+        if (!$this->helper->isCustomerAuthenticated()) {
+            return [
+                'success' => false,
+                'code' => 401,
+                'message' => 'Unauthenticated.',
+            ];
+        }
+
+        try {
+            $rows = Cache::remember(AppSlider::CACHE_KEY, 60, fn() => AppSlider::currentlyVisible()
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->limit(10)
+                ->get(['id', 'name', 'description_ar', 'description_en', 'image_path', 'image_width',
+                    'image_height', 'link_url', 'interval_seconds', 'sort_order'])
+                ->toArray());
+
+            // URLs are built per request so the cached rows don't pin one host name.
+            $sliders = array_map(fn(array $row): array => [
+                'id' => (int) $row['id'],
+                'name' => $row['name'],
+                'description_ar' => $row['description_ar'],
+                'description_en' => $row['description_en'],
+                'image_url' => asset($row['image_path']),
+                'image_width' => $row['image_width'],
+                'image_height' => $row['image_height'],
+                'interval_seconds' => (int) $row['interval_seconds'],
+                'has_link' => filled($row['link_url']),
+                'link_url' => $row['link_url'],
+                'sort_order' => (int) $row['sort_order'],
+            ], $rows);
+
+            return [
+                'success' => true,
+                'code' => 200,
+                'message' => 'Sliders retrieved successfully.',
+                'sliders' => $sliders,
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+                'message' => 'Unable to retrieve sliders.',
+                'sliders' => [],
+            ];
+        }
+    }
 
     public function storeQuote(array $data): array
     {

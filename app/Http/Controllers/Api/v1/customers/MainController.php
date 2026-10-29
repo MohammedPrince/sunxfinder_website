@@ -222,6 +222,8 @@ class MainController extends Controller
                     'services' => $result['services'],
                     'services_ar' => $result['services_ar'],
                     'carousels' => $result['carousels'],
+                    // Home slider ads, in display order. Each: image_url, interval_seconds, has_link, link_url, descriptions.
+                    'sliders' => $result['sliders'],
                     'companies' => $result['companies'],
                     'calculator' => $result['calculator'],
                     'my_quotes' => $result['my_quotes'],
@@ -567,6 +569,31 @@ class MainController extends Controller
             ],
         ], $result['code']);
     }
+    public function getAppSliders()
+    {
+        $result = $this->customerService->getAppSliders();
+
+        if ($result['success']) {
+            return response()->json([
+                'status' => 'success',
+                'code' => $result['code'],
+                'message' => $result['message'],
+                'data' => [
+                    'sliders' => $result['sliders'],
+                ],
+            ], $result['code']);
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'code' => $result['code'],
+            'error' => $result['message'],
+            'data' => [
+                'sliders' => [],
+            ],
+        ], $result['code']);
+    }
+
     public function appliancesCalculator()
     {
         $result = $this->customerService->appliancesCalculator();

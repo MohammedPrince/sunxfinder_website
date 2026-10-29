@@ -161,6 +161,17 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::delete('/{id}', 'companyCarouselDestroy')->whereNumber('id')->name('destroy');
             });
 
+            // Mobile app home slider (ads)
+            Route::prefix('app-sliders')->name('app-sliders.')->group(function () {
+                Route::get('/', 'appSliders')->name('index');
+                Route::get('/create', 'createAppSlider')->name('create');
+                Route::post('/', 'storeAppSlider')->name('store');
+                Route::get('/{id}/edit', 'editAppSlider')->whereNumber('id')->name('edit');
+                Route::put('/{id}', 'updateAppSlider')->whereNumber('id')->name('update');
+                Route::patch('/{id}/toggle', 'toggleAppSlider')->whereNumber('id')->name('toggle');
+                Route::delete('/{id}', 'destroyAppSlider')->whereNumber('id')->name('destroy');
+            });
+
             // Mobile app versions
             Route::prefix('app-versions')->name('app-versions.')->group(function () {
                 Route::get('/', 'appVersions')->name('index');

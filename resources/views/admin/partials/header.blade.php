@@ -88,7 +88,7 @@
         </a>
         @endcomponent
 
-        @component('partials.nav-group', ['key' => 'app', 'label' => 'App Management', 'icon' => 'layers', 'routes' => ['admin.calculator-groups.*', 'admin.company-carousel.*', 'admin.app-versions.*']])
+        @component('partials.nav-group', ['key' => 'app', 'label' => 'App Management', 'icon' => 'layers', 'routes' => ['admin.calculator-groups.*', 'admin.company-carousel.*', 'admin.app-sliders.*', 'admin.app-versions.*']])
         <a class="nav-link {{ request()->routeIs('admin.calculator-groups.*') ? 'active' : '' }}"
             href="{{ route('admin.calculator-groups.index') }}">
             <span class="nav-icon">
@@ -114,6 +114,20 @@
             </span>
             <span>Company Carousel</span>
             <span class="nav-count warm">{{ $carouselCount ?? 0 }}</span>
+        </a>
+        <a class="nav-link {{ request()->routeIs('admin.app-sliders.*') ? 'active' : '' }}"
+            href="{{ route('admin.app-sliders.index') }}">
+            <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="5" width="18" height="12" rx="2" />
+                    <circle cx="8.5" cy="9.5" r="1.5" />
+                    <path d="m21 14-5-4-8 7" />
+                    <path d="M9 21h.01M12 21h.01M15 21h.01" />
+                </svg>
+            </span>
+            <span>App Slider</span>
+            <span class="nav-count warm">{{ $appSliderCount ?? 0 }}</span>
         </a>
         <a class="nav-link {{ request()->routeIs('admin.app-versions.*') ? 'active' : '' }}"
             href="{{ route('admin.app-versions.index') }}">

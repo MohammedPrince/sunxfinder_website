@@ -912,6 +912,105 @@ class MainController extends Controller
     }
     //Company Carousel End
 
+    //App Slider Start
+
+    public function appSliders(Request $request)
+    {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'state' => ['nullable', Rule::in(['live', 'scheduled', 'expired', 'inactive'])],
+        ]);
+        $result = $this->adminService->getAppSliderPageData($filters);
+
+        return view('admin.app-sliders.index', [
+            'sliders' => $result['sliders'],
+            'metrics' => $result['metrics'],
+            'filters' => $filters,
+        ]);
+    }
+
+    public function createAppSlider()
+    {
+        return view('admin.app-sliders.form', [
+            'slider' => null,
+            'nextSortOrder' => $this->adminService->getNextAppSliderSortOrder(),
+        ]);
+    }
+
+    public function storeAppSlider(Request $request)
+    {
+        $data = $this->validateAppSlider($request, true);
+        $result = $this->adminService->createAppSlider($data, $request->file('image'), Auth::guard('admin')->id());
+
+        return $result['success']
+            ? redirect()->route('admin.app-sliders.index')->with('success', $result['message'])
+            : back()->withInput()->with('error', $result['message']);
+    }
+
+    public function editAppSlider(int $id)
+    {
+        $slider = $this->adminService->findAppSlider($id);
+        abort_unless($slider, 404);
+
+        return view('admin.app-sliders.form', ['slider' => $slider, 'nextSortOrder' => $slider->sort_order]);
+    }
+
+    public function updateAppSlider(Request $request, int $id)
+    {
+        $data = $this->validateAppSlider($request, false);
+        $result = $this->adminService->updateAppSlider($id, $data, $request->file('image'));
+
+        return $result['success']
+            ? redirect()->route('admin.app-sliders.index')->with('success', $result['message'])
+            : back()->withInput()->with('error', $result['message']);
+    }
+
+    public function toggleAppSlider(int $id)
+    {
+        $result = $this->adminService->toggleAppSlider($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function destroyAppSlider(int $id)
+    {
+        $result = $this->adminService->deleteAppSlider($id);
+
+        return redirect()->route('admin.app-sliders.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    private function validateAppSlider(Request $request, bool $creating): array
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'description_ar' => ['nullable', 'string', 'max:255'],
+            'description_en' => ['nullable', 'string', 'max:255'],
+            // 4 MB upload limit; the stored copy is converted to a light WebP.
+            'image' => [$creating ? 'required' : 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096', 'dimensions:min_width=600,min_height=200'],
+            'has_link' => ['nullable', 'boolean'],
+            // Web links, or in-app links such as sunxfinder://company/{slug}.
+            'link_url' => ['nullable', 'required_if:has_link,1', 'string', 'max:500', 'regex:#^(https?|sunxfinder)://[^\s]+$#i'],
+            'interval_seconds' => ['required', 'integer', 'min:2', 'max:60'],
+            'sort_order' => ['required', 'integer', 'min:0', 'max:65535'],
+            'is_active' => ['nullable', 'boolean'],
+            'starts_at' => ['nullable', 'date'],
+            'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
+        ], [
+            'image.dimensions' => 'The slide image must be at least 600 px wide and 200 px tall.',
+            'link_url.required_if' => 'Enter the link the slide opens, or turn off "Slide opens a link".',
+            'link_url.regex' => 'The link must start with https://, http:// or sunxfinder://',
+        ]);
+
+        $data['has_link'] = $request->boolean('has_link');
+        $data['is_active'] = $request->boolean('is_active');
+        unset($data['image']);
+
+        return $data;
+    }
+
+    //App Slider End
+
     //App Versions Start
 
     public function appVersions()
@@ -1697,7 +1796,7 @@ class MainController extends Controller
             'type' => ['nullable', 'string', Rule::in([
                 'customer', 'product', 'prodcut', 'product_spec', 'offer', 'requestd_quote', 'requested_quote',
                 'notification', 'customer_notification', 'company', 'project', 'project_milestone', 'project_update',
-                'rating', 'rating_answer', 'supplier', 'appliance', 'appliance_group', 'company_carousel', 'app_version',
+                'rating', 'rating_answer', 'supplier', 'appliance', 'appliance_group', 'company_carousel', 'app_slider', 'app_version',
                 'rating_question', 'customer_device_token', 'api_endpoint', 'sent_email', 'other',
             ])],
             'source' => ['nullable', Rule::in(['website', 'app'])],
@@ -1714,7 +1813,7 @@ class MainController extends Controller
             'notification' => 'Notification', 'customer_notification' => 'Customer notification', 'company' => 'Company',
             'project' => 'Project', 'project_milestone' => 'Project milestone', 'project_update' => 'Project update',
             'rating' => 'Rating', 'rating_answer' => 'Rating answer', 'supplier' => 'Supplier', 'appliance' => 'Appliance',
-            'appliance_group' => 'Appliance group', 'company_carousel' => 'Company carousel', 'app_version' => 'App version',
+            'appliance_group' => 'Appliance group', 'company_carousel' => 'Company carousel', 'app_slider' => 'App slide', 'app_version' => 'App version',
             'rating_question' => 'Rating question', 'customer_device_token' => 'Device token', 'api_endpoint' => 'API endpoint',
             'sent_email' => 'Sent email', 'other' => 'Other',
         ];

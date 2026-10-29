@@ -79,6 +79,11 @@ class CustomerService
         return $this->customerRepository->getCarousels();
     }
 
+    public function getAppSliders(): array
+    {
+        return $this->customerRepository->getAppSliders();
+    }
+
     public function storeQuote(array $data): array
     {
         return $this->customerRepository->storeQuote($data);

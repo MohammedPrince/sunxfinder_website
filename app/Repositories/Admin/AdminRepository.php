@@ -17,6 +17,7 @@ use App\Support\DatabaseBackup;
 use App\Models\Appliance;
 use App\Models\ApplianceGroup;
 use App\Models\AppVersion;
+use App\Models\AppSlider;
 use App\Models\CompanyCarousel;
 use App\Models\CompanyQuotation;
 use App\Models\ApiEndpoint;
@@ -1989,6 +1990,168 @@ class AdminRepository
         $entry->starts_at = $data['starts_at'] ?? null;
         $entry->ends_at = $data['ends_at'] ?? null;
     }
+
+    //App Slider Start
+
+    private const SLIDER_IMAGE_DIR = 'main/images/sliders';
+
+    public function getAppSliders(array $filters = [])
+    {
+        $now = now();
+
+        return AppSlider::query()
+            ->with('creator:id,username')
+            ->when(!empty($filters['search']), function ($query) use ($filters) {
+                $term = '%' . $filters['search'] . '%';
+                $query->where(fn($q) => $q->where('name', 'like', $term)
+                    ->orWhere('description_en', 'like', $term)
+                    ->orWhere('description_ar', 'like', $term));
+            })
+            ->when(($filters['state'] ?? '') === 'live', fn($q) => $q->currentlyVisible())
+            ->when(($filters['state'] ?? '') === 'scheduled', fn($q) => $q->where('is_active', true)->where('starts_at', '>', $now))
+            ->when(($filters['state'] ?? '') === 'expired', fn($q) => $q->where('is_active', true)->where('ends_at', '<', $now))
+            ->when(($filters['state'] ?? '') === 'inactive', fn($q) => $q->where('is_active', false))
+            ->orderBy('sort_order')
+            ->orderByDesc('id')
+            ->paginate(15)
+            ->withQueryString();
+    }
+
+    public function getAppSliderMetrics(): array
+    {
+        return [
+            'total' => AppSlider::count(),
+            'live' => AppSlider::currentlyVisible()->count(),
+            'scheduled' => AppSlider::where('is_active', true)->where('starts_at', '>', now())->count(),
+            'inactive' => AppSlider::where('is_active', false)->count(),
+        ];
+    }
+
+    public function findAppSlider(int $id): ?AppSlider
+    {
+        return AppSlider::find($id);
+    }
+
+    public function getNextAppSliderSortOrder(): int
+    {
+        return ((int) AppSlider::max('sort_order')) + 1;
+    }
+
+    public function createAppSlider(array $data, ?\Illuminate\Http\UploadedFile $image, ?int $adminId): array
+    {
+        try {
+            if (!$image) {
+                return ['success' => false, 'message' => 'Please upload a slide image.'];
+            }
+
+            $slider = new AppSlider();
+            $this->assignAppSliderFields($slider, $data);
+            $this->storeAppSliderImage($slider, $image);
+            $slider->created_by = $adminId;
+            $slider->save();
+            Cache::forget(AppSlider::CACHE_KEY);
+
+            return ['success' => true, 'message' => 'Slide created successfully.'];
+        } catch (Throwable $e) {
+            report($e);
+            return ['success' => false, 'message' => 'Unable to create the slide. Please try again.'];
+        }
+    }
+
+    public function updateAppSlider(int $id, array $data, ?\Illuminate\Http\UploadedFile $image): array
+    {
+        try {
+            $slider = AppSlider::find($id);
+            if (!$slider) {
+                return ['success' => false, 'message' => 'Slide not found.'];
+            }
+
+            $oldImage = $slider->image_path;
+            $this->assignAppSliderFields($slider, $data);
+
+            if ($image) {
+                $this->storeAppSliderImage($slider, $image);
+            }
+
+            $slider->save();
+            Cache::forget(AppSlider::CACHE_KEY);
+
+            // Remove the replaced file only after the new one is saved.
+            if ($image && $oldImage && $oldImage !== $slider->image_path) {
+                $this->deleteAppSliderImageFile($oldImage);
+            }
+
+            return ['success' => true, 'message' => 'Slide updated successfully.'];
+        } catch (Throwable $e) {
+            report($e);
+            return ['success' => false, 'message' => 'Unable to update the slide. Please try again.'];
+        }
+    }
+
+    public function toggleAppSlider(int $id): array
+    {
+        $slider = AppSlider::find($id);
+        if (!$slider) {
+            return ['success' => false, 'message' => 'Slide not found.'];
+        }
+
+        $slider->is_active = !$slider->is_active;
+        $slider->save();
+        Cache::forget(AppSlider::CACHE_KEY);
+
+        return ['success' => true, 'message' => $slider->is_active ? 'Slide activated.' : 'Slide hidden from the app.'];
+    }
+
+    public function deleteAppSlider(int $id): array
+    {
+        try {
+            $slider = AppSlider::find($id);
+            if (!$slider) {
+                return ['success' => false, 'message' => 'Slide not found.'];
+            }
+
+            // Soft delete: the image file stays so the slide can be restored from the archive.
+            app(Helper::class)->archiveItem($slider, 'app_slider', null, 'website');
+            $slider->delete();
+            Cache::forget(AppSlider::CACHE_KEY);
+
+            return ['success' => true, 'message' => 'Slide deleted successfully.'];
+        } catch (Throwable $e) {
+            report($e);
+            return ['success' => false, 'message' => 'Unable to delete the slide. Please try again.'];
+        }
+    }
+
+    private function assignAppSliderFields(AppSlider $slider, array $data): void
+    {
+        $slider->name = trim($data['name']);
+        $slider->description_ar = filled($data['description_ar'] ?? null) ? trim($data['description_ar']) : null;
+        $slider->description_en = filled($data['description_en'] ?? null) ? trim($data['description_en']) : null;
+        $slider->link_url = !empty($data['has_link']) && filled($data['link_url'] ?? null) ? trim($data['link_url']) : null;
+        $slider->interval_seconds = (int) $data['interval_seconds'];
+        $slider->sort_order = (int) $data['sort_order'];
+        $slider->is_active = (bool) ($data['is_active'] ?? false);
+        $slider->starts_at = $data['starts_at'] ?? null;
+        $slider->ends_at = $data['ends_at'] ?? null;
+    }
+
+    private function storeAppSliderImage(AppSlider $slider, \Illuminate\Http\UploadedFile $image): void
+    {
+        $stored = Helper::storeOptimizedImage($image, self::SLIDER_IMAGE_DIR);
+        $slider->image_path = $stored['path'];
+        $slider->image_width = $stored['width'];
+        $slider->image_height = $stored['height'];
+    }
+
+    private function deleteAppSliderImageFile(string $relativePath): void
+    {
+        // Only ever delete inside the slider folder.
+        if (Str::startsWith($relativePath, self::SLIDER_IMAGE_DIR . '/')) {
+            \Illuminate\Support\Facades\File::delete(public_path($relativePath));
+        }
+    }
+
+    //App Slider End
 
     //App Versions Start
 

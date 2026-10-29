@@ -16,6 +16,7 @@ use App\Models\ProjectUpdate;
 use App\Models\Quote;
 use App\Models\Rating;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use App\Repositories\Admin\AdminRepository;
 use App\Repositories\Company\CompanyRepository;
 use Kreait\Firebase\Messaging\CloudMessage;
@@ -330,6 +331,68 @@ class Helper
         } catch (Throwable $e) {
             report($e);
         }
+    }
+
+    /**
+     * Saves an uploaded image under public/$relativeDir as a WebP no wider than $maxWidth,
+     * so the app downloads a light file. Falls back to the original format (shrunk) when
+     * GD has no WebP support.
+     *
+     * @return array{path: string, width: ?int, height: ?int} path is relative to public/
+     */
+    public static function storeOptimizedImage(
+        \Illuminate\Http\UploadedFile $file,
+        string $relativeDir,
+        int $maxWidth = 1280,
+        int $quality = 80
+    ): array {
+        $relativeDir = trim(str_replace('\\', '/', $relativeDir), '/');
+        $directory = public_path($relativeDir);
+
+        if (!File::isDirectory($directory)) {
+            File::makeDirectory($directory, 0755, true);
+        }
+
+        $baseName = now()->format('YmdHis') . '-' . Str::lower(Str::random(8));
+        [$width, $height] = @getimagesize($file->getRealPath()) ?: [0, 0];
+
+        try {
+            $source = function_exists('imagewebp') && $width && $height
+                ? imagecreatefromstring(file_get_contents($file->getRealPath()))
+                : false;
+
+            if ($source) {
+                $scale = min(1, $maxWidth / $width);
+                $newWidth = max(1, (int) round($width * $scale));
+                $newHeight = max(1, (int) round($height * $scale));
+
+                $target = imagecreatetruecolor($newWidth, $newHeight);
+                imagealphablending($target, false);
+                imagesavealpha($target, true);
+                imagecopyresampled($target, $source, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+
+                $fileName = $baseName . '.webp';
+                $saved = imagewebp($target, $directory . DIRECTORY_SEPARATOR . $fileName, $quality);
+
+                imagedestroy($source);
+                imagedestroy($target);
+
+                if ($saved) {
+                    return ['path' => "{$relativeDir}/{$fileName}", 'width' => $newWidth, 'height' => $newHeight];
+                }
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
+
+        // No WebP support: keep the original format, resized in place.
+        $fileName = $baseName . '.' . strtolower($file->getClientOriginalExtension() ?: 'jpg');
+        $file->move($directory, $fileName);
+        $fullPath = $directory . DIRECTORY_SEPARATOR . $fileName;
+        self::shrinkImage($fullPath, $maxWidth);
+        [$width, $height] = @getimagesize($fullPath) ?: [null, null];
+
+        return ['path' => "{$relativeDir}/{$fileName}", 'width' => $width ?: null, 'height' => $height ?: null];
     }
 
     public function parseSocialLinks(?string $value): array

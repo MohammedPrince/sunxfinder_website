@@ -43,6 +43,7 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
         Route::get('/companies/slug/{slug}', [MainController::class, 'getCompanyBySlug'])->where('slug', '[A-Za-z0-9-]+')->middleware('throttle:60,1');
         Route::get('/services', [MainController::class, 'getServices'])->middleware('throttle:60,1');
         Route::get('/carousels', [MainController::class, 'getCarousels'])->middleware('throttle:60,1');
+        Route::get('/sliders', [MainController::class, 'getAppSliders'])->middleware('throttle:60,1');
         Route::get('/calculator-items', [MainController::class, 'appliancesCalculator'])->middleware('throttle:60,1');
 
         Route::post('/my-quotes', [MainController::class, 'getMyQuotes'])->middleware('throttle:60,1')->name('my-quotes');
