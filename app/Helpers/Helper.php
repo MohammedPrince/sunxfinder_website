@@ -460,7 +460,17 @@ class Helper
         }
 
         $baseName = now()->format('YmdHis') . '-' . Str::lower(Str::random(8));
-        [$width, $height] = @getimagesize($file->getRealPath()) ?: [0, 0];
+        $info = @getimagesize($file->getRealPath()) ?: [0, 0, null];
+        [$width, $height] = $info;
+
+        // Already a WebP at the target size (the admin forms resize in the browser):
+        // store it untouched; re-encoding would only lose quality.
+        if (($info[2] ?? null) === IMAGETYPE_WEBP && $width > 0 && $width <= $maxWidth) {
+            $fileName = $baseName . '.webp';
+            $file->move($directory, $fileName);
+
+            return ['path' => "{$relativeDir}/{$fileName}", 'width' => (int) $width, 'height' => (int) $height];
+        }
 
         try {
             $source = function_exists('imagewebp') && $width && $height

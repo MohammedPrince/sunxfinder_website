@@ -54,9 +54,10 @@
                                 <input type="file" id="image" name="image" accept="image/jpeg,image/png,image/webp" @required(!$slider)>
                                 <strong>{{ $slider ? 'Choose a new image to replace the current one' : 'Choose an image' }}</strong>
                                 <small>JPG, PNG or WebP, at least 600 × 200 px. Recommended 1280 × 640 px (2:1).
-                                    Large images are resized automatically before upload (server limit {{ round($maxUploadKb / 1024, 1) }} MB).</small>
-                                <small class="slider-file-name" id="sliderFileName" hidden></small>
+                                    Bigger images are resized here to 1280 px wide in high quality, so any photo fits the
+                                    server limit of {{ round($maxUploadKb / 1024, 1) }} MB.</small>
                             </label>
+                            <div class="image-resize-info" id="sliderImageInfo" aria-live="polite" hidden></div>
                             @if ($slider)
                                 <span class="form-hint">Current image: {{ $slider->image_width ?? '?' }} × {{ $slider->image_height ?? '?' }} px.</span>
                             @endif
@@ -188,81 +189,30 @@
 @endsection
 
 @section('scripts')
+    <script src="{{ asset_v('admin/js/image-resizer.js') }}"></script>
     <script>
         (function () {
             const $ = (id) => document.getElementById(id);
-            const imageInput = $('image'), previewImage = $('sliderPreviewImage'), empty = $('sliderPreviewEmpty');
-            const fileName = $('sliderFileName'), hasLink = $('has_link'), linkField = $('sliderLinkField');
+            const previewImage = $('sliderPreviewImage'), empty = $('sliderPreviewEmpty');
+            const hasLink = $('has_link'), linkField = $('sliderLinkField');
             const text = $('sliderPreviewText'), caption = $('sliderPreviewCaption'), bar = $('sliderPreviewBar');
             const descEn = $('description_en'), descAr = $('description_ar'), interval = $('interval_seconds');
-            const form = $('sliderForm'), submitButton = form.querySelector('button[type="submit"]');
-            const maxBytes = {{ (int) $maxUploadKb }} * 1024;
-            const maxSide = 1600; // the server stores 1280 px, so this loses nothing
-            let lang = 'en', objectUrl = null;
+            const form = $('sliderForm');
+            let lang = 'en';
 
-            const showFile = (file, note) => {
-                if (objectUrl) URL.revokeObjectURL(objectUrl);
-                objectUrl = URL.createObjectURL(file);
-                previewImage.src = objectUrl;
-                previewImage.hidden = false;
-                empty.hidden = true;
-                fileName.hidden = false;
-                fileName.classList.remove('is-error');
-                fileName.textContent = file.name + ' · ' + (file.size / 1048576).toFixed(2) + ' MB' + (note || '');
-            };
-
-            const showError = (message) => {
-                fileName.hidden = false;
-                fileName.classList.add('is-error');
-                fileName.textContent = message;
-            };
-
-            // Re-encode big images in the browser so they stay under the server's upload limit.
-            const shrink = (file) => new Promise((resolve) => {
-                const img = new Image();
-                img.onload = () => {
-                    const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
-                    const canvas = document.createElement('canvas');
-                    canvas.width = Math.round(img.naturalWidth * scale);
-                    canvas.height = Math.round(img.naturalHeight * scale);
-                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                    URL.revokeObjectURL(img.src);
-                    canvas.toBlob((blob) => {
-                        if (!blob) return resolve(null);
-                        const type = blob.type === 'image/webp' ? 'webp' : 'jpg';
-                        const name = file.name.replace(/\.[^.]+$/, '') + '.' + type;
-                        resolve(new File([blob], name, { type: blob.type }));
-                    }, 'image/webp', 0.85);
-                };
-                img.onerror = () => resolve(null);
-                img.src = URL.createObjectURL(file);
-            });
-
-            imageInput.addEventListener('change', async () => {
-                const file = imageInput.files[0];
-                if (!file) return;
-
-                // Small enough already: upload as is.
-                if (file.size <= Math.min(maxBytes, 1572864)) return showFile(file);
-
-                submitButton.disabled = true;
-                fileName.hidden = false;
-                fileName.textContent = 'Optimizing image…';
-                const smaller = await shrink(file);
-                submitButton.disabled = false;
-
-                if (smaller && smaller.size <= maxBytes && window.DataTransfer) {
-                    const transfer = new DataTransfer();
-                    transfer.items.add(smaller);
-                    imageInput.files = transfer.files;
-                    showFile(smaller, ' (resized from ' + (file.size / 1048576).toFixed(1) + ' MB)');
-                } else if (file.size <= maxBytes) {
-                    showFile(file);
-                } else {
-                    imageInput.value = '';
-                    showError('This image is larger than the server limit of ' + (maxBytes / 1048576).toFixed(1)
-                        + ' MB and could not be resized here. Please compress it and choose it again.');
-                }
+            // Resized in the browser to the 1280 px the server stores.
+            window.AdminImageResizer.attach({
+                input: $('image'),
+                info: $('sliderImageInfo'),
+                submit: form.querySelector('button[type="submit"]'),
+                maxBytes: {{ (int) $maxUploadKb }} * 1024,
+                targetWidth: 1280,
+                ratio: 2,
+                onReady: (file, url) => {
+                    previewImage.src = url;
+                    previewImage.hidden = false;
+                    empty.hidden = true;
+                },
             });
 
             const syncLink = () => {

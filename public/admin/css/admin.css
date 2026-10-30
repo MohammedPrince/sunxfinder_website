@@ -8188,6 +8188,58 @@ a.cd-chip:hover {
     text-align: center;
 }
 
+/* Image resizer status (public/admin/js/image-resizer.js) */
+.image-resize-info {
+    display: grid;
+    gap: 4px;
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid #d7ece2;
+    border-radius: 10px;
+    background: #f3faf6;
+    color: #31453b;
+    font-size: 12.5px;
+}
+
+.image-resize-info[hidden] {
+    display: none;
+}
+
+.image-resize-info.is-busy {
+    border-color: #ffd9c2;
+    background: #fff7f1;
+}
+
+.image-resize-info.is-error {
+    border-color: #f5c2bd;
+    background: #fef3f2;
+    color: #b42318;
+}
+
+.image-resize-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-variant-numeric: tabular-nums;
+}
+
+.image-resize-row b {
+    min-width: 64px;
+    color: #16784f;
+}
+
+.image-resize-info.is-busy .image-resize-row b {
+    color: var(--orange-dark);
+}
+
+.image-resize-info.is-error .image-resize-row b {
+    color: #b42318;
+}
+
+.image-resize-hint {
+    color: #8a6a00;
+}
+
 /* Admin notification details: rich campaign card */
 .campaign-detail {
     max-width: 420px;

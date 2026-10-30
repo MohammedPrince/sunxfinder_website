@@ -2166,7 +2166,7 @@ class AdminRepository
 
     private function storeAppSliderImage(AppSlider $slider, \Illuminate\Http\UploadedFile $image): void
     {
-        $stored = Helper::storeOptimizedImage($image, self::SLIDER_IMAGE_DIR);
+        $stored = Helper::storeOptimizedImage($image, self::SLIDER_IMAGE_DIR, 1280, 88);
         $slider->image_path = $stored['path'];
         $slider->image_width = $stored['width'];
         $slider->image_height = $stored['height'];
@@ -3411,7 +3411,7 @@ class AdminRepository
 
         $stored = null;
         if ($image) {
-            $stored = Helper::storeOptimizedImage($image, self::CAMPAIGN_IMAGE_DIR, 1200);
+            $stored = Helper::storeOptimizedImage($image, self::CAMPAIGN_IMAGE_DIR, 1200, 88);
             $data['image_path'] = $stored['path'];
             $data['image_width'] = $stored['width'];
             $data['image_height'] = $stored['height'];

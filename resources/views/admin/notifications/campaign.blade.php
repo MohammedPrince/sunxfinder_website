@@ -198,9 +198,10 @@
                         <input type="file" id="image" name="image" accept="image/jpeg,image/png,image/webp">
                         <strong>Choose an image</strong>
                         <small>JPG, PNG or WebP, at least 300 × 150 px. Best at 1200 × 600 px (2:1).
-                            Large images are resized before upload (server limit {{ round($maxUploadKb / 1024, 1) }} MB).</small>
-                        <small class="slider-file-name" id="campaignFileName" hidden></small>
+                            Bigger images are resized here to 1200 px wide in high quality, so any photo fits the
+                            server limit of {{ round($maxUploadKb / 1024, 1) }} MB.</small>
                     </label>
+                    <div class="image-resize-info" id="campaignImageInfo" aria-live="polite" hidden></div>
                 </section>
 
                 {{-- 5. Offer --}}
@@ -347,6 +348,7 @@
 @endsection
 
 @section('scripts')
+    <script src="{{ asset_v('admin/js/image-resizer.js') }}"></script>
     <script>
         (function () {
             const $ = (id) => document.getElementById(id);
@@ -472,56 +474,16 @@
                 return div.textContent.replace(/\s+/g, ' ').trim();
             };
 
-            // --- Image ---
-            const imageInput = $('image'), fileName = $('campaignFileName'), submit = $('campaignSubmit');
-            const shrink = (file) => new Promise((resolve) => {
-                const img = new Image();
-                img.onload = () => {
-                    const scale = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
-                    const canvas = document.createElement('canvas');
-                    canvas.width = Math.round(img.naturalWidth * scale);
-                    canvas.height = Math.round(img.naturalHeight * scale);
-                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                    URL.revokeObjectURL(img.src);
-                    canvas.toBlob((blob) => resolve(blob
-                        ? new File([blob], file.name.replace(/\.[^.]+$/, '') + '.webp', { type: blob.type })
-                        : null), 'image/webp', 0.85);
-                };
-                img.onerror = () => resolve(null);
-                img.src = URL.createObjectURL(file);
-            });
-            const showFile = (file, note) => {
-                if (imageUrl) URL.revokeObjectURL(imageUrl);
-                imageUrl = URL.createObjectURL(file);
-                fileName.hidden = false;
-                fileName.classList.remove('is-error');
-                fileName.textContent = file.name + ' · ' + (file.size / 1048576).toFixed(2) + ' MB' + (note || '');
-                render();
-            };
-            imageInput.addEventListener('change', async () => {
-                const file = imageInput.files[0];
-                if (!file) return;
-                if (file.size <= Math.min(maxBytes, 1572864)) return showFile(file);
-
-                submit.disabled = true;
-                fileName.hidden = false;
-                fileName.textContent = 'Optimizing image…';
-                const smaller = await shrink(file);
-                submit.disabled = false;
-
-                if (smaller && smaller.size <= maxBytes && window.DataTransfer) {
-                    const transfer = new DataTransfer();
-                    transfer.items.add(smaller);
-                    imageInput.files = transfer.files;
-                    showFile(smaller, ' (resized from ' + (file.size / 1048576).toFixed(1) + ' MB)');
-                } else if (file.size <= maxBytes) {
-                    showFile(file);
-                } else {
-                    imageInput.value = '';
-                    fileName.classList.add('is-error');
-                    fileName.textContent = 'This image is larger than the server limit of ' + (maxBytes / 1048576).toFixed(1)
-                        + ' MB and could not be resized here. Please compress it and choose it again.';
-                }
+            // --- Image: resized in the browser to the 1200 px the server stores ---
+            const submit = $('campaignSubmit');
+            window.AdminImageResizer.attach({
+                input: $('image'),
+                info: $('campaignImageInfo'),
+                submit: submit,
+                maxBytes: maxBytes,
+                targetWidth: 1200,
+                ratio: 2,
+                onReady: (file, url) => { imageUrl = url; render(); },
             });
 
             // --- Preview ---
