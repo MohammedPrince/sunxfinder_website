@@ -190,6 +190,8 @@ class MainRepository
 
             $customer->status = 'pending';
             $customer->is_active = false;
+            $customer->registration_source = 'website';
+            $customer->preferred_language = app()->getLocale() === 'ar' ? 'ar' : 'en';
 
             if ($customer->save()) {
                 Log::info('Customer registered; dispatching welcome email.', [

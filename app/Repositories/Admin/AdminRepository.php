@@ -2,6 +2,7 @@
 
 namespace App\Repositories\Admin;
 
+use App\Jobs\SendCustomerAccountStatusEmail;
 use App\Mail\CompanyJoinRequestMail;
 use App\Mail\CompanyRequestWaitingMail;
 use App\Models\ActivityLog;
@@ -1102,6 +1103,8 @@ class AdminRepository
             $customer->city = $data['city'] ?? null;
             $customer->address = $data['address'] ?? null;
             $customer->status = $data['status'];
+            $customer->registration_source = 'admin';
+            $customer->preferred_language = 'en';
 
             // Only active customers can have active accounts.
             $customer->is_active = $data['status'] === 'active' ? 1 : 0;
@@ -1301,7 +1304,8 @@ class AdminRepository
                 ];
             }
 
-            $wasActive = $customer->status === 'active';
+            $previousStatus = $customer->status;
+            $wasActive = $previousStatus === 'active';
 
             $customer->username = $data['username'];
             $customer->full_name = $data['full_name'];
@@ -1331,6 +1335,23 @@ class AdminRepository
             // Account approved (pending/suspended -> active): tell the customer.
             if (!$wasActive && $customer->status === 'active') {
                 app(Helper::class)->notifyCustomerAccountApproved((int) $customer->id);
+            }
+
+            if (
+                $previousStatus === 'pending'
+                && $customer->registration_source === 'website'
+                && in_array($customer->status, ['active', 'suspended'], true)
+                && filter_var($customer->email, FILTER_VALIDATE_EMAIL)
+            ) {
+                try {
+                    SendCustomerAccountStatusEmail::dispatch(
+                        (int) $customer->id,
+                        $customer->status === 'active' ? 'approved' : 'declined'
+                    );
+                } catch (Throwable $emailQueueException) {
+                    // The status update is already saved; a mail queue problem must not undo it.
+                    report($emailQueueException);
+                }
             }
 
             return [

@@ -5,6 +5,7 @@ namespace App\Services\Company;
 use App\Helpers\Helper;
 use App\Models\CompanyQuotation;
 use App\Models\Product;
+use App\Models\Project;
 use App\Models\Quote;
 use App\Models\Supplier;
 use App\Repositories\Company\CompanyRepository;
@@ -180,6 +181,11 @@ class CompanyService
     public function getCompanyQuotationForQuote(int $quoteId): ?CompanyQuotation
     {
         return $this->companyRepository->getCompanyQuotationForQuote($quoteId);
+    }
+
+    public function getProjectForQuote(int $quoteId): ?Project
+    {
+        return $this->companyRepository->getProjectForQuote($quoteId);
     }
 
     public function getCompetitorOfferPrices(int $quoteId)

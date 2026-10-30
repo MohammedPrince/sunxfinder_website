@@ -1203,6 +1203,22 @@ class CompanyRepository
             ->first();
     }
 
+    public function getProjectForQuote(int $quoteId): ?Project
+    {
+        $company = Auth::guard('company')->user();
+
+        abort_if(
+            !$company || !$company->getAuthIdentifier(),
+            403,
+            'Company authentication required.'
+        );
+
+        return Project::query()
+            ->where('quote_id', $quoteId)
+            ->where('company_id', $company->getAuthIdentifier())
+            ->first();
+    }
+
     public function getCompetitorOfferPrices(int $quoteId)
     {
         $company = Auth::guard('company')->user();

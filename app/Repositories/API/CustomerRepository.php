@@ -516,6 +516,8 @@ class CustomerRepository
                     'full_name' => $fullName !== '' ? $fullName : null,
                     'phone' => $data['phone'],
                     'email' => $data['email'] ?? null,
+                    'registration_source' => 'app',
+                    'preferred_language' => strtolower((string) ($data['lang'] ?? 'en')) === 'ar' ? 'ar' : 'en',
                     'gender' => $data['gender'] ?? null,
                     'city' => $data['city'] ?? null,
                     'address' => $data['address'] ?? null,

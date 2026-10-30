@@ -357,19 +357,18 @@ class MainController extends Controller
 
         $quote = $this->companyService->getQuoteRequestById($id);
 
-        abort_if(!$quote, 404);
+        if (!$quote) {
+            return redirect()
+                ->route('company.quote-requests.index')
+                ->with('error', 'This quote request is no longer available.');
+        }
 
         $companyQuotation = $this->companyService->getCompanyQuotationForQuote($id);
 
         $competitorPrices = $this->companyService->getCompetitorOfferPrices($id);
 
         if ($companyQuotation && $companyQuotation->status === 'selected') {
-            $companyId = auth()->guard('company')->id();
-
-            $project = \App\Models\Project::query()
-                ->where('quote_id', $quote->id)
-                ->where('company_id', $companyId)
-                ->first();
+            $project = $this->companyService->getProjectForQuote($quote->id);
         }
 
         return view('company.quote-requests.form', compact(
