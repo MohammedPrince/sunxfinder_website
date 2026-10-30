@@ -46,7 +46,7 @@
                     <p>{{ __('messages.We will email you when your account is approved. Then open the SunXFinder app and log in with your username and password.') }}</p>
 
                     @if ($appLinks)
-                        <p>{{ __('messages.Download the SunXFinder app:') }}</p>
+                        {{-- <p>{{ __('messages.Download the SunXFinder app:') }}</p>
                         <div class="provider-success-actions">
                             @isset($appLinks['android'])
                                 <a class="provider-submit-button" href="{{ $appLinks['android'] }}" target="_blank" rel="noopener">{{ __('messages.Get it on') }} Google Play</a>
@@ -54,7 +54,7 @@
                             @isset($appLinks['ios'])
                                 <a class="provider-submit-button" href="{{ $appLinks['ios'] }}" target="_blank" rel="noopener">{{ __('messages.Download on the') }} App Store</a>
                             @endisset
-                        </div>
+                        </div> --}}
                     @endif
 
                     <a class="provider-login-link-inline" href="{{ route('home', ['lang' => $locale]) }}">{{ __('messages.Back to home') }}</a>

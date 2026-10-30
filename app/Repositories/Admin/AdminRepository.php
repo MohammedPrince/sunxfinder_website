@@ -1332,6 +1332,14 @@ class AdminRepository
                 ];
             }
 
+            if ($customer->status === 'suspended') {
+                // Revoke every app login immediately and stop push delivery.
+                $customer->tokens()->delete();
+                CustomerDeviceToken::query()
+                    ->where('customer_id', $customer->id)
+                    ->update(['is_active' => false]);
+            }
+
             // Account approved (pending/suspended -> active): tell the customer.
             if (!$wasActive && $customer->status === 'active') {
                 app(Helper::class)->notifyCustomerAccountApproved((int) $customer->id);
