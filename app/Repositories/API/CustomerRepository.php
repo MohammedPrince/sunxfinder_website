@@ -1592,7 +1592,7 @@ class CustomerRepository
                 ];
             }
 
-            $this->helper->archiveItem($quote, 'requestd_quote', $customer->id, 'app');
+            $this->helper->archiveQuoteAndRelated($quote, $customer->id, 'app');
 
             return [
                 'success' => true,

@@ -13,8 +13,10 @@ use App\Models\Customer;
 use App\Models\SolarCompany;
 use App\Models\Visitor;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
@@ -301,16 +303,27 @@ class MainRepository
 
     public function recordVisitor(string $sessionId): void
     {
-        // GeoIP country headers must be set or overwritten by the trusted CDN/proxy.
-        $country = strtoupper(trim((string) (
-            request()->header('CF-IPCountry')
-            ?? request()->header('CloudFront-Viewer-Country')
-            ?? request()->header('X-Country-Code')
-            ?? ''
-        )));
+        // Use country codes supplied by the hosting proxy/CDN. Check each header
+        // separately: a blank or placeholder Cloudflare value must not mask a
+        // usable country code provided by another trusted proxy header.
+        $country = null;
+        foreach ([
+            'CF-IPCountry',
+            'CloudFront-Viewer-Country',
+            'X-Vercel-IP-Country',
+            'X-AppEngine-Country',
+            'X-Country-Code',
+            'X-Geo-Country',
+            'X-GeoIP-Country-Code',
+        ] as $header) {
+            $candidate = strtoupper(trim((string) request()->header($header, '')));
+            // Some proxy stacks append values; only the first value is authoritative.
+            $candidate = trim(explode(',', $candidate, 2)[0]);
 
-        if (!preg_match('/^[A-Z]{2}$/', $country) || in_array($country, ['XX', 'T1'], true)) {
-            $country = null;
+            if (preg_match('/^[A-Z]{2}$/', $candidate) && !in_array($candidate, ['XX', 'T1'], true)) {
+                $country = $candidate;
+                break;
+            }
         }
 
         $visitor = Visitor::firstOrCreate(
@@ -323,6 +336,79 @@ class MainRepository
             $visitor->country = $country;
             $visitor->save();
         }
+
+        // No CDN header (the usual case on shared hosting): look the IP up instead.
+        // Runs after the response is sent so the home page never waits on it.
+        if (!$visitor->country) {
+            $ip = $this->visitorIp();
+            if ($ip) {
+                app()->terminating(function () use ($visitor, $ip) {
+                    $country = $this->countryFromIp($ip);
+                    if ($country) {
+                        $visitor->forceFill(['country' => $country])->save();
+                    }
+                });
+            }
+        }
+    }
+
+    /**
+     * Public IP of the visitor, or null for local/private addresses.
+     */
+    private function visitorIp(): ?string
+    {
+        $public = fn($ip) => filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) ?: null;
+
+        $ip = request()->ip();
+        if ($public($ip)) {
+            return $ip;
+        }
+
+        // A private REMOTE_ADDR means a local reverse proxy (nginx/LiteSpeed) sits in
+        // front of PHP; the real client is the first address it forwarded.
+        $forwarded = trim(explode(',', (string) request()->header('X-Forwarded-For', ''), 2)[0]);
+        if ($forwarded === '') {
+            $forwarded = trim((string) request()->header('X-Real-IP', ''));
+        }
+
+        return $public($forwarded);
+    }
+
+    /**
+     * ISO country code for an IP, cached so each IP is looked up at most once a month.
+     * Failures are cached briefly so a provider outage doesn't add a request per visit.
+     */
+    private function countryFromIp(string $ip): ?string
+    {
+        $cacheKey = 'visitor-country:' . $ip;
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            return $cached ?: null;
+        }
+
+        $providers = [
+            'https://api.country.is/' . $ip => 'country',
+            'https://ipwho.is/' . $ip . '?fields=country_code' => 'country_code',
+        ];
+
+        foreach ($providers as $url => $field) {
+            try {
+                $response = Http::timeout(3)->connectTimeout(2)->acceptJson()->get($url);
+                $code = strtoupper(trim((string) $response->json($field)));
+
+                if ($response->successful() && preg_match('/^[A-Z]{2}$/', $code)) {
+                    Cache::put($cacheKey, $code, now()->addDays(30));
+                    return $code;
+                }
+            } catch (Throwable $e) {
+                // Try the next provider.
+            }
+        }
+
+        Cache::put($cacheKey, '', now()->addHour());
+        Log::info('Visitor country lookup failed', ['ip' => $ip]);
+
+        return null;
     }
 
     public function getVisitorCount(): int

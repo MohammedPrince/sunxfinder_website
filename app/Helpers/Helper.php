@@ -15,6 +15,7 @@ use App\Models\ProjectMilestone;
 use App\Models\ProjectUpdate;
 use App\Models\Quote;
 use App\Models\Rating;
+use App\Models\RatingAnswer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use App\Repositories\Admin\AdminRepository;
@@ -695,6 +696,66 @@ class Helper
         $archive->save();
 
         return $archive;
+    }
+
+    /** Archive a customer quote request and soft-delete its complete quote/project history. */
+    public function archiveQuoteAndRelated(Quote $quote, int $customerId, string $source = 'app'): array
+    {
+        return DB::transaction(function () use ($quote, $customerId, $source) {
+            $quote->loadMissing('companyQuotations');
+            $offers = CompanyQuotation::query()->where('quote_id', $quote->id)->get();
+            $projects = Project::query()->where('quote_id', $quote->id)->get();
+            $projectIds = $projects->modelKeys();
+            $offerIds = $offers->modelKeys();
+
+            $milestones = ProjectMilestone::query()->whereIn('project_id', $projectIds)->get();
+            $updates = ProjectUpdate::query()->whereIn('project_id', $projectIds)->get();
+            $ratings = Rating::query()
+                ->where('quote_id', $quote->id)
+                ->orWhereIn('project_id', $projectIds ?: [-1])
+                ->orWhereIn('offer_id', $offerIds ?: [-1])
+                ->get();
+            $ratingAnswers = RatingAnswer::query()->whereIn('rating_id', $ratings->modelKeys())->get();
+
+            // Save each record before marking it deleted so the archive remains recoverable.
+            $this->archiveItem($quote, 'requestd_quote', $customerId, $source);
+            foreach ($offers as $offer) {
+                $this->archiveItem($offer, 'offer', $customerId, $source);
+            }
+            foreach ($projects as $project) {
+                $this->archiveItem($project, 'project', $customerId, $source);
+            }
+            foreach ($milestones as $milestone) {
+                $this->archiveItem($milestone, 'project_milestone', $customerId, $source);
+            }
+            foreach ($updates as $update) {
+                $this->archiveItem($update, 'project_update', $customerId, $source);
+            }
+            foreach ($ratings as $rating) {
+                $this->archiveItem($rating, 'rating', $customerId, $source);
+            }
+            foreach ($ratingAnswers as $answer) {
+                $this->archiveItem($answer, 'rating_answer', $customerId, $source);
+            }
+
+            // Delete dependants first to preserve history and avoid foreign-key issues.
+            RatingAnswer::query()->whereIn('id', $ratingAnswers->modelKeys())->delete();
+            Rating::query()->whereIn('id', $ratings->modelKeys())->delete();
+            ProjectMilestone::query()->whereIn('id', $milestones->modelKeys())->delete();
+            ProjectUpdate::query()->whereIn('id', $updates->modelKeys())->delete();
+            Project::query()->whereIn('id', $projectIds)->delete();
+            CompanyQuotation::query()->whereIn('id', $offerIds)->delete();
+            $quote->delete();
+
+            return [
+                'offers' => $offers->count(),
+                'projects' => $projects->count(),
+                'milestones' => $milestones->count(),
+                'updates' => $updates->count(),
+                'ratings' => $ratings->count(),
+                'rating_answers' => $ratingAnswers->count(),
+            ];
+        });
     }
 
     public function softDeleteCustomerData(\App\Models\Customer $customer, string $source = 'website'): array
