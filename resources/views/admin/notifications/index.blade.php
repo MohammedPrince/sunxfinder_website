@@ -7,7 +7,8 @@
 @section('page-description', 'Create announcements and review notifications sent to SunXFinder customers.')
 
 @section('page-actions')
-    <a href="{{ route('admin.notifications.create') }}" class="btn btn-primary">+ Send Notification</a>
+    <a href="{{ route('admin.notifications.create') }}" class="btn btn-light">+ Quick notification</a>
+    <a href="{{ route('admin.notifications.campaign.create') }}" class="btn btn-primary">📣 New customer campaign</a>
 @endsection
 
 @section('content')
@@ -55,7 +56,9 @@
                     @foreach ([
                         'general' => 'General announcement',
                         'quote' => 'Quote update',
-                        'promotion' => 'Promotion',
+                        'promotion' => 'Promotion / news',
+                        'offer' => 'Company offer',
+                        'new_company' => 'New company',
                         'account' => 'Account',
                         'support' => 'Support',
                         'maintenance' => 'Maintenance',
@@ -93,7 +96,9 @@
                             $typeLabels = [
                                 'general' => 'General',
                                 'quote' => 'Quote update',
-                                'promotion' => 'Promotion',
+                                'promotion' => 'Promotion / news',
+                                'offer' => 'Company offer',
+                                'new_company' => 'New company',
                                 'account' => 'Account',
                                 'support' => 'Support',
                                 'maintenance' => 'Maintenance',
@@ -102,15 +107,28 @@
                         <tr>
                             <td>
                                 <div class="person-cell">
-                                    <span class="company-avatar solar">{{ strtoupper(substr($notification->title_en ?? 'N', 0, 1)) }}</span>
+                                    @if ($notification->image_path)
+                                        <img class="slider-thumb" src="{{ $notification->imageUrl() }}" alt="" loading="lazy">
+                                    @else
+                                        <span class="company-avatar solar">{{ strtoupper(substr($notification->title_en ?? 'N', 0, 1)) }}</span>
+                                    @endif
                                     <span>
                                         <strong>{{ $notification->title_en }}</strong>
-                                        <small>{{ \Illuminate\Support\Str::limit(strip_tags($notification->message_en), 90) }}</small>
+                                        <small>{{ \Illuminate\Support\Str::limit(html_entity_decode(strip_tags($notification->message_en)), 90) }}</small>
                                     </span>
                                 </div>
                             </td>
-                            <td>{{ $typeLabels[$notification->type] ?? ucfirst($notification->type) }}</td>
-                            <td>{{ $notification->audience_type === 'all' ? 'All customers' : 'Selected customers' }}</td>
+                            <td>
+                                {{ $typeLabels[$notification->type] ?? ucfirst($notification->type) }}
+                                @if ($notification->isCampaign())
+                                    <small class="cell-note">Campaign{{ $notification->company ? ' · ' . $notification->company->name : '' }}</small>
+                                @endif
+                            </td>
+                            <td>{{ match ($notification->audience_type) {
+                                'all' => 'All customers',
+                                'city' => 'City: ' . $notification->audience_city,
+                                default => 'Selected customers',
+                            } }}</td>
                             <td>{{ number_format($notification->recipients_count ?? 0) }}</td>
                             <td><span class="pill {{ $statusClass }}" data-status="{{ $notification->status }}">{{ ucfirst($notification->status) }}</span></td>
                             <td>{{ $notification->published_at?->format('M d, Y H:i') ?? '—' }}</td>

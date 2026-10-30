@@ -30,7 +30,11 @@
         <div class="panel-body">
             <div class="form-grid">
                 <div class="form-group"><label>Type</label><div class="form-control">{{ ucfirst(str_replace('_', ' ', $notification->type)) }}</div></div>
-                <div class="form-group"><label>Audience</label><div class="form-control">{{ $notification->audience_type === 'all' ? 'All customers' : 'Selected customers' }}</div></div>
+                <div class="form-group"><label>Audience</label><div class="form-control">{{ match ($notification->audience_type) {
+                    'all' => 'All customers',
+                    'city' => 'Customers in ' . $notification->audience_city,
+                    default => 'Selected customers',
+                } }}</div></div>
                 <div class="form-group"><label>Status</label><div><span class="pill {{ $notification->status === 'published' ? 'pill-green' : 'pill-yellow' }}">{{ ucfirst($notification->status) }}</span></div></div>
                 <div class="form-group"><label>Created</label><div>{{ $notification->created_at?->format('M d, Y H:i') ?? '—' }}</div></div>
                 <div class="form-group"><label>Sender</label><div>{{ ucfirst($notification->sender_type) }}{{ $notification->sender_id ? ' #' . $notification->sender_id : '' }}</div></div>
@@ -38,6 +42,79 @@
         </div>
     </section>
 
+    @if ($notification->isCampaign())
+        {{-- Campaign: the card as customers see it in the app, in both languages. --}}
+        @php
+            $company = $notification->company;
+            $discount = $notification->offerDiscountPercent();
+            $badges = ['offer' => ['Offer', 'عرض'], 'new_company' => ['New company', 'شركة جديدة'], 'promotion' => ['News', 'أخبار']];
+        @endphp
+        <section class="panel">
+            <div class="panel-heading">
+                <h2>Campaign as customers see it</h2>
+                <p>
+                    @if ($notification->link_url)
+                        Button opens <a href="{{ $notification->link_url }}" target="_blank" rel="noopener">{{ $notification->link_url }}</a>.
+                    @endif
+                    @if ($notification->offer_expires_at)
+                        Offer {{ $notification->offer_expires_at->isPast() ? 'expired' : 'valid until' }} {{ $notification->offer_expires_at->format('M d, Y H:i') }}.
+                    @endif
+                </p>
+            </div>
+            <div class="panel-body admin-project-layout">
+                @foreach (['en', 'ar'] as $lang)
+                    @php
+                        $ar = $lang === 'ar';
+                        $message = $ar ? ($notification->message_ar ?: $notification->message_en) : $notification->message_en;
+                    @endphp
+                    <div class="campaign-detail" dir="{{ $ar ? 'rtl' : 'ltr' }}" @if ($ar) lang="ar" @endif>
+                        <article class="campaign-card">
+                            @if ($notification->image_path)
+                                <img class="campaign-card-image" src="{{ $notification->imageUrl() }}" alt="">
+                            @endif
+                            <div class="campaign-card-body">
+                                <span class="campaign-badge" data-type="{{ $notification->type }}">{{ $badges[$notification->type][$ar ? 1 : 0] ?? ucfirst($notification->type) }}</span>
+                                <h3>{{ $ar ? ($notification->title_ar ?: $notification->title_en) : $notification->title_en }}</h3>
+                                @if ($company)
+                                    <div class="campaign-company">
+                                        @if ($company->logo_path)
+                                            <img src="{{ app(\App\Helpers\Helper::class)->publicUrl($company->logo_path) }}" alt="">
+                                        @endif
+                                        <span><strong>{{ $company->name }}</strong><small>{{ $company->city }}</small></span>
+                                    </div>
+                                @endif
+                                @if ($notification->offer_title_en)
+                                    <div class="campaign-offer">
+                                        <span>{{ $ar ? ($notification->offer_title_ar ?: $notification->offer_title_en) : $notification->offer_title_en }}</span>
+                                        @if ($notification->offer_price !== null)
+                                            <div>
+                                                <strong>{{ number_format((float) $notification->offer_price) }} {{ $notification->offer_currency }}</strong>
+                                                @if ($discount)
+                                                    <del>{{ number_format((float) $notification->offer_old_price) }} {{ $notification->offer_currency }}</del>
+                                                    <em>{{ $discount }}{{ $ar ? '٪ خصم' : '% off' }}</em>
+                                                @endif
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endif
+                                <div class="campaign-message">
+                                    @if ($notification->format === 'html')
+                                        {{-- Sanitized with Helper::sanitizeRichText when it was sent. --}}
+                                        {!! $message !!}
+                                    @else
+                                        <div style="white-space:pre-line">{{ $message }}</div>
+                                    @endif
+                                </div>
+                                @if ($notification->link_url)
+                                    <span class="campaign-cta">{{ ($ar ? $notification->link_label_ar : $notification->link_label_en) ?: ($ar ? 'عرض' : 'View') }}</span>
+                                @endif
+                            </div>
+                        </article>
+                    </div>
+                @endforeach
+            </div>
+        </section>
+    @else
         <section class="panel">
                 <div class="panel-heading"><h2>English content</h2><p>Content shown to English-language customers.</p></div>
                 <div class="panel-body">
@@ -53,6 +130,7 @@
             <div class="form-group"><label>الرسالة</label><div style="white-space:pre-line">{{ $notification->message_ar ?: '—' }}</div></div>
         </div>
     </section>
+    @endif
 
       @if (isset($recipients))
         <section class="panel table-panel">

@@ -1930,6 +1930,8 @@ class MainController extends Controller
                     'account',
                     'support',
                     'maintenance',
+                    'offer',
+                    'new_company',
                 ]),
             ],
             'status' => ['nullable', Rule::in(['published', 'draft'])],
@@ -2019,6 +2021,65 @@ class MainController extends Controller
 
         return redirect()->route('admin.notifications.index')
             ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    // Customer campaigns: rich notifications (offer, new company, news) with image and link.
+    public function createCampaign(Request $request)
+    {
+        $data = $this->adminService->getCampaignFormData();
+
+        return view('admin.notifications.campaign', $data + [
+            'maxUploadKb' => $this->appSliderMaxUploadKb(),
+            // Prefill from Customers ("send to this customer") or a company link.
+            'presetCustomerId' => $request->integer('customer_id') ?: null,
+            'presetCompanyId' => $request->integer('company_id') ?: null,
+        ]);
+    }
+
+    public function storeCampaign(Request $request)
+    {
+        $maxKb = $this->appSliderMaxUploadKb();
+
+        $data = $request->validate([
+            'type' => ['required', Rule::in(array_keys(\App\Models\Notification::CAMPAIGN_TYPES))],
+            'audience_type' => ['required', Rule::in(['all', 'city', 'selected'])],
+            'audience_city' => ['nullable', 'required_if:audience_type,city', 'string', 'max:100'],
+            'customer_ids' => ['nullable', 'required_if:audience_type,selected', 'array', 'min:1'],
+            'customer_ids.*' => ['integer', 'min:1'],
+            'title_en' => ['required', 'string', 'max:180'],
+            'title_ar' => ['nullable', 'string', 'max:180'],
+            'format' => ['required', Rule::in(['text', 'html'])],
+            'message_en' => ['required', 'string', 'max:5000'],
+            'message_ar' => ['nullable', 'string', 'max:5000'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:' . $maxKb, 'dimensions:min_width=300,min_height=150'],
+            'has_link' => ['nullable', 'boolean'],
+            'link_url' => ['nullable', 'required_if:has_link,1', 'string', 'max:500', 'regex:#^(https?|sunxfinder)://[^\s]+$#i'],
+            'link_label_en' => ['nullable', 'string', 'max:60'],
+            'link_label_ar' => ['nullable', 'string', 'max:60'],
+            'company_id' => ['nullable', Rule::requiredIf(in_array($request->input('type'), ['offer', 'new_company'], true)), 'integer', Rule::exists('tbl_solar_companies', 'id')->whereNull('deleted_at')],
+            'has_offer' => ['nullable', 'boolean'],
+            'offer_title_en' => ['nullable', 'required_if:has_offer,1', 'string', 'max:150'],
+            'offer_title_ar' => ['nullable', 'string', 'max:150'],
+            'offer_price' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+            'offer_old_price' => ['nullable', 'numeric', 'min:0', 'max:999999999', 'gt:offer_price'],
+            'offer_currency' => ['nullable', Rule::in(['SDG', 'USD'])],
+            'offer_expires_at' => ['nullable', 'date', 'after:now'],
+        ], [
+            'image.uploaded' => 'The image could not be uploaded. The server accepts files up to ' . round($maxKb / 1024, 1) . ' MB.',
+            'image.max' => 'The image must be ' . round($maxKb / 1024, 1) . ' MB or smaller.',
+            'link_url.regex' => 'The link must start with https:// (or sunxfinder:// for a screen in the app).',
+            'company_id.required' => 'Choose the company this campaign is about.',
+            'offer_title_en.required_if' => 'Give the offer a short title, e.g. "20% off 5 kW systems".',
+            'offer_old_price.gt' => 'The old price must be higher than the offer price.',
+            'audience_city.required_if' => 'Choose the city to send to.',
+            'customer_ids.required_if' => 'Select at least one customer.',
+        ]);
+
+        $result = $this->adminService->publishCampaign($data, $request->file('image'), Auth::guard('admin')->id());
+
+        return redirect()
+            ->route('admin.notifications.show', $result['notification_id'])
+            ->with('success', $result['message']);
     }
 
     // Notifications Management End

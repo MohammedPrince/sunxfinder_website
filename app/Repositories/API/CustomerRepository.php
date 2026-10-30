@@ -3,6 +3,7 @@
 namespace App\Repositories\API;
 
 use App\Helpers\Helper;
+use Illuminate\Support\Str;
 use App\Models\ApiEndpoint;
 use App\Jobs\SendCompanyOfferDecisionEmail;
 use App\Jobs\SendCustomerWelcomeEmail;
@@ -2354,7 +2355,7 @@ class CustomerRepository
         $customerId = $customer->id;
 
         $query = CustomerNotification::query()
-            ->with('notification')
+            ->with('notification.company')
             ->where('customer_id', $customerId)
             ->whereHas('notification', function ($query) {
                 $query->where('status', 'published');
@@ -2377,29 +2378,7 @@ class CustomerRepository
         $recipientRows = $recipients->getCollection();
 
         $notifications = $recipientRows
-            ->map(function (CustomerNotification $recipient) {
-                $notification = $recipient->notification;
-
-                if (!$notification) {
-                    return null;
-                }
-
-                return [
-                    'id' => $notification->id,
-                    'type' => $notification->type,
-                    'title' => $notification->title_en,
-                    'ar_title' => $notification->title_ar,
-                    'body' => $notification->message_en,
-                    'ar_body' => $notification->message_ar,
-
-                    'read' => $recipient->read_at !== null,
-                    'created_at' => $recipient->created_at
-                        ? $recipient->created_at->utc()->format(
-                            'Y-m-d\TH:i:s\Z'
-                        )
-                        : null,
-                ];
-            })
+            ->map(fn(CustomerNotification $recipient) => $this->formatCustomerNotification($recipient))
             ->filter()
             ->values();
 
@@ -2432,7 +2411,12 @@ class CustomerRepository
 
         $customerID = $customer->id;
 
-        $notification = CustomerNotification::query()->where('id', $notificationId)->where('customer_id', $customerID)->first();
+        // The list returns the notification id (tbl_notifications.id) as "id", so look it up
+        // by notification_id; previously this matched the recipient row id by mistake.
+        $notification = CustomerNotification::query()
+            ->where('notification_id', (int) $notificationId)
+            ->where('customer_id', $customerID)
+            ->first();
 
         if (!$notification) {
             return [
@@ -2457,11 +2441,113 @@ class CustomerRepository
             'code' => 200,
             'message' => 'Notification marked as read successfully',
             'notificationDetails' => [
-                'id' => $notification->id,
+                'id' => (int) $notification->notification_id,
                 'is_read' => true,
                 'read_at' => $notification->fresh()->read_at?->toISOString(),
             ],
             'unread_count' => $unreadCount,
+        ];
+    }
+
+    /** One inbox item with its full campaign content (image, company, offer, button). */
+    public function getCustomerNotification(int $notificationId): array
+    {
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        if (!$customer) {
+            return ['success' => false, 'code' => 401, 'message' => 'Unauthenticated.'];
+        }
+
+        $recipient = CustomerNotification::query()
+            ->with('notification.company')
+            ->where('notification_id', $notificationId)
+            ->where('customer_id', $customer->id)
+            ->whereHas('notification', fn($query) => $query->where('status', 'published'))
+            ->first();
+
+        $data = $recipient ? $this->formatCustomerNotification($recipient) : null;
+
+        if (!$data) {
+            return ['success' => false, 'code' => 404, 'message' => 'Notification not found'];
+        }
+
+        return ['success' => true, 'code' => 200, 'notification' => $data];
+    }
+
+    /**
+     * App shape of an inbox item. "body"/"ar_body" are always plain text (safe for any
+     * app version); rich campaigns add "body_html"/"ar_body_html" (sanitized HTML).
+     */
+    private function formatCustomerNotification(CustomerNotification $recipient): ?array
+    {
+        $notification = $recipient->notification;
+
+        if (!$notification) {
+            return null;
+        }
+
+        $isHtml = $notification->format === 'html';
+        $plain = fn(?string $text) => $text === null ? null : ($isHtml ? $this->helper->plainText($text) : $text);
+        $iso = fn($date) => $date ? $date->copy()->utc()->format('Y-m-d\TH:i:s\Z') : null;
+
+        $company = $notification->company;
+        $hasOffer = $notification->offer_title_en !== null;
+        $currency = $notification->offer_currency ?: 'SDG';
+
+        $action = null;
+        if ($notification->link_url) {
+            $action = [
+                'type' => Str::startsWith(strtolower($notification->link_url), 'sunxfinder://') ? 'deep_link' : 'url',
+                'url' => $notification->link_url,
+                'label' => $notification->link_label_en ?: 'View',
+                'ar_label' => $notification->link_label_ar ?: 'عرض',
+            ];
+        } elseif ($company) {
+            $action = [
+                'type' => 'company',
+                'url' => 'sunxfinder://company/' . $company->slug,
+                'label' => 'View company',
+                'ar_label' => 'عرض الشركة',
+            ];
+        }
+
+        return [
+            'id' => $notification->id,
+            'type' => $notification->type,
+            'title' => $notification->title_en,
+            'ar_title' => $notification->title_ar,
+            'body' => $plain($notification->message_en),
+            'ar_body' => $plain($notification->message_ar),
+            'format' => $isHtml ? 'html' : 'text',
+            'body_html' => $isHtml ? $notification->message_en : null,
+            'ar_body_html' => $isHtml ? $notification->message_ar : null,
+            'image' => $notification->image_path ? [
+                'url' => $notification->imageUrl(),
+                'width' => $notification->image_width,
+                'height' => $notification->image_height,
+            ] : null,
+            'company' => $company ? [
+                'id' => (int) $company->id,
+                'name' => $company->name,
+                'slug' => $company->slug,
+                'city' => $company->city,
+                'logo_url' => $this->helper->publicUrl($company->logo_path),
+                'is_verified' => (bool) $company->is_verified,
+            ] : null,
+            'offer' => $hasOffer ? [
+                'title' => $notification->offer_title_en,
+                'ar_title' => $notification->offer_title_ar,
+                'price' => $notification->offer_price !== null ? (float) $notification->offer_price : null,
+                'old_price' => $notification->offer_old_price !== null ? (float) $notification->offer_old_price : null,
+                'currency' => $currency,
+                'discount_percent' => $notification->offerDiscountPercent(),
+                'expires_at' => $iso($notification->offer_expires_at),
+                'is_expired' => $notification->offer_expires_at?->isPast() ?? false,
+            ] : null,
+            'action' => $action,
+            'read' => $recipient->read_at !== null,
+            'read_at' => $iso($recipient->read_at),
+            'created_at' => $iso($recipient->created_at),
         ];
     }
 

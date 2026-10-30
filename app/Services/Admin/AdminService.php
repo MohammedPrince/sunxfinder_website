@@ -489,6 +489,22 @@ class AdminService
     {
         return $this->adminRepository->deleteNotification($id);
     }
+
+    public function getCampaignFormData(): array
+    {
+        return $this->adminRepository->getCampaignFormData();
+    }
+
+    public function publishCampaign(array $data, ?\Illuminate\Http\UploadedFile $image, ?int $adminId): array
+    {
+        $notification = $this->adminRepository->publishCampaign($data, $image, $adminId);
+
+        return [
+            'success' => true,
+            'message' => 'Campaign sent to ' . number_format($notification->recipients()->count()) . ' customers.',
+            'notification_id' => $notification->id,
+        ];
+    }
     //Notifications End
 
     //Ratings Start

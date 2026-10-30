@@ -7,6 +7,7 @@
 @section('page-description', 'Review and manage customer accounts registered on SunXFinder.')
 
 @section('page-actions')
+    <a href="{{ route('admin.notifications.campaign.create') }}" class="btn btn-light">📣 Send offers &amp; news</a>
     <a href="{{ route('admin.customers.create') }}" class="btn btn-primary">+ Add New Customer</a>
 @endsection
 
@@ -97,7 +98,6 @@
                         <th>Customer</th>
                         <th>Phone</th>
                         <th>Email</th>
-                        <th>Gender</th>
                         <th>City</th>
                         <th title="Company whose offer the customer accepted most recently">Last company</th>
                         <th>Joined</th>
@@ -130,11 +130,6 @@
 
                             {{-- Email --}}
                             <td>{{ $customer->email ?: '—' }}</td>
-
-                            {{-- Gender --}}
-                            <td>
-                                {{ $customer->gender ? ucfirst($customer->gender) : '—' }}
-                            </td>
 
                             {{-- City --}}
                             <td>{{ $customer->city ?: '—' }}</td>
@@ -232,6 +227,20 @@
                                         </svg>
                                     </a>
 
+                                    {{-- Send an offer / news to this customer (only possible while signed in to the app) --}}
+                                    @if ($customer->tokens_count)
+                                        <a href="{{ route('admin.notifications.campaign.create', ['customer_id' => $customer->id]) }}"
+                                            class="row-action row-action-icon" title="Send offer or news"
+                                            aria-label="Send offer or news to {{ $customer->full_name ?: $customer->username }}">
+                                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+                                                stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                                                stroke-linejoin="round" aria-hidden="true">
+                                                <path d="m3 11 18-7v16L3 13v-2Z" />
+                                                <path d="M7 12.5V18a2 2 0 0 0 4 0v-4" />
+                                            </svg>
+                                        </a>
+                                    @endif
+
                                     {{-- Delete customer --}}
                                     <form action="{{ route('admin.customers.destroy', $customer->id) }}" method="POST"
                                         class="company-delete-form"
@@ -259,7 +268,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="11" class="text-center">
+                            <td colspan="10" class="text-center">
                                 No customers found.
                             </td>
                         </tr>

@@ -229,6 +229,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::get('/', 'notifications')->name('index');
                 Route::get('/create', 'createNotification')->name('create');
                 Route::post('/', 'storeNotification')->name('store');
+                // Rich customer campaign: offer / new company / news with image and link
+                Route::get('/campaign', 'createCampaign')->name('campaign.create');
+                Route::post('/campaign', 'storeCampaign')->middleware('throttle:10,1')->name('campaign.store');
                 Route::get('/{notification}', 'showNotification')->whereNumber('notification')->name('show');
                 Route::delete('/{notification}', 'destroyNotification')->whereNumber('notification')->name('destroy');
             });

@@ -2986,15 +2986,22 @@ class AdminRepository
                             count($data['customer_ids'] ?? []),
                     ]);
 
-                    $customerIds = $audienceType === 'all'
-                        ? Customer::query()
+                    $customerIds = match ($audienceType) {
+                        'all' => Customer::query()
                             ->whereHas('deviceTokens')
                             ->pluck('id')
                             ->map(fn($id) => (int) $id)
-                            ->all()
-                        : array_values(array_unique(
+                            ->all(),
+                        'city' => Customer::query()
+                            ->whereHas('deviceTokens')
+                            ->where('city', $data['audience_city'] ?? '')
+                            ->pluck('id')
+                            ->map(fn($id) => (int) $id)
+                            ->all(),
+                        default => array_values(array_unique(
                             array_map('intval', $data['customer_ids'] ?? [])
-                        ));
+                        )),
+                    };
 
                     Log::info('SunXFinder notification: recipients resolved', [
                         ...$context,
@@ -3008,7 +3015,9 @@ class AdminRepository
                         );
 
                         throw ValidationException::withMessages([
-                            'customer_ids' => 'Select at least one customer.',
+                            'customer_ids' => $audienceType === 'city'
+                                ? 'No app customers live in ' . ($data['audience_city'] ?? 'this city') . ' yet.'
+                                : 'Select at least one customer.',
                         ]);
                     }
 
@@ -3036,6 +3045,14 @@ class AdminRepository
 
                     Log::info('SunXFinder notification: creating notification');
 
+                    // Campaign extras (image, link, company, offer) are optional.
+                    $campaignFields = array_intersect_key($data, array_flip([
+                        'format', 'image_path', 'image_width', 'image_height',
+                        'link_url', 'link_label_en', 'link_label_ar', 'company_id',
+                        'offer_title_en', 'offer_title_ar', 'offer_price', 'offer_old_price',
+                        'offer_currency', 'offer_expires_at', 'audience_city',
+                    ]));
+
                     $notification = Notification::create([
                         'sender_type' => $senderType,
                         'sender_id' => $senderId,
@@ -3047,7 +3064,7 @@ class AdminRepository
                         'audience_type' => $audienceType,
                         'status' => 'published',
                         'published_at' => now(),
-                    ]);
+                    ] + $campaignFields);
 
                     Log::info(
                         'SunXFinder notification: notification created',
@@ -3174,72 +3191,57 @@ class AdminRepository
 
         $successCount = 0;
         $failureCount = 0;
+        $helper = app(Helper::class);
+        $imageUrl = $notification->imageUrl();
 
-        foreach ($devices as $device) {
-            $lang = strtolower($device->lang ?? 'en') === 'ar'
-                ? 'ar'
-                : 'en';
+        // One multicast per language and per 500 devices (the FCM limit), instead of
+        // one HTTP call per device: a broadcast to thousands of devices stays fast.
+        $devicesByLang = $devices->groupBy(
+            fn($device) => strtolower((string) $device->lang) === 'ar' ? 'ar' : 'en'
+        );
 
+        foreach ($devicesByLang as $lang => $langDevices) {
             $title = $lang === 'ar'
                 ? ($notification->title_ar ?: $notification->title_en)
                 : $notification->title_en;
 
-            $body = $lang === 'ar'
+            $message = $lang === 'ar'
                 ? ($notification->message_ar ?: $notification->message_en)
                 : $notification->message_en;
 
-            // Never log the actual FCM token.
-            $tokenFingerprint = substr(
-                hash('sha256', $device->fcm_token),
-                0,
-                12
-            );
+            // Pushes are plain text: rich (HTML) messages show in full inside the app.
+            $body = Str::limit($helper->plainText($message), 230);
 
-            Log::info('SunXFinder notification: sending push', [
-                'notification_id' => $notification->id,
-                'device_id' => $device->id,
-                'customer_id' => $device->customer_id,
-                'platform' => $device->platform ?? null,
+            $data = array_filter([
+                'notification_id' => (string) $notification->id,
+                'type' => (string) $notification->type,
                 'lang' => $lang,
-                'token_fingerprint' => $tokenFingerprint,
-            ]);
+                'image_url' => (string) $imageUrl,
+                'link_url' => (string) $notification->link_url,
+                'company_id' => $notification->company_id ? (string) $notification->company_id : '',
+            ], fn($value) => $value !== '');
 
-            try {
-                $message = Helper::withNotificationSound(CloudMessage::new())
-                    ->toToken($device->fcm_token)
-                    ->withNotification(
-                        FcmNotification::create($title, $body)
-                    )
-                    ->withData([
-                        'notification_id' => (string) $notification->id,
-                        'type' => (string) $notification->type,
+            $pushMessage = Helper::withNotificationSound(CloudMessage::new())
+                ->withNotification(FcmNotification::create($title, $body, $imageUrl))
+                ->withData($data);
+
+            foreach ($langDevices->pluck('fcm_token')->unique()->chunk(500) as $tokens) {
+                try {
+                    $report = $messaging->sendMulticast($pushMessage, $tokens->values()->all());
+
+                    $successCount += $report->successes()->count();
+                    $failureCount += $report->failures()->count();
+                } catch (Throwable $e) {
+                    $failureCount += $tokens->count();
+
+                    Log::error('SunXFinder notification: push batch failed', [
+                        'notification_id' => $notification->id,
                         'lang' => $lang,
+                        'device_count' => $tokens->count(),
+                        'exception_class' => get_class($e),
+                        'error' => $e->getMessage(),
                     ]);
-
-                $sendResult = $messaging->send($message);
-
-                $successCount++;
-
-                Log::info('SunXFinder notification: Firebase accepted push', [
-                    'notification_id' => $notification->id,
-                    'device_id' => $device->id,
-                    'customer_id' => $device->customer_id,
-                    'token_fingerprint' => $tokenFingerprint,
-                    'firebase_result_type' => get_debug_type($sendResult),
-                ]);
-            } catch (Throwable $e) {
-                $failureCount++;
-
-                Log::error('SunXFinder notification: push failed', [
-                    'notification_id' => $notification->id,
-                    'device_id' => $device->id,
-                    'customer_id' => $device->customer_id,
-                    'token_fingerprint' => $tokenFingerprint,
-                    'exception_class' => get_class($e),
-                    'error' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                ]);
+                }
             }
         }
 
@@ -3259,7 +3261,7 @@ class AdminRepository
     {
         $query = Notification::query()
             ->withCount('recipients')
-            ->with(['senderCompany:id,name', 'senderAdmin:id,username'])
+            ->with(['senderCompany:id,name', 'senderAdmin:id,username', 'company:id,name'])
             ->when(
                 !empty($filters['type']),
                 fn(Builder $q) => $q->where('type', $filters['type'])
@@ -3349,6 +3351,86 @@ class AdminRepository
         return [
             'customers' => $customers,
         ];
+    }
+
+    private const CAMPAIGN_IMAGE_DIR = 'main/images/notifications';
+
+    /** Companies to feature, cities to target and app customers for the campaign composer. */
+    public function getCampaignFormData(): array
+    {
+        $customers = Customer::query()
+            ->whereHas('deviceTokens')
+            ->select('id', 'full_name', 'username', 'phone', 'city')
+            ->orderBy('full_name')
+            ->get();
+
+        $cities = $customers
+            ->filter(fn($customer) => trim((string) $customer->city) !== '')
+            ->groupBy(fn($customer) => trim($customer->city))
+            ->map(fn($group) => $group->count())
+            ->sortKeys();
+
+        $companies = app(Helper::class)->visibleCompanies()
+            ->select('id', 'name', 'city', 'logo_path')
+            ->orderBy('name')
+            ->get();
+
+        return [
+            'customers' => $customers,
+            'cities' => $cities,
+            'companies' => $companies,
+            'appCustomerCount' => $customers->count(),
+        ];
+    }
+
+    /**
+     * Rich campaign: stores the image, sanitizes HTML and sends it through the normal
+     * notification pipeline (inbox rows + push in each device's language).
+     */
+    public function publishCampaign(array $data, ?\Illuminate\Http\UploadedFile $image, ?int $adminId): Notification
+    {
+        $helper = app(Helper::class);
+
+        if (($data['format'] ?? 'text') === 'html') {
+            $data['message_en'] = Helper::sanitizeRichText($data['message_en']);
+            $data['message_ar'] = Helper::sanitizeRichText($data['message_ar'] ?? '') ?: null;
+
+            if ($helper->plainText($data['message_en']) === '') {
+                throw ValidationException::withMessages(['message_en' => 'The English message is empty after removing unsupported HTML.']);
+            }
+        }
+
+        if (empty($data['has_offer'])) {
+            foreach (['offer_title_en', 'offer_title_ar', 'offer_price', 'offer_old_price', 'offer_currency', 'offer_expires_at'] as $field) {
+                $data[$field] = null;
+            }
+        }
+        if (empty($data['has_link'])) {
+            $data['link_url'] = $data['link_label_en'] = $data['link_label_ar'] = null;
+        }
+
+        $stored = null;
+        if ($image) {
+            $stored = Helper::storeOptimizedImage($image, self::CAMPAIGN_IMAGE_DIR, 1200);
+            $data['image_path'] = $stored['path'];
+            $data['image_width'] = $stored['width'];
+            $data['image_height'] = $stored['height'];
+        }
+
+        $data['sender_type'] = 'admin';
+        $data['sender_id'] = $adminId;
+
+        try {
+            return $this->publishNotification($data);
+        } catch (Throwable $e) {
+            // Nothing was published: don't leave the uploaded image behind. (A push
+            // failure after the save keeps it, since the inbox item uses it.)
+            if ($stored && !Notification::withTrashed()->where('image_path', $stored['path'])->exists()) {
+                \Illuminate\Support\Facades\File::delete(public_path($stored['path']));
+            }
+
+            throw $e;
+        }
     }
 
 

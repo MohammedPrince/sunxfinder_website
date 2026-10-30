@@ -1017,6 +1017,26 @@ class MainController extends Controller
         ], 200);
     }
 
+    // One notification with its full campaign content (image, company, offer, button).
+    public function getNotification(int $notificationId)
+    {
+        $result = $this->customerService->getCustomerNotification($notificationId);
+
+        if ($result['success']) {
+            return response()->json([
+                'status' => 'success',
+                'code' => 200,
+                'data' => ['notification' => $result['notification']],
+            ], 200);
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'code' => $result['code'],
+            'error' => $result['message'],
+        ], $result['code']);
+    }
+
     //Read One
     public function markNotificationAsRead($notificationId)
     {

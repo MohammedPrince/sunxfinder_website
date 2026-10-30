@@ -224,6 +224,88 @@ class Helper
         return trim(preg_replace('/\s+/u', ' ', $text));
     }
 
+    /**
+     * Allowlist sanitizer for admin-written rich messages shown in the app.
+     * Keeps basic formatting and safe links; unknown tags are unwrapped (text kept),
+     * dangerous ones (script, style, iframe...) are dropped with their content.
+     */
+    public static function sanitizeRichText(?string $html): string
+    {
+        $html = trim((string) $html);
+        if ($html === '') {
+            return '';
+        }
+
+        $allowed = ['p', 'br', 'b', 'strong', 'i', 'em', 'u', 's', 'ul', 'ol', 'li', 'a', 'h3', 'h4', 'blockquote', 'small'];
+        $dropWithContent = ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'textarea', 'select', 'svg', 'math', 'template', 'noscript', 'head', 'title', 'meta', 'link'];
+
+        $dom = new \DOMDocument();
+        $previous = libxml_use_internal_errors(true);
+        $dom->loadHTML('<?xml encoding="UTF-8"><div id="__root">' . $html . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        $root = $dom->getElementById('__root');
+        if (!$root) {
+            return e(strip_tags($html));
+        }
+
+        $clean = function (\DOMNode $node) use (&$clean, $allowed, $dropWithContent) {
+            foreach (iterator_to_array($node->childNodes) as $child) {
+                if ($child instanceof \DOMComment || $child instanceof \DOMProcessingInstruction) {
+                    $node->removeChild($child);
+                    continue;
+                }
+                if (!$child instanceof \DOMElement) {
+                    continue;
+                }
+
+                $tag = strtolower($child->tagName);
+
+                if (in_array($tag, $dropWithContent, true)) {
+                    $node->removeChild($child);
+                    continue;
+                }
+
+                $clean($child);
+
+                if (!in_array($tag, $allowed, true)) {
+                    // Unwrap: keep the text, lose the tag.
+                    while ($child->firstChild) {
+                        $node->insertBefore($child->firstChild, $child);
+                    }
+                    $node->removeChild($child);
+                    continue;
+                }
+
+                $href = $tag === 'a' ? trim($child->getAttribute('href')) : '';
+                foreach (iterator_to_array($child->attributes) as $attribute) {
+                    $child->removeAttribute($attribute->nodeName);
+                }
+
+                if ($tag === 'a') {
+                    if (preg_match('#^(https?://|mailto:|tel:|sunxfinder://)#i', $href)) {
+                        $child->setAttribute('href', $href);
+                    } else {
+                        while ($child->firstChild) {
+                            $node->insertBefore($child->firstChild, $child);
+                        }
+                        $node->removeChild($child);
+                    }
+                }
+            }
+        };
+
+        $clean($root);
+
+        $output = '';
+        foreach ($root->childNodes as $child) {
+            $output .= $dom->saveHTML($child);
+        }
+
+        return trim($output);
+    }
+
     public function splitList(?string $value): array
     {
         if (!$value) {
