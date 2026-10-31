@@ -1706,6 +1706,9 @@ class MainController extends Controller
     {
         $data = $request->validate([
             'max_open_quotes' => ['required', 'integer', 'min:1', 'max:50'],
+            'app_offline_enabled' => ['nullable', 'boolean'],
+            'app_offline_message_en' => ['nullable', 'required_if:app_offline_enabled,1', 'string', 'max:1000'],
+            'app_offline_message_ar' => ['nullable', 'required_if:app_offline_enabled,1', 'string', 'max:1000'],
             'maintenance_enabled' => ['nullable', 'boolean'],
             'maintenance_title_en' => ['nullable', 'required_if:maintenance_enabled,1', 'string', 'max:150'],
             'maintenance_title_ar' => ['nullable', 'required_if:maintenance_enabled,1', 'string', 'max:150'],
@@ -1713,6 +1716,8 @@ class MainController extends Controller
             'maintenance_message_ar' => ['nullable', 'required_if:maintenance_enabled,1', 'string', 'max:2000'],
             'maintenance_until' => ['nullable', 'date'],
         ], [
+            'app_offline_message_en.required_if' => 'Write the English message customers see while the app is offline.',
+            'app_offline_message_ar.required_if' => 'Write the Arabic message customers see while the app is offline.',
             'maintenance_title_en.required_if' => 'Write the English maintenance title.',
             'maintenance_title_ar.required_if' => 'Write the Arabic maintenance title.',
             'maintenance_message_en.required_if' => 'Write the English maintenance message.',
@@ -1720,6 +1725,7 @@ class MainController extends Controller
         ]);
 
         $data['maintenance_enabled'] = $request->boolean('maintenance_enabled');
+        $data['app_offline_enabled'] = $request->boolean('app_offline_enabled');
 
         $result = $this->adminService->updateSettings($data);
 

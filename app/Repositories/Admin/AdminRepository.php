@@ -3932,10 +3932,12 @@ class AdminRepository
     public function getSettings(): array
     {
         cache()->forget(Setting::MAINTENANCE_CACHE_KEY);
+        cache()->forget(Setting::APP_OFFLINE_CACHE_KEY);
 
         return [
             'max_open_quotes' => Setting::maxOpenQuotes(),
             'maintenance' => Setting::maintenance(),
+            'app_offline' => Setting::appOffline(),
             'quote_limit_customers' => $this->getQuoteLimitCustomers(),
             'notification_access_companies' => $this->getNotificationAccessCompanies(),
             'api_endpoints' => ApiEndpoint::query()->orderByDesc('is_active')->orderBy('name')->get(),
@@ -4242,8 +4244,14 @@ class AdminRepository
     {
         try {
             $wasInMaintenance = Setting::maintenance()['enabled'];
+            $wasOffline = Setting::appOffline()['enabled'];
 
             Setting::set('max_open_quotes', (int) $data['max_open_quotes']);
+
+            Setting::set('app_offline_enabled', !empty($data['app_offline_enabled']) ? '1' : '0');
+            foreach (['message_en', 'message_ar'] as $field) {
+                Setting::set("app_offline_{$field}", $data["app_offline_{$field}"] ?? null);
+            }
 
             Setting::set('maintenance_enabled', !empty($data['maintenance_enabled']) ? '1' : '0');
             foreach (['title_en', 'title_ar', 'message_en', 'message_ar', 'until'] as $field) {
@@ -4251,14 +4259,20 @@ class AdminRepository
             }
 
             cache()->forget(Setting::MAINTENANCE_CACHE_KEY);
+            cache()->forget(Setting::APP_OFFLINE_CACHE_KEY);
 
             $nowInMaintenance = !empty($data['maintenance_enabled']);
+            $nowOffline = !empty($data['app_offline_enabled']);
 
             return [
                 'success' => true,
                 'message' => 'Settings saved successfully.' . match (true) {
                     $nowInMaintenance && !$wasInMaintenance => ' Maintenance mode is ON: visitors now see the maintenance page.',
                     !$nowInMaintenance && $wasInMaintenance => ' Maintenance mode is OFF: the website is live again.',
+                    default => '',
+                } . match (true) {
+                    $nowOffline && !$wasOffline => ' The app is now OFFLINE for all customers.',
+                    !$nowOffline && $wasOffline => ' The app is back ONLINE for all customers.',
                     default => '',
                 },
             ];

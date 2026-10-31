@@ -273,6 +273,9 @@
             @if (\App\Models\Setting::maintenance()['enabled'])
                 <span class="nav-count warm" title="Maintenance mode is on">ON</span>
             @endif
+            @if (\App\Models\Setting::appOffline()['enabled'])
+                <span class="nav-count warm" title="The app is offline for all customers">OFF</span>
+            @endif
         </a>
         <a class="nav-link {{ request()->routeIs('admin.backups.*') ? 'active' : '' }}"
             href="{{ route('admin.backups.index') }}">

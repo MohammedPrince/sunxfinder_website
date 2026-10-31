@@ -28,6 +28,66 @@
         @csrf
         @method('PUT')
 
+        {{-- App online/offline for all customers. The app reads this from /main-data. --}}
+        @php
+            $appOffline = $settings['app_offline'];
+        @endphp
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>
+                        Mobile app status
+                        <span class="pill {{ $appOffline['enabled'] ? 'pill-red' : 'pill-green' }}">
+                            {{ $appOffline['enabled'] ? 'Offline' : 'Online' }}
+                        </span>
+                    </h2>
+                    <p>
+                        Take the app offline for all customers, for example during an update. The app shows your message
+                        instead of its normal screens. The website and the admin and company panels keep working.
+                    </p>
+                </div>
+            </div>
+
+            <div class="panel-body">
+                <label class="toggle-card" for="app_offline_enabled">
+                    <span class="toggle-card-copy">
+                        <strong>Set the app offline</strong>
+                        <small>Each customer's app goes offline the next time it loads its data.</small>
+                    </span>
+                    <input type="hidden" name="app_offline_enabled" value="0">
+                    <input class="toggle-input" type="checkbox" id="app_offline_enabled" name="app_offline_enabled"
+                        value="1" @checked(old('app_offline_enabled', $appOffline['enabled']))>
+                    <span class="toggle-switch" aria-hidden="true"></span>
+                </label>
+
+                <div class="form-grid" style="margin-top:18px">
+                    <div class="form-group">
+                        <label for="app_offline_message_en">Offline message (English)</label>
+                        <textarea class="form-control" id="app_offline_message_en" name="app_offline_message_en" rows="3"
+                            maxlength="1000" placeholder="e.g. SunXFinder is being updated. Please try again in a few hours.">{{ old('app_offline_message_en', $appOffline['message_en']) }}</textarea>
+                        <small class="form-hint">Required while the app is offline.</small>
+                        @error('app_offline_message_en')
+                            <small class="field-error">{{ $message }}</small>
+                        @enderror
+                    </div>
+
+                    <div class="form-group">
+                        <label for="app_offline_message_ar">Offline message (Arabic)</label>
+                        <textarea class="form-control" id="app_offline_message_ar" name="app_offline_message_ar" rows="3"
+                            maxlength="1000" dir="rtl" lang="ar" placeholder="مثال: يجري تحديث SunXFinder. يرجى المحاولة بعد بضع ساعات.">{{ old('app_offline_message_ar', $appOffline['message_ar']) }}</textarea>
+                        <small class="form-hint">Required while the app is offline.</small>
+                        @error('app_offline_message_ar')
+                            <small class="field-error">{{ $message }}</small>
+                        @enderror
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save Settings</button>
+                </div>
+            </div>
+        </section>
+
         <section class="panel">
             <div class="panel-heading">
                 <div>

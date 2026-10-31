@@ -332,6 +332,7 @@ class CustomerRepository
                 'notifications' => $notifications,
                 'app_version' => $this->getAppVersions($customerId),
                 'app_status' => $this->getCustomerAppStatus($customerId),
+                'app_availability' => $this->getAppAvailability($customerId),
                 'settings' => $settings,
                 'rating_form' => $this->getRatingForm()['data'],
                 'meta' => [
@@ -378,6 +379,28 @@ class CustomerRepository
             'message_ar' => $messageAr,
             'lang' => $lang,
             'changed_at' => $customer?->app_status_changed_at?->toISOString(),
+        ];
+    }
+
+    /**
+     * Whether admin took the app offline for all customers (Settings), with the message
+     * in the app's language plus both languages. Messages are null while online.
+     */
+    private function getAppAvailability(int $customerId): array
+    {
+        $offline = Setting::appOffline();
+        $lang = $this->customerPreferredLanguage($customerId);
+        $messageEn = $offline['enabled'] ? $offline['message_en'] : null;
+        $messageAr = $offline['enabled'] ? $offline['message_ar'] : null;
+
+        return [
+            'status' => $offline['enabled'] ? 'offline' : 'online',
+            'is_online' => !$offline['enabled'],
+            'message' => $lang === 'ar' ? ($messageAr ?: $messageEn) : ($messageEn ?: $messageAr),
+            'message_en' => $messageEn,
+            'message_ar' => $messageAr,
+            'lang' => $lang,
+            'changed_at' => $offline['changed_at'],
         ];
     }
 

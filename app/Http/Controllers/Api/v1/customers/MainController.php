@@ -231,6 +231,8 @@ class MainController extends Controller
                     'app_version' => $result['app_version'],
                     // {"status":"active"|"stopped","message":"...in app language", ...}. Set by admin per customer.
                     'app_status' => $result['app_status'],
+                    // {"status":"online"|"offline","is_online":true,"message":"...in app language", ...}. Set by admin for all customers.
+                    'app_availability' => $result['app_availability'],
                     // e.g. {"max_open_quotes": 2}: this customer's limit (admin Settings default, or up to 5 if raised for them).
                     'settings' => $result['settings'],
                     // Rating questions and the 1-4 answer labels.

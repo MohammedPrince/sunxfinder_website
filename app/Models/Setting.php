@@ -98,4 +98,25 @@ class Setting extends Model
             ];
         });
     }
+
+    /** Cache key for the app offline settings (read on every /main-data). */
+    public const APP_OFFLINE_CACHE_KEY = 'app-offline';
+
+    /**
+     * App offline for all customers: enabled flag and EN/AR message, read by the app from
+     * /main-data. Cached for a minute; cleared whenever an admin saves the settings.
+     */
+    public static function appOffline(): array
+    {
+        return cache()->remember(self::APP_OFFLINE_CACHE_KEY, 60, function () {
+            $rows = static::query()->where('key', 'like', 'app_offline_%')->get()->keyBy('key');
+
+            return [
+                'enabled' => (bool) ($rows['app_offline_enabled']->value ?? false),
+                'message_en' => $rows['app_offline_message_en']->value ?? null,
+                'message_ar' => $rows['app_offline_message_ar']->value ?? null,
+                'changed_at' => isset($rows['app_offline_enabled']) ? $rows['app_offline_enabled']->updated_at?->toISOString() : null,
+            ];
+        });
+    }
 }
