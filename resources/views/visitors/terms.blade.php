@@ -16,13 +16,13 @@
                     Please read these terms carefully before using SunXFinder to discover solar solutions
                     or connect with solar energy companies and service providers.
                 </p>
-                <span class="legal-updated">Last updated: October 13, 2026</span>
+                <span class="legal-updated">Last updated: October 31, 2026</span>
             </header>
 
             <section class="legal-card">
                 <h2>1. Acceptance of These Terms</h2>
-                <p>These Terms and Conditions govern your access to and use of SunXFinder. By using the website or creating
-                    an account, you agree to these terms. If you do not agree, please discontinue use of the relevant
+                <p>These Terms and Conditions govern your access to and use of SunXFinder, including its website and mobile
+                    app. By using either of them or creating an account, you agree to these terms. If you do not agree, please discontinue use of the relevant
                     services.</p>
                 <p>If you use SunXFinder on behalf of a company or other organization, you confirm that you are authorized
                     to act on its behalf.</p>
@@ -31,7 +31,8 @@
             <section class="legal-card">
                 <h2>2. About SunXFinder</h2>
                 <p>SunXFinder is an online platform intended to help customers discover solar energy companies, explore
-                    their services, and connect with providers.</p>
+                    their services, request quotes, compare offers, follow project progress, and rate the providers they
+                    work with.</p>
                 <p>Unless a separate written agreement expressly says otherwise, SunXFinder is not the seller, installer,
                     manufacturer, or warranty provider for products or services offered by independent providers listed on
                     the platform.</p>
@@ -60,6 +61,10 @@
                     terms.</p>
                 <p>Customers are responsible for the decisions they make and any contracts they enter into directly with a
                     provider.</p>
+                <p>When you send a quote request without choosing a company, it is open to all solar companies on
+                    SunXFinder, and they can see your contact details in order to respond. The Privacy Policy explains
+                    what is shared.</p>
+                <p>Ratings and complaints must be honest and based on your own experience with the company.</p>
             </section>
 
             <section class="legal-card">
@@ -72,6 +77,11 @@
                     <li>Use only logos, photographs, and materials they are authorized to publish.</li>
                     <li>Respect customer privacy and comply with applicable laws.</li>
                     <li>Describe products, services, prices, qualifications, and warranties honestly.</li>
+                    <li>Use customer contact details only to handle that customer's request or project.</li>
+                    <li>Send notifications only through the platform, only to the customers they are permitted to
+                        reach, and never in a misleading or excessive way.</li>
+                    <li>Make sure the offers and invoices they issue are accurate and meet applicable tax and invoicing
+                        requirements.</li>
                 </ul>
                 <p>Companies remain responsible for their products, installations, quotations, contracts, warranties, and
                     dealings with customers.</p>
@@ -91,6 +101,9 @@
                 <p>Unless a separate agreement states otherwise, transactions for solar products and services are between
                     the customer and the relevant provider. SunXFinder does not guarantee the availability, pricing,
                     quality, suitability, safety, or legality of third-party products or services.</p>
+                <p>Offers and invoices shown on the platform are issued by the provider, not by SunXFinder. SunXFinder does
+                    not process payments for these transactions. Accepting an offer on the platform is a step between you
+                    and that provider, and SunXFinder is not a party to any resulting agreement.</p>
                 <p>Delivery, payment, installation, maintenance, warranties, and after-sales support are governed by the
                     agreements between the customer and provider. Solar output and savings depend on equipment,
                     installation, site conditions, weather, usage, and maintenance; no specific result is guaranteed by a
@@ -120,6 +133,8 @@
                     needed to publish it. By submitting content, you permit SunXFinder to display and use it as reasonably
                     necessary to operate and present the relevant platform features, subject to applicable law and any
                     separate agreement.</p>
+                <p>Ratings and comments you submit may appear publicly on the company's profile with a shortened form of
+                    your name. We may hide content that breaches these terms.</p>
             </section>
 
             <section class="legal-card">
@@ -159,8 +174,9 @@
                 <p>We may restrict or suspend access if we reasonably believe an account breaches these terms, threatens
                     platform security, or is being used unlawfully. Where appropriate and permitted by law, we may provide
                     notice or an opportunity to resolve the issue.</p>
-                <p>You may stop using SunXFinder at any time. Account closure and data retention remain subject to
-                    applicable legal requirements and our Privacy Policy.</p>
+                <p>You may stop using SunXFinder at any time. Customers can delete their account from the mobile app, except
+                    while they have a project in progress. Account closure and data retention remain subject to applicable
+                    legal requirements and our Privacy Policy.</p>
             </section>
 
             <section class="legal-card">
@@ -180,7 +196,6 @@
                 <h2>Questions About These Terms?</h2>
                 <p>Contact the SunXFinder team if you have questions about these Terms and Conditions.</p>
                 <p>Email: <a href="mailto:info@sunxfinder.com">info@sunxfinder.com</a></p>
-                <p>Please replace this email address with your monitored official contact address before publishing.</p>
             </section>
 
             {{-- <nav class="legal-footer-links" aria-label="Legal pages">
