@@ -4,6 +4,7 @@ namespace App\Services\Company;
 
 use App\Helpers\Helper;
 use App\Models\CompanyQuotation;
+use App\Models\Invoice;
 use App\Models\Product;
 use App\Models\Project;
 use App\Models\Quote;
@@ -181,6 +182,11 @@ class CompanyService
     public function getCompanyQuotationForQuote(int $quoteId): ?CompanyQuotation
     {
         return $this->companyRepository->getCompanyQuotationForQuote($quoteId);
+    }
+
+    public function getQuoteInvoice(int $quoteId): ?Invoice
+    {
+        return $this->companyRepository->getQuoteInvoice($quoteId);
     }
 
     public function getProjectForQuote(int $quoteId): ?Project

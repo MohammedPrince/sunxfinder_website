@@ -7,6 +7,7 @@ use Illuminate\Support\Str;
 use App\Models\ApiEndpoint;
 use App\Jobs\SendCompanyOfferDecisionEmail;
 use App\Jobs\SendCustomerWelcomeEmail;
+use App\Jobs\SendNewCustomerRegistrationAdminEmail;
 use App\Mail\CompanyOfferDecisionMail;
 use App\Models\ApplianceGroup;
 use App\Models\AppVersion;
@@ -18,6 +19,7 @@ use App\Models\CustomerDeviceToken;
 use App\Repositories\OtpRepository;
 use App\Models\CustomerNotification;
 use App\Models\ArchivedItem;
+use App\Models\Invoice;
 use App\Models\Project;
 use App\Models\ProjectMilestone;
 use App\Models\ProjectUpdate;
@@ -539,6 +541,13 @@ class CustomerRepository
                 'code' => 500,
                 'message' => 'Account not created.',
             ];
+        }
+
+        try {
+            SendNewCustomerRegistrationAdminEmail::dispatch((int) $customer->id, 'app')->afterCommit();
+        } catch (Throwable $e) {
+            // Admin notification failure must never invalidate a completed sign-up.
+            report($e);
         }
 
         // Save the phone's FCM token with the new customer_id, so pushes
@@ -1382,7 +1391,7 @@ class CustomerRepository
                 ->with([
                     'companyQuotations' => function ($offerQuery) {
                         $offerQuery
-                            ->with('company')
+                            ->with(['company', 'invoice'])
                             ->where('status', '!=', 'withdrawn');
                     },
 
@@ -1518,6 +1527,10 @@ class CustomerRepository
                                     'ar_message' => $offer->ar_message,
                                     'status' => $offer->status,
                                     'created_at' => $offer->created_at?->toISOString(),
+                                    // Line items and totals for the offer details screen.
+                                    ...$this->formatOfferBreakdown($offer),
+                                    // Null when the company did not attach an invoice.
+                                    'invoice' => $this->formatOfferInvoice($offer->invoice),
                                 ];
                             })
                             ->values(),
@@ -1550,7 +1563,62 @@ class CustomerRepository
         }
     }
 
+    /**
+     * An offer without an invoice has no line items, so its subtotal
+     * and total are the offer price and the other amounts are null.
+     */
+    private function formatOfferBreakdown(CompanyQuotation $offer): array
+    {
+        $invoice = $offer->invoice;
 
+        return [
+            'items' => collect($invoice?->items ?? [])
+                ->map(fn(array $item) => [
+                    'description' => $item['description'] ?? '',
+                    'ar_description' => $item['ar_description'] ?? null,
+                    'quantity' => (float) ($item['quantity'] ?? 0),
+                    'unit_price' => number_format((float) ($item['unit_price'] ?? 0), 2, '.', ''),
+                    'line_total' => number_format((float) ($item['total'] ?? 0), 2, '.', ''),
+                ])
+                ->values(),
+            'subtotal' => $invoice?->subtotal ?? $offer->price,
+            'discount' => $invoice?->discount,
+            'tax_percent' => $invoice ? rtrim(rtrim($invoice->tax_rate, '0'), '.') : null,
+            'tax' => $invoice?->tax,
+            'shipping' => $invoice?->shipping,
+            'total' => $offer->price,
+        ];
+    }
+
+    private function formatOfferInvoice(?Invoice $invoice): ?array
+    {
+        if (!$invoice) {
+            return null;
+        }
+
+        return [
+            'id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'invoice_date' => $invoice->invoice_date
+                ? Carbon::parse($invoice->invoice_date)->toDateString()
+                : null,
+            'payment_terms' => $invoice->payment_terms,
+            'payment_instructions' => $invoice->payment_instructions,
+            'currency' => $invoice->currency,
+            'company' => $invoice->company_details,
+            'customer' => $invoice->customer_details,
+            'items' => $invoice->items,
+            'subtotal' => (float) $invoice->subtotal,
+            'discount' => (float) $invoice->discount,
+            'subtotal_less_discount' => $invoice->subtotal_less_discount,
+            'tax_rate' => (float) $invoice->tax_rate,
+            'tax' => (float) $invoice->tax,
+            'shipping' => (float) $invoice->shipping,
+            'balance_due' => (float) $invoice->balance_due,
+            'created_at' => $invoice->created_at?->toISOString(),
+            'updated_at' => $invoice->updated_at?->toISOString(),
+        ];
+    }
 
     public function archiveQuote(array $data): array
     {

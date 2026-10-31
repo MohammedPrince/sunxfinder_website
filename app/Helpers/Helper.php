@@ -10,6 +10,7 @@ use App\Models\ProductSpec;
 use App\Models\CompanyQuotation;
 use App\Models\CustomerDeviceToken;
 use App\Models\CustomerNotification;
+use App\Models\Invoice;
 use App\Models\Project;
 use App\Models\ProjectMilestone;
 use App\Models\ProjectUpdate;
@@ -836,6 +837,7 @@ class Helper
             ProjectMilestone::query()->whereIn('id', $milestones->modelKeys())->delete();
             ProjectUpdate::query()->whereIn('id', $updates->modelKeys())->delete();
             Project::query()->whereIn('id', $projectIds)->delete();
+            Invoice::query()->whereIn('company_quotation_id', $offerIds)->delete();
             CompanyQuotation::query()->whereIn('id', $offerIds)->delete();
             $quote->delete();
 
@@ -903,7 +905,8 @@ class Helper
             ProjectUpdate::query()->whereIn('project_id', $projectIds)->delete();
             $projects = Project::query()->whereIn('id', $projectIds)->delete();
 
-            // Company offers on this customer's requests.
+            // Company offers on this customer's requests, with their invoices.
+            Invoice::query()->whereIn('quote_id', $quoteIds)->delete();
             $offers = CompanyQuotation::query()->whereIn('quote_id', $quoteIds)->delete();
             $quotes = Quote::query()->whereIn('id', $quoteIds)->delete();
 

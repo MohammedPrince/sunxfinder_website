@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Company;
 use App\Http\Controllers\Controller;
 use App\Models\RatingValue;
 use App\Services\Company\CompanyService;
+use App\Support\InvoicePdf;
 use App\Support\ReportPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -371,18 +372,25 @@ class MainController extends Controller
             $project = $this->companyService->getProjectForQuote($quote->id);
         }
 
+        $invoiceNumber = 'INV-' . now()->format('Ymd') . '-Q'
+            . str_pad((string) $quote->id, 5, '0', STR_PAD_LEFT)
+            . '-C' . auth()->guard('company')->id();
+
         return view('company.quote-requests.form', compact(
             'quote',
             'companyQuotation',
             'competitorPrices',
-            'project'
+            'project',
+            'invoiceNumber'
         ));
     }
 
     public function submitQuoteOffer(Request $request, int $id)
     {
         $validated = $request->validate([
+            // With an invoice, the price comes from the invoice balance.
             'price' => [
+                'exclude_if:include_invoice,1',
                 'required',
                 'numeric',
                 'min:1000',
@@ -403,6 +411,17 @@ class MainController extends Controller
                 'string',
                 'max:2000',
             ],
+            'include_invoice' => ['nullable', 'boolean'],
+            'invoice_number' => ['exclude_unless:include_invoice,1', 'required', 'string', 'max:60'],
+            'invoice_date' => ['exclude_unless:include_invoice,1', 'required', 'date_format:Y-m-d'],
+            'invoice_notes' => ['exclude_unless:include_invoice,1', 'nullable', 'string', 'max:2000'],
+            'invoice_discount' => ['exclude_unless:include_invoice,1', 'nullable', 'numeric', 'min:0', 'max:9999999999999'],
+            'invoice_tax_rate' => ['exclude_unless:include_invoice,1', 'nullable', 'numeric', 'min:0', 'max:100'],
+            'invoice_shipping' => ['exclude_unless:include_invoice,1', 'nullable', 'numeric', 'min:0', 'max:9999999999999'],
+            'invoice_items' => ['exclude_unless:include_invoice,1', 'required', 'array', 'min:1', 'max:25'],
+            'invoice_items.*.description' => ['exclude_unless:include_invoice,1', 'required', 'string', 'min:2', 'max:255'],
+            'invoice_items.*.quantity' => ['exclude_unless:include_invoice,1', 'required', 'numeric', 'gt:0', 'max:10000'],
+            'invoice_items.*.unit_price' => ['exclude_unless:include_invoice,1', 'required', 'numeric', 'min:0', 'max:9999999999999'],
         ], [
             'price.required' => 'Please enter your total offer price.',
             'price.numeric' => 'Please enter a valid total price.',
@@ -414,6 +433,32 @@ class MainController extends Controller
         return redirect()
             ->route('company.quote-requests.show', $id)
             ->with('success', 'Your offer has been saved successfully.');
+    }
+
+    public function showQuoteInvoice(int $id)
+    {
+        $invoice = $this->companyService->getQuoteInvoice($id);
+        if (!$invoice) {
+            return redirect()->route('company.quote-requests.show', $id)
+                ->with('error', 'No invoice has been created for this offer yet.');
+        }
+
+        return view('company.quote-requests.invoice', compact('invoice'));
+    }
+
+    public function downloadQuoteInvoice(int $id)
+    {
+        $invoice = $this->companyService->getQuoteInvoice($id);
+        if (!$invoice) {
+            return redirect()->route('company.quote-requests.show', $id)
+                ->with('error', 'No invoice has been created for this offer yet.');
+        }
+
+        $pdf = InvoicePdf::render($invoice);
+
+        return response()->streamDownload(function () use ($pdf) {
+            echo $pdf;
+        }, InvoicePdf::filename($invoice), ['Content-Type' => 'application/pdf']);
     }
 
     //Quote Requests End

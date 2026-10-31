@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CompanyQuotation extends Model
@@ -43,6 +44,14 @@ class CompanyQuotation extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(SolarCompany::class, 'company_id');
+    }
+
+    /**
+     * Invoice issued with this offer, if the company created one.
+     */
+    public function invoice(): HasOne
+    {
+        return $this->hasOne(Invoice::class, 'company_quotation_id');
     }
 
     /**

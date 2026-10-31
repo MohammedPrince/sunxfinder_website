@@ -6,6 +6,7 @@ use App\Helpers\Helper;
 use App\Models\CompanyQuotation;
 use App\Models\Customer;
 use App\Models\CustomerNotification;
+use App\Models\Invoice;
 use App\Models\Notification;
 use App\Models\Product;
 use App\Models\Project;
@@ -1098,17 +1099,18 @@ class CompanyRepository
 
     public function submitQuoteOffer(int $quoteId, array $data): CompanyQuotation
     {
+        /** @var SolarCompany|null $company */
         $company = Auth::guard('company')->user();
 
-        abort_if(
-            !$company || !$company->getAuthIdentifier(),
+        abort_unless(
+            $company instanceof SolarCompany && $company->getAuthIdentifier(),
             403,
             'Company authentication required.'
         );
 
         $companyId = (int) $company->getAuthIdentifier();
 
-        [$quotation, $type] = DB::transaction(function () use ($quoteId, $companyId, $data) {
+        [$quotation, $type] = DB::transaction(function () use ($quoteId, $companyId, $company, $data) {
             // Lock the request to prevent offer submission while it is being closed.
             $quote = Quote::query()
                 ->whereKey($quoteId)
@@ -1121,6 +1123,14 @@ class CompanyRepository
                     'price' => 'This request is no longer accepting or updating offers.',
                 ]);
             }
+
+            $quote->loadMissing('customer');
+            $invoiceData = !empty($data['include_invoice'])
+                ? $this->makeQuoteInvoiceData($quote, $company, $data)
+                : null;
+            $offerPrice = $invoiceData
+                ? $invoiceData['balance_due']
+                : $data['price'];
 
             // Find this company's existing offer for the request.
             $quotation = CompanyQuotation::query()
@@ -1156,11 +1166,13 @@ class CompanyRepository
 
                 // Update the existing row; do not insert another quotation.
                 $quotation->customer_id = $quote->customer_id;
-                $quotation->price = $data['price'];
+                $quotation->price = $offerPrice;
                 $quotation->currency = $data['currency'];
                 $quotation->message = $data['message'] ?? null;
                 $quotation->ar_message = $data['ar_message'] ?? null;
                 $quotation->save();
+
+                $this->saveOfferInvoice($quotation, $invoiceData);
 
                 return [$quotation->refresh(), 'offer_updated'];
             }
@@ -1170,12 +1182,14 @@ class CompanyRepository
             $quotation->quote_id = $quote->id;
             $quotation->customer_id = $quote->customer_id;
             $quotation->company_id = $companyId;
-            $quotation->price = $data['price'];
+            $quotation->price = $offerPrice;
             $quotation->currency = $data['currency'];
             $quotation->message = $data['message'] ?? null;
             $quotation->ar_message = $data['ar_message'] ?? null;
             $quotation->status = 'submitted';
             $quotation->save();
+
+            $this->saveOfferInvoice($quotation, $invoiceData);
 
             return [$quotation, 'offer_new'];
         });
@@ -1184,6 +1198,104 @@ class CompanyRepository
         $this->helper->notifyCustomerAboutOffer($quotation, $type);
 
         return $quotation;
+    }
+
+    private function makeQuoteInvoiceData(Quote $quote, SolarCompany $company, array $data): array
+    {
+        $items = collect($data['invoice_items'] ?? [])->map(function (array $item) {
+            $quantity = (float) $item['quantity'];
+            $unitPrice = round((float) $item['unit_price'], 2);
+
+            return [
+                'description' => trim($item['description']),
+                'quantity' => $quantity,
+                'unit_price' => $unitPrice,
+                'total' => round($quantity * $unitPrice, 2),
+            ];
+        })->values()->all();
+
+        $subtotal = round(array_sum(array_column($items, 'total')), 2);
+        $discount = min($subtotal, round((float) ($data['invoice_discount'] ?? 0), 2));
+        $taxRate = round((float) ($data['invoice_tax_rate'] ?? 0), 2);
+        $tax = round(max(0, $subtotal - $discount) * $taxRate / 100, 2);
+        $shipping = round((float) ($data['invoice_shipping'] ?? 0), 2);
+        $balanceDue = round($subtotal - $discount + $tax + $shipping, 2);
+
+        if ($balanceDue < 1000 || max($subtotal, $balanceDue) > 9999999999999) {
+            throw ValidationException::withMessages([
+                'invoice_items' => 'The invoice balance must be at least 1,000 and within the offer price limit.',
+            ]);
+        }
+
+        return [
+            'quote_id' => $quote->id,
+            'company_id' => $company->getAuthIdentifier(),
+            'customer_id' => $quote->customer_id,
+            'invoice_number' => trim((string) $data['invoice_number']),
+            'invoice_date' => $data['invoice_date'],
+            'payment_terms' => 'Due upon acceptance',
+            'payment_instructions' => trim((string) ($data['invoice_notes'] ?? '')) ?: null,
+            'currency' => $data['currency'],
+            'company_details' => [
+                'name' => $company->name,
+                'email' => $company->email,
+                'phone' => $company->phone,
+                'address' => $company->city,
+            ],
+            'customer_details' => [
+                'name' => $quote->customer?->full_name ?: $quote->customer?->username,
+                'email' => $quote->customer?->email,
+                'phone' => $quote->customer?->phone,
+                'address' => $quote->customer?->address,
+            ],
+            'items' => $items,
+            'subtotal' => $subtotal,
+            'discount' => $discount,
+            'tax_rate' => $taxRate,
+            'tax' => $tax,
+            'shipping' => $shipping,
+            'balance_due' => $balanceDue,
+        ];
+    }
+
+    /**
+     * Keep the offer's invoice in step with the submitted form. Each offer has one
+     * invoice row: turning the invoice off soft-deletes it, turning it on again restores it.
+     */
+    private function saveOfferInvoice(CompanyQuotation $quotation, ?array $invoiceData): void
+    {
+        $invoice = Invoice::withTrashed()
+            ->where('company_quotation_id', $quotation->id)
+            ->first();
+
+        if (!$invoiceData) {
+            if ($invoice && !$invoice->trashed()) {
+                $invoice->delete();
+            }
+
+            return;
+        }
+
+        // Numbers stay reserved by soft-deleted invoices, matching the unique index.
+        $numberTaken = Invoice::withTrashed()
+            ->where('company_id', $invoiceData['company_id'])
+            ->where('invoice_number', $invoiceData['invoice_number'])
+            ->where('company_quotation_id', '!=', $quotation->id)
+            ->exists();
+
+        if ($numberTaken) {
+            throw ValidationException::withMessages([
+                'invoice_number' => 'You have already used this invoice number on another invoice.',
+            ]);
+        }
+
+        $invoice ??= new Invoice(['company_quotation_id' => $quotation->id]);
+
+        if ($invoice->trashed()) {
+            $invoice->restore();
+        }
+
+        $invoice->fill($invoiceData)->save();
     }
 
     public function getCompanyQuotationForQuote(int $quoteId): ?CompanyQuotation
@@ -1201,6 +1313,15 @@ class CompanyRepository
             ->where('company_id', $company->getAuthIdentifier())
             // Include withdrawn offers so the company sees its final offer status.
             ->first();
+    }
+
+    public function getQuoteInvoice(int $quoteId): ?Invoice
+    {
+        if (!$this->getQuoteRequestById($quoteId)) {
+            return null;
+        }
+
+        return $this->getCompanyQuotationForQuote($quoteId)?->invoice;
     }
 
     public function getProjectForQuote(int $quoteId): ?Project

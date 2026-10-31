@@ -18,6 +18,16 @@
             </a>
         @endif
 
+        @if ($companyQuotation?->invoice)
+            <a href="{{ route('company.quote-requests.invoice', $quote->id) }}" class="btn btn-light">
+                View Invoice
+            </a>
+
+            <a href="{{ route('company.quote-requests.invoice.pdf', $quote->id) }}" class="btn btn-light">
+                Download Invoice PDF
+            </a>
+        @endif
+
         <button type="button" class="btn btn-primary" onclick="printQuote()">
             Print / Save PDF
         </button>
@@ -35,6 +45,16 @@
             ?? 'Customer #' . $quote->customer_id;
 
         $companyQuotation = $companyQuotation ?? null;
+        $invoice = $companyQuotation?->invoice;
+        // Renumbered so new rows never reuse an index after a validation error.
+        $invoiceItems = array_values(old('invoice_items', $invoice?->items ?? []));
+        if (!$invoiceItems) {
+            $invoiceItems = [[
+                'description' => 'Solar energy system',
+                'quantity' => 1,
+                'unit_price' => old('price', $companyQuotation?->price ?? ''),
+            ]];
+        }
         $authenticatedCompanyId = auth()->guard('company')->id();
 
         $statusLabels = [
@@ -133,7 +153,7 @@
                 '<strong>Make an offer</strong>: one total price for the complete system, plus a message in English and Arabic.',
                 '<strong>Wait for the customer</strong>: you can edit your offer until they choose. If they choose you, "View Project" appears at the top.',
             ],
-            'note' => 'Your price and messages are shown to the customer in the app.',
+            'note' => 'Your price, messages and invoice are shown to the customer in the app.',
         ])
 
         <section class="quote-summary">
@@ -391,7 +411,7 @@
             {{-- Make an Offer modal --}}
             <div class="offer-modal-overlay no-print" id="offerModal" aria-hidden="true">
 
-                <section class="offer-modal" role="dialog" aria-modal="true" aria-labelledby="offerModalTitle">
+                <section class="offer-modal offer-modal-with-invoice" role="dialog" aria-modal="true" aria-labelledby="offerModalTitle">
 
                     <div class="offer-modal-header">
                         <div>
@@ -403,8 +423,8 @@
 
                             <p>
                                 {{ $canEditOffer
-                ? 'Update your total price or message before the customer selects your offer.'
-                : "Enter the total price for the customer's requested system." }}
+                                    ? 'Update your price, invoice or message before the customer decides.'
+                                    : 'Build your price from an itemised invoice, or enter one total price.' }}
                             </p>
                         </div>
 
@@ -429,114 +449,214 @@
                                 </div>
                             @endif
 
-                            <div class="offer-request-summary">
-                                <div>
-                                    <span>Daily energy</span>
-                                    <strong>{{ $quote->daily_load ?: '—' }}</strong>
+                            <div class="offer-modal-main">
+                                @include('partials.page-guide', [
+                                    'key' => 'company-offer-modal',
+                                    'title' => 'How to submit your offer and invoice',
+                                    'intro' => 'Your offer is one total price for the complete system. Build it from an invoice, or turn the invoice off and type the price yourself.',
+                                    'steps' => [
+                                        '<strong>Check the customer needs</strong>: the daily energy, peak load and lowest other offer are in the side panel.',
+                                        '<strong>Choose the currency</strong>: SDG or USD. The same currency is used for the offer and the invoice.',
+                                        '<strong>Fill in the invoice</strong>: check the invoice number and date. Each invoice number can be used only once by your company.',
+                                        '<strong>Add items and services</strong>: enter a quantity and unit price for each one, or use Quick add. Then add any discount, tax and shipping.',
+                                        '<strong>Check the offer total</strong>: it is calculated from the invoice, updates as you type, and must be at least 1,000.',
+                                        '<strong>Write your message</strong>: explain what is included, in both English and Arabic.',
+                                        '<strong>Press ' . ($canEditOffer ? 'Save Changes' : 'Submit Offer') . '</strong>: then use View Invoice or Download Invoice PDF at the top of this page.',
+                                    ],
+                                    'note' => 'The customer sees your price, messages and invoice in the app. You can edit them until the customer chooses an offer; after that they are locked.',
+                                ])
+
+                                <div class="offer-form-group">
+                                    <label for="offer_price">
+                                        Your total price <span>*</span>
+                                        <em class="offer-price-source" id="offerPriceSource" hidden>Calculated from the invoice</em>
+                                    </label>
+
+                                    <div class="offer-price-input">
+                                        <input type="number" id="offer_price" name="price" class="form-control" min="1000"
+                                            step="0.01" placeholder="e.g. 1500000"
+                                            value="{{ old('price', $companyQuotation?->price) }}" required>
+
+                                        <select name="currency" aria-label="Currency" required>
+                                            <option value="SDG" @selected(old('currency', $companyQuotation?->currency ?? 'SDG') === 'SDG')>
+                                                SDG
+                                            </option>
+
+                                            <option value="USD" @selected(old('currency', $companyQuotation?->currency ?? 'SDG') === 'USD')>
+                                                USD
+                                            </option>
+                                        </select>
+                                    </div>
+
+                                    <small>
+                                        Total price for the complete solar system. Minimum: 1,000
+                                        in the selected currency.
+                                    </small>
+                                    @error('price')
+                                        <small class="field-error">{{ $message }}</small>
+                                    @enderror
                                 </div>
-                                <div>
-                                    <span>Peak load</span>
-                                    <strong>{{ $quote->peak_load ?: '—' }}</strong>
+
+                                <section class="offer-invoice-card" aria-labelledby="offerInvoiceTitle">
+                                    <div class="offer-invoice-heading">
+                                        <div>
+                                            <h3 id="offerInvoiceTitle">Invoice for this offer</h3>
+                                            <p>Saved with your offer. You can download it as a PDF, and the customer sees it in the app.</p>
+                                        </div>
+                                        <label class="offer-invoice-switch">
+                                            <input type="hidden" name="include_invoice" value="0">
+                                            <input type="checkbox" name="include_invoice" value="1" id="include_invoice"
+                                                data-had-invoice="{{ $invoice ? '1' : '0' }}"
+                                                @checked(old('include_invoice', $companyQuotation ? (bool) $invoice : true))>
+                                            <span>Create invoice</span>
+                                        </label>
+                                    </div>
+
+                                    <small class="offer-invoice-removal" id="invoiceRemovalNote" hidden>
+                                        Saving will remove the invoice from this offer.
+                                    </small>
+
+                                    <div id="invoiceBuilder" class="offer-invoice-content">
+                                        <div class="offer-invoice-meta">
+                                            <div class="offer-form-group">
+                                                <label for="invoice_number">Invoice number <span>*</span></label>
+                                                <input class="form-control" id="invoice_number" name="invoice_number" type="text" maxlength="60"
+                                                    value="{{ old('invoice_number', $invoice?->invoice_number ?? $invoiceNumber) }}" required>
+                                                @error('invoice_number')
+                                                    <small class="field-error">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+                                            <div class="offer-form-group">
+                                                <label for="invoice_date">Invoice date <span>*</span></label>
+                                                <input class="form-control" id="invoice_date" name="invoice_date" type="date"
+                                                    value="{{ old('invoice_date', $invoice && $invoice->invoice_date ? \Illuminate\Support\Carbon::parse($invoice->invoice_date)->toDateString() : now()->toDateString()) }}" required>
+                                            </div>
+                                        </div>
+
+                                        <div class="offer-invoice-parties">
+                                            <div><span>Bill to</span><strong>{{ $customerName }}</strong><small>{{ $customer?->email }}</small><small>{{ $customer?->phone }}</small></div>
+                                            <div><span>Ship to</span><strong>{{ $customer?->full_name ?: $customerName }}</strong><small>{{ $customer?->address ?: $customer?->city }}</small></div>
+                                        </div>
+
+                                        <div>
+                                            <div class="offer-invoice-items-head">
+                                                <div><strong>Items and services</strong><span>List the equipment, installation, and other included work.</span></div>
+                                                <button type="button" class="btn btn-light" id="addInvoiceItem">+ Add item</button>
+                                            </div>
+                                            <div class="offer-invoice-items" id="invoiceItems">
+                                                @foreach ($invoiceItems as $item)
+                                                    @include('company.quote-requests.partials.offer-invoice-item', ['index' => $loop->index, 'item' => $item])
+                                                @endforeach
+                                            </div>
+                                            <div class="offer-invoice-suggestions" aria-label="Quick add items">
+                                                <span>Quick add:</span>
+                                                @foreach (['Solar panels', 'Inverter', 'Batteries', 'Mounting structure', 'Cables and protection', 'Installation and testing'] as $suggestion)
+                                                    <button type="button" data-invoice-suggestion="{{ $suggestion }}">{{ $suggestion }}</button>
+                                                @endforeach
+                                            </div>
+                                            <template id="invoiceItemTemplate">
+                                                @include('company.quote-requests.partials.offer-invoice-item', ['index' => '__INDEX__', 'item' => []])
+                                            </template>
+                                            @error('invoice_items')
+                                                <small class="field-error">{{ $message }}</small>
+                                            @enderror
+                                        </div>
+
+                                        <div class="offer-invoice-adjustments">
+                                            <div class="offer-form-group"><label for="invoice_discount">Discount</label><input class="form-control" id="invoice_discount" name="invoice_discount" type="number" min="0" step="0.01" value="{{ old('invoice_discount', $invoice?->discount ?? 0) }}"></div>
+                                            <div class="offer-form-group"><label for="invoice_tax_rate">Tax rate (%)</label><input class="form-control" id="invoice_tax_rate" name="invoice_tax_rate" type="number" min="0" max="100" step="0.01" value="{{ old('invoice_tax_rate', $invoice?->tax_rate ?? 0) }}"></div>
+                                            <div class="offer-form-group"><label for="invoice_shipping">Shipping / handling</label><input class="form-control" id="invoice_shipping" name="invoice_shipping" type="number" min="0" step="0.01" value="{{ old('invoice_shipping', $invoice?->shipping ?? 0) }}"></div>
+                                        </div>
+
+                                        <div class="offer-form-group">
+                                            <label for="invoice_notes">Payment instructions / remarks</label>
+                                            <textarea class="form-control" id="invoice_notes" name="invoice_notes" rows="3" maxlength="2000" placeholder="Bank details, deposit, delivery notes...">{{ old('invoice_notes', $invoice?->payment_instructions) }}</textarea>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <div class="offer-messages">
+                                    <div class="offer-form-group">
+                                        <label for="message">
+                                            <span>*</span> Message to customer (English)
+                                        </label>
+
+                                        <textarea name="message" id="message" class="form-control" rows="5" required maxlength="2000"
+                                            placeholder="Describe the proposed solar system, including panels, inverter, batteries, installation, warranty, delivery time, and what is included in the total price.">{{ old('message', $companyQuotation?->message ?? 'Thank you for considering our company for your solar energy project. This offer includes the proposed solar equipment, installation, system testing, and warranty as specified in the quotation. Please review the details and contact us if you have any questions.') }}</textarea>
+                                        @error('message')
+                                            <small class="field-error">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+
+                                    <div class="offer-form-group">
+                                        <label for="ar_message">
+                                            <span>*</span> Message to customer (Arabic)
+                                        </label>
+
+                                        <textarea name="ar_message" id="ar_message" class="form-control" rows="5" dir="rtl" lang="ar"
+                                            required maxlength="2000"
+                                            placeholder="اكتب تفاصيل عرض السعر، والألواح الشمسية، والعاكس، والبطاريات، والتركيب، والضمان، ومدة التنفيذ...">{{ old('ar_message', $companyQuotation?->ar_message ?? 'شكرًا لاختياركم شركتنا لتقديم عرض لنظام الطاقة الشمسية. يشمل هذا العرض المعدات المقترحة وأعمال التركيب واختبار النظام والضمان وفقًا للتفاصيل الموضحة في عرض السعر. يرجى مراجعة التفاصيل والتواصل معنا إذا كانت لديكم أي استفسارات.') }}</textarea>
+                                        @error('ar_message')
+                                            <small class="field-error">{{ $message }}</small>
+                                        @enderror
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="offer-form-group">
-                                <label for="offer_price">
-                                    Your total price <span>*</span>
-                                </label>
-
-                                <div class="offer-price-input">
-                                    <input type="number" id="offer_price" name="price" class="form-control" min="1000"
-                                        step="0.01" placeholder="e.g. 1500000"
-                                        value="{{ old('price', $companyQuotation?->price) }}" required>
-
-                                    <select name="currency" aria-label="Currency" required>
-                                        <option value="SDG" @selected(old('currency', $companyQuotation?->currency ?? 'SDG') === 'SDG')>
-                                            SDG
-                                        </option>
-
-                                        <option value="USD" @selected(old('currency', $companyQuotation?->currency ?? 'SDG') === 'USD')>
-                                            USD
-                                        </option>
-                                    </select>
+                            <aside class="offer-modal-aside">
+                                <div class="offer-summary-card">
+                                    <h3>Customer needs</h3>
+                                    <dl>
+                                        <div><dt>Customer</dt><dd>{{ $customerName }}</dd></div>
+                                        <div><dt>Daily energy</dt><dd>{{ $quote->daily_load ?: '—' }}</dd></div>
+                                        <div><dt>Peak load</dt><dd>{{ $quote->peak_load ?: '—' }}</dd></div>
+                                        @foreach (($competitorPrices ?? collect())->groupBy('currency') as $competitorCurrency => $competitorOffers)
+                                            <div data-competitor-currency="{{ $competitorCurrency }}">
+                                                <dt>Lowest other offer</dt>
+                                                <dd>{{ number_format((float) $competitorOffers->min('price'), 2) }} {{ $competitorCurrency }}</dd>
+                                            </div>
+                                        @endforeach
+                                    </dl>
                                 </div>
 
-                                <small>
-                                    Total price for the complete solar system. Minimum: 1,000
-                                    in the selected currency.
-                                </small>
-                            </div>
+                                <div class="offer-summary-card">
+                                    <h3>Offer summary</h3>
+                                    <dl id="offerSummaryLines">
+                                        <div><dt>Subtotal</dt><dd id="summarySubtotal">0.00</dd></div>
+                                        <div><dt>Discount</dt><dd id="summaryDiscount">0.00</dd></div>
+                                        <div><dt>Tax</dt><dd id="summaryTax">0.00</dd></div>
+                                        <div><dt>Shipping / handling</dt><dd id="summaryShipping">0.00</dd></div>
+                                    </dl>
+                                    <div class="offer-summary-total">
+                                        <span>Offer total</span>
+                                        <strong><span id="summaryTotal">0.00</span> <small data-offer-currency>{{ old('currency', $companyQuotation?->currency ?? 'SDG') }}</small></strong>
+                                    </div>
+                                    <small class="offer-summary-minimum" id="offerMinimumWarning" hidden>
+                                        The offer total must be at least 1,000.
+                                    </small>
+                                </div>
 
-                            <div class="offer-form-group">
-                                <label for="message">
-                                    <span>*</span> Message to customer (English)
-                                </label>
-
-                                <textarea name="message" id="message" class="form-control" rows="5" required maxlength="2000"
-                                    placeholder="Describe the proposed solar system, including panels, inverter, batteries, installation, warranty, delivery time, 
-                                                                                                            and what is included in the total price.">{{ old('message', $companyQuotation?->message ?? 'Thank you for considering our company for your solar energy project. This offer includes the proposed solar equipment, 
-                                                                                                            installation, system testing, and warranty as specified in the quotation. Please review the details and contact us if you have any questions.') }}</textarea>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="ar_message"><span style="color:#dc2626">*</span> Message to customer
-                                    (Arabic)</label>
-
-                                <textarea name="ar_message" id="ar_message" class="form-control" rows="5" dir="rtl" lang="ar"
-                                    required maxlength="2000"
-                                    placeholder="اكتب تفاصيل عرض السعر، والألواح الشمسية،
-                                                                                                             والعاكس، والبطاريات، والتركيب، والضمان، ومدة التنفيذ...">{{ old('ar_message', $companyQuotation?->ar_message ?? 'شكرًا لاختياركم شركتنا لتقديم عرض لنظام الطاقة الشمسية.
-                                                                                                              يشمل هذا العرض المعدات المقترحة وأعمال التركيب واختبار النظام والضمان وفقًا للتفاصيل الموضحة في عرض السعر.
-                                                                                                              يرجى مراجعة التفاصيل والتواصل معنا إذا كانت لديكم أي استفسارات.') }}</textarea>
-
-                                @error('ar_message')
-                                    <small class="field-error">{{ $message }}</small>
-                                @enderror
-                            </div>
-
-
-                            <div class="offer-notice">
-                                <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor"
-                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="10" />
-                                    <path d="M12 11v5M12 8h.01" />
-                                </svg>
-
-                                <p>
-                                    Your price will be visible to the customer. They can compare offers
-                                    and select one company.
-                                </p>
-                            </div>
-
-                            <div class="offer-price-warning">
-                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M12 3 2.8 20h18.4L12 3Z" />
-                                    <path d="M12 9v4M12 16h.01" />
-                                </svg>
-
-                                <div>
-                                    <strong>
-                                        {{ $canEditOffer ? 'You can update your offer' : 'Review your offer carefully' }}
-                                    </strong>
+                                <div class="offer-notice">
+                                    <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor"
+                                        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="10" />
+                                        <path d="M12 11v5M12 8h.01" />
+                                    </svg>
 
                                     <p>
-                                        @if ($canEditOffer)
-                                            You can change your price, currency, or message while the offer
-                                            is submitted. Once the customer selects your offer, it cannot
-                                            be edited.
-                                        @else
-                                            Please verify your total price before submitting.
-                                            You can edit your offer while it remains submitted.
-                                        @endif
+                                        The customer sees your price and compares offers. You can edit
+                                        until they choose; after that your offer and invoice are locked.
                                     </p>
                                 </div>
-                            </div>
-
-
+                            </aside>
                         </div>
 
                         <div class="offer-modal-footer">
+                            <div class="offer-footer-total">
+                                <span>Offer total</span>
+                                <strong><span id="footerTotal">0.00</span> <small data-offer-currency>{{ old('currency', $companyQuotation?->currency ?? 'SDG') }}</small></strong>
+                            </div>
+
                             <button type="button" class="offer-cancel-button" onclick="closeOfferModal()">Cancel</button>
 
                             <button type="submit" class="offer-primary-button" id="submitOfferButton">
@@ -952,7 +1072,12 @@
             document.body.style.overflow = 'hidden';
 
             setTimeout(() => {
-                document.getElementById('offer_price')?.focus();
+                const invoiceEnabled = document.getElementById('include_invoice')?.checked;
+                const firstField = invoiceEnabled
+                    ? document.querySelector('#invoiceItems input')
+                    : document.getElementById('offer_price');
+
+                firstField?.focus();
             }, 50);
         }
 
@@ -970,6 +1095,141 @@
                 closeOfferModal();
             }
         }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const offerForm = document.getElementById('companyOfferForm');
+            const invoiceToggle = document.getElementById('include_invoice');
+            const invoiceBuilder = document.getElementById('invoiceBuilder');
+            const invoiceItems = document.getElementById('invoiceItems');
+            const invoiceItemTemplate = document.getElementById('invoiceItemTemplate');
+            const addInvoiceItem = document.getElementById('addInvoiceItem');
+            const offerPrice = document.getElementById('offer_price');
+            const currency = document.querySelector('#companyOfferForm [name="currency"]');
+            const submitButton = document.getElementById('submitOfferButton');
+
+            if (!invoiceToggle || !invoiceBuilder || !invoiceItems) return;
+
+            let nextInvoiceItemIndex = invoiceItems.querySelectorAll('[data-invoice-item]').length;
+
+            const roundMoney = (amount) => Math.round((amount + Number.EPSILON) * 100) / 100;
+            const formatMoney = (amount) => amount.toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            });
+            const setText = (id, text) => {
+                document.getElementById(id).textContent = text;
+            };
+
+            function updateRemoveButtons() {
+                const rows = invoiceItems.querySelectorAll('[data-invoice-item]');
+                rows.forEach(function (row) {
+                    row.querySelector('[data-remove-invoice-item]').disabled = rows.length <= 1;
+                });
+            }
+
+            function updateInvoiceState() {
+                const enabled = invoiceToggle.checked;
+                invoiceBuilder.hidden = !enabled;
+                offerPrice.readOnly = enabled;
+                document.getElementById('offerPriceSource').hidden = !enabled;
+                document.getElementById('offerSummaryLines').hidden = !enabled;
+                document.getElementById('invoiceRemovalNote').hidden = enabled || invoiceToggle.dataset.hadInvoice !== '1';
+                invoiceBuilder.querySelectorAll('input, textarea, select, button').forEach(function (field) {
+                    field.disabled = !enabled;
+                });
+                invoiceBuilder.querySelectorAll('[data-invoice-required]').forEach(function (field) {
+                    field.required = enabled;
+                });
+                updateRemoveButtons();
+                recalculateInvoice();
+            }
+
+            // Mirrors the totals in CompanyRepository::makeQuoteInvoiceData(), which has the final say.
+            function recalculateInvoice() {
+                let subtotal = 0;
+                invoiceItems.querySelectorAll('[data-invoice-item]').forEach(function (row) {
+                    const quantity = Math.max(0, Number(row.querySelector('[name$="[quantity]"]')?.value || 0));
+                    const unitPrice = Math.max(0, Number(row.querySelector('[data-invoice-price]')?.value || 0));
+                    const lineTotal = roundMoney(quantity * roundMoney(unitPrice));
+                    subtotal += lineTotal;
+                    row.querySelector('[data-line-total]').textContent = formatMoney(lineTotal);
+                });
+                subtotal = roundMoney(subtotal);
+
+                const discount = Math.min(subtotal, Math.max(0, Number(document.getElementById('invoice_discount')?.value || 0)));
+                const taxRate = Math.min(100, Math.max(0, Number(document.getElementById('invoice_tax_rate')?.value || 0)));
+                const shipping = Math.max(0, Number(document.getElementById('invoice_shipping')?.value || 0));
+                const tax = roundMoney((subtotal - discount) * taxRate / 100);
+                const balance = roundMoney(subtotal - discount + tax + shipping);
+
+                if (invoiceToggle.checked) offerPrice.value = balance.toFixed(2);
+
+                const total = invoiceToggle.checked ? balance : Number(offerPrice.value || 0);
+                const belowMinimum = total < 1000;
+
+                setText('summarySubtotal', formatMoney(subtotal));
+                setText('summaryDiscount', '− ' + formatMoney(discount));
+                setText('summaryTax', formatMoney(tax));
+                setText('summaryShipping', formatMoney(shipping));
+                setText('summaryTotal', formatMoney(total));
+                setText('footerTotal', formatMoney(total));
+                document.getElementById('offerMinimumWarning').hidden = !belowMinimum;
+                submitButton.disabled = belowMinimum;
+
+                document.querySelectorAll('[data-offer-currency]').forEach(function (label) {
+                    label.textContent = currency?.value || 'SDG';
+                });
+                document.querySelectorAll('[data-competitor-currency]').forEach(function (row) {
+                    row.hidden = row.dataset.competitorCurrency !== currency?.value;
+                });
+            }
+
+            function addItemRow(description = '') {
+                const index = nextInvoiceItemIndex++;
+                const template = document.createElement('template');
+                template.innerHTML = invoiceItemTemplate.innerHTML.replaceAll('__INDEX__', index);
+
+                const row = template.content.firstElementChild;
+                row.querySelector('[name$="[description]"]').value = description;
+                invoiceItems.appendChild(row);
+                updateInvoiceState();
+
+                return row;
+            }
+
+            addInvoiceItem?.addEventListener('click', function () {
+                addItemRow().querySelector('input')?.focus();
+            });
+
+            invoiceBuilder.querySelectorAll('[data-invoice-suggestion]').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    addItemRow(button.dataset.invoiceSuggestion).querySelector('[data-invoice-price]')?.focus();
+                });
+            });
+
+            invoiceItems.addEventListener('click', function (event) {
+                const removeButton = event.target.closest('[data-remove-invoice-item]');
+                if (!removeButton) return;
+                const rows = invoiceItems.querySelectorAll('[data-invoice-item]');
+                if (rows.length <= 1) return;
+                removeButton.closest('[data-invoice-item]').remove();
+                updateRemoveButtons();
+                recalculateInvoice();
+            });
+
+            invoiceBuilder.addEventListener('input', recalculateInvoice);
+            offerPrice.addEventListener('input', recalculateInvoice);
+            currency?.addEventListener('change', recalculateInvoice);
+            invoiceToggle.addEventListener('change', updateInvoiceState);
+
+            // Stops a double click from sending the offer twice.
+            offerForm.addEventListener('submit', function () {
+                submitButton.disabled = true;
+                submitButton.textContent = 'Saving...';
+            });
+
+            updateInvoiceState();
+        });
 
         document.addEventListener('keydown', function (event) {
             if (event.key === 'Escape') {

@@ -780,6 +780,758 @@
     animation: offerModalIn .18s ease-out;
 }
 
+.offer-modal-with-invoice {
+    max-width: 900px;
+}
+
+.offer-invoice-card {
+    overflow: hidden;
+    border: 1px solid #dce5ef;
+    border-radius: 12px;
+    background: #fbfcfe;
+}
+
+.offer-invoice-heading,
+.offer-invoice-items-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 18px;
+    border-bottom: 1px solid #e7edf4;
+}
+
+.offer-invoice-heading h3,
+.offer-invoice-items-head strong {
+    display: block;
+    margin: 0;
+    color: #172b4d;
+    font-size: 15px;
+}
+
+.offer-invoice-heading p,
+.offer-invoice-items-head span {
+    display: block;
+    margin: 5px 0 0;
+    color: #64748b;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.offer-invoice-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    color: #172b4d;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.offer-invoice-switch input {
+    width: 17px;
+    height: 17px;
+    accent-color: #f4510b;
+}
+
+.offer-invoice-content {
+    display: grid;
+    gap: 16px;
+    padding: 18px;
+}
+
+.offer-invoice-content[hidden] {
+    display: none;
+}
+
+.offer-invoice-meta,
+.offer-invoice-adjustments {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.offer-invoice-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.offer-invoice-parties {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.offer-invoice-parties > div {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+    padding: 13px;
+    border: 1px solid #e5edf7;
+    border-radius: 9px;
+    background: #fff;
+}
+
+.offer-invoice-parties span,
+.offer-invoice-item-total span {
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.offer-invoice-parties strong {
+    overflow-wrap: anywhere;
+    color: #172b4d;
+    font-size: 12px;
+}
+
+.offer-invoice-parties small {
+    overflow-wrap: anywhere;
+    color: #64748b;
+    font-size: 11px;
+}
+
+.offer-invoice-items-head {
+    padding: 0 0 11px;
+    border-bottom: 0;
+}
+
+.offer-invoice-item {
+    display: grid;
+    grid-template-columns: minmax(180px, 2fr) minmax(70px, .55fr) minmax(110px, .8fr) minmax(90px, .7fr) 32px;
+    align-items: end;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid #e5edf7;
+    border-radius: 9px;
+    background: #fff;
+}
+
+.offer-invoice-item .offer-form-group {
+    gap: 6px;
+}
+
+.offer-invoice-item .offer-form-group label {
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.offer-invoice-item .form-control,
+.offer-invoice-content .offer-form-group .form-control {
+    width: 100%;
+    min-width: 0;
+    min-height: 39px;
+    box-sizing: border-box;
+    padding: 9px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    outline: none;
+    background: #fff;
+    color: #172b4d;
+    font: inherit;
+    font-size: 12px;
+}
+
+.offer-invoice-content .offer-form-group .form-control:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgb(59 130 246 / 12%);
+}
+
+.offer-invoice-item-total {
+    display: grid;
+    gap: 6px;
+    min-height: 39px;
+    align-content: center;
+    color: #172b4d;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.offer-invoice-remove {
+    display: grid;
+    width: 32px;
+    height: 36px;
+    place-items: center;
+    border: 1px solid #fee2e2;
+    border-radius: 8px;
+    background: #fff7f7;
+    color: #dc2626;
+    cursor: pointer;
+}
+
+.offer-invoice-bottom {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(190px, .65fr);
+    align-items: end;
+    gap: 16px;
+}
+
+.offer-invoice-total {
+    display: grid;
+    gap: 7px;
+    padding: 14px;
+    border-radius: 9px;
+    background: #fff3e8;
+    color: #8f3208;
+}
+
+.offer-invoice-total > span {
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.offer-invoice-total strong {
+    font-size: 21px;
+}
+
+.offer-invoice-total small {
+    font-size: 11px;
+}
+
+.offer-invoice-hint {
+    color: #64748b;
+    font-size: 11px;
+}
+
+.company-invoice {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 42px;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: #fff;
+    color: #172b4d;
+    box-shadow: 0 14px 40px rgb(15 23 42 / 8%);
+}
+
+.company-invoice-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 26px;
+    border-bottom: 3px solid #f4510b;
+}
+
+.company-invoice-label {
+    color: #f4510b;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .16em;
+}
+
+.company-invoice-header h2 {
+    margin: 9px 0 8px;
+    font-size: 24px;
+}
+
+.company-invoice-header p,
+.company-invoice-parties p {
+    margin: 4px 0;
+    color: #64748b;
+    font-size: 12px;
+}
+
+.company-invoice-number {
+    display: grid;
+    gap: 7px;
+    align-content: start;
+    text-align: right;
+    color: #64748b;
+    font-size: 12px;
+}
+
+.company-invoice-number strong {
+    color: #172b4d;
+    font-size: 18px;
+}
+
+.company-invoice-parties {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    padding: 26px 0;
+}
+
+.company-invoice-parties > div {
+    min-width: 0;
+}
+
+.company-invoice-parties span,
+.company-invoice-notes > span {
+    display: block;
+    margin-bottom: 8px;
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+.company-invoice-parties strong {
+    font-size: 14px;
+}
+
+.company-invoice-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.company-invoice-table th,
+.company-invoice-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #e8edf3;
+    text-align: left;
+    font-size: 12px;
+}
+
+.company-invoice-table th {
+    background: #f6f8fb;
+    color: #475569;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+}
+
+.company-invoice-table td:not(:first-child),
+.company-invoice-table th:not(:first-child) {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.company-invoice-footer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(250px, .7fr);
+    gap: 32px;
+    padding-top: 24px;
+}
+
+.company-invoice-notes p {
+    margin: 0;
+    color: #475569;
+    font-size: 12px;
+    line-height: 1.7;
+    white-space: pre-line;
+}
+
+.company-invoice-totals {
+    display: grid;
+    gap: 9px;
+    margin: 0;
+}
+
+.company-invoice-totals > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    color: #475569;
+    font-size: 12px;
+}
+
+.company-invoice-totals dd {
+    margin: 0;
+    color: #172b4d;
+    font-weight: 700;
+    text-align: right;
+}
+
+.company-invoice-totals .is-balance {
+    margin-top: 5px;
+    padding: 14px 0 0;
+    border-top: 2px solid #f4510b;
+    color: #172b4d;
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.company-invoice-totals .is-balance dd {
+    color: #f4510b;
+    font-size: 17px;
+}
+
+@media (max-width: 700px) {
+    .offer-invoice-heading,
+    .offer-invoice-items-head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .offer-invoice-meta,
+    .offer-invoice-adjustments {
+        grid-template-columns: 1fr;
+    }
+
+    .offer-invoice-item {
+        grid-template-columns: minmax(0, 1fr) minmax(70px, .45fr) 32px;
+    }
+
+    .offer-invoice-item-description {
+        grid-column: 1 / -1;
+    }
+
+    .offer-invoice-item-total {
+        grid-column: 2;
+    }
+
+    .offer-invoice-remove {
+        grid-column: 3;
+        grid-row: 2;
+    }
+
+    .offer-invoice-bottom,
+    .company-invoice-footer {
+        grid-template-columns: 1fr;
+    }
+
+    .company-invoice {
+        padding: 24px 18px;
+    }
+
+    .company-invoice-header {
+        flex-direction: column;
+    }
+
+    .company-invoice-number {
+        text-align: left;
+    }
+
+    .company-invoice-parties {
+        gap: 16px;
+    }
+
+    .company-invoice-table-wrap {
+        overflow-x: auto;
+    }
+}
+
+/* Scoped to the invoice page: this stylesheet loads on every company page. */
+@media print {
+    body:has(.company-invoice) {
+        background: #fff !important;
+    }
+
+    body:has(.company-invoice) * {
+        visibility: hidden !important;
+    }
+
+    body:has(.company-invoice) .company-invoice,
+    body:has(.company-invoice) .company-invoice * {
+        visibility: visible !important;
+    }
+
+    .company-invoice {
+        position: absolute;
+        inset: 0 auto auto 0;
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    body:has(.company-invoice) .no-print,
+    body:has(.company-invoice) aside,
+    body:has(.company-invoice) nav,
+    body:has(.company-invoice) header:not(.company-invoice-header),
+    body:has(.company-invoice) footer {
+        display: none !important;
+    }
+
+    @page {
+        size: A4;
+        margin: 16mm;
+    }
+}
+
+/* Offer modal: fixed header and footer, form and live summary side by side. */
+.offer-modal-with-invoice {
+    display: flex;
+    flex-direction: column;
+    max-width: 1080px;
+    max-height: min(92vh, 900px);
+    overflow: hidden;
+}
+
+.offer-modal-with-invoice form {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.offer-modal-with-invoice .offer-modal-header {
+    padding-bottom: 16px;
+}
+
+.offer-modal-with-invoice .offer-close-button {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.offer-modal-with-invoice .offer-close-button:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.offer-modal-with-invoice .offer-modal-body {
+    flex: 1;
+    grid-template-columns: minmax(0, 1fr) 290px;
+    align-items: start;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.offer-modal-with-invoice .offer-form-errors {
+    grid-column: 1 / -1;
+}
+
+.offer-modal-with-invoice .field-error {
+    color: #dc2626;
+}
+
+.offer-modal-main {
+    display: grid;
+    gap: 20px;
+    min-width: 0;
+}
+
+.offer-modal-aside {
+    position: sticky;
+    top: 0;
+    display: grid;
+    gap: 14px;
+}
+
+.offer-price-source {
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #fff3e8;
+    color: #8f3208;
+    font-size: 10px;
+    font-style: normal;
+    font-weight: 700;
+}
+
+.offer-price-input input:read-only {
+    background: #f8fafc;
+    color: #475569;
+    cursor: not-allowed;
+}
+
+.offer-invoice-removal {
+    display: block;
+    padding: 10px 18px;
+    background: #fef2f2;
+    color: #991b1b;
+    font-size: 11px;
+}
+
+.offer-invoice-removal[hidden] {
+    display: none;
+}
+
+.offer-invoice-items {
+    display: grid;
+    gap: 8px;
+}
+
+.offer-invoice-remove:disabled {
+    opacity: .35;
+    cursor: not-allowed;
+}
+
+.offer-invoice-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.offer-invoice-suggestions span {
+    color: #64748b;
+    font-size: 11px;
+}
+
+.offer-invoice-suggestions button {
+    padding: 5px 10px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 999px;
+    background: #fff;
+    color: #475569;
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.offer-invoice-suggestions button:hover {
+    border-color: #f4510b;
+    color: #f4510b;
+}
+
+.offer-messages {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.offer-summary-card {
+    padding: 15px;
+    border: 1px solid #e5edf7;
+    border-radius: 11px;
+    background: #fbfcfe;
+}
+
+.offer-summary-card h3 {
+    margin: 0 0 11px;
+    color: #172b4d;
+    font-size: 13px;
+}
+
+.offer-summary-card dl {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+}
+
+.offer-summary-card dl[hidden],
+.offer-summary-card dl > div[hidden] {
+    display: none;
+}
+
+.offer-summary-card dl > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12px;
+}
+
+.offer-summary-card dt {
+    flex-shrink: 0;
+    color: #64748b;
+}
+
+.offer-summary-card dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: #172b4d;
+    font-weight: 700;
+    text-align: right;
+}
+
+.offer-summary-total {
+    display: grid;
+    gap: 4px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 2px solid #f4510b;
+}
+
+.offer-summary-total > span {
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.offer-summary-total strong {
+    overflow-wrap: anywhere;
+    color: #f4510b;
+    font-size: 21px;
+    line-height: 1.25;
+}
+
+.offer-summary-total small {
+    font-size: 11px;
+}
+
+.offer-summary-minimum {
+    display: block;
+    margin-top: 8px;
+    color: #dc2626;
+    font-size: 11px;
+}
+
+.offer-summary-minimum[hidden] {
+    display: none;
+}
+
+.offer-modal-with-invoice .offer-modal-footer {
+    align-items: center;
+}
+
+.offer-footer-total {
+    display: grid;
+    gap: 2px;
+    margin-right: auto;
+}
+
+.offer-footer-total span {
+    color: #64748b;
+    font-size: 11px;
+}
+
+.offer-footer-total strong {
+    color: #172b4d;
+    font-size: 17px;
+}
+
+.offer-footer-total small {
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.offer-primary-button:disabled {
+    opacity: .55;
+    transform: none;
+    cursor: not-allowed;
+}
+
+/* Column labels only above the first invoice row. */
+@media (min-width: 701px) {
+    .offer-invoice-item {
+        padding: 10px 12px;
+    }
+
+    .offer-invoice-item:not(:first-child) .offer-form-group label,
+    .offer-invoice-item:not(:first-child) .offer-invoice-item-total span {
+        display: none;
+    }
+}
+
+@media (max-width: 900px) {
+    .offer-modal-with-invoice .offer-modal-body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .offer-modal-aside {
+        position: static;
+    }
+}
+
+@media (max-width: 650px) {
+    .offer-messages {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .offer-modal-with-invoice {
+        max-height: 96vh;
+    }
+
+    .offer-modal-with-invoice .offer-modal-footer {
+        flex-wrap: wrap;
+    }
+
+    .offer-footer-total {
+        flex-basis: 100%;
+    }
+}
+
 @keyframes offerModalIn {
     from {
         opacity: 0;

@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Helpers\Helper;
 use App\Jobs\SendCustomerWelcomeEmail;
+use App\Jobs\SendNewCustomerRegistrationAdminEmail;
 use App\Mail\ContactMessageMail;
 use App\Mail\NewCompanyRegisteredMail;
 use Illuminate\Support\Facades\Mail;
@@ -194,6 +195,13 @@ class MainRepository
             $customer->preferred_language = app()->getLocale() === 'ar' ? 'ar' : 'en';
 
             if ($customer->save()) {
+                try {
+                    SendNewCustomerRegistrationAdminEmail::dispatch((int) $customer->id, 'website')->afterCommit();
+                } catch (Throwable $e) {
+                    // Admin notification failure must not invalidate a completed sign-up.
+                    report($e);
+                }
+
                 Log::info('Customer registered; dispatching welcome email.', [
                     'customer_id' => $customer->id,
                     'locale' => app()->getLocale(),

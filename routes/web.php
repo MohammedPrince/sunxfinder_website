@@ -359,6 +359,8 @@ Route::prefix('company')->name('company.')->group(function () {
                 Route::get('/', 'quoteRequests')->name('index');
                 Route::get('/{id}', 'quoteRequestDetails')->whereNumber('id')->name('show');
                 Route::post('/{id}/offer', 'submitQuoteOffer')->whereNumber('id')->name('offer.store');
+                Route::get('/{id}/invoice', 'showQuoteInvoice')->whereNumber('id')->name('invoice');
+                Route::get('/{id}/invoice/pdf', 'downloadQuoteInvoice')->whereNumber('id')->middleware('throttle:30,1')->name('invoice.pdf');
             });
 
             // Push notifications
