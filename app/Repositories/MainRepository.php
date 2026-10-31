@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Mail;
 use App\Models\AppVersion;
 use App\Models\CompanyCarousel;
 use App\Models\Customer;
+use App\Models\LegalSection;
 use App\Models\SolarCompany;
 use App\Models\Visitor;
 use Illuminate\Database\Eloquent\Collection;
@@ -424,6 +425,34 @@ class MainRepository
     public function getVisitorCount(): int
     {
         return Visitor::count();
+    }
+
+    /**
+     * The admin's text for a legal page, or null to show the built-in page
+     * (nothing saved, or the table does not exist yet during a deploy).
+     */
+    public function getLegalPage(string $page): ?array
+    {
+        try {
+            $rows = LegalSection::query()->forPage($page)->where('is_active', true)->get();
+        } catch (Throwable $e) {
+            report($e);
+
+            return null;
+        }
+
+        $header = $rows->firstWhere('type', 'header');
+        $sections = $rows->where('type', 'section')->values();
+
+        if (!$header || $sections->isEmpty()) {
+            return null;
+        }
+
+        return [
+            'header' => $header,
+            'sections' => $sections,
+            'contacts' => $rows->where('type', 'contact')->values(),
+        ];
     }
 
 }

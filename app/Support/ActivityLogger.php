@@ -37,6 +37,7 @@ class ActivityLogger
         \App\Models\AppSlider::class => ['app slide', 'app'],
         \App\Models\AppVersion::class => ['app version', 'app'],
         \App\Models\ApiEndpoint::class => ['API endpoint', 'app'],
+        \App\Models\LegalSection::class => ['legal section', 'app'],
         \App\Models\Setting::class => ['setting', 'app'],
     ];
 

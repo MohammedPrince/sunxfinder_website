@@ -595,6 +595,38 @@ class MainController extends Controller
         ], $result['code']);
     }
 
+    public function privacyPolicy(Request $request)
+    {
+        return $this->legalPage($request, 'privacy');
+    }
+
+    public function terms(Request $request)
+    {
+        return $this->legalPage($request, 'terms');
+    }
+
+    private function legalPage(Request $request, string $page)
+    {
+        $result = $this->customerService->getLegalPage($page, $request->query('lang'));
+
+        if ($result['success']) {
+            return response()->json([
+                'status' => 'success',
+                'code' => $result['code'],
+                'message' => $result['message'],
+                'data' => [
+                    'page' => $result['page'],
+                ],
+            ], $result['code']);
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'code' => $result['code'],
+            'error' => $result['message'],
+        ], $result['code']);
+    }
+
     public function appliancesCalculator()
     {
         $result = $this->customerService->appliancesCalculator();

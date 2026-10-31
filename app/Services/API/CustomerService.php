@@ -79,6 +79,11 @@ class CustomerService
         return $this->customerRepository->getCarousels();
     }
 
+    public function getLegalPage(string $page, ?string $lang = null): array
+    {
+        return $this->customerRepository->getLegalPage($page, $lang);
+    }
+
     public function getAppSliders(): array
     {
         return $this->customerRepository->getAppSliders();

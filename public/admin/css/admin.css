@@ -8254,3 +8254,48 @@ a.cd-chip:hover {
         grid-template-columns: minmax(0, 1fr);
     }
 }
+
+/* Admin Privacy & Terms */
+.legal-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.legal-tabs a {
+    padding: 9px 16px;
+    border: 1px solid #e4eaf0;
+    border-radius: 10px;
+    background: #fff;
+    color: inherit;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.legal-tabs a.is-active {
+    border-color: #087fe0;
+    background: #087fe0;
+    color: #fff;
+}
+
+.legal-toolbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.legal-empty-action {
+    margin-top: 12px;
+}
+
+.legal-editor .ql-editor {
+    min-height: 220px;
+    font-size: 15px;
+    line-height: 1.7;
+}
+
+.legal-editor[dir="rtl"] .ql-editor {
+    text-align: right;
+}

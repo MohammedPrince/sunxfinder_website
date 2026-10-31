@@ -222,7 +222,7 @@
         </a>
         @endcomponent
 
-        @component('partials.nav-group', ['key' => 'system', 'label' => 'System', 'icon' => 'gear', 'routes' => ['admin.send-email.*', 'admin.logs.*', 'admin.queue.*', 'admin.settings.*', 'admin.backups.*', 'admin.archives.*']])
+        @component('partials.nav-group', ['key' => 'system', 'label' => 'System', 'icon' => 'gear', 'routes' => ['admin.send-email.*', 'admin.logs.*', 'admin.queue.*', 'admin.settings.*', 'admin.backups.*', 'admin.legal.*', 'admin.archives.*']])
         <a class="nav-link {{ request()->routeIs('admin.send-email.*') ? 'active' : '' }}"
             href="{{ route('admin.send-email.index') }}">
             <span class="nav-icon">
@@ -285,6 +285,17 @@
                 </svg>
             </span>
             <span>Database Backups</span>
+        </a>
+        <a class="nav-link {{ request()->routeIs('admin.legal.*') ? 'active' : '' }}"
+            href="{{ route('admin.legal.index') }}">
+            <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 3 5 6v5c0 4.4 3 8.2 7 10 4-1.8 7-5.6 7-10V6Z" />
+                    <path d="m9 12 2 2 4-4" />
+                </svg>
+            </span>
+            <span>Privacy &amp; Terms</span>
         </a>
         <a class="nav-link {{ request()->routeIs('admin.archives.*') ? 'active' : '' }}"
             href="{{ route('admin.archives.index') }}">

@@ -6,7 +6,6 @@ use App\Http\Controllers\Company\AuthController as CompanyAuthController;
 use App\Http\Controllers\Company\MainController as CompanyMainController;
 use App\Http\Controllers\Company\ProjectController;
 use App\Http\Controllers\WebsiteController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 
@@ -46,14 +45,9 @@ Route::controller(WebsiteController::class)->middleware('site.maintenance')->gro
     });
 });
 
-// Legal pages: ?lang=ar shows the Arabic version
-Route::get('/terms', function (Request $request) {
-    return view($request->query('lang', app()->getLocale()) === 'ar' ? 'visitors.terms-ar' : 'visitors.terms');
-})->name('terms');
-
-Route::get('/privacy-policy', function (Request $request) {
-    return view($request->query('lang', app()->getLocale()) === 'ar' ? 'visitors.privacy-policy-ar' : 'visitors.privacy-policy');
-})->name('privacy-policy');
+// Legal pages: ?lang=ar shows the Arabic version (text from Admin → System → Privacy & Terms)
+Route::get('/terms', [WebsiteController::class, 'terms'])->name('terms');
+Route::get('/privacy-policy', [WebsiteController::class, 'privacyPolicy'])->name('privacy-policy');
 
 /*
 |--------------------------------------------------------------------------
@@ -284,6 +278,19 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::post('/', 'createDatabaseBackup')->middleware('throttle:5,1')->name('store');
                 Route::get('/{file}/download', 'downloadDatabaseBackup')->where('file', '[A-Za-z0-9_\-]+\.sql')->name('download');
                 Route::delete('/{file}', 'deleteDatabaseBackup')->where('file', '[A-Za-z0-9_\-]+\.sql')->name('destroy');
+            });
+
+            // Privacy Policy and Terms text, section by section, in English and Arabic
+            Route::prefix('legal-pages')->name('legal.')->group(function () {
+                Route::get('/', 'legalPages')->name('index');
+                Route::get('/{page}/create', 'createLegalSection')->whereIn('page', ['privacy', 'terms'])->name('create');
+                Route::post('/{page}', 'storeLegalSection')->whereIn('page', ['privacy', 'terms'])->name('store');
+                Route::post('/{page}/load-current', 'loadLegalDefaults')->whereIn('page', ['privacy', 'terms'])->name('load');
+                Route::get('/sections/{id}/edit', 'editLegalSection')->whereNumber('id')->name('edit');
+                Route::put('/sections/{id}', 'updateLegalSection')->whereNumber('id')->name('update');
+                Route::patch('/sections/{id}/toggle', 'toggleLegalSection')->whereNumber('id')->name('toggle');
+                Route::patch('/sections/{id}/move', 'moveLegalSection')->whereNumber('id')->name('move');
+                Route::delete('/sections/{id}', 'destroyLegalSection')->whereNumber('id')->name('destroy');
             });
 
             // Archived website and app records. Removing an archive entry is a soft delete.

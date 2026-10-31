@@ -20,6 +20,11 @@ class MainService
         return $this->mainRepository->getCompanies();
     }
 
+    public function getLegalPage(string $page): ?array
+    {
+        return $this->mainRepository->getLegalPage($page);
+    }
+
     public function verifiedCount(): int
     {
         return $this->mainRepository->verifiedCount();

@@ -16,10 +16,12 @@ use App\Models\CompanyCarousel;
 use App\Models\CompanyQuotation;
 use App\Models\Customer;
 use App\Models\CustomerDeviceToken;
+use App\Repositories\MainRepository;
 use App\Repositories\OtpRepository;
 use App\Models\CustomerNotification;
 use App\Models\ArchivedItem;
 use App\Models\Invoice;
+use App\Models\LegalSection;
 use App\Models\Project;
 use App\Models\ProjectMilestone;
 use App\Models\ProjectUpdate;
@@ -30,6 +32,7 @@ use App\Models\RatingValue;
 use App\Models\Setting;
 use App\Models\SolarCompany;
 use App\Support\ActivityLogger;
+use App\Support\LegalDefaults;
 use Carbon\Carbon;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Cache;
@@ -1146,6 +1149,68 @@ class CustomerRepository
      * changes a slide, so the frequent main-data call stays cheap. Schedules are
      * respected to within that minute.
      */
+    /**
+     * A legal page in one language: ?lang=en|ar when the app sends it, otherwise the
+     * language saved with the customer's device. Empty table: the built-in text.
+     */
+    public function getLegalPage(string $page, ?string $lang = null): array
+    {
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        if (!$customer) {
+            return [
+                'success' => false,
+                'code' => 401,
+                'message' => 'Unauthenticated.',
+            ];
+        }
+
+        try {
+            $lang = in_array($lang, ['en', 'ar'], true) ? $lang : $this->customerPreferredLanguage($customer->id);
+            $legal = app(MainRepository::class)->getLegalPage($page) ?? LegalDefaults::page($page);
+            $header = $legal['header'];
+
+            // Site paths such as /terms?lang=en cannot be opened from inside the app.
+            $body = fn(LegalSection $block): string => preg_replace(
+                '#href="/(?!/)#',
+                'href="' . url('/') . '/',
+                (string) $block->text('body', $lang)
+            );
+
+            return [
+                'success' => true,
+                'code' => 200,
+                'message' => $lang === 'ar' ? 'تم جلب الصفحة بنجاح.' : 'Page retrieved successfully.',
+                'page' => [
+                    'key' => $page,
+                    'lang' => $lang,
+                    'label' => $header->text('eyebrow', $lang),
+                    'title' => $header->text('title', $lang),
+                    'intro' => $header->text('body', $lang),
+                    'last_updated' => $header->last_updated?->toDateString(),
+                    'url' => route(LegalSection::ROUTES[$page], ['lang' => $lang]),
+                    'sections' => $legal['sections']->values()->map(fn(LegalSection $section, int $index): array => [
+                        'number' => $index + 1,
+                        'title' => $section->text('title', $lang),
+                        'body' => $body($section),
+                    ])->all(),
+                    'contacts' => $legal['contacts']->values()->map(fn(LegalSection $contact): array => [
+                        'title' => $contact->text('title', $lang),
+                        'body' => $body($contact),
+                    ])->all(),
+                ],
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+                'message' => 'Unable to load the page. Please try again later.',
+            ];
+        }
+    }
+
     public function getAppSliders(): array
     {
         if (!$this->helper->isCustomerAuthenticated()) {

@@ -303,6 +303,46 @@ class AdminService
         ];
     }
 
+    public function getLegalSections(string $page)
+    {
+        return $this->adminRepository->getLegalSections($page);
+    }
+
+    public function findLegalSection(int $id)
+    {
+        return $this->adminRepository->findLegalSection($id);
+    }
+
+    public function createLegalSection(string $page, array $data, ?int $adminId): array
+    {
+        return $this->adminRepository->createLegalSection($page, $data, $adminId);
+    }
+
+    public function updateLegalSection(int $id, array $data): array
+    {
+        return $this->adminRepository->updateLegalSection($id, $data);
+    }
+
+    public function toggleLegalSection(int $id): array
+    {
+        return $this->adminRepository->toggleLegalSection($id);
+    }
+
+    public function moveLegalSection(int $id, string $direction): array
+    {
+        return $this->adminRepository->moveLegalSection($id, $direction);
+    }
+
+    public function deleteLegalSection(int $id): array
+    {
+        return $this->adminRepository->deleteLegalSection($id);
+    }
+
+    public function loadLegalDefaults(string $page): array
+    {
+        return $this->adminRepository->loadLegalDefaults($page);
+    }
+
     public function findAppSlider(int $id)
     {
         return $this->adminRepository->findAppSlider($id);

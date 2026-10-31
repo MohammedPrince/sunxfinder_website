@@ -229,8 +229,9 @@ class Helper
      * Allowlist sanitizer for admin-written rich messages shown in the app.
      * Keeps basic formatting and safe links; unknown tags are unwrapped (text kept),
      * dangerous ones (script, style, iframe...) are dropped with their content.
+     * Website pages can also link to site paths such as /terms?lang=en.
      */
-    public static function sanitizeRichText(?string $html): string
+    public static function sanitizeRichText(?string $html, bool $allowSitePaths = false): string
     {
         $html = trim((string) $html);
         if ($html === '') {
@@ -251,7 +252,7 @@ class Helper
             return e(strip_tags($html));
         }
 
-        $clean = function (\DOMNode $node) use (&$clean, $allowed, $dropWithContent) {
+        $clean = function (\DOMNode $node) use (&$clean, $allowed, $dropWithContent, $allowSitePaths) {
             foreach (iterator_to_array($node->childNodes) as $child) {
                 if ($child instanceof \DOMComment || $child instanceof \DOMProcessingInstruction) {
                     $node->removeChild($child);
@@ -285,7 +286,9 @@ class Helper
                 }
 
                 if ($tag === 'a') {
-                    if (preg_match('#^(https?://|mailto:|tel:|sunxfinder://)#i', $href)) {
+                    $isSitePath = $allowSitePaths && preg_match('#^/(?![/\\\\])#', $href);
+
+                    if ($isSitePath || preg_match('#^(https?://|mailto:|tel:|sunxfinder://)#i', $href)) {
                         $child->setAttribute('href', $href);
                     } else {
                         while ($child->firstChild) {

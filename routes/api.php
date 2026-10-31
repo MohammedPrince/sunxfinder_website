@@ -70,6 +70,10 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
         Route::post('/notifications/{id}/read', [MainController::class, 'markNotificationAsRead']);
         Route::post('/notifications/read-all', [MainController::class, 'markAllNotificationsAsRead']);
 
+        // Legal pages (Admin → System → Privacy & Terms), in the customer's app language
+        Route::get('/privacy-policy', [MainController::class, 'privacyPolicy'])->middleware('throttle:60,1');
+        Route::get('/terms', [MainController::class, 'terms'])->middleware('throttle:60,1');
+
         Route::post('/delete-account', [MainController::class, 'deleteAccount']);
         Route::post('/logout', [MainController::class, 'logout']);
 

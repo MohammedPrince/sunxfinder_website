@@ -15,6 +15,8 @@ use App\Repositories\OtpRepository;
 use App\Support\ActivityLogger;
 use App\Support\ApkDownload;
 use App\Support\DatabaseBackup;
+use App\Support\LegalDefaults;
+use App\Models\LegalSection;
 use App\Models\Appliance;
 use App\Models\ApplianceGroup;
 use App\Models\AppVersion;
@@ -2181,6 +2183,197 @@ class AdminRepository
     }
 
     //App Slider End
+
+    //Privacy & Terms Start
+
+    public function getLegalSections(string $page)
+    {
+        return LegalSection::query()->forPage($page)->get();
+    }
+
+    public function findLegalSection(int $id): ?LegalSection
+    {
+        return LegalSection::find($id);
+    }
+
+    public function createLegalSection(string $page, array $data, ?int $adminId): array
+    {
+        try {
+            if (!LegalSection::where('page', $page)->exists()) {
+                return ['success' => false, 'message' => 'Load the current text first, then add sections to it.'];
+            }
+
+            $section = new LegalSection(['page' => $page, 'type' => $data['type']]);
+            $section->sort_order = $this->nextLegalSortOrder($page, $data['type']);
+            $section->created_by = $adminId;
+
+            if (!$this->assignLegalFields($section, $data)) {
+                return ['success' => false, 'message' => 'Enter the text in both English and Arabic.'];
+            }
+
+            $section->save();
+            $this->touchLegalPageDate($page, $data);
+
+            return ['success' => true, 'message' => 'Section added successfully.'];
+        } catch (Throwable $e) {
+            report($e);
+            return ['success' => false, 'message' => 'Unable to add the section. Please try again.'];
+        }
+    }
+
+    public function updateLegalSection(int $id, array $data): array
+    {
+        try {
+            $section = LegalSection::find($id);
+            if (!$section) {
+                return ['success' => false, 'message' => 'Section not found.'];
+            }
+
+            if (!$this->assignLegalFields($section, $data)) {
+                return ['success' => false, 'message' => 'Enter the text in both English and Arabic.'];
+            }
+
+            // Moving to the other type places it at the end of that group.
+            if ($section->isDirty('type')) {
+                $section->sort_order = $this->nextLegalSortOrder($section->page, $section->type);
+            }
+
+            $section->save();
+            $this->touchLegalPageDate($section->page, $data);
+
+            return ['success' => true, 'message' => 'Section updated successfully.'];
+        } catch (Throwable $e) {
+            report($e);
+            return ['success' => false, 'message' => 'Unable to update the section. Please try again.'];
+        }
+    }
+
+    public function toggleLegalSection(int $id): array
+    {
+        $section = LegalSection::find($id);
+        if (!$section || $section->isHeader()) {
+            return ['success' => false, 'message' => 'Section not found.'];
+        }
+
+        $section->is_active = !$section->is_active;
+        $section->save();
+        $this->touchLegalPageDate($section->page);
+
+        return ['success' => true, 'message' => $section->is_active ? 'Section is now shown on the website.' : 'Section hidden from the website.'];
+    }
+
+    public function moveLegalSection(int $id, string $direction): array
+    {
+        $section = LegalSection::find($id);
+        if (!$section || $section->isHeader()) {
+            return ['success' => false, 'message' => 'Section not found.'];
+        }
+
+        $ids = LegalSection::query()->forPage($section->page)->where('type', $section->type)->pluck('id')->all();
+        $from = array_search($section->id, $ids, true);
+        $to = $direction === 'up' ? $from - 1 : $from + 1;
+
+        if (!isset($ids[$to])) {
+            return ['success' => true, 'message' => 'Section is already in that position.'];
+        }
+
+        [$ids[$from], $ids[$to]] = [$ids[$to], $ids[$from]];
+
+        // Bulk update: reordering is not worth an activity log row per section.
+        foreach ($ids as $index => $sectionId) {
+            LegalSection::whereKey($sectionId)->update(['sort_order' => $index + 1]);
+        }
+
+        return ['success' => true, 'message' => 'Section moved.'];
+    }
+
+    public function deleteLegalSection(int $id): array
+    {
+        try {
+            $section = LegalSection::find($id);
+            if (!$section || $section->isHeader()) {
+                return ['success' => false, 'message' => 'The page header cannot be deleted. Edit it instead.'];
+            }
+
+            app(Helper::class)->archiveItem($section, 'legal_section', null, 'website');
+            $section->delete();
+            $this->touchLegalPageDate($section->page);
+
+            return ['success' => true, 'message' => 'Section deleted successfully.'];
+        } catch (Throwable $e) {
+            report($e);
+            return ['success' => false, 'message' => 'Unable to delete the section. Please try again.'];
+        }
+    }
+
+    /** Replaces a page's sections with the built-in text. The replaced ones go to Archives. */
+    public function loadLegalDefaults(string $page): array
+    {
+        try {
+            $count = DB::transaction(function () use ($page) {
+                foreach (LegalSection::where('page', $page)->get() as $section) {
+                    app(Helper::class)->archiveItem($section, 'legal_section', null, 'website');
+                    $section->delete();
+                }
+
+                return LegalDefaults::seed($page);
+            });
+
+            ActivityLogger::log('updated', 'Loaded the built-in text of ' . LegalSection::PAGES[$page], null, ['sections' => $count], null, 'app');
+
+            return ['success' => true, 'message' => 'The current text was loaded. You can now edit it.'];
+        } catch (Throwable $e) {
+            report($e);
+            return ['success' => false, 'message' => 'Unable to load the current text. Please try again.'];
+        }
+    }
+
+    /** Returns false when a language was left without real text. */
+    private function assignLegalFields(LegalSection $section, array $data): bool
+    {
+        $section->title_en = trim($data['title_en']);
+        $section->title_ar = trim($data['title_ar']);
+
+        if ($section->isHeader()) {
+            $section->eyebrow_en = filled($data['eyebrow_en'] ?? null) ? trim($data['eyebrow_en']) : null;
+            $section->eyebrow_ar = filled($data['eyebrow_ar'] ?? null) ? trim($data['eyebrow_ar']) : null;
+            $section->body_en = trim(strip_tags($data['body_en']));
+            $section->body_ar = trim(strip_tags($data['body_ar']));
+            $section->last_updated = $data['last_updated'];
+        } else {
+            $section->type = $data['type'] ?? $section->type;
+            $section->body_en = $this->cleanLegalBody($data['body_en']);
+            $section->body_ar = $this->cleanLegalBody($data['body_ar']);
+            $section->is_active = (bool) ($data['is_active'] ?? false);
+        }
+
+        return $section->body_en !== '' && $section->body_ar !== '';
+    }
+
+    private function cleanLegalBody(string $html): string
+    {
+        // The editor turns spaces into non-breaking ones, which stops lines wrapping.
+        $html = Helper::sanitizeRichText(str_replace(['&nbsp;', "\u{00A0}"], ' ', $html), true);
+
+        return trim(strip_tags($html)) === '' ? '' : $html;
+    }
+
+    private function nextLegalSortOrder(string $page, string $type): int
+    {
+        return ((int) LegalSection::where('page', $page)->where('type', $type)->max('sort_order')) + 1;
+    }
+
+    /** A content change updates "Last updated" unless the admin unticked it. Header dates are set by hand. */
+    private function touchLegalPageDate(string $page, array $data = []): void
+    {
+        if (!($data['bump_date'] ?? true)) {
+            return;
+        }
+
+        LegalSection::where('page', $page)->where('type', 'header')->update(['last_updated' => now()->toDateString()]);
+    }
+
+    //Privacy & Terms End
 
     //App Versions Start
 

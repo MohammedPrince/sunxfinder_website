@@ -24,6 +24,29 @@ class WebsiteController extends Controller
         $this->mainService = $mainService;
     }
 
+    public function terms(Request $request)
+    {
+        return $this->legalPage($request, 'terms', 'visitors.terms');
+    }
+
+    public function privacyPolicy(Request $request)
+    {
+        return $this->legalPage($request, 'privacy', 'visitors.privacy-policy');
+    }
+
+    /** ?lang=ar shows the Arabic version. Pages without admin text use the built-in view. */
+    private function legalPage(Request $request, string $page, string $builtInView)
+    {
+        $lang = $request->query('lang', app()->getLocale()) === 'ar' ? 'ar' : 'en';
+        $legal = $this->mainService->getLegalPage($page);
+
+        if (!$legal) {
+            return view($lang === 'ar' ? $builtInView . '-ar' : $builtInView);
+        }
+
+        return view('visitors.legal-page', [...$legal, 'lang' => $lang]);
+    }
+
     public function index()
     {
         $companies = $this->mainService->getWebsiteCompanyCarousel();

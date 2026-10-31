@@ -10,6 +10,7 @@ use App\Repositories\Admin\AdminRepository;
 use App\Models\Customer;
 use App\Models\CustomerComplaint;
 use App\Models\CompanyQuotation;
+use App\Models\LegalSection;
 use App\Models\Product;
 use App\Models\Project;
 use App\Models\Quote;
@@ -1027,6 +1028,119 @@ class MainController extends Controller
 
     //App Slider End
 
+    //Privacy & Terms Start
+
+    public function legalPages(Request $request)
+    {
+        $filters = $request->validate(['tab' => ['nullable', Rule::in(array_keys(LegalSection::PAGES))]]);
+        $page = $filters['tab'] ?? 'privacy';
+        $sections = $this->adminService->getLegalSections($page);
+
+        return view('admin.legal.index', [
+            'page' => $page,
+            'sections' => $sections,
+            'header' => $sections->firstWhere('type', 'header'),
+            // Without its own sections the website shows the built-in page.
+            'usesSavedText' => $sections->where('type', 'section')->where('is_active', true)->isNotEmpty(),
+        ]);
+    }
+
+    public function createLegalSection(string $page)
+    {
+        return view('admin.legal.form', ['page' => $page, 'section' => null]);
+    }
+
+    public function storeLegalSection(Request $request, string $page)
+    {
+        $data = $this->validateLegalSection($request, null);
+        $result = $this->adminService->createLegalSection($page, $data, Auth::guard('admin')->id());
+
+        return $result['success']
+            ? redirect()->route('admin.legal.index', ['tab' => $page])->with('success', $result['message'])
+            : back()->withInput()->with('error', $result['message']);
+    }
+
+    public function editLegalSection(int $id)
+    {
+        $section = $this->adminService->findLegalSection($id);
+        abort_unless($section, 404);
+
+        return view('admin.legal.form', ['page' => $section->page, 'section' => $section]);
+    }
+
+    public function updateLegalSection(Request $request, int $id)
+    {
+        $section = $this->adminService->findLegalSection($id);
+        abort_unless($section, 404);
+
+        $data = $this->validateLegalSection($request, $section);
+        $result = $this->adminService->updateLegalSection($id, $data);
+
+        return $result['success']
+            ? redirect()->route('admin.legal.index', ['tab' => $section->page])->with('success', $result['message'])
+            : back()->withInput()->with('error', $result['message']);
+    }
+
+    public function toggleLegalSection(int $id)
+    {
+        $result = $this->adminService->toggleLegalSection($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function moveLegalSection(Request $request, int $id)
+    {
+        $data = $request->validate(['direction' => ['required', Rule::in(['up', 'down'])]]);
+        $result = $this->adminService->moveLegalSection($id, $data['direction']);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function destroyLegalSection(int $id)
+    {
+        $result = $this->adminService->deleteLegalSection($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function loadLegalDefaults(string $page)
+    {
+        $result = $this->adminService->loadLegalDefaults($page);
+
+        return redirect()->route('admin.legal.index', ['tab' => $page])
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    private function validateLegalSection(Request $request, ?LegalSection $section): array
+    {
+        $isHeader = $section?->isHeader() ?? false;
+
+        $data = $request->validate([
+            'title_en' => ['required', 'string', 'max:255'],
+            'title_ar' => ['required', 'string', 'max:255'],
+            'body_en' => ['required', 'string', 'max:' . ($isHeader ? 1000 : 60000)],
+            'body_ar' => ['required', 'string', 'max:' . ($isHeader ? 1000 : 60000)],
+            'type' => [$isHeader ? 'prohibited' : 'required', Rule::in(['section', 'contact'])],
+            'eyebrow_en' => ['nullable', 'string', 'max:150'],
+            'eyebrow_ar' => ['nullable', 'string', 'max:150'],
+            'last_updated' => [$isHeader ? 'required' : 'nullable', 'date'],
+            'is_active' => ['nullable', 'boolean'],
+            'bump_date' => ['nullable', 'boolean'],
+        ], [
+            'body_en.required' => 'Enter the English text.',
+            'body_ar.required' => 'Enter the Arabic text.',
+            'title_en.required' => 'Enter the English title.',
+            'title_ar.required' => 'Enter the Arabic title.',
+        ]);
+
+        $data['is_active'] = $request->boolean('is_active');
+        $data['bump_date'] = !$isHeader && $request->boolean('bump_date');
+
+        return $data;
+    }
+
+    //Privacy & Terms End
+
     //App Versions Start
 
     public function appVersions()
@@ -1832,7 +1946,7 @@ class MainController extends Controller
                 'customer', 'product', 'prodcut', 'product_spec', 'offer', 'requestd_quote', 'requested_quote',
                 'notification', 'customer_notification', 'company', 'project', 'project_milestone', 'project_update',
                 'rating', 'rating_answer', 'supplier', 'appliance', 'appliance_group', 'company_carousel', 'app_slider', 'app_version',
-                'rating_question', 'customer_device_token', 'api_endpoint', 'sent_email', 'other',
+                'rating_question', 'customer_device_token', 'api_endpoint', 'sent_email', 'legal_section', 'other',
             ])],
             'source' => ['nullable', Rule::in(['website', 'app'])],
             'customer_id' => ['nullable', 'integer', 'min:1'],
@@ -1850,7 +1964,7 @@ class MainController extends Controller
             'rating' => 'Rating', 'rating_answer' => 'Rating answer', 'supplier' => 'Supplier', 'appliance' => 'Appliance',
             'appliance_group' => 'Appliance group', 'company_carousel' => 'Company carousel', 'app_slider' => 'App slide', 'app_version' => 'App version',
             'rating_question' => 'Rating question', 'customer_device_token' => 'Device token', 'api_endpoint' => 'API endpoint',
-            'sent_email' => 'Sent email', 'other' => 'Other',
+            'sent_email' => 'Sent email', 'legal_section' => 'Privacy & Terms section', 'other' => 'Other',
         ];
 
         return view('admin.archives.index', compact('archives', 'filters', 'types'));
