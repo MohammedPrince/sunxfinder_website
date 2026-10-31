@@ -284,6 +284,47 @@ class CompanyOfferInvoiceTest extends TestCase
         $this->assertNull($quotes[$withoutInvoice->id]['offers'][0]['invoice']);
     }
 
+    public function test_offer_on_an_open_request_notifies_the_customer_with_the_quote_id(): void
+    {
+        $this->assertNull($this->quote->company_id);
+
+        $this->submitOffer()->assertSessionHasNoErrors();
+
+        Sanctum::actingAs($this->customer);
+
+        $notification = $this->getJson('/api/v1/customer/notifications')
+            ->assertOk()
+            ->json('data.notifications.0');
+
+        $this->assertSame('offer_received', $notification['type']);
+        $this->assertSame($this->quote->id, $notification['quote_id']);
+        $this->assertSame('New offer on your request', $notification['title']);
+        $this->assertSame('عرض جديد على طلبك', $notification['ar_title']);
+        $this->assertFalse($notification['read']);
+
+        $this->getJson('/api/v1/customer/notifications/' . $notification['id'])
+            ->assertOk()
+            ->assertJsonPath('data.notification.quote_id', $this->quote->id);
+
+        $mainData = $this->postJson('/api/v1/customer/main-data')->assertOk();
+
+        $this->assertSame(1, $mainData->json('data.notifications.unread_count'));
+        $this->assertSame($notification, $mainData->json('data.notifications.items.0'));
+    }
+
+    public function test_editing_an_offer_keeps_the_quote_id_but_is_not_offer_received(): void
+    {
+        $this->submitOffer();
+        $this->submitOffer(['invoice_discount' => '0', 'invoice_number' => 'INV-1002']);
+
+        Sanctum::actingAs($this->customer);
+
+        $notification = $this->getJson('/api/v1/customer/notifications')->json('data.notifications.0');
+
+        $this->assertSame('offer_updated', $notification['type']);
+        $this->assertSame($this->quote->id, $notification['quote_id']);
+    }
+
     public function test_my_quotes_and_main_data_return_the_offer_breakdown(): void
     {
         $this->submitOffer();

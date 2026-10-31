@@ -1191,7 +1191,7 @@ class CompanyRepository
 
             $this->saveOfferInvoice($quotation, $invoiceData);
 
-            return [$quotation, 'offer_new'];
+            return [$quotation, 'offer_received'];
         });
 
         // Push only after commit, so a rolled-back offer never notifies.
@@ -1492,7 +1492,11 @@ class CompanyRepository
         return ['success' => true, 'message' => 'Notification deleted. Customers no longer see it in the app.'];
     }
 
-    public function publishNotification(array $data): Notification
+    /**
+     * $automatic marks updates about the customer's own request or project, such as a
+     * new offer. They skip the audience rules, which only limit what a company sends itself.
+     */
+    public function publishNotification(array $data, bool $automatic = false): Notification
     {
         $startedAt = microtime(true);
 
@@ -1510,7 +1514,7 @@ class CompanyRepository
         try {
             $result = (new Notification())
                 ->getConnection()
-                ->transaction(function () use ($data, $context) {
+                ->transaction(function () use ($data, $context, $automatic) {
                     Log::info('SunXFinder notification: transaction started', $context);
 
                     $senderType = $data['sender_type'] ?? 'admin';
@@ -1561,7 +1565,7 @@ class CompanyRepository
                         ]);
                     }
 
-                    $validCustomers = $senderType === 'company'
+                    $validCustomers = $senderType === 'company' && !$automatic
                         ? $this->notifiableCustomers((int) $senderId)
                         : Customer::query();
 
@@ -1598,6 +1602,7 @@ class CompanyRepository
                         'title_ar' => $data['title_ar'] ?? null,
                         'message_en' => $data['message_en'],
                         'message_ar' => $data['message_ar'] ?? null,
+                        'quote_id' => $data['quote_id'] ?? null,
                         'audience_type' => $audienceType,
                         'status' => 'published',
                         'published_at' => now(),

@@ -36,6 +36,7 @@ class Notification extends Model
         'link_label_en',
         'link_label_ar',
         'company_id',
+        'quote_id',
         'offer_title_en',
         'offer_title_ar',
         'offer_price',

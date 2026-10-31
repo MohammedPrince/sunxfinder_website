@@ -570,7 +570,7 @@ class Helper
 
     /**
      * Builds the push title/body for a customer in the app language.
-     * Supported types: offer_new, offer_updated, start_installation, project_completed, account_approved,
+     * Supported types: offer_received, offer_updated, start_installation, project_completed, account_approved,
      * request_cancelled ($price carries the request reference). $price is shown as given
      * (e.g. "1,500 SDG").
      */
@@ -582,15 +582,15 @@ class Helper
         $name = trim((string) \App\Models\Customer::query()->whereKey($customer_id)->value('full_name'));
 
         $templates = [
-            'offer_new' => [
+            'offer_received' => [
                 'en' => [
-                    'title' => 'New offer received',
+                    'title' => 'New offer on your request',
                     'body' => $price !== null
                         ? 'You received a new offer of :price on your quote request.'
                         : 'You received a new offer on your quote request.',
                 ],
                 'ar' => [
-                    'title' => 'عرض سعر جديد',
+                    'title' => 'عرض جديد على طلبك',
                     'body' => $price !== null
                         ? 'وصلك عرض سعر جديد بقيمة :price على طلبك.'
                         : 'وصلك عرض سعر جديد على طلبك.',
@@ -684,7 +684,7 @@ class Helper
 
         $price = number_format((float) $quotation->price) . ' ' . $quotation->currency;
 
-        $this->notifyCustomer((int) $quotation->customer_id, $type, $price);
+        $this->notifyCustomer((int) $quotation->customer_id, $type, $price, 'company', (int) $quotation->quote_id);
     }
 
     /**
@@ -942,8 +942,13 @@ class Helper
      * each in its own app language. A failed push never throws.
      * $sender: "company" (logged-in company) or "admin" (logged-in admin).
      */
-    public function notifyCustomer(int $customerId, string $type, $price = null, string $sender = 'company'): void
-    {
+    public function notifyCustomer(
+        int $customerId,
+        string $type,
+        $price = null,
+        string $sender = 'company',
+        ?int $quoteId = null
+    ): void {
         $en = $this->notificationsTemplate($customerId, 'en', $type, $price);
         $ar = $this->notificationsTemplate($customerId, 'ar', $type, $price);
 
@@ -955,6 +960,7 @@ class Helper
             'message_en' => $en['body'],
             'title_ar' => $ar['title'],
             'message_ar' => $ar['body'],
+            'quote_id' => $quoteId,
         ];
 
         try {
@@ -965,7 +971,7 @@ class Helper
                     'sender_id' => auth('admin')->id(),
                 ]);
             } else {
-                app(CompanyRepository::class)->publishNotification($data);
+                app(CompanyRepository::class)->publishNotification($data, true);
             }
         } catch (Throwable $e) {
             report($e);

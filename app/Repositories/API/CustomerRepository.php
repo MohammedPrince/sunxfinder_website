@@ -303,11 +303,12 @@ class CustomerRepository
                 ->orderByDesc('last_used_at')
                 ->value('is_active');
 
-            // TODO: Replace with your actual customer notification query.
+            $inbox = $this->getCustomerNotifications();
+
             $notifications = [
                 'enabled' => $notificationsEnabled,
-                'unread_count' => 0,
-                'items' => [],
+                'unread_count' => $inbox['unread_count'] ?? 0,
+                'items' => $inbox['notifications'] ?? [],
             ];
 
             return [
@@ -2582,6 +2583,8 @@ class CustomerRepository
         return [
             'id' => $notification->id,
             'type' => $notification->type,
+            // The customer's request this is about: the same id as in /my-quotes.
+            'quote_id' => $notification->quote_id !== null ? (int) $notification->quote_id : null,
             'title' => $notification->title_en,
             'ar_title' => $notification->title_ar,
             'body' => $plain($notification->message_en),
