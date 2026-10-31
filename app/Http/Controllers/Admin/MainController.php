@@ -1631,6 +1631,25 @@ class MainController extends Controller
             ->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
+    /** Open all customers to one company's notifications, or set it back to its own. */
+    public function updateCompanyNotificationAccess(Request $request)
+    {
+        $data = $request->validate([
+            'company_id' => ['required', 'integer'],
+            'can_notify_all' => ['required', 'boolean'],
+        ], [
+            'company_id.required' => 'Choose a company.',
+        ]);
+
+        $result = $this->adminService->setCompanyNotificationAccess(
+            (int) $data['company_id'],
+            $request->boolean('can_notify_all')
+        );
+
+        return redirect()->route('admin.settings.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
     // Send Email (System → Send Email): admin writes to a solar company from info@
 
     public function sendEmail(Request $request)

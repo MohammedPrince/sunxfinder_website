@@ -189,6 +189,16 @@ class CompanyService
         return $this->companyRepository->getQuoteInvoice($quoteId);
     }
 
+    public function getCompanyInvoices(array $filters = []): LengthAwarePaginator
+    {
+        return $this->companyRepository->getCompanyInvoices($filters);
+    }
+
+    public function deleteCompanyInvoice(int $invoiceId): array
+    {
+        return $this->companyRepository->deleteCompanyInvoice($invoiceId);
+    }
+
     public function getProjectForQuote(int $quoteId): ?Project
     {
         return $this->companyRepository->getProjectForQuote($quoteId);

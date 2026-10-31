@@ -1237,7 +1237,7 @@
             }
         });
 
-        @if ($errors->any() && $canMakeOrEditOffer)
+        @if (($errors->any() || request()->boolean('edit_invoice')) && $canMakeOrEditOffer)
             document.addEventListener('DOMContentLoaded', function () {
                 openOfferModal();
             });

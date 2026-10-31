@@ -352,6 +352,24 @@ class MainController extends Controller
         ));
     }
 
+    public function companyInvoices(Request $request)
+    {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $invoices = $this->companyService->getCompanyInvoices($filters);
+
+        return view('company.invoices.index', compact('invoices', 'filters'));
+    }
+
+    public function deleteCompanyInvoice(int $id)
+    {
+        $result = $this->companyService->deleteCompanyInvoice($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
     public function quoteRequestDetails(int $id)
     {
         $project = null;
@@ -504,6 +522,7 @@ class MainController extends Controller
 
         return view('company.notifications.create', [
             'customers' => $result['customers'],
+            'canNotifyAll' => $result['canNotifyAll'],
             'preselected' => $preselected,
         ]);
     }
@@ -522,9 +541,9 @@ class MainController extends Controller
                     'maintenance',
                 ]),
             ],
-            'audience_type' => ['required', Rule::in(['all', 'selected'])],
+            'audience_type' => ['required', Rule::in(['selected'])],
             'customer_ids' => [
-                'required_if:audience_type,selected',
+                'required',
                 'array',
                 'min:1',
             ],

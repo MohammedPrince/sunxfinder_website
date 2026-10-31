@@ -55,13 +55,11 @@
                         $selectedIds = array_map('strval', old('customer_ids', $preselected));
                         $reachableIds = ($customers ?? collect())->pluck('id')->map(fn($id) => (string) $id)->all();
                         $unreachable = count(array_diff($preselected, $reachableIds));
+                        $hasCustomers = ($customers ?? collect())->isNotEmpty();
                     @endphp
+                    <input type="hidden" name="audience_type" value="selected">
                     <div class="form-group">
-                        <label for="audience_type">Audience <b style="color:red">*</b></label>
-                        <select class="select-control" id="audience_type" name="audience_type" required>
-                            <option value="all" @selected(old('audience_type', $preselected ? 'selected' : 'all') === 'all')>All customers</option>
-                            <option value="selected" @selected(old('audience_type', $preselected ? 'selected' : 'all') === 'selected')>Selected customers</option>
-                        </select>
+                        <label for="customer_ids">{{ $canNotifyAll ? 'Customers' : 'Your customers' }} <b style="color:red">*</b></label>
                         @if ($unreachable > 0)
                             <small class="form-hint" style="color:#b54708">
                                 {{ $unreachable }} of your selected {{ \Illuminate\Support\Str::plural('customer', $unreachable) }}
@@ -69,20 +67,32 @@
                                 notifications and {{ $unreachable === 1 ? 'is' : 'are' }} not listed.
                             </small>
                         @endif
-                        <small class="form-hint">Use selected customers to target a specific group.</small>
-                        @error('audience_type')<small class="field-error">{{ $message }}</small>@enderror
-                    </div>
-                    <div class="form-group" id="customer-selection-group" hidden>
-                        <label for="customer_ids">Customers</label>
-                        <select class="select-control" id="customer_ids" name="customer_ids[]" multiple size="6">
+                        <small class="form-hint">
+                            @if ($canNotifyAll)
+                                The admin has opened all customers for your company. Contact details are shown only for your own customers. Select one or more.
+                            @else
+                                Only customers who have dealt with your company are listed. Select one or more.
+                            @endif
+                        </small>
+                        <select class="select-control" id="customer_ids" name="customer_ids[]" multiple size="6" @required($hasCustomers)>
                             @foreach (($customers ?? collect()) as $customer)
                                 <option value="{{ $customer->id }}" @selected(in_array((string) $customer->id, $selectedIds, true))>
                                     {{ $customer->full_name ?? $customer->name ?? $customer->username ?? ('Customer #' . $customer->id) }}
-                                    — {{ $customer->email ?? $customer->phone ?? '' }}
+                                    @if ($customer->email ?? $customer->phone)
+                                        — {{ $customer->email ?? $customer->phone }}
+                                    @endif
                                 </option>
                             @endforeach
                         </select>
-                        <small class="form-hint">Hold Ctrl (Windows) or Command (Mac) to select multiple customers.</small>
+                        @unless ($hasCustomers)
+                            <small class="form-hint">No eligible customers with app notifications are available yet.</small>
+                        @else
+                            <small class="form-hint">Hold Ctrl (Windows) or Command (Mac) to select multiple customers.</small>
+                            @if ($canNotifyAll)
+                                <button type="button" class="btn btn-light" style="margin-top:8px"
+                                    onclick="for (const option of document.getElementById('customer_ids').options) { option.selected = true; }">Select all customers</button>
+                            @endif
+                        @endunless
                         @error('customer_ids')<small class="field-error">{{ $message }}</small>@enderror
                     </div>
                 </div>
@@ -135,28 +145,10 @@
                 <div class="form-actions">
                     <a href="{{ route('company.notifications.index') }}" class="btn btn-light">Cancel</a>
                     <button type="submit" class="btn btn-primary"
-                        onclick="return confirm('Send this notification to the selected audience?')">Send Notification</button>
+                        @disabled(!$hasCustomers)
+                        onclick="return confirm('Send this notification to the selected customers?')">Send Notification</button>
                 </div>
             </div>
         </section>
     </form>
-@endsection
-
-@section('scripts')
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const audience = document.getElementById('audience_type');
-            const customerGroup = document.getElementById('customer-selection-group');
-            const customerSelect = document.getElementById('customer_ids');
-
-            function updateCustomerSelection() {
-                const selected = audience.value === 'selected';
-                customerGroup.hidden = !selected;
-                customerSelect.required = selected;
-            }
-
-            audience.addEventListener('change', updateCustomerSelection);
-            updateCustomerSelection();
-        });
-    </script>
 @endsection

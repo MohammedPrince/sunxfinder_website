@@ -3744,6 +3744,7 @@ class AdminRepository
             'max_open_quotes' => Setting::maxOpenQuotes(),
             'maintenance' => Setting::maintenance(),
             'quote_limit_customers' => $this->getQuoteLimitCustomers(),
+            'notification_access_companies' => $this->getNotificationAccessCompanies(),
             'api_endpoints' => ApiEndpoint::query()->orderByDesc('is_active')->orderBy('name')->get(),
         ];
     }
@@ -4007,6 +4008,40 @@ class AdminRepository
             report($e);
 
             return ['success' => false, 'message' => 'Unable to update the customer limit. Please try again.'];
+        }
+    }
+
+    public function getNotificationAccessCompanies()
+    {
+        return SolarCompany::query()
+            ->where('status', '!=', 'deleted')
+            ->orderBy('name')
+            ->get(['id', 'name', 'city', 'can_notify_all_customers']);
+    }
+
+    /** Lets a company notify all customers, or puts it back to only its own. */
+    public function setCompanyNotificationAccess(int $companyId, bool $canNotifyAll): array
+    {
+        try {
+            $company = $this->getNotificationAccessCompanies()->firstWhere('id', $companyId);
+
+            if (!$company) {
+                return ['success' => false, 'message' => 'Company not found.'];
+            }
+
+            $company->can_notify_all_customers = $canNotifyAll;
+            $company->save();
+
+            return [
+                'success' => true,
+                'message' => $canNotifyAll
+                    ? "{$company->name} can now notify all customers."
+                    : "{$company->name} can now notify only its own customers.",
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to update the company. Please try again.'];
         }
     }
 

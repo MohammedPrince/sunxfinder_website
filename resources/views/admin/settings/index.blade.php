@@ -32,7 +32,7 @@
             <div class="panel-heading">
                 <div>
                     <h2>Quote requests</h2>
-                    <p>Limits on what customers can send from the app.</p>
+                    <p>Limits on what customers can send from the app, and which customers companies can notify.</p>
                 </div>
             </div>
 
@@ -125,6 +125,76 @@
                                                 <button type="submit" class="btn btn-light" style="margin-top:8px" form="customerQuoteLimitResetForm"
                                                     name="customer_id" value="{{ $customer->id }}"
                                                     onclick="return confirm('Set this customer back to the default limit of {{ $defaultLimit }}?');">
+                                                    Back to default
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                </div>
+
+                {{-- Open all customers for one company. These fields belong to #companyNotificationAccessForm
+                     (below the main form: forms cannot be nested), via the form="" attribute. --}}
+                @php
+                    $accessCompanies = $settings['notification_access_companies'];
+                    $openCompanies = $accessCompanies->where('can_notify_all_customers', true);
+                    $closedCompanies = $accessCompanies->where('can_notify_all_customers', false);
+                @endphp
+
+                <div style="margin-top:22px;padding-top:18px;border-top:1px solid #e6edf5">
+                    <h3 style="margin:0 0 4px;font-size:16px">Company notifications</h3>
+                    <p class="form-hint" style="margin:0 0 14px">
+                        By default a company can notify only its own customers: those with a quote request or project
+                        with it. Open all customers for a specific company to let it notify everyone who can receive app
+                        notifications. It still sees phone numbers and emails only for its own customers.
+                    </p>
+
+                    @if ($closedCompanies->isNotEmpty())
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="notification_company_id">Company</label>
+                                <select class="form-control" id="notification_company_id" name="company_id"
+                                    form="companyNotificationAccessForm" required>
+                                    <option value="">Choose a company…</option>
+                                    @foreach ($closedCompanies as $company)
+                                        <option value="{{ $company->id }}">
+                                            {{ $company->name }}{{ $company->city ? ' · ' . $company->city : '' }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <p></p>
+                        <button type="submit" class="btn btn-primary" form="companyNotificationAccessForm"
+                            onclick="return confirm('Let this company send notifications to all customers?');">
+                            Open all customers
+                        </button>
+                    @endif
+
+                    @if ($openCompanies->isNotEmpty())
+                        <div class="table-responsive" style="margin-top:18px">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Company</th>
+                                        <th>City</th>
+                                        <th>Can notify</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($openCompanies as $company)
+                                        <tr>
+                                            <td><strong>{{ $company->name }}</strong></td>
+                                            <td>{{ $company->city }}</td>
+                                            <td><span class="pill pill-green">All customers</span></td>
+                                            <td>
+                                                <button type="submit" class="btn btn-light" style="margin-top:8px" form="companyNotificationResetForm"
+                                                    name="company_id" value="{{ $company->id }}"
+                                                    onclick="return confirm('Limit this company to its own customers again?');">
                                                     Back to default
                                                 </button>
                                             </td>
@@ -369,5 +439,15 @@
     </form>
     <form id="customerQuoteLimitResetForm" method="POST" action="{{ route('admin.settings.customer-quote-limit') }}">
         @csrf
+    </form>
+
+    {{-- Targets of the company notification fields in the Quote requests panel --}}
+    <form id="companyNotificationAccessForm" method="POST" action="{{ route('admin.settings.company-notification-access') }}">
+        @csrf
+        <input type="hidden" name="can_notify_all" value="1">
+    </form>
+    <form id="companyNotificationResetForm" method="POST" action="{{ route('admin.settings.company-notification-access') }}">
+        @csrf
+        <input type="hidden" name="can_notify_all" value="0">
     </form>
 @endsection

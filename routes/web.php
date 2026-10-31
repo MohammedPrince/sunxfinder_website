@@ -268,6 +268,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/settings', 'settings')->name('settings.index');
             Route::put('/settings', 'updateSettings')->name('settings.update');
             Route::post('/settings/customer-quote-limit', 'updateCustomerQuoteLimit')->name('settings.customer-quote-limit');
+            Route::post('/settings/company-notification-access', 'updateCompanyNotificationAccess')->name('settings.company-notification-access');
 
             // API servers the app can use: one active, each online/offline (GET /api/v1/api-config)
             Route::prefix('settings/api-endpoints')->name('settings.api-endpoints.')->group(function () {
@@ -362,6 +363,9 @@ Route::prefix('company')->name('company.')->group(function () {
                 Route::get('/{id}/invoice', 'showQuoteInvoice')->whereNumber('id')->name('invoice');
                 Route::get('/{id}/invoice/pdf', 'downloadQuoteInvoice')->whereNumber('id')->middleware('throttle:30,1')->name('invoice.pdf');
             });
+
+            Route::get('/invoices', 'companyInvoices')->name('invoices.index');
+            Route::delete('/invoices/{id}', 'deleteCompanyInvoice')->whereNumber('id')->name('invoices.destroy');
 
             // Push notifications
             Route::prefix('notifications')->name('notifications.')->group(function () {

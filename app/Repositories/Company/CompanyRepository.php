@@ -1324,6 +1324,84 @@ class CompanyRepository
         return $this->getCompanyQuotationForQuote($quoteId)?->invoice;
     }
 
+    public function getCompanyInvoices(array $filters = []): LengthAwarePaginator
+    {
+        $companyId = $this->authenticatedCompanyId();
+        $query = Invoice::query()
+            ->with('quotation.quote')
+            ->where('company_id', $companyId);
+
+        $search = trim((string) ($filters['search'] ?? ''));
+        if ($search !== '') {
+            $query->where(function (Builder $query) use ($search) {
+                $query->where('invoice_number', 'like', '%' . $search . '%')
+                    ->orWhere('customer_details->name', 'like', '%' . $search . '%');
+
+                if (ctype_digit($search)) {
+                    $query->orWhere('quote_id', (int) $search);
+                }
+            });
+        }
+
+        return $query
+            ->orderByDesc('invoice_date')
+            ->orderByDesc('id')
+            ->paginate(15)
+            ->withQueryString();
+    }
+
+    public function deleteCompanyInvoice(int $invoiceId): array
+    {
+        $companyId = $this->authenticatedCompanyId();
+
+        return DB::transaction(function () use ($invoiceId, $companyId) {
+            $invoiceReference = Invoice::query()
+                ->where('company_id', $companyId)
+                ->find($invoiceId);
+
+            if (!$invoiceReference) {
+                return ['success' => false, 'message' => 'Invoice not found.'];
+            }
+
+            // Match the acceptance flow lock order: quote first, then offer.
+            $quote = Quote::query()
+                ->whereKey($invoiceReference->quote_id)
+                ->lockForUpdate()
+                ->first();
+
+            $quotation = CompanyQuotation::query()
+                ->whereKey($invoiceReference->company_quotation_id)
+                ->where('company_id', $companyId)
+                ->lockForUpdate()
+                ->first();
+
+            $invoice = Invoice::query()
+                ->where('company_id', $companyId)
+                ->whereKey($invoiceId)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$invoice || !$quote || !$quotation) {
+                return ['success' => false, 'message' => 'Invoice not found.'];
+            }
+
+            $acceptedByCustomer = $quotation->status === 'selected'
+                || (in_array($quote->status, ['accepted', 'completed'], true)
+                    && (int) $quote->company_id === $companyId);
+
+            if ($acceptedByCustomer) {
+                return [
+                    'success' => false,
+                    'message' => 'This invoice is locked because the customer accepted the offer.',
+                ];
+            }
+
+            $invoice->delete();
+
+            return ['success' => true, 'message' => 'Invoice deleted successfully.'];
+        });
+    }
+
     public function getProjectForQuote(int $quoteId): ?Project
     {
         $company = Auth::guard('company')->user();
@@ -1483,7 +1561,11 @@ class CompanyRepository
                         ]);
                     }
 
-                    $existingIds = Customer::query()
+                    $validCustomers = $senderType === 'company'
+                        ? $this->notifiableCustomers((int) $senderId)
+                        : Customer::query();
+
+                    $existingIds = $validCustomers
                         ->whereIn('id', $customerIds)
                         ->pluck('id')
                         ->map(fn($id) => (int) $id)
@@ -1500,8 +1582,9 @@ class CompanyRepository
                         );
 
                         throw ValidationException::withMessages([
-                            'customer_ids' =>
-                                'One or more selected customers are invalid.',
+                            'customer_ids' => $senderType === 'company'
+                                ? 'One or more selected customers cannot be notified. Choose from the customers listed on this page.'
+                                : 'One or more selected customers are invalid.',
                         ]);
                     }
 
@@ -1586,7 +1669,9 @@ class CompanyRepository
         ]);
 
         try {
+            // Inactive devices have switched notifications off in the app.
             $devices = CustomerDeviceToken::query()
+                ->active()
                 ->whereIn('customer_id', $customerIds)
                 ->get([
                     'id',
@@ -1771,17 +1856,66 @@ class CompanyRepository
 
     public function getNotificationFormData(): array
     {
-        $customers = Customer::query()
-            ->whereHas('deviceTokens')
-            ->select('id', 'full_name', 'username', 'phone')
+        $companyId = $this->authenticatedCompanyId();
+        $canNotifyAll = $this->canNotifyAllCustomers($companyId);
+
+        /** @var \Illuminate\Database\Eloquent\Collection<int, Customer> $customers */
+        $customers = $this->notifiableCustomers($companyId)
+            ->select('id', 'full_name', 'username', 'phone', 'email')
             ->orderBy('username')
             ->get();
 
+        // Opening all customers lets a company message them, not read their contact details.
+        if ($canNotifyAll) {
+            $ownCustomerIds = array_flip($this->getCompanyCustomerIds());
+
+            $customers
+                ->reject(fn(Customer $customer) => isset($ownCustomerIds[$customer->id]))
+                ->each(function (Customer $customer) {
+                    $customer->phone = null;
+                    $customer->email = null;
+                });
+        }
+
         return [
             'customers' => $customers,
+            'canNotifyAll' => $canNotifyAll,
         ];
     }
 
+    private function canNotifyAllCustomers(int $companyId): bool
+    {
+        return (bool) SolarCompany::query()->whereKey($companyId)->value('can_notify_all_customers');
+    }
+
+    /**
+     * Customers this company may notify: its own, or everyone once an admin has
+     * opened all customers for it. Only accounts the app can reach are included.
+     */
+    private function notifiableCustomers(int $companyId): Builder
+    {
+        $customers = Customer::query()
+            ->where('status', 'active')
+            ->where('is_active', true)
+            ->whereHas('deviceTokens', fn($tokens) => $tokens->active());
+
+        return $this->canNotifyAllCustomers($companyId)
+            ? $customers
+            : $this->onlyCompanyCustomers($customers, $companyId);
+    }
+
+    /** A customer belongs to a company once a quote request or project links them. */
+    private function onlyCompanyCustomers(Builder $customers, int $companyId): Builder
+    {
+        return $customers->where(fn($query) => $query
+            ->whereIn('id', Quote::query()
+                ->where('company_id', $companyId)
+                ->whereNotNull('customer_id')
+                ->select('customer_id'))
+            ->orWhereIn('id', Project::query()
+                ->where('company_id', $companyId)
+                ->select('customer_id')));
+    }
 
     public function getNotificationDetails(int $id): array
     {
@@ -1864,14 +1998,11 @@ class CompanyRepository
             ->withQueryString();
     }
 
-    /** Ids of every customer who accepted one of this company's offers. */
+    /** IDs of this company's own customers. */
     public function getCompanyCustomerIds(): array
     {
-        return DB::table('tbl_projects')
-            ->where('company_id', $this->authenticatedCompanyId())
-            ->whereNull('deleted_at')
-            ->distinct()
-            ->pluck('customer_id')
+        return $this->onlyCompanyCustomers(Customer::query(), $this->authenticatedCompanyId())
+            ->pluck('id')
             ->map(fn($id) => (int) $id)
             ->all();
     }

@@ -86,7 +86,7 @@
         </a>
         @endcomponent
 
-        @component('partials.nav-group', ['key' => 'quotes', 'label' => 'Quotes & Projects', 'icon' => 'file', 'routes' => ['company.quote-requests.*', 'company.projects.*']])
+        @component('partials.nav-group', ['key' => 'quotes', 'label' => 'Quotes & Projects', 'icon' => 'file', 'routes' => ['company.quote-requests.*', 'company.projects.*', 'company.invoices.*']])
         <a class="nav-link {{ request()->routeIs('company.quote-requests.*') ? 'active' : '' }}"
             href="{{ route('company.quote-requests.index') }}">
             <span class="nav-icon">
@@ -112,6 +112,17 @@
             </span>
             <span>Active Projects</span>
             <span class="nav-count warm">{{ $myActiveProjectCount ?? 0 }}</span>
+        </a>
+        <a class="nav-link {{ request()->routeIs('company.invoices.*') ? 'active' : '' }}"
+            href="{{ route('company.invoices.index') }}">
+            <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M6 2.75h8l5 5V21a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V4.75a2 2 0 0 1 2-2z" />
+                    <path d="M14 2.75v5h5M8 12h8M8 16h5" />
+                </svg>
+            </span>
+            <span>Invoices</span>
         </a>
         @endcomponent
 

@@ -8,6 +8,7 @@
 
 @section('page-actions')
     <div class="quote-page-actions no-print">
+        <a href="{{ route('company.invoices.index') }}" class="btn btn-light">&larr; All invoices</a>
         <a href="{{ route('company.quote-requests.show', $invoice->quote_id) }}" class="btn btn-light">&larr; Back to request</a>
         <button type="button" class="btn btn-light" onclick="window.print()">Print</button>
         <a href="{{ route('company.quote-requests.invoice.pdf', $invoice->quote_id) }}" class="btn btn-primary">Download PDF</a>

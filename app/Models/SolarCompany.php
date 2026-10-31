@@ -56,6 +56,7 @@ class SolarCompany extends Authenticatable
             'password' => 'hashed',
             'is_verified' => 'boolean',
             'is_active' => 'boolean',
+            'can_notify_all_customers' => 'boolean',
         ];
     }
 

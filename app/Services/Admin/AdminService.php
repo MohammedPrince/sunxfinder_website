@@ -594,6 +594,11 @@ class AdminService
         return $this->adminRepository->setCustomerQuoteLimit($customerId, $limit);
     }
 
+    public function setCompanyNotificationAccess(int $companyId, bool $canNotifyAll): array
+    {
+        return $this->adminRepository->setCompanyNotificationAccess($companyId, $canNotifyAll);
+    }
+
     public function getCompanyEmailOptions()
     {
         return $this->adminRepository->getCompanyEmailOptions();
