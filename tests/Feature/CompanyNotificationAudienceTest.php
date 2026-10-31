@@ -137,6 +137,23 @@ class CompanyNotificationAudienceTest extends TestCase
             ->assertSee('Select all customers');
     }
 
+    public function test_opened_company_lists_only_active_customers_with_a_registered_device(): void
+    {
+        $this->makeCustomer('switched-off', [], false);
+        $this->makeCustomer('suspended', ['status' => 'suspended']);
+        $this->makeCustomer('deactivated', ['is_active' => false]);
+        $this->makeCustomer('no-device')->deviceTokens()->delete();
+
+        app(AdminRepository::class)->setCompanyNotificationAccess($this->company->id, true);
+
+        $this->get(route('company.notifications.create'))
+            ->assertOk()
+            ->assertSee('switched-off customer')
+            ->assertDontSee('suspended customer')
+            ->assertDontSee('deactivated customer')
+            ->assertDontSee('no-device customer');
+    }
+
     public function test_setting_the_company_back_restores_the_default(): void
     {
         $admin = app(AdminRepository::class);

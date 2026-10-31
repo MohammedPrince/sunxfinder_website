@@ -1889,19 +1889,22 @@ class CompanyRepository
     }
 
     /**
-     * Customers this company may notify: its own, or everyone once an admin has
-     * opened all customers for it. Only accounts the app can reach are included.
+     * Customers this company may notify: its own that the app can reach, or every
+     * active customer with a registered device once an admin has opened all customers
+     * for it. Devices with notifications switched off are never pushed to.
      */
     private function notifiableCustomers(int $companyId): Builder
     {
         $customers = Customer::query()
             ->where('status', 'active')
-            ->where('is_active', true)
-            ->whereHas('deviceTokens', fn($tokens) => $tokens->active());
+            ->where('is_active', true);
 
-        return $this->canNotifyAllCustomers($companyId)
-            ? $customers
-            : $this->onlyCompanyCustomers($customers, $companyId);
+        if ($this->canNotifyAllCustomers($companyId)) {
+            return $customers->whereHas('deviceTokens');
+        }
+
+        return $this->onlyCompanyCustomers($customers, $companyId)
+            ->whereHas('deviceTokens', fn($tokens) => $tokens->active());
     }
 
     /** A customer belongs to a company once a quote request or project links them. */

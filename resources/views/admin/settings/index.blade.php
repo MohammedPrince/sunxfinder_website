@@ -148,8 +148,8 @@
                     <h3 style="margin:0 0 4px;font-size:16px">Company notifications</h3>
                     <p class="form-hint" style="margin:0 0 14px">
                         By default a company can notify only its own customers: those with a quote request or project
-                        with it. Open all customers for a specific company to let it notify everyone who can receive app
-                        notifications. It still sees phone numbers and emails only for its own customers.
+                        with it. Open all customers for a specific company to let it notify every active customer with a
+                        registered device. It still sees phone numbers and emails only for its own customers.
                     </p>
 
                     @if ($closedCompanies->isNotEmpty())
