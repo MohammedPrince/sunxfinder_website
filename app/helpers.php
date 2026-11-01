@@ -20,3 +20,40 @@ if (! function_exists('asset_v')) {
         return asset($path) . ($versions[$path] ? '?v=' . $versions[$path] : '');
     }
 }
+
+if (! function_exists('company_portal')) {
+    /** True on /company pages, the only panel that follows the Arabic language choice. */
+    function company_portal(): bool
+    {
+        return request()->is('company', 'company/*');
+    }
+}
+
+if (! function_exists('company_text')) {
+    /**
+     * For views and classes shared with admin: the company translation on /company pages,
+     * and the given English everywhere else, so admin keeps its wording.
+     */
+    function company_text(string $key, string $fallback, array $replace = []): string
+    {
+        return company_portal() ? __('company/messages.' . $key, $replace) : $fallback;
+    }
+}
+
+if (! function_exists('company_label')) {
+    /** A label for a stored value, or the given text when no translation exists for that value. */
+    function company_label(string $key, string $fallback): string
+    {
+        return trans()->has('company/messages.' . $key) ? __('company/messages.' . $key) : $fallback;
+    }
+}
+
+if (! function_exists('company_date')) {
+    /** Same idea for dates: month and day names are translated on /company pages only. */
+    function company_date(\DateTimeInterface $date, string $format): string
+    {
+        $date = \Illuminate\Support\Carbon::instance($date);
+
+        return company_portal() ? $date->translatedFormat($format) : $date->format($format);
+    }
+}

@@ -1,13 +1,23 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ company_portal() ? app()->getLocale() : 'en' }}" dir="{{ company_portal() && app()->isLocale('ar') ? 'rtl' : 'ltr' }}">
 
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#182634">
-    <title>{{ $loginTitle ?? 'Sign in' }} · SunXFinder</title>
+    <title>{{ $loginTitle ?? company_text('auth.sign_in', 'Sign in') }} · SunXFinder</title>
     <link rel="icon" type="image/png" href="{{ asset('admin/images/favicon-64.png') }}">
     <link rel="stylesheet" href="{{ asset_v('admin/css/admin.css') }}">
+    @if (company_portal())
+        <style>
+            .login-language { display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 18px; }
+            .login-language a { padding: 5px 12px; border: 1px solid #dbe2ea; border-radius: 999px; color: #475569; font-size: 13px; font-weight: 600; text-decoration: none; }
+            .login-language a.is-active { background: #182634; border-color: #182634; color: #fff; }
+        </style>
+    @endif
+    @if (company_portal() && app()->isLocale('ar'))
+        <link rel="stylesheet" href="{{ asset_v('company/css/company-ar.css') }}">
+    @endif
 </head>
 
 <body class="login-body">
@@ -18,8 +28,8 @@
 
             <div class="login-panel-top">
                 <div class="login-profile-pic">
-                    <img src="{{ asset('admin/images/profile_pic.png') }}" alt="SunXFinder administrator">
-                    <span class="profile-online-dot" title="Admin portal"></span>
+                    <img src="{{ asset('admin/images/profile_pic.png') }}" alt="{{ company_text('auth.logo_alt', 'SunXFinder administrator') }}">
+                    <span class="profile-online-dot" title="{{ company_text('auth.online_title', 'Admin portal') }}"></span>
                 </div>
 
             </div>
@@ -31,8 +41,8 @@
                 </span>
 
                 <h1>
-                    Powering better<br>
-                    <span>solar connections.</span>
+                    {{ company_text('auth.powering', 'Powering better') }}<br>
+                    <span>{{ company_text('auth.connections', 'solar connections.') }}</span>
                 </h1>
 
                 <p>
@@ -42,8 +52,7 @@
 
             <div class="login-feature-row">
                 <span class="login-feature-icon">✦</span>
-                <span><strong>Built for your marketplace</strong><small>Clear insights. Smarter
-                        management.</small></span>
+                <span><strong>{{ company_text('auth.built_for', 'Built for your marketplace') }}</strong><small>{{ company_text('auth.clear_insights', 'Clear insights. Smarter management.') }}</small></span>
             </div>
 
 
@@ -51,12 +60,19 @@
 
         <section class="login-form-panel">
             <div class="login-form-wrap">
-                <a href="{{ url('/') }}" class="back-link"><span aria-hidden="true">←</span> Back to website</a>
+                @if (company_portal())
+                    <nav class="login-language" aria-label="{{ __('company/messages.auth.language') }}">
+                        <a href="{{ request()->fullUrlWithQuery(['lang' => 'en']) }}" lang="en" @class(['is-active' => app()->isLocale('en')])>English</a>
+                        <a href="{{ request()->fullUrlWithQuery(['lang' => 'ar']) }}" lang="ar" @class(['is-active' => app()->isLocale('ar')])>العربية</a>
+                    </nav>
+                @endif
+
+                <a href="{{ url('/') }}" class="back-link"><span aria-hidden="true">←</span> {{ company_text('auth.back_to_website', 'Back to website') }}</a>
 
                 <div class="login-form-heading">
-                    <span class="login-kicker">WELCOME BACK</span>
-                    <h2>Sign in to your account</h2>
-                    <p class="login-subtitle">Enter your administrator credentials to continue.</p>
+                    <span class="login-kicker">{{ company_text('auth.welcome_kicker', 'WELCOME BACK') }}</span>
+                    <h2>{{ company_text('auth.sign_in_heading', 'Sign in to your account') }}</h2>
+                    <p class="login-subtitle">{{ company_text('auth.sign_in_subtitle', 'Enter your administrator credentials to continue.') }}</p>
                 </div>
 
                 @if ($errors->any())
@@ -100,7 +116,7 @@
 
 
                     <div class="form-field">
-                        <label for="password">Password</label>
+                        <label for="password">{{ company_text('auth.password', 'Password') }}</label>
                         <div class="input-with-icon password-input-wrap">
                             <span class="field-icon" aria-hidden="true">
                                 <svg viewBox="0 0 24 24" fill="none">
@@ -111,10 +127,10 @@
                                     <circle cx="12" cy="15" r="1.2" fill="currentColor" />
                                 </svg>
                             </span>
-                            <input id="password" name="password" type="password" placeholder="Enter your password"
+                            <input id="password" name="password" type="password" placeholder="{{ company_text('auth.password_placeholder', 'Enter your password') }}"
                                 autocomplete="current-password" required>
                             <button type="button" class="show-password" data-toggle-password="#password"
-                                aria-label="Show password">Show</button>
+                                aria-label="{{ company_text('auth.show_password', 'Show password') }}">{{ company_text('auth.show', 'Show') }}</button>
                         </div>
                         @error('password')
                             <small class="field-error">{{ $message }}</small>
@@ -123,12 +139,12 @@
 
                     <div class="login-options">
                         <button type="button" class="link-button" data-modal-open="forgotPasswordModal">
-                            Forgot password?
+                            {{ company_text('auth.forgot_password', 'Forgot password?') }}
                         </button>
                     </div>
 
                     <button class="btn btn-primary login-submit" type="submit">
-                        <span>Sign in</span><span class="login-submit-arrow" aria-hidden="true">→</span>
+                        <span>{{ company_text('auth.sign_in', 'Sign in') }}</span><span class="login-submit-arrow" aria-hidden="true">→</span>
                     </button>
                 </form>
 
@@ -148,9 +164,9 @@
                 </div>
 
                 <div class="login-copyright">
-                    <span>© {{ date('Y') }} SunXFinder. All rights reserved.</span>
+                    <span>© {{ date('Y') }} SunXFinder. {{ company_text('auth.rights_reserved', 'All rights reserved.') }}</span>
                     <span class="copyright-dot"></span>
-                    <span>Admin Portal</span>
+                    <span>{{ company_text('auth.portal_tag', 'Admin Portal') }}</span>
                 </div>
             </div>
         </section>
@@ -162,12 +178,11 @@
         <div class="login-modal">
             <div class="login-modal-header">
                 <div>
-                    <span class="login-kicker">ACCOUNT RECOVERY</span>
-                    <h2 id="forgotPasswordTitle">Forgot your password?</h2>
-                    <p>Enter the email registered to your {{ $accountLabel ?? 'administrator' }} account. We'll
-                        email you a 6-digit code.</p>
+                    <span class="login-kicker">{{ company_text('auth.account_recovery', 'ACCOUNT RECOVERY') }}</span>
+                    <h2 id="forgotPasswordTitle">{{ company_text('auth.forgot_heading', 'Forgot your password?') }}</h2>
+                    <p>{{ company_text('auth.forgot_intro', 'Enter the email registered to your ' . ($accountLabel ?? 'administrator') . " account. We'll email you a 6-digit code.") }}</p>
                 </div>
-                <button type="button" class="login-modal-close" data-modal-close aria-label="Close">×</button>
+                <button type="button" class="login-modal-close" data-modal-close aria-label="{{ company_text('auth.close', 'Close') }}">×</button>
             </div>
 
             <form method="POST" action="{{ $forgotPasswordAction ?? route('admin.password.email') }}"
@@ -175,7 +190,7 @@
                 @csrf
 
                 <div class="form-field">
-                    <label for="forgotEmail">Registered email</label>
+                    <label for="forgotEmail">{{ company_text('auth.registered_email', 'Registered email') }}</label>
                     <div class="input-with-icon">
                         <span class="field-icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24" fill="none">
@@ -194,13 +209,16 @@
                 </div>
 
                 <div class="login-modal-actions">
-                    <button type="button" class="btn btn-light" data-modal-close>Cancel</button>
-                    <button type="submit" class="btn btn-primary" data-forgot-password-submit>Send code</button>
+                    <button type="button" class="btn btn-light" data-modal-close>{{ company_text('auth.cancel', 'Cancel') }}</button>
+                    <button type="submit" class="btn btn-primary" data-forgot-password-submit>{{ company_text('auth.send_code', 'Send code') }}</button>
                 </div>
             </form>
         </div>
     </div>
 
+    @if (company_portal())
+        @include('company.partials.js-lang')
+    @endif
     <script src="{{ asset_v('admin/js/admin.js') }}" defer></script>
 </body>
 

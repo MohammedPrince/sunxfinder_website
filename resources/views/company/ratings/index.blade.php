@@ -1,42 +1,42 @@
 @extends('company.layouts.app')
 
-@section('title', 'My Ratings')
-@section('breadcrumb', 'My Ratings')
-@section('eyebrow', 'CUSTOMER FEEDBACK')
-@section('page-title', 'My Ratings')
-@section('page-description', 'What your customers said after hiring you. Your average shows on your public page and in the app.')
+@section('title', __('company/messages.ratings.title'))
+@section('breadcrumb', __('company/messages.ratings.title'))
+@section('eyebrow', __('company/messages.ratings.eyebrow'))
+@section('page-title', __('company/messages.ratings.title'))
+@section('page-description', __('company/messages.ratings.page_description'))
 
 @section('content')
     @include('partials.page-guide', [
         'key' => 'company-ratings',
-        'title' => 'How ratings work',
-        'intro' => 'After accepting your offer, a customer can rate you once per request from the app.',
+        'title' => __('company/messages.ratings.guide_title'),
+        'intro' => __('company/messages.ratings.guide_intro'),
         'steps' => [
-            '<strong>Stars (1–5)</strong>: the overall score. Your average is based on these.',
-            '<strong>Questions</strong>: answers to questions like Price or Service, from ' . e($valueLabels[1] ?? 'Poor') . ' to ' . e($valueLabels[\App\Models\RatingValue::MAX] ?? 'Excellent') . '.',
-            '<strong>Comments</strong>: shown on your public page with the customer\'s first name.',
+            __('company/messages.ratings.guide_1'),
+            __('company/messages.ratings.guide_2', ['low' => e($valueLabels[1] ?? __('company/messages.ratings.poor')), 'high' => e($valueLabels[\App\Models\RatingValue::MAX] ?? __('company/messages.ratings.excellent'))]),
+            __('company/messages.ratings.guide_3'),
         ],
-        'note' => 'Finish projects on time and keep customers updated: it is the best way to earn good ratings.',
+        'note' => __('company/messages.ratings.guide_note'),
     ])
 
     <div class="metrics-strip">
         <div>
-            <small>Average stars</small>
+            <small>{{ __('company/messages.ratings.average_stars') }}</small>
             <strong>{{ $summary['average'] !== null ? number_format($summary['average'], 1) . ' / 5' : '—' }}</strong>
         </div>
 
         <div>
-            <small>Total ratings</small>
+            <small>{{ __('company/messages.ratings.total') }}</small>
             <strong>{{ number_format($summary['total']) }}</strong>
         </div>
 
         <div>
-            <small>This month</small>
+            <small>{{ __('company/messages.ratings.this_month') }}</small>
             <strong>{{ number_format($summary['this_month']) }}</strong>
         </div>
 
         <div>
-            <small>With a comment</small>
+            <small>{{ __('company/messages.ratings.with_comment') }}</small>
             <strong>{{ number_format($summary['with_comment']) }}</strong>
         </div>
     </div>
@@ -45,8 +45,8 @@
         <section class="panel">
             <div class="panel-heading">
                 <div>
-                    <h2>Overview</h2>
-                    <p>Your overall stars and how customers answered each question.</p>
+                    <h2>{{ __('company/messages.ratings.overview') }}</h2>
+                    <p>{{ __('company/messages.ratings.overview_sub') }}</p>
                 </div>
             </div>
             <div class="panel-body">
@@ -55,7 +55,7 @@
                         <strong>{{ number_format($summary['average'], 1) }}</strong>
                         <span>
                             @include('partials.stars', ['value' => $summary['average'], 'large' => true])
-                            <small class="cell-note">{{ number_format($summary['total']) }} ratings</small>
+                            <small class="cell-note">{{ __('company/messages.ratings.ratings_count', ['count' => number_format($summary['total'])]) }}</small>
                         </span>
                     </div>
 
@@ -76,7 +76,7 @@
                             <div class="rating-answer">
                                 <span>
                                     <strong>{{ $question['title'] }}</strong>
-                                    <small>{{ $question['question'] }} · {{ $question['answers'] }} answers</small>
+                                    <small>{{ $question['question'] }} · {{ __('company/messages.ratings.answers_count', ['count' => $question['answers']]) }}</small>
                                 </span>
                                 <strong>{{ number_format($question['average'], 1) }} / {{ \App\Models\RatingValue::MAX }}</strong>
                                 <div class="mini-progress">
@@ -93,20 +93,20 @@
     <section class="panel table-panel">
         <div class="panel-heading table-toolbar">
             <div>
-                <h2>Customer reviews</h2>
-                <p>Newest first.</p>
+                <h2>{{ __('company/messages.ratings.reviews') }}</h2>
+                <p>{{ __('company/messages.ratings.newest_first') }}</p>
             </div>
 
             <form method="GET" action="{{ route('company.ratings.index') }}" class="table-filters">
-                <select name="stars" class="select-control" aria-label="Stars" onchange="this.form.submit()">
-                    <option value="">All stars</option>
+                <select name="stars" class="select-control" aria-label="{{ __('company/messages.ratings.stars') }}" onchange="this.form.submit()">
+                    <option value="">{{ __('company/messages.ratings.all_stars') }}</option>
                     @for ($s = 5; $s >= 1; $s--)
                         <option value="{{ $s }}" @selected((string) request('stars') === (string) $s)>{{ $s }} ★</option>
                     @endfor
                 </select>
 
                 @if (request()->filled('stars'))
-                    <a href="{{ route('company.ratings.index') }}" class="btn btn-light">Clear</a>
+                    <a href="{{ route('company.ratings.index') }}" class="btn btn-light">{{ __('company/messages.common.clear') }}</a>
                 @endif
             </form>
         </div>
@@ -115,12 +115,12 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Customer</th>
-                        <th>Request</th>
-                        <th>Stars</th>
-                        <th>Answers</th>
-                        <th>Comment</th>
-                        <th>Date</th>
+                        <th>{{ __('company/messages.common.customer') }}</th>
+                        <th>{{ __('company/messages.common.request') }}</th>
+                        <th>{{ __('company/messages.ratings.stars') }}</th>
+                        <th>{{ __('company/messages.ratings.answers') }}</th>
+                        <th>{{ __('company/messages.ratings.comment') }}</th>
+                        <th>{{ __('company/messages.ratings.date') }}</th>
                     </tr>
                 </thead>
 
@@ -128,7 +128,7 @@
                     @forelse ($ratings as $rating)
                         @php
                             $customerName = $rating->customer?->full_name
-                                ?: ($rating->customer?->username ?: 'Customer');
+                                ?: ($rating->customer?->username ?: __('company/messages.common.customer'));
                         @endphp
                         <tr>
                             <td>
@@ -136,7 +136,7 @@
                                     <span class="person-avatar">{{ strtoupper(mb_substr($customerName, 0, 1)) }}</span>
                                     <span>
                                         <strong>{{ $customerName }}</strong>
-                                        <small>{{ $rating->customer?->city ?: 'City not set' }}</small>
+                                        <small>{{ $rating->customer?->city ?: __('company/messages.common.city_not_set') }}</small>
                                     </span>
                                 </div>
                             </td>
@@ -153,7 +153,7 @@
                             <td>
                                 @forelse ($rating->answers as $answer)
                                     <small class="cell-note">
-                                        {{ $answer->question?->title_en ?? 'Question' }}:
+                                        {{ $answer->question?->title_en ?? __('company/messages.ratings.question') }}:
                                         <b>{{ $valueLabels[$answer->value] ?? $answer->value }}</b>
                                     </small>
                                 @empty
@@ -168,18 +168,18 @@
                             </td>
 
                             <td>
-                                {{ $rating->created_at?->format('M d, Y') }}
+                                {{ $rating->created_at?->translatedFormat('M d, Y') }}
                                 <small class="cell-note">{{ $rating->created_at?->diffForHumans() }}</small>
                             </td>
                         </tr>
                     @empty
                         <tr>
                             <td colspan="6" class="dashboard-empty">
-                                <strong>No ratings yet.</strong>
+                                <strong>{{ __('company/messages.ratings.empty_title') }}</strong>
                                 @if (request()->filled('stars'))
-                                    No ratings with this many stars.
+                                    {{ __('company/messages.ratings.empty_stars') }}
                                 @else
-                                    Customers can rate you after accepting your offer.
+                                    {{ __('company/messages.ratings.empty_body') }}
                                 @endif
                             </td>
                         </tr>

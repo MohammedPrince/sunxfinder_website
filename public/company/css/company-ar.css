@@ -1,0 +1,503 @@
+/*
+ * Company portal, Arabic only. Loaded after the shared styles from company layouts and company login mode.
+ * First the Arabic rules, then direction mirrors of the shared stylesheets.
+ */
+
+/* Mirrors public/admin/css/admin.css */
+html[dir="rtl"] .sidebar {
+    inset: 0 0 0 auto;
+}
+
+html[dir="rtl"] .nav-link.active {
+    box-shadow: inset -3px 0 var(--orange);
+}
+
+html[dir="rtl"] .nav-count {
+    margin-left: 0;
+    margin-right: auto;
+}
+
+html[dir="rtl"] .admin-main {
+    margin-left: 0;
+    margin-right: 250px;
+}
+
+html[dir="rtl"] .mini-bars {
+    left: 15px;
+    right: auto;
+}
+
+html[dir="rtl"] .mini-bars i {
+    border-radius: 3px 3px 0 0;
+}
+
+html[dir="rtl"] .chart-col i,
+html[dir="rtl"] .chart-col b {
+    border-radius: 4px 4px 0 0;
+}
+
+html[dir="rtl"] .data-table {
+    text-align: right;
+}
+
+html[dir="rtl"] .metrics-strip>div {
+    padding-left: 0;
+    padding-right: 18px;
+    border-left: 1px solid #edf1f5;
+    border-right: 0;
+}
+
+html[dir="rtl"] .metrics-strip>div:first-child {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+html[dir="rtl"] .toast {
+    left: 22px;
+    right: auto;
+}
+
+html[dir="rtl"] .show-password {
+    left: 8px;
+    right: auto;
+}
+
+@media(max-width:900px) {
+    html[dir="rtl"] .sidebar {
+        transform: translateX(100%);
+    }
+    html[dir="rtl"] .sidebar.open {
+        transform: translateX(0);
+    }
+}
+
+@media(max-width:640px) {
+    html[dir="rtl"] .mini-bars {
+        left: 10px;
+        right: auto;
+    }
+    html[dir="rtl"] .metrics-strip>div {
+        padding-left: 0;
+        padding-right: 12px;
+    }
+    html[dir="rtl"] .metrics-strip>div:nth-child(2) {
+        border-left: 0;
+        border-right: 0;
+    }
+}
+
+html[dir="rtl"] .login-panel-glow-one {
+    left: -150px;
+    right: auto;
+}
+
+html[dir="rtl"] .login-panel-glow-two {
+    left: auto;
+    right: -170px;
+}
+
+html[dir="rtl"] .profile-online-dot {
+    left: -2px;
+    right: auto;
+}
+
+html[dir="rtl"] .password-input-wrap input {
+    padding-left: 0 !important;
+    padding-right: 0;
+}
+
+html[dir="rtl"] .login-submit:hover .login-submit-arrow {
+    transform: translateX(-3px);
+}
+
+html[dir="rtl"] .profile-online-dot {
+    left: 1px;
+    right: auto;
+}
+
+html[dir="rtl"] #companyEditor {
+    border-radius: 0 0 9px 9px;
+}
+
+html[dir="rtl"] .table-bottom {
+    border-radius: 0 0 14px 14px;
+}
+
+html[dir="rtl"] .pagination-wrapper {
+    margin-left: 0;
+    margin-right: auto;
+}
+
+@media (max-width: 640px) {
+    html[dir="rtl"] .pagination-wrapper {
+        margin-left: 0;
+        margin-right: 0;
+    }
+}
+
+html[dir="rtl"] .quote-summary-item {
+    border-left: 1px solid #edf0f4;
+    border-right: 0;
+}
+
+html[dir="rtl"] .quote-summary-item:last-child {
+    border-left: 0;
+    border-right: 0;
+}
+
+html[dir="rtl"] .quote-detail {
+    padding: 16px 0 16px 12px;
+}
+
+html[dir="rtl"] .quote-party-details .quote-detail {
+    padding: 13px 0 13px 10px;
+}
+
+@media screen and (max-width: 760px) {
+    html[dir="rtl"] .quote-summary-item:nth-child(2) {
+        border-left: 0;
+        border-right: 0;
+    }
+}
+
+html[dir="rtl"] .quote-party-details .quote-detail {
+    padding: 14px 0 14px 10px;
+}
+
+@media screen and (max-width: 600px) {
+    html[dir="rtl"] .quote-energy-grid {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+}
+
+html[dir="rtl"] .quote-subsection .quote-text-content {
+    margin-left: 0;
+    margin-right: 24px;
+    padding-left: 0;
+    padding-right: 5;
+    text-align: right;
+}
+
+@media (max-width: 900px) {
+    html[dir="rtl"] .sidebar {
+        left: auto;
+        right: 0;
+        transform: translateX(100%);
+    }
+    html[dir="rtl"] .sidebar.open {
+        transform: translateX(0);
+    }
+}
+
+html[dir="rtl"] .data-table td .pill+small {
+    margin-left: 0;
+    margin-right: 6px;
+}
+
+html[dir="rtl"] .page-guide-body {
+    padding: 0 48px 14px 16px;
+}
+
+html[dir="rtl"] .page-guide-body ol {
+    padding-left: 0;
+    padding-right: 18px;
+}
+
+html[dir="rtl"] .request-journey li:not(:last-child)::after {
+    left: -4px;
+    right: 34px;
+}
+
+html[dir="rtl"] .journey-copy {
+    padding-left: 6px;
+    padding-right: 0;
+}
+
+@media (max-width: 900px) {
+    html[dir="rtl"] .request-journey li:not(:last-child)::after {
+        left: auto;
+        right: 13px;
+    }
+}
+
+html[dir="rtl"] .report-trend-totals strong {
+    margin-left: 0;
+    margin-right: 4px;
+}
+
+html[dir="rtl"] .report-bar-value {
+    text-align: left;
+}
+
+html[dir="rtl"] .report-bar-value small {
+    margin-left: 0;
+    margin-right: 4px;
+}
+
+html[dir="rtl"] .report-generated {
+    text-align: left;
+}
+
+html[dir="rtl"] .topbar {
+    margin-left: 0;
+    margin-right: 250px;
+}
+
+html[dir="rtl"] .topbar-time {
+    padding-left: 0;
+    padding-right: 8px;
+    border-left: 0;
+    border-right: 1px solid var(--line);
+}
+
+html[dir="rtl"] .topbar-badge {
+    left: -6px;
+    right: auto;
+}
+
+html[dir="rtl"] .topbar-account {
+    padding: 0 4px 0 10px;
+}
+
+html[dir="rtl"] .topbar-dropdown {
+    left: 0;
+    right: auto;
+}
+
+html[dir="rtl"] .topbar-logout button {
+    text-align: right;
+}
+
+@media (max-width: 640px) {
+    html[dir="rtl"] .topbar-dropdown,
+    html[dir="rtl"] .topbar-dropdown-sm {
+        left: 12px;
+        right: 12px;
+    }
+}
+
+/* Mirrors public/company/css/company-profile.css */
+html[dir="rtl"] .company-invoice-number {
+    text-align: left;
+}
+
+html[dir="rtl"] .company-invoice-table th,
+html[dir="rtl"] .company-invoice-table td {
+    text-align: right;
+}
+
+html[dir="rtl"] .company-invoice-table td:not(:first-child),
+html[dir="rtl"] .company-invoice-table th:not(:first-child) {
+    text-align: left;
+}
+
+html[dir="rtl"] .company-invoice-totals dd {
+    text-align: left;
+}
+
+@media (max-width: 700px) {
+    html[dir="rtl"] .company-invoice-number {
+        text-align: right;
+    }
+}
+
+html[dir="rtl"] .offer-price-source {
+    margin-left: 0;
+    margin-right: 8px;
+}
+
+html[dir="rtl"] .offer-summary-card dd {
+    text-align: left;
+}
+
+html[dir="rtl"] .offer-footer-total {
+    margin-left: auto;
+    margin-right: 0;
+}
+
+html[dir="rtl"] .offer-price-input select {
+    border-left: 0;
+    border-right: 1px solid #e2e8f0;
+}
+
+html[dir="rtl"] .project-stage-connector {
+    background: repeating-linear-gradient(to left,
+            #cbd5e1 0,
+            #cbd5e1 5px,
+            transparent 5px,
+            transparent 9px);
+}
+
+html[dir="rtl"] .project-activity-item:not(:last-child)::before {
+    left: auto;
+    right: 6px;
+}
+
+html[dir="rtl"] .project-next-action {
+    border-left: 0;
+    border-right: 4px solid #ff5a0a;
+}
+
+html[dir="rtl"] .project-next-action-success {
+    border-left-color: transparent;
+    border-right-color: #25a866;
+}
+
+html[dir="rtl"] .data-table td .pill+strong,
+html[dir="rtl"] .data-table td strong+.pill {
+    margin-left: 0;
+    margin-right: 8px;
+}
+
+/* Arabic rules */
+html[dir="rtl"] body {
+    font-family: "Segoe UI", Tahoma, system-ui, -apple-system, sans-serif;
+}
+
+/* Spaced-out or capitalised text breaks joined Arabic letters. */
+html[dir="rtl"] body * {
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+}
+
+html[dir="rtl"] h1,
+html[dir="rtl"] h2,
+html[dir="rtl"] h3,
+html[dir="rtl"] .eyebrow {
+    line-height: 1.4;
+}
+
+/* Arrows point the way the reader moves. Logos and other icons stay as they are. */
+html[dir="rtl"] .topbar-item-arrow,
+html[dir="rtl"] .login-submit-arrow,
+html[dir="rtl"] .back-link > span,
+html[dir="rtl"] .admin-mini .icon-button {
+    display: inline-block;
+    transform: scaleX(-1);
+}
+
+/* Small labels are harder to read in Arabic, so they get a little more size. */
+html[dir="rtl"] .data-table th,
+html[dir="rtl"] .eyebrow,
+html[dir="rtl"] .login-kicker,
+html[dir="rtl"] .company-profile-eyebrow,
+html[dir="rtl"] .offer-eyebrow,
+html[dir="rtl"] .stat-card small,
+html[dir="rtl"] .cell-note,
+html[dir="rtl"] .metrics-strip small,
+html[dir="rtl"] .report-metrics small {
+    font-size: max(12px, 0.8rem);
+}
+
+/* References, amounts and mixed text pick their own direction: #Q-00031 stays in that order. */
+html[dir="rtl"] .data-table strong,
+html[dir="rtl"] .data-table td > a,
+html[dir="rtl"] .quote-detail strong,
+html[dir="rtl"] .quote-summary-item strong,
+html[dir="rtl"] .report-period,
+html[dir="rtl"] .company-invoice-number strong,
+html[dir="rtl"] .offer-current-price,
+html[dir="rtl"] .project-contact-items a {
+    unicode-bidi: plaintext;
+}
+
+/* These values are blocks, so plaintext above would otherwise send them to the left. */
+html[dir="rtl"] .quote-detail strong,
+html[dir="rtl"] .quote-summary-item strong,
+html[dir="rtl"] .report-period {
+    text-align: right;
+}
+
+/* Values that read left to right inside Arabic pages. */
+html[dir="rtl"] input[type="email"],
+html[dir="rtl"] input[type="number"],
+html[dir="rtl"] input[type="url"],
+html[dir="rtl"] input[type="tel"],
+html[dir="rtl"] input[name="phone"],
+html[dir="rtl"] input[name="invoice_number"],
+html[dir="rtl"] #username,
+html[dir="rtl"] #social_media {
+    direction: ltr;
+    text-align: right;
+}
+
+html[dir="rtl"] input[type="email"]::placeholder,
+html[dir="rtl"] input[type="number"]::placeholder,
+html[dir="rtl"] input[type="url"]::placeholder,
+html[dir="rtl"] input[type="tel"]::placeholder,
+html[dir="rtl"] input[name="phone"]::placeholder,
+html[dir="rtl"] #social_media::placeholder {
+    direction: rtl;
+}
+
+/* English content fields stay left to right, Arabic ones right to left. */
+html[dir="rtl"] #message,
+html[dir="rtl"] #title_en,
+html[dir="rtl"] #message_en,
+html[dir="rtl"] #companyEditor .ql-editor,
+html[dir="rtl"] [data-service-inputs="services"] .form-control {
+    direction: ltr;
+    text-align: left;
+}
+
+html[dir="rtl"] #companyEditorAr .ql-editor {
+    direction: rtl;
+    text-align: right;
+}
+
+html[dir="rtl"] .ql-toolbar {
+    direction: ltr;
+}
+
+/* Inline right alignment in the shared devices table. */
+html[dir="rtl"] .data-table [style*="text-align:right"] {
+    text-align: left !important;
+    unicode-bidi: plaintext;
+}
+
+/* The page guide's Hide / Show label comes from the shared stylesheet. */
+html[dir="rtl"] details.page-guide[open] .page-guide-toggle::after {
+    content: "إخفاء";
+}
+
+html[dir="rtl"] details.page-guide:not([open]) .page-guide-toggle::after {
+    content: "إظهار";
+}
+
+html[dir="rtl"] ul,
+html[dir="rtl"] ol {
+    padding-inline-start: 20px;
+    padding-inline-end: 0;
+}
+
+html[dir="rtl"] .project-progress-fill,
+html[dir="rtl"] .mini-progress > span,
+html[dir="rtl"] .report-progress > span {
+    margin-inline-start: 0;
+}
+
+/* Long Arabic labels wrap instead of pushing rows wider than the screen. */
+html[dir="rtl"] .page-topline h1,
+html[dir="rtl"] .brand-copy strong,
+html[dir="rtl"] .admin-mini-copy strong,
+html[dir="rtl"] .quote-summary-item strong {
+    overflow-wrap: anywhere;
+}
+
+html[dir="rtl"] .pill {
+    line-height: 1.5;
+}
+
+html[dir="rtl"] .next-step-link,
+html[dir="rtl"] .company-status-message .pill {
+    white-space: normal;
+}
+
+@media (max-width: 920px) {
+    html[dir="rtl"] .admin-main,
+    html[dir="rtl"] .topbar {
+        margin-right: 0;
+        margin-left: 0;
+    }
+}

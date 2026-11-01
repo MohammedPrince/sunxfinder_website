@@ -1,18 +1,18 @@
 
 @extends('company.layouts.app')
 
-@section('title', 'Active Projects')
-@section('breadcrumb', 'Active Projects')
-@section('eyebrow', 'PROJECT MANAGEMENT')
-@section('page-title', 'Active Projects')
-@section('page-description', 'Installations for customers who accepted your offer. Keep each one moving and the customer informed.')
+@section('title', __('company/messages.projects.title'))
+@section('breadcrumb', __('company/messages.projects.title'))
+@section('eyebrow', __('company/messages.projects.eyebrow'))
+@section('page-title', __('company/messages.projects.title'))
+@section('page-description', __('company/messages.projects.page_description'))
 
 @section('content')
     @php
         $statusLabels = [
-            'accepted' => 'Not started',
-            'in_progress' => 'In progress',
-            'completed' => 'Completed',
+            'accepted' => __('company/messages.common.not_started'),
+            'in_progress' => __('company/messages.common.in_progress'),
+            'completed' => __('company/messages.common.completed'),
         ];
 
         $statusClasses = [
@@ -24,31 +24,31 @@
 
     @include('partials.page-guide', [
         'key' => 'company-projects',
-        'title' => 'How projects work',
-        'intro' => 'A project is created automatically when a customer accepts your offer.',
+        'title' => __('company/messages.invoices.guide_title'),
+        'intro' => __('company/messages.invoices.guide_intro'),
         'steps' => [
-            '<strong>Start installation</strong> when your team is ready. Until then the project shows as "Not started".',
-            '<strong>Update milestones</strong> as each phase is done. Progress is calculated for you.',
-            '<strong>Confirm customer handover</strong> as the last step. The project then closes at 100%.',
+            __('company/messages.invoices.guide_1'),
+            __('company/messages.invoices.guide_2'),
+            __('company/messages.invoices.guide_3'),
         ],
-        'note' => 'Every update you save (with its message) is shown to the customer in the app.',
+        'note' => __('company/messages.invoices.guide_note'),
     ])
 
     <div class="metrics-strip">
         <div>
-            <small>Not started</small>
+            <small>{{ __('company/messages.common.not_started') }}</small>
             <strong class="{{ $metrics['accepted'] ? 'warning' : '' }}">{{ number_format($metrics['accepted']) }}</strong>
         </div>
         <div>
-            <small>In progress</small>
+            <small>{{ __('company/messages.common.in_progress') }}</small>
             <strong>{{ number_format($metrics['in_progress']) }}</strong>
         </div>
         <div>
-            <small>Completed</small>
+            <small>{{ __('company/messages.common.completed') }}</small>
             <strong>{{ number_format($metrics['completed']) }}</strong>
         </div>
         <div>
-            <small>Total projects</small>
+            <small>{{ __('company/messages.projects.total_projects') }}</small>
             <strong>{{ number_format($metrics['total']) }}</strong>
         </div>
     </div>
@@ -60,8 +60,8 @@
     <section class="panel table-panel">
         <div class="panel-heading table-toolbar">
             <div>
-                <h2>Your projects</h2>
-                <p>Most recently updated first. The "Next step" column tells you what to do.</p>
+                <h2>{{ __('company/messages.projects.your_projects') }}</h2>
+                <p>{{ __('company/messages.projects.list_sub') }}</p>
             </div>
 
             <form method="GET"
@@ -69,7 +69,7 @@
                   class="table-filters">
 
                 <select name="status" class="select-control">
-                    <option value="">All project statuses</option>
+                    <option value="">{{ __('company/messages.projects.all_statuses') }}</option>
                     @foreach ($statusLabels as $value => $label)
                         <option value="{{ $value }}" @selected(request('status') === $value)>
                             {{ $label }}
@@ -83,15 +83,15 @@
                     class="table-search"
                     value="{{ request('search') }}"
                     maxlength="100"
-                    placeholder="Customer, service or #ID"
-                    aria-label="Search projects"
+                    placeholder="{{ __('company/messages.projects.search_placeholder') }}"
+                    aria-label="{{ __('company/messages.projects.search_label') }}"
                 >
 
-                <button type="submit" class="btn btn-light">Search</button>
+                <button type="submit" class="btn btn-light">{{ __('company/messages.common.search') }}</button>
 
                 @if (request()->hasAny(['status', 'search']))
                     <a href="{{ route('company.projects.index') }}" class="btn btn-light">
-                        Clear
+                        {{ __('company/messages.common.clear') }}
                     </a>
                 @endif
             </form>
@@ -101,14 +101,14 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Project</th>
-                        <th>Customer</th>
-                        <th>Quote name</th>
-                        <th>Selected offer</th>
-                        <th>Progress</th>
-                        <th>Status</th>
-                        <th>Last update</th>
-                        <th>Next step</th>
+                        <th>{{ __('company/messages.common.project') }}</th>
+                        <th>{{ __('company/messages.common.customer') }}</th>
+                        <th>{{ __('company/messages.common.quote_name') }}</th>
+                        <th>{{ __('company/messages.common.selected_offer') }}</th>
+                        <th>{{ __('company/messages.common.progress') }}</th>
+                        <th>{{ __('company/messages.common.status') }}</th>
+                        <th>{{ __('company/messages.common.last_update') }}</th>
+                        <th>{{ __('company/messages.common.next_step') }}</th>
                     </tr>
                 </thead>
 
@@ -120,7 +120,7 @@
                             $offer = $project->companyQuotation;
 
                             $customerName = $customer?->full_name
-                                ?: ($customer?->username ?: 'Customer #' . $project->customer_id);
+                                ?: ($customer?->username ?: __('company/messages.common.customer_number', ['id' => $project->customer_id]));
 
                             $reference = '#Q-' . str_pad(
                                 (string) $project->quote_id,
@@ -131,10 +131,10 @@
 
                             // 99% means every installation phase is done and only the handover is left.
                             [$nextLabel, $nextClass] = match (true) {
-                                $project->status === 'accepted' => ['Start installation', 'pill-orange'],
-                                $project->status === 'in_progress' && $project->progress_percent >= 99 => ['Confirm handover', 'pill-green'],
-                                $project->status === 'in_progress' => ['Update progress', 'pill-blue'],
-                                default => ['View project', 'pill-green'],
+                                $project->status === 'accepted' => [__('company/messages.projects.start_installation'), 'pill-orange'],
+                                $project->status === 'in_progress' && $project->progress_percent >= 99 => [__('company/messages.projects.confirm_handover'), 'pill-green'],
+                                $project->status === 'in_progress' => [__('company/messages.projects.update_progress'), 'pill-blue'],
+                                default => [__('company/messages.projects.view_project'), 'pill-green'],
                             };
 
                             $idleDays = (int) $project->updated_at?->diffInDays(now());
@@ -142,8 +142,8 @@
 
                         <tr>
                             <td>
-                                <strong>Project #{{ $project->id }}</strong>
-                                <small class="cell-note">Request {{ $reference }}</small>
+                                <strong>{{ __('company/messages.common.project_number', ['id' => $project->id]) }}</strong>
+                                <small class="cell-note">{{ __('company/messages.projects.request_ref', ['reference' => $reference]) }}</small>
                             </td>
 
                             <td>
@@ -153,12 +153,12 @@
                                     </span>
                                     <span>
                                         <strong>{{ $customerName }}</strong>
-                                        <small>{{ $customer?->city ?: ($customer?->phone ?? 'No contact details') }}</small>
+                                        <small>{{ $customer?->city ?: ($customer?->phone ?? __('company/messages.projects.no_contact')) }}</small>
                                     </span>
                                 </div>
                             </td>
 
-                            <td>{{ $quote?->quote_name ?? 'Solar installation' }}</td>
+                            <td>{{ $quote?->quote_name ?? __('company/messages.common.solar_installation') }}</td>
 
                             <td>
                                 @if ($offer)
@@ -186,9 +186,9 @@
                             </td>
 
                             <td>
-                                {{ $project->updated_at?->format('d M Y') ?? '—' }}
+                                {{ $project->updated_at?->translatedFormat('d M Y') ?? '—' }}
                                 @if ($project->status !== 'completed' && $idleDays >= \App\Support\ReportPeriod::STALLED_DAYS)
-                                    <span class="pill pill-red" title="No update for {{ $idleDays }} days">{{ $idleDays }} days idle</span>
+                                    <span class="pill pill-red" title="{{ __('company/messages.projects.no_update_for', ['days' => $idleDays]) }}">{{ __('company/messages.projects.days_idle', ['days' => $idleDays]) }}</span>
                                 @else
                                     <small class="cell-note">{{ $project->updated_at?->diffForHumans() }}</small>
                                 @endif
@@ -196,15 +196,15 @@
 
                             <td>
                                 <a href="{{ route('company.projects.show', $project->id) }}" class="pill {{ $nextClass }} next-step-link">
-                                    {{ $nextLabel }} →
+                                    {{ $nextLabel }} {{ __('company/messages.common.arrow_next') }}
                                 </a>
                             </td>
                         </tr>
                     @empty
                         <tr>
                             <td colspan="8" class="dashboard-empty">
-                                <strong>No projects found.</strong>
-                                Projects appear here after a customer accepts one of your offers.
+                                <strong>{{ __('company/messages.projects.empty_title') }}</strong>
+                                {{ __('company/messages.projects.empty_body') }}
                             </td>
                         </tr>
                     @endforelse

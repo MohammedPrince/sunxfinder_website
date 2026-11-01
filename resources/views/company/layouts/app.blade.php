@@ -1,16 +1,20 @@
 <!doctype html>
+<html lang="{{ app()->getLocale() }}" dir="{{ app()->isLocale('ar') ? 'rtl' : 'ltr' }}">
 
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Company') · SunXFinder</title>
+    <title>@yield('title', __('company/messages.common.company')) · SunXFinder</title>
     <link rel="icon" type="image/svg+xml" href="{{ asset_v('favicon.svg') }}">
     <link rel="icon" type="image/png" sizes="64x64" href="{{ asset_v('admin/images/favicon-64.png') }}">
     <link rel="stylesheet" href="{{ asset_v('admin/css/admin.css') }}">
     <link rel="stylesheet" href="{{ asset_v('company/css/company-profile.css') }}">
     <link rel="stylesheet" href="{{ asset('main/css/quill.snow.css') }}">
     @stack('styles')
+    @if (app()->isLocale('ar'))
+        <link rel="stylesheet" href="{{ asset_v('company/css/company-ar.css') }}">
+    @endif
 </head>
 
 <body class="admin-body">
@@ -31,6 +35,7 @@
         </main>
     </div>
 
+    @include('company.partials.js-lang')
     <script src="{{ asset_v('admin/js/admin.js') }}" defer></script>
     <script src="{{ asset('main/js/quill.js') }}"></script>
     {{--

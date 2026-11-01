@@ -32,7 +32,8 @@ class InvoicePdf
             'tempDir' => $tempDir,
         ]);
 
-        $pdf->SetTitle('Invoice ' . $invoice->invoice_number);
+        $pdf->SetDirectionality(app()->isLocale('ar') ? 'rtl' : 'ltr');
+        $pdf->SetTitle(__('company/messages.invoices.label') . ' ' . $invoice->invoice_number);
         $pdf->SetAuthor((string) ($invoice->company_details['name'] ?? 'SunXFinder'));
         $pdf->WriteHTML(view('company.quote-requests.invoice-pdf', compact('invoice'))->render());
 

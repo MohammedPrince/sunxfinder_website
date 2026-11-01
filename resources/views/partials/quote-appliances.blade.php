@@ -8,13 +8,13 @@
 <div class="quote-subsection">
     <div class="quote-section-heading" style="padding:0 0 12px">
         <div>
-            <h3 style="margin:0">Customer devices</h3>
+            <h3 style="margin:0">{{ company_text('shared.appliances.customer_devices', 'Customer devices') }}</h3>
             <p class="gray-text" style="margin:4px 0 0">
-                The exact appliances the customer chose in the app calculator, with their watts.
+                {{ company_text('shared.appliances.devices_intro', 'The exact appliances the customer chose in the app calculator, with their watts.') }}
             </p>
         </div>
         @if ($applianceItems->isNotEmpty())
-            <span class="pill pill-blue">{{ $totalDevices }} {{ \Illuminate\Support\Str::plural('device', $totalDevices) }} · {{ number_format($totalWatts) }} W</span>
+            <span class="pill pill-blue">{{ company_portal() ? trans_choice('company/messages.shared.appliances.device_count', $totalDevices) : $totalDevices . ' ' . \Illuminate\Support\Str::plural('device', $totalDevices) }} · {{ number_format($totalWatts) }} W</span>
         @endif
     </div>
 
@@ -23,11 +23,11 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Device</th>
-                        <th>Group</th>
-                        <th style="text-align:right">Watts</th>
-                        <th style="text-align:right">Qty</th>
-                        <th style="text-align:right">Total watts</th>
+                        <th>{{ company_text('shared.appliances.device', 'Device') }}</th>
+                        <th>{{ company_text('shared.appliances.group', 'Group') }}</th>
+                        <th style="text-align:right">{{ company_text('shared.appliances.watts', 'Watts') }}</th>
+                        <th style="text-align:right">{{ company_text('shared.appliances.qty', 'Qty') }}</th>
+                        <th style="text-align:right">{{ company_text('shared.appliances.total_watts', 'Total watts') }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -48,8 +48,8 @@
                 </tbody>
                 <tfoot>
                     <tr>
-                        <td colspan="3"><strong>Total connected load</strong>
-                            <small class="cell-note">If every device runs at the same time.</small>
+                        <td colspan="3"><strong>{{ company_text('shared.appliances.total_load', 'Total connected load') }}</strong>
+                            <small class="cell-note">{{ company_text('shared.appliances.same_time', 'If every device runs at the same time.') }}</small>
                         </td>
                         <td style="text-align:right"><strong>{{ $totalDevices }}</strong></td>
                         <td style="text-align:right"><strong>{{ number_format($totalWatts) }} W</strong>
@@ -61,7 +61,7 @@
         </div>
     @else
         <p class="gray-text" style="margin:0">
-            No device list was sent with this request. Older app versions only send the load totals above.
+            {{ company_text('shared.appliances.no_devices', 'No device list was sent with this request. Older app versions only send the load totals above.') }}
         </p>
     @endif
 </div>

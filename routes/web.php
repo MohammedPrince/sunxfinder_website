@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\MainController;
 use App\Http\Controllers\Company\AuthController as CompanyAuthController;
 use App\Http\Controllers\Company\MainController as CompanyMainController;
 use App\Http\Controllers\Company\ProjectController;
+use App\Http\Middleware\CompanyValidationLines;
 use App\Http\Controllers\WebsiteController;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
@@ -313,7 +314,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::prefix('company')->name('company.')->group(function () {
+Route::prefix('company')->name('company.')->middleware(CompanyValidationLines::class)->group(function () {
 
     // /company -> dashboard when logged in, otherwise the login page
     Route::get('/', function () {

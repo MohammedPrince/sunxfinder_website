@@ -1,53 +1,53 @@
 @extends('company.layouts.app')
 
-@section('title', 'Notification Details')
-@section('breadcrumb', 'Notifications / Details')
-@section('eyebrow', 'CUSTOMER COMMUNICATION')
-@section('page-title', 'Notification Details')
-@section('page-description', 'Review notification content, audience, and recipient read status.')
+@section('title', __('company/messages.notifications.details_title'))
+@section('breadcrumb', __('company/messages.notifications.crumb_details'))
+@section('eyebrow', __('company/messages.notifications.eyebrow'))
+@section('page-title', __('company/messages.notifications.details_title'))
+@section('page-description', __('company/messages.notifications.show_description'))
 
 @section('page-actions')
-    <a href="{{ route('company.notifications.index') }}" class="btn btn-primary">← Back to Notifications</a>
+    <a href="{{ route('company.notifications.index') }}" class="btn btn-primary">{{ __('company/messages.notifications.back') }}</a>
 @endsection
 
 @section('content')
     @if (session('success'))
         <div class="alert alert-success alert-dismissible">
-            <strong>Success!</strong> {{ session('success') }}
-            <button type="button" class="alert-close" onclick="this.parentElement.remove()" aria-label="Close">&times;</button>
+            <strong>{{ __('company/messages.common.success_label') }}</strong> {{ session('success') }}
+            <button type="button" class="alert-close" onclick="this.parentElement.remove()" aria-label="{{ __('company/messages.common.close') }}">&times;</button>
         </div>
     @endif
 
     <div class="metrics-strip">
-        <div><small>Total recipients</small><strong>{{ number_format($notification->recipients_count ?? $notification->recipients()->count()) }}</strong></div>
-        <div><small>Read</small><strong>{{ number_format($readCount ?? 0) }}</strong></div>
-        <div><small>Unread</small><strong>{{ number_format($unreadCount ?? max(0, ($notification->recipients_count ?? $notification->recipients()->count()) - ($readCount ?? 0))) }}</strong></div>
-        <div><small>Published</small><strong>{{ $notification->published_at?->format('M d, Y') ?? '—' }}</strong></div>
+        <div><small>{{ __('company/messages.notifications.total_recipients') }}</small><strong>{{ number_format($notification->recipients_count ?? $notification->recipients()->count()) }}</strong></div>
+        <div><small>{{ __('company/messages.notifications.read') }}</small><strong>{{ number_format($readCount ?? 0) }}</strong></div>
+        <div><small>{{ __('company/messages.notifications.unread') }}</small><strong>{{ number_format($unreadCount ?? max(0, ($notification->recipients_count ?? $notification->recipients()->count()) - ($readCount ?? 0))) }}</strong></div>
+        <div><small>{{ __('company/messages.notifications.published') }}</small><strong>{{ $notification->published_at?->translatedFormat('M d, Y') ?? '—' }}</strong></div>
     </div>
 
     <section class="panel">
-        <div class="panel-heading"><h2>Notification overview</h2><p>Notification #{{ $notification->id }}</p></div>
+        <div class="panel-heading"><h2>{{ __('company/messages.notifications.overview') }}</h2><p>{{ __('company/messages.notifications.number', ['id' => $notification->id]) }}</p></div>
         <div class="panel-body">
             <div class="form-grid">
-                <div class="form-group"><label>Type</label><div class="form-control">{{ ucfirst(str_replace('_', ' ', $notification->type)) }}</div></div>
-                <div class="form-group"><label>Audience</label><div class="form-control">{{ $notification->audience_type === 'all' ? 'All customers' : 'Selected customers' }}</div></div>
-                <div class="form-group"><label>Status</label><div><span class="pill {{ $notification->status === 'published' ? 'pill-green' : 'pill-yellow' }}">{{ ucfirst($notification->status) }}</span></div></div>
-                <div class="form-group"><label>Created</label><div>{{ $notification->created_at?->format('M d, Y H:i') ?? '—' }}</div></div>
-                <div class="form-group"><label>Sender</label><div>{{ ucfirst($notification->sender_type) }}{{ $notification->sender_id ? ' #' . $notification->sender_id : '' }}</div></div>
+                <div class="form-group"><label>{{ __('company/messages.notifications.type') }}</label><div class="form-control">{{ company_label('notifications.show_type_' . $notification->type, ucfirst(str_replace('_', ' ', $notification->type))) }}</div></div>
+                <div class="form-group"><label>{{ __('company/messages.notifications.audience') }}</label><div class="form-control">{{ $notification->audience_type === 'all' ? __('company/messages.notifications.all_customers') : __('company/messages.notifications.selected_customers') }}</div></div>
+                <div class="form-group"><label>{{ __('company/messages.common.status') }}</label><div><span class="pill {{ $notification->status === 'published' ? 'pill-green' : 'pill-yellow' }}">{{ __('company/messages.notifications.' . ($notification->status === 'draft' ? 'draft' : 'published')) }}</span></div></div>
+                <div class="form-group"><label>{{ __('company/messages.notifications.created') }}</label><div>{{ $notification->created_at?->translatedFormat('M d, Y H:i') ?? '—' }}</div></div>
+                <div class="form-group"><label>{{ __('company/messages.notifications.sender') }}</label><div>{{ company_label('notifications.sender_' . $notification->sender_type, ucfirst($notification->sender_type)) }}{{ $notification->sender_id ? ' #' . $notification->sender_id : '' }}</div></div>
             </div>
         </div>
     </section>
 
         <section class="panel">
-                <div class="panel-heading"><h2>English content</h2><p>Content shown to English-language customers.</p></div>
+                <div class="panel-heading"><h2>{{ __('company/messages.notifications.english_content') }}</h2><p>{{ __('company/messages.notifications.content_en_sub') }}</p></div>
                 <div class="panel-body">
-                    <div class="form-group"><label>Title</label><div><strong>{{ $notification->title_en }}</strong></div></div>
-                    <div class="form-group"><label>Message</label><div style="white-space:pre-line">{{ $notification->message_en }}</div></div>
+                    <div class="form-group"><label>{{ __('company/messages.notifications.label_title') }}</label><div><strong>{{ $notification->title_en }}</strong></div></div>
+                    <div class="form-group"><label>{{ __('company/messages.notifications.label_message') }}</label><div style="white-space:pre-line">{{ $notification->message_en }}</div></div>
                 </div>
         </section>
 
     <section class="panel">
-        <div class="panel-heading"><h2>Arabic content</h2><p>Content shown to Arabic-language customers.</p></div>
+        <div class="panel-heading"><h2>{{ __('company/messages.notifications.arabic_content') }}</h2><p>{{ __('company/messages.notifications.content_ar_sub') }}</p></div>
         <div class="panel-body" dir="rtl" lang="ar">
             <div class="form-group"><label>العنوان</label><div><strong>{{ $notification->title_ar ?: '—' }}</strong></div></div>
             <div class="form-group"><label>الرسالة</label><div style="white-space:pre-line">{{ $notification->message_ar ?: '—' }}</div></div>
@@ -58,8 +58,8 @@
         <section class="panel table-panel">
             <div class="panel-heading table-toolbar">
                 <div>
-                    <h2>Recipients</h2>
-                    <p>Customer contact details, registered devices, and read status.</p>
+                    <h2>{{ __('company/messages.notifications.recipients') }}</h2>
+                    <p>{{ __('company/messages.notifications.recipients_sub') }}</p>
                 </div>
             </div>
 
@@ -67,12 +67,12 @@
                 <table class="data-table js-data-table">
                     <thead>
                         <tr>
-                            <th>Customer Name</th>
-                            <th>Phone</th>
-                            <th>FCM Token</th>
-                            <th>Language</th>
-                            <th>Read Status</th>
-                            <th>Read At</th>
+                            <th>{{ __('company/messages.notifications.customer_name') }}</th>
+                            <th>{{ __('company/messages.common.phone') }}</th>
+                            <th>{{ __('company/messages.notifications.fcm_token') }}</th>
+                            <th>{{ __('company/messages.notifications.language') }}</th>
+                            <th>{{ __('company/messages.notifications.read_status') }}</th>
+                            <th>{{ __('company/messages.notifications.read_at') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -95,11 +95,11 @@
                                         <td>{{ strtoupper($device->lang ?? 'en') }}</td>
                                         <td>
                                             <span class="pill {{ $recipient->read_at ? 'pill-green' : 'pill-yellow' }}">
-                                                {{ $recipient->read_at ? 'Read' : 'Unread' }}
+                                                {{ $recipient->read_at ? __('company/messages.notifications.read') : __('company/messages.notifications.unread') }}
                                             </span>
                                         </td>
                                         <td>
-                                            {{ $recipient->read_at?->format('M d, Y H:i') ?? '—' }}
+                                            {{ $recipient->read_at?->translatedFormat('M d, Y H:i') ?? '—' }}
                                         </td>
                                     </tr>
                                 @endforeach
@@ -107,19 +107,19 @@
                                 <tr>
                                     <td>{{ $customer?->full_name ?? '-' }}</td>
                                     <td>{{ $customer?->phone ?? '-' }}</td>
-                                    <td colspan="2">No registered device</td>
+                                    <td colspan="2">{{ __('company/messages.notifications.no_device') }}</td>
                                     <td>
                                         <span class="pill {{ $recipient->read_at ? 'pill-green' : 'pill-yellow' }}">
-                                            {{ $recipient->read_at ? 'Read' : 'Unread' }}
+                                            {{ $recipient->read_at ? __('company/messages.notifications.read') : __('company/messages.notifications.unread') }}
                                         </span>
                                     </td>
-                                    <td>{{ $recipient->read_at?->format('M d, Y H:i') ?? '—' }}</td>
+                                    <td>{{ $recipient->read_at?->translatedFormat('M d, Y H:i') ?? '—' }}</td>
                                 </tr>
                             @endif
                         @empty
                             <tr>
                                 <td colspan="6" class="text-center">
-                                    No recipients found.
+                                    {{ __('company/messages.notifications.no_recipients') }}
                                 </td>
                             </tr>
                         @endforelse

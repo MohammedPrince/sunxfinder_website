@@ -1,33 +1,33 @@
 @extends('company.layouts.app')
 
-@section('title', 'Notifications')
-@section('breadcrumb', 'Notifications')
-@section('eyebrow', 'CUSTOMER COMMUNICATION')
-@section('page-title', 'Notifications')
-@section('page-description', 'Create announcements and review notifications sent to SunXFinder customers.')
+@section('title', __('company/messages.notifications.title'))
+@section('breadcrumb', __('company/messages.notifications.title'))
+@section('eyebrow', __('company/messages.notifications.eyebrow'))
+@section('page-title', __('company/messages.notifications.title'))
+@section('page-description', __('company/messages.notifications.page_description'))
 
 @section('page-actions')
-    <a href="{{ route('company.notifications.create') }}" class="btn btn-primary">+ Send Notification</a>
+    <a href="{{ route('company.notifications.create') }}" class="btn btn-primary">{{ __('company/messages.notifications.send_button') }}</a>
 @endsection
 
 @section('content')
     @if (session('success'))
         <div class="alert alert-success alert-dismissible">
-            <strong>Success!</strong> {{ session('success') }}
-            <button type="button" class="alert-close" onclick="this.parentElement.remove()" aria-label="Close">&times;</button>
+            <strong>{{ __('company/messages.common.success_label') }}</strong> {{ session('success') }}
+            <button type="button" class="alert-close" onclick="this.parentElement.remove()" aria-label="{{ __('company/messages.common.close') }}">&times;</button>
         </div>
     @endif
 
     @if (session('error'))
         <div class="alert alert-danger alert-dismissible">
-            <strong>Error!</strong> {{ session('error') }}
-            <button type="button" class="alert-close" onclick="this.parentElement.remove()" aria-label="Close">&times;</button>
+            <strong>{{ __('company/messages.common.error_label') }}</strong> {{ session('error') }}
+            <button type="button" class="alert-close" onclick="this.parentElement.remove()" aria-label="{{ __('company/messages.common.close') }}">&times;</button>
         </div>
     @endif
 
     @if ($errors->any())
         <div class="alert alert-danger">
-            <strong>Please correct the following errors:</strong>
+            <strong>{{ __('company/messages.common.fix_errors') }}</strong>
             <ul>
                 @foreach ($errors->all() as $error)
                     <li>{{ $error }}</li>
@@ -37,42 +37,42 @@
     @endif
 
     <div class="metrics-strip">
-        <div><small>Total notifications</small><strong>{{ $notifications->total() }}</strong></div>
-        <div><small>Published</small><strong>{{ $publishedCount ?? '—' }}</strong></div>
-        <div><small>Drafts</small><strong>{{ $draftCount ?? '—' }}</strong></div>
-        <div><small>Total recipients</small><strong>{{ number_format($recipientCount ?? 0) }}</strong></div>
+        <div><small>{{ __('company/messages.notifications.total') }}</small><strong>{{ $notifications->total() }}</strong></div>
+        <div><small>{{ __('company/messages.notifications.published') }}</small><strong>{{ $publishedCount ?? '—' }}</strong></div>
+        <div><small>{{ __('company/messages.notifications.drafts') }}</small><strong>{{ $draftCount ?? '—' }}</strong></div>
+        <div><small>{{ __('company/messages.notifications.total_recipients') }}</small><strong>{{ number_format($recipientCount ?? 0) }}</strong></div>
     </div>
 
     <section class="panel table-panel">
         <div class="panel-heading table-toolbar">
             <div>
-                <h2>Notification history</h2>
-                <p>Review announcements, audiences, and delivery/read statistics.</p>
+                <h2>{{ __('company/messages.notifications.history') }}</h2>
+                <p>{{ __('company/messages.notifications.history_sub') }}</p>
             </div>
             <form method="GET" action="{{ route('company.notifications.index') }}" class="table-filters">
-                <select class="select-control" name="type" aria-label="Filter by notification type">
-                    <option value="">All types</option>
+                <select class="select-control" name="type" aria-label="{{ __('company/messages.notifications.filter_type') }}">
+                    <option value="">{{ __('company/messages.notifications.all_types') }}</option>
                     @foreach ([
-                        'general' => 'General announcement',
-                        'quote' => 'Quote update',
-                        'promotion' => 'Promotion',
-                        'account' => 'Account',
-                        'support' => 'Support',
-                        'maintenance' => 'Maintenance',
+                        'general' => __('company/messages.notifications.type_general_announcement'),
+                        'quote' => __('company/messages.notifications.type_quote'),
+                        'promotion' => __('company/messages.notifications.type_promotion'),
+                        'account' => __('company/messages.notifications.type_account'),
+                        'support' => __('company/messages.notifications.type_support'),
+                        'maintenance' => __('company/messages.notifications.type_maintenance'),
                     ] as $typeValue => $typeLabel)
                         <option value="{{ $typeValue }}" @selected(request('type') === $typeValue)>{{ $typeLabel }}</option>
                     @endforeach
                 </select>
-                <select class="select-control" name="status" aria-label="Filter by status">
-                    <option value="">All statuses</option>
-                    <option value="published" @selected(request('status') === 'published')>Published</option>
-                    <option value="draft" @selected(request('status') === 'draft')>Draft</option>
+                <select class="select-control" name="status" aria-label="{{ __('company/messages.notifications.filter_status') }}">
+                    <option value="">{{ __('company/messages.notifications.all_statuses') }}</option>
+                    <option value="published" @selected(request('status') === 'published')>{{ __('company/messages.notifications.published') }}</option>
+                    <option value="draft" @selected(request('status') === 'draft')>{{ __('company/messages.notifications.draft') }}</option>
                 </select>
                 <input class="table-search" type="search" name="search" value="{{ request('search') }}"
-                    placeholder="Search notifications…" aria-label="Search notifications">
-                <button type="submit" class="btn btn-light">Filter</button>
+                    placeholder="{{ __('company/messages.notifications.search_placeholder') }}" aria-label="{{ __('company/messages.notifications.search_label') }}">
+                <button type="submit" class="btn btn-light">{{ __('company/messages.notifications.filter') }}</button>
                 @if (request()->hasAny(['type', 'status', 'search']))
-                    <a href="{{ route('company.notifications.index') }}" class="btn btn-light">Reset</a>
+                    <a href="{{ route('company.notifications.index') }}" class="btn btn-light">{{ __('company/messages.notifications.reset') }}</a>
                 @endif
             </form>
         </div>
@@ -80,7 +80,7 @@
         <div class="table-responsive">
             <table class="data-table js-data-table">
                 <thead>
-                    <tr><th>Notification</th><th>Type</th><th>Audience</th><th>Recipients</th><th>Status</th><th>Published</th><th>Actions</th></tr>
+                    <tr><th>{{ __('company/messages.notifications.notification') }}</th><th>{{ __('company/messages.notifications.type') }}</th><th>{{ __('company/messages.notifications.audience') }}</th><th>{{ __('company/messages.notifications.recipients') }}</th><th>{{ __('company/messages.common.status') }}</th><th>{{ __('company/messages.notifications.published') }}</th><th>{{ __('company/messages.common.actions') }}</th></tr>
                 </thead>
                 <tbody>
                     @forelse ($notifications as $notification)
@@ -91,12 +91,12 @@
                                 default => 'pill-yellow',
                             };
                             $typeLabels = [
-                                'general' => 'General',
-                                'quote' => 'Quote update',
-                                'promotion' => 'Promotion',
-                                'account' => 'Account',
-                                'support' => 'Support',
-                                'maintenance' => 'Maintenance',
+                                'general' => __('company/messages.notifications.type_general'),
+                                'quote' => __('company/messages.notifications.type_quote'),
+                                'promotion' => __('company/messages.notifications.type_promotion'),
+                                'account' => __('company/messages.notifications.type_account'),
+                                'support' => __('company/messages.notifications.type_support'),
+                                'maintenance' => __('company/messages.notifications.type_maintenance'),
                             ];
                         @endphp
                         <tr>
@@ -110,15 +110,15 @@
                                 </div>
                             </td>
                             <td>{{ $typeLabels[$notification->type] ?? ucfirst($notification->type) }}</td>
-                            <td>{{ $notification->audience_type === 'all' ? 'All customers' : 'Selected customers' }}</td>
+                            <td>{{ $notification->audience_type === 'all' ? __('company/messages.notifications.all_customers') : __('company/messages.notifications.selected_customers') }}</td>
                             <td>{{ number_format($notification->recipients_count ?? 0) }}</td>
-                            <td><span class="pill {{ $statusClass }}" data-status="{{ $notification->status }}">{{ ucfirst($notification->status) }}</span></td>
-                            <td>{{ $notification->published_at?->format('M d, Y H:i') ?? '—' }}</td>
+                            <td><span class="pill {{ $statusClass }}" data-status="{{ $notification->status }}">{{ __('company/messages.notifications.' . ($notification->status === 'draft' ? 'draft' : 'published')) }}</span></td>
+                            <td>{{ $notification->published_at?->translatedFormat('M d, Y H:i') ?? '—' }}</td>
                             <td>
                                 <div class="company-actions">
                                     <a href="{{ route('company.notifications.show', $notification->id) }}"
-                                        class="row-action row-action-icon" title="View notification"
-                                        aria-label="View notification {{ $notification->title_en }}">
+                                        class="row-action row-action-icon" title="{{ __('company/messages.notifications.view') }}"
+                                        aria-label="{{ __('company/messages.notifications.view_label', ['title' => $notification->title_en]) }}">
                                         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
                                             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                             <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/>
@@ -127,11 +127,11 @@
                                     </a>
                                     <form action="{{ route('company.notifications.destroy', $notification->id) }}" method="POST"
                                         class="company-delete-form"
-                                        onsubmit="return confirm('Delete this notification? Customers will no longer see it in the app.');">
+                                        onsubmit="return confirm(@js(__('company/messages.notifications.delete_confirm')));">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="row-action row-action-icon row-action-delete"
-                                            title="Delete notification" aria-label="Delete notification {{ $notification->title_en }}">
+                                            title="{{ __('company/messages.notifications.delete') }}" aria-label="{{ __('company/messages.notifications.delete_label', ['title' => $notification->title_en]) }}">
                                             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
                                                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                 <path d="M3 6h18" />
@@ -145,8 +145,8 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="text-center">No notifications found.
-                            <a href="{{ route('company.notifications.create') }}">Send your first notification</a>
+                        <tr><td colspan="7" class="text-center">{{ __('company/messages.notifications.none_found') }}
+                            <a href="{{ route('company.notifications.create') }}">{{ __('company/messages.notifications.send_first') }}</a>
                         </td></tr>
                     @endforelse
                 </tbody>

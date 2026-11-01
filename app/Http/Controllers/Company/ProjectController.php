@@ -78,7 +78,7 @@ class ProjectController extends Controller
 
         return redirect()
             ->route('company.projects.show', $id)
-            ->with('success', 'Project progress updated successfully.');
+            ->with('success', __('company/messages.projects.progress_updated'));
     }
 
 

@@ -80,7 +80,7 @@ class MainController extends Controller
         if (!$companyId) {
             return redirect()
                 ->route('company.login')
-                ->with('error', 'Please log in to continue.');
+                ->with('error', __('company/messages.profile.login_required'));
         }
 
         $result = $this->companyService->getCompany($companyId);
@@ -162,7 +162,7 @@ class MainController extends Controller
             'year_of_exp' => ['required', 'integer', 'min:1'],
             'number_of_projects' => ['required', 'integer', 'min:1'],
         ], [
-            'name.regex' => "The company name may only contain English or Arabic letters, numbers, spaces and . , & ' ( ) -",
+            'name.regex' => __('company/messages.profile.name_regex'),
         ]);
 
         /*
@@ -227,7 +227,7 @@ class MainController extends Controller
 
         return redirect()
             ->route('company.profile')
-            ->with('success', 'Company profile updated successfully.');
+            ->with('success', __('company/messages.profile.updated'));
     }
 
     private function companyId(): int
@@ -267,7 +267,7 @@ class MainController extends Controller
 
         return redirect()
             ->route('company.products.index')
-            ->with('success', 'Product added successfully.');
+            ->with('success', __('company/messages.products.added'));
     }
 
     public function edit(int $product)
@@ -295,7 +295,7 @@ class MainController extends Controller
 
         return redirect()
             ->route('company.products.index')
-            ->with('success', 'Product updated successfully.');
+            ->with('success', __('company/messages.products.updated'));
     }
 
     public function destroy(int $product)
@@ -304,7 +304,7 @@ class MainController extends Controller
 
         return redirect()
             ->route('company.products.index')
-            ->with('success', 'Product deleted successfully.');
+            ->with('success', __('company/messages.products.deleted'));
     }
 
     private function validatedData(Request $request): array
@@ -326,7 +326,11 @@ class MainController extends Controller
             'specs' => ['nullable', 'array', 'max:20'],
             'specs.*.name' => ['nullable', 'string', 'max:100'],
             'specs.*.value' => ['nullable', 'string', 'max:255'],
-        ]);
+        ], [], app()->isLocale('ar') ? [
+            // ar/validation.php names these fields for the company form.
+            'name' => __('company/messages.products.name'),
+            'description' => __('company/messages.products.description'),
+        ] : []);
     }
 
     //Quote Requests Start
@@ -379,7 +383,7 @@ class MainController extends Controller
         if (!$quote) {
             return redirect()
                 ->route('company.quote-requests.index')
-                ->with('error', 'This quote request is no longer available.');
+                ->with('error', __('company/messages.quote_requests.not_available'));
         }
 
         $companyQuotation = $this->companyService->getCompanyQuotationForQuote($id);
@@ -441,16 +445,16 @@ class MainController extends Controller
             'invoice_items.*.quantity' => ['exclude_unless:include_invoice,1', 'required', 'numeric', 'gt:0', 'max:10000'],
             'invoice_items.*.unit_price' => ['exclude_unless:include_invoice,1', 'required', 'numeric', 'min:0', 'max:9999999999999'],
         ], [
-            'price.required' => 'Please enter your total offer price.',
-            'price.numeric' => 'Please enter a valid total price.',
-            'price.min' => 'The total offer price must be at least 1,000.',
+            'price.required' => __('company/messages.quote.price_required'),
+            'price.numeric' => __('company/messages.quote.price_numeric'),
+            'price.min' => __('company/messages.quote.price_min'),
         ]);
 
         $this->companyService->submitQuoteOffer($id, $validated);
 
         return redirect()
             ->route('company.quote-requests.show', $id)
-            ->with('success', 'Your offer has been saved successfully.');
+            ->with('success', __('company/messages.quote.offer_saved'));
     }
 
     public function showQuoteInvoice(int $id)
@@ -458,7 +462,7 @@ class MainController extends Controller
         $invoice = $this->companyService->getQuoteInvoice($id);
         if (!$invoice) {
             return redirect()->route('company.quote-requests.show', $id)
-                ->with('error', 'No invoice has been created for this offer yet.');
+                ->with('error', __('company/messages.quote.no_invoice'));
         }
 
         return view('company.quote-requests.invoice', compact('invoice'));
@@ -469,7 +473,7 @@ class MainController extends Controller
         $invoice = $this->companyService->getQuoteInvoice($id);
         if (!$invoice) {
             return redirect()->route('company.quote-requests.show', $id)
-                ->with('error', 'No invoice has been created for this offer yet.');
+                ->with('error', __('company/messages.quote.no_invoice'));
         }
 
         $pdf = InvoicePdf::render($invoice);
@@ -617,7 +621,7 @@ class MainController extends Controller
 
         $ratings = $this->companyService->getCompanyRatings($filters);
         $summary = $this->companyService->getCompanyRatingSummary();
-        $valueLabels = RatingValue::labels();
+        $valueLabels = RatingValue::labels(app()->getLocale());
 
         return view('company.ratings.index', compact('ratings', 'summary', 'valueLabels'));
     }

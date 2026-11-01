@@ -2352,3 +2352,39 @@
     margin-bottom: 5px;
     color: #334154;
 }
+
+/* Language selector in the top bar, same look as the company login. */
+.topbar-language {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 6px;
+}
+
+.topbar-language a {
+    padding: 5px 12px;
+    border: 1px solid #dbe2ea;
+    border-radius: 999px;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.topbar-language a.is-active {
+    background: #182634;
+    border-color: #182634;
+    color: #fff;
+}
+
+/* Phones: only the language to switch to, and no breadcrumb beside it (the page title sits just below). */
+@media (max-width: 640px) {
+    .topbar-language a.is-active,
+    .topbar-left {
+        display: none;
+    }
+
+    .topbar-right {
+        margin-inline-start: auto;
+    }
+}

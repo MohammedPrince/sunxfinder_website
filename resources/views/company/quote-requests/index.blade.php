@@ -1,26 +1,26 @@
 @extends('company.layouts.app')
 
-@section('title', 'Quote requests')
-@section('breadcrumb', 'Quote requests')
-@section('eyebrow', 'COMPANY ENQUIRIES')
-@section('page-title', 'Quote requests')
-@section('page-description', 'Customers looking for a solar system. Send your best price to win their project.')
+@section('title', __('company/messages.navigation.quote_requests'))
+@section('breadcrumb', __('company/messages.navigation.quote_requests'))
+@section('eyebrow', __('company/messages.quote_requests.eyebrow'))
+@section('page-title', __('company/messages.navigation.quote_requests'))
+@section('page-description', __('company/messages.quote_requests.page_description'))
 
 @section('content')
     @php
         $requestStatusLabels = [
-            'pending' => 'Open',
-            'accepted' => 'Accepted',
-            'rejected' => 'Rejected',
-            'completed' => 'Completed',
-            'cancelled' => 'Cancelled',
+            'pending' => __('company/messages.quote_requests.open'),
+            'accepted' => __('company/messages.common.accepted'),
+            'rejected' => __('company/messages.common.rejected'),
+            'completed' => __('company/messages.common.completed'),
+            'cancelled' => __('company/messages.common.cancelled'),
         ];
 
         $offerStatusLabels = [
-            'submitted' => 'Waiting for customer',
-            'selected' => 'Won',
-            'not_selected' => 'Not selected',
-            'withdrawn' => 'Not selected',
+            'submitted' => __('company/messages.quote_requests.waiting_customer'),
+            'selected' => __('company/messages.common.won'),
+            'not_selected' => __('company/messages.common.not_selected'),
+            'withdrawn' => __('company/messages.common.not_selected'),
         ];
 
         $offerStatusClasses = [
@@ -35,32 +35,32 @@
 
     @include('partials.page-guide', [
         'key' => 'company-quote-requests',
-        'title' => 'How to win customers',
-        'intro' => 'Each row is a customer asking for a solar system. Requests come either to all companies or directly to you.',
+        'title' => __('company/messages.quote_requests.guide_title'),
+        'intro' => __('company/messages.quote_requests.guide_intro'),
         'steps' => [
-            '<strong>Open a request</strong> and review the customer’s energy needs (daily energy, peak load, suggested equipment).',
-            '<strong>Send your total price</strong> with a short message in English and Arabic. You can see other companies’ prices (never their names).',
-            '<strong>Edit your offer</strong> any time while the customer is still deciding.',
-            '<strong>If the customer chooses you</strong>, a project is created. Go to it from the "Next step" column.',
+            __('company/messages.quote_requests.guide_1'),
+            __('company/messages.quote_requests.guide_2'),
+            __('company/messages.quote_requests.guide_3'),
+            __('company/messages.quote_requests.guide_4'),
         ],
-        'note' => 'Tip: customers usually decide quickly. Answer new requests the same day.',
+        'note' => __('company/messages.quote_requests.guide_note'),
     ])
 
     <div class="metrics-strip">
         <div>
-            <small>Waiting for your offer</small>
+            <small>{{ __('company/messages.quote_requests.waiting_your_offer') }}</small>
             <strong class="{{ $metrics['awaiting_offer'] ? 'warning' : '' }}">{{ number_format($metrics['awaiting_offer']) }}</strong>
         </div>
         <div>
-            <small>Open requests</small>
+            <small>{{ __('company/messages.quote_requests.open_requests') }}</small>
             <strong>{{ number_format($metrics['pending']) }}</strong>
         </div>
         <div>
-            <small>Offers won</small>
+            <small>{{ __('company/messages.quote_requests.offers_won') }}</small>
             <strong>{{ number_format($metrics['won']) }}</strong>
         </div>
         <div>
-            <small>All requests you can see</small>
+            <small>{{ __('company/messages.quote_requests.all_visible') }}</small>
             <strong>{{ number_format($metrics['total']) }}</strong>
         </div>
     </div>
@@ -68,14 +68,14 @@
     <section class="panel table-panel">
         <div class="panel-heading table-toolbar">
             <div>
-                <h2>Customer requests</h2>
-                <p>Newest first. The "Next step" column tells you what to do.</p>
+                <h2>{{ __('company/messages.quote_requests.customer_requests') }}</h2>
+                <p>{{ __('company/messages.quote_requests.requests_sub') }}</p>
             </div>
 
             <form method="GET" action="{{ route('company.quote-requests.index') }}" class="table-filters">
 
-                <select name="status" class="select-control" aria-label="Request status">
-                    <option value="">All requests</option>
+                <select name="status" class="select-control" aria-label="{{ __('company/messages.quote_requests.request_status') }}">
+                    <option value="">{{ __('company/messages.quote_requests.all_requests') }}</option>
 
                     @foreach ($requestStatusLabels as $value => $label)
                         <option value="{{ $value }}" @selected(request('status') === $value)>
@@ -85,13 +85,13 @@
                 </select>
 
                 <input class="table-search" type="search" name="search" value="{{ request('search') }}"
-                    placeholder="Customer, service or #ID" maxlength="100" aria-label="Search requests">
+                    placeholder="{{ __('company/messages.quote_requests.search_placeholder') }}" maxlength="100" aria-label="{{ __('company/messages.quote_requests.search_label') }}">
 
-                <button type="submit" class="btn btn-light">Search</button>
+                <button type="submit" class="btn btn-light">{{ __('company/messages.common.search') }}</button>
 
                 @if (request()->hasAny(['status', 'search']))
                     <a href="{{ route('company.quote-requests.index') }}" class="btn btn-light">
-                        Clear
+                        {{ __('company/messages.common.clear') }}
                     </a>
                 @endif
             </form>
@@ -101,14 +101,14 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Request</th>
-                        <th>Customer</th>
-                        <th>Quote name</th>
-                        <th>Energy needs</th>
-                        <th>Received</th>
-                        <th>Offers</th>
-                        <th>Your offer</th>
-                        <th>Next step</th>
+                        <th>{{ __('company/messages.common.request') }}</th>
+                        <th>{{ __('company/messages.common.customer') }}</th>
+                        <th>{{ __('company/messages.common.quote_name') }}</th>
+                        <th>{{ __('company/messages.quote_requests.energy_needs') }}</th>
+                        <th>{{ __('company/messages.common.received') }}</th>
+                        <th>{{ __('company/messages.quote_requests.offers') }}</th>
+                        <th>{{ __('company/messages.common.your_offer') }}</th>
+                        <th>{{ __('company/messages.common.next_step') }}</th>
                     </tr>
                 </thead>
 
@@ -118,7 +118,7 @@
                             $customer = $quote->customer;
 
                             $customerName = $customer?->full_name
-                                ?: ($customer?->username ?: 'Customer #' . $quote->customer_id);
+                                ?: ($customer?->username ?: __('company/messages.common.customer_number', ['id' => $quote->customer_id]));
 
                             // This relationship holds only this company's own offer.
                             $myOffer = $quote->companyQuotations->first();
@@ -142,21 +142,21 @@
 
                             // What the company should do next on this request.
                             [$nextLabel, $nextClass, $nextUrl] = match (true) {
-                                $project !== null && $project->status === 'accepted' => ['Start the project', 'pill-green', route('company.projects.show', $project->id)],
-                                $project !== null && $project->status === 'in_progress' => ['Update progress (' . $project->progress_percent . '%)', 'pill-blue', route('company.projects.show', $project->id)],
-                                $project !== null => ['Project completed', 'pill-green', route('company.projects.show', $project->id)],
-                                $lostToAnother => ['Closed: another offer chosen', 'pill-red', route('company.quote-requests.show', $quote->id)],
-                                in_array($quote->status, ['cancelled', 'rejected'], true) => ['Closed by customer', 'pill-purple', route('company.quote-requests.show', $quote->id)],
-                                $quote->status === 'pending' && !$myOffer => ['Send your offer', 'pill-orange', route('company.quote-requests.show', $quote->id)],
-                                $quote->status === 'pending' && $offerStatus === 'submitted' => ['Customer deciding (you can edit)', 'pill-yellow', route('company.quote-requests.show', $quote->id)],
-                                default => ['View request', 'pill-blue', route('company.quote-requests.show', $quote->id)],
+                                $project !== null && $project->status === 'accepted' => [__('company/messages.quote_requests.start_project'), 'pill-green', route('company.projects.show', $project->id)],
+                                $project !== null && $project->status === 'in_progress' => [__('company/messages.quote_requests.update_progress_percent', ['percent' => $project->progress_percent]), 'pill-blue', route('company.projects.show', $project->id)],
+                                $project !== null => [__('company/messages.quote_requests.project_completed'), 'pill-green', route('company.projects.show', $project->id)],
+                                $lostToAnother => [__('company/messages.quote_requests.closed_another'), 'pill-red', route('company.quote-requests.show', $quote->id)],
+                                in_array($quote->status, ['cancelled', 'rejected'], true) => [__('company/messages.quote_requests.closed_customer'), 'pill-purple', route('company.quote-requests.show', $quote->id)],
+                                $quote->status === 'pending' && !$myOffer => [__('company/messages.quote_requests.send_your_offer'), 'pill-orange', route('company.quote-requests.show', $quote->id)],
+                                $quote->status === 'pending' && $offerStatus === 'submitted' => [__('company/messages.quote_requests.customer_deciding'), 'pill-yellow', route('company.quote-requests.show', $quote->id)],
+                                default => [__('company/messages.quote_requests.view_request'), 'pill-blue', route('company.quote-requests.show', $quote->id)],
                             };
                         @endphp
 
                         <tr>
                             <td>
                                 <strong>#Q-{{ str_pad($quote->id, 5, '0', STR_PAD_LEFT) }}</strong>
-                                <small class="cell-note">{{ $isDirect ? 'Sent to you directly' : 'Open to all companies' }}</small>
+                                <small class="cell-note">{{ $isDirect ? __('company/messages.quote_requests.sent_direct') : __('company/messages.quote_requests.open_all') }}</small>
                             </td>
 
                             <td>
@@ -164,7 +164,7 @@
                                     <span class="person-avatar">{{ strtoupper(mb_substr($customerName, 0, 1)) }}</span>
                                     <span>
                                         <strong>{{ $customerName }}</strong>
-                                        <small>{{ $customer?->city ?: 'City not set' }}</small>
+                                        <small>{{ $customer?->city ?: __('company/messages.common.city_not_set') }}</small>
                                     </span>
                                 </div>
                             </td>
@@ -173,17 +173,17 @@
 
                             <td>
                                 <strong>{{ $quote->daily_load ?: '—' }}</strong>
-                                <small class="cell-note">Peak: {{ $quote->peak_load ?: '—' }}</small>
+                                <small class="cell-note">{{ __('company/messages.quote_requests.peak', ['value' => $quote->peak_load ?: '—']) }}</small>
                             </td>
 
                             <td>
-                                {{ $quote->created_at?->format('d M Y') ?? '—' }}
+                                {{ $quote->created_at?->translatedFormat('d M Y') ?? '—' }}
                                 <small class="cell-note">{{ $quote->created_at?->diffForHumans() }}</small>
                             </td>
 
                             <td>
                                 <strong>{{ (int) $quote->total_offers_count }}</strong>
-                                <small class="cell-note">{{ $myOffer ? 'incl. yours' : 'from others' }}</small>
+                                <small class="cell-note">{{ $myOffer ? __('company/messages.quote_requests.incl_yours') : __('company/messages.quote_requests.from_others') }}</small>
                             </td>
 
                             <td>
@@ -193,21 +193,21 @@
                                         {{ $offerStatusLabels[$offerStatus] ?? ucfirst((string) $offerStatus) }}
                                     </span>
                                 @else
-                                    <span class="gray-text">Not sent</span>
+                                    <span class="gray-text">{{ __('company/messages.quote_requests.not_sent') }}</span>
                                 @endif
                             </td>
 
                             <td>
                                 <a href="{{ $nextUrl }}" class="pill {{ $nextClass }} next-step-link">
-                                    {{ $nextLabel }} →
+                                    {{ $nextLabel }} {{ __('company/messages.common.arrow_next') }}
                                 </a>
                             </td>
                         </tr>
                     @empty
                         <tr>
                             <td colspan="8" class="dashboard-empty">
-                                <strong>No quote requests found.</strong>
-                                Requests appear here when customers send them to you or to all companies.
+                                <strong>{{ __('company/messages.quote_requests.empty_title') }}</strong>
+                                {{ __('company/messages.quote_requests.empty_body') }}
                             </td>
                         </tr>
                     @endforelse

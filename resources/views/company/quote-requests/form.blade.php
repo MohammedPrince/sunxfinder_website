@@ -1,35 +1,35 @@
 @extends('company.layouts.app')
 
-@section('title', 'Quote Details')
-@section('breadcrumb', 'Quote requests')
-@section('eyebrow', 'COMPANY ENQUIRIES')
-@section('page-title', 'Quote details')
-@section('page-description', 'Review the customer enquiry and requested solar system.')
+@section('title', __('company/messages.quote.title'))
+@section('breadcrumb', __('company/messages.navigation.quote_requests'))
+@section('eyebrow', __('company/messages.quote_requests.eyebrow'))
+@section('page-title', __('company/messages.quote.page_title'))
+@section('page-description', __('company/messages.quote.page_description'))
 
 @section('page-actions')
     <div class="quote-page-actions no-print">
         <a href="{{ route('company.quote-requests.index') }}" class="btn btn-light">
-            &larr; Back to Requests
+            {{ __('company/messages.quote.back') }}
         </a>
 
         @if ($companyQuotation?->status === 'selected' && $project)
             <a href="{{ route('company.projects.show', $project->id) }}" class="btn btn-green-light">
-                View Project &rarr;
+                {{ __('company/messages.quote.view_project_arrow') }}
             </a>
         @endif
 
         @if ($companyQuotation?->invoice)
             <a href="{{ route('company.quote-requests.invoice', $quote->id) }}" class="btn btn-light">
-                View Invoice
+                {{ __('company/messages.quote.view_invoice') }}
             </a>
 
             <a href="{{ route('company.quote-requests.invoice.pdf', $quote->id) }}" class="btn btn-light">
-                Download Invoice PDF
+                {{ __('company/messages.quote.download_invoice') }}
             </a>
         @endif
 
         <button type="button" class="btn btn-primary" onclick="printQuote()">
-            Print / Save PDF
+            {{ __('company/messages.quote.print') }}
         </button>
     </div>
 @endsection
@@ -42,7 +42,7 @@
         $customerName = $customer?->name
             ?? $customer?->full_name
             ?? $customer?->customer_name
-            ?? 'Customer #' . $quote->customer_id;
+            ?? __('company/messages.common.customer_number', ['id' => $quote->customer_id]);
 
         $companyQuotation = $companyQuotation ?? null;
         $invoice = $companyQuotation?->invoice;
@@ -50,7 +50,7 @@
         $invoiceItems = array_values(old('invoice_items', $invoice?->items ?? []));
         if (!$invoiceItems) {
             $invoiceItems = [[
-                'description' => 'Solar energy system',
+                'description' => __('company/messages.quote.default_item'),
                 'quantity' => 1,
                 'unit_price' => old('price', $companyQuotation?->price ?? ''),
             ]];
@@ -58,16 +58,16 @@
         $authenticatedCompanyId = auth()->guard('company')->id();
 
         $statusLabels = [
-            'pending' => 'Pending',
-            'submitted' => 'Offer Submitted',
-            'selected' => 'Offer Selected',
-            'not_selected' => 'Not Selected',
-            'rejected' => 'Rejected',
-            'accepted' => 'Accepted',
-            'completed' => 'Completed',
-            'cancelled' => 'Cancelled',
-            'withdrawn' => 'Not Selected',
-            'selected_another' => 'Selected another offer',
+            'pending' => __('company/messages.quote.status_pending'),
+            'submitted' => __('company/messages.quote.offer_submitted'),
+            'selected' => __('company/messages.quote.offer_selected'),
+            'not_selected' => __('company/messages.quote.status_not_selected'),
+            'rejected' => __('company/messages.common.rejected'),
+            'accepted' => __('company/messages.common.accepted'),
+            'completed' => __('company/messages.common.completed'),
+            'cancelled' => __('company/messages.common.cancelled'),
+            'withdrawn' => __('company/messages.quote.status_not_selected'),
+            'selected_another' => __('company/messages.quote.selected_another'),
         ];
 
         $statusClasses = [
@@ -119,51 +119,51 @@
 
         // One plain sentence explaining the status above.
         $statusExplanation = match (true) {
-            $status === 'selected' => 'The customer chose your offer. Manage the installation in the project.',
-            $status === 'submitted' && $quote->status === 'pending' => 'Your offer was sent. The customer is comparing offers; you can still edit yours.',
-            in_array($status, ['not_selected', 'withdrawn', 'selected_another'], true) => 'The customer chose another company. This request is closed for you.',
-            $status === 'pending' => 'The customer is waiting for offers. Send yours below.',
-            $status === 'cancelled' => 'The customer cancelled this request.',
-            default => 'This request is no longer accepting offers.',
+            $status === 'selected' => __('company/messages.quote.explain_selected'),
+            $status === 'submitted' && $quote->status === 'pending' => __('company/messages.quote.explain_submitted'),
+            in_array($status, ['not_selected', 'withdrawn', 'selected_another'], true) => __('company/messages.quote.explain_another'),
+            $status === 'pending' => __('company/messages.quote.explain_waiting'),
+            $status === 'cancelled' => __('company/messages.quote.explain_cancelled'),
+            default => __('company/messages.quote.no_longer_accepting'),
         };
     @endphp
 
     <div class="quote-print-page">
         <header class="quote-document-header print-only">
             <div class="quote-document-brand">
-                {{ $company?->name ?? 'Solar Company' }}
+                {{ $company?->name ?? __('company/messages.quote.solar_company') }}
             </div>
 
             <div class="quote-document-subtitle">
-                Solar Energy Quote Request
+                {{ __('company/messages.quote.doc_subtitle') }}
             </div>
 
             <div class="quote-document-reference">
-                Reference: <strong>{{ $reference }}</strong>
+                {{ __('company/messages.quote.doc_reference') }} <strong>{{ $reference }}</strong>
             </div>
         </header>
 
         @include('partials.page-guide', [
             'key' => 'company-quote-details',
-            'title' => 'How to respond to this request',
-            'intro' => 'A customer used the SunXFinder calculator and is asking for a total price for the system below.',
+            'title' => __('company/messages.quote.guide_title'),
+            'intro' => __('company/messages.quote.guide_intro'),
             'steps' => [
-                '<strong>Check the energy needs</strong>: daily energy, peak load and the suggested panels, inverter and batteries.',
-                '<strong>Compare prices</strong>: other companies’ prices appear without their names.',
-                '<strong>Make an offer</strong>: one total price for the complete system, plus a message in English and Arabic.',
-                '<strong>Wait for the customer</strong>: you can edit your offer until they choose. If they choose you, "View Project" appears at the top.',
+                __('company/messages.quote.guide_1'),
+                __('company/messages.quote.guide_2'),
+                __('company/messages.quote.guide_3'),
+                __('company/messages.quote.guide_4'),
             ],
-            'note' => 'Your price, messages and invoice are shown to the customer in the app.',
+            'note' => __('company/messages.quote.guide_note'),
         ])
 
         <section class="quote-summary">
             <div class="quote-summary-item">
-                <span>Request reference</span>
+                <span>{{ __('company/messages.common.reference') }}</span>
                 <strong>{{ $reference }}</strong>
             </div>
 
             <div class="quote-summary-item">
-                <span>Status</span>
+                <span>{{ __('company/messages.quote.status') }}</span>
 
                 <strong class="pill {{ $statusClasses[$status] ?? 'pill-blue' }}">
                     {{ $statusLabels[$status] ?? ucfirst($status) }}
@@ -172,12 +172,12 @@
                 <small class="quote-status-note">{{ $statusExplanation }}</small>
             </div>
             <div class="quote-summary-item">
-                <span>Daily energy</span>
+                <span>{{ __('company/messages.quote.daily_energy') }}</span>
                 <strong>{{ $quote->daily_load ?: '—' }}</strong>
             </div>
 
             <div class="quote-summary-item">
-                <span>Peak load</span>
+                <span>{{ __('company/messages.quote.peak_load') }}</span>
                 <strong>{{ $quote->peak_load ?: '—' }}</strong>
             </div>
         </section>
@@ -204,24 +204,22 @@
                     </div>
 
                     <div>
-                        <h3>Competitor Pricing</h3>
-                        <p>Other companies have submitted offers for this request.</p>
+                        <h3>{{ __('company/messages.quote.competitor_pricing') }}</h3>
+                        <p>{{ __('company/messages.quote.competitor_sub') }}</p>
                     </div>
                 </div>
 
                 <div class="competitor-pricing-summary">
                     <span>
-                        {{ $competitorPrices->count() }}
-                        {{ $competitorPrices->count() === 1 ? 'other offer' : 'other offers' }}
-                        submitted
+                        {{ trans_choice('company/messages.quote.other_offers', $competitorPrices->count()) }}
                     </span>
-                    <span>Company identities are hidden</span>
+                    <span>{{ __('company/messages.quote.identities_hidden') }}</span>
                 </div>
 
                 @foreach ($competitorPrices->groupBy('currency') as $currency => $offers)
                     <div class="competitor-currency-group">
                         <div class="competitor-currency-title">
-                            Prices in {{ $currency }}
+                            {{ __('company/messages.quote.prices_in', ['currency' => $currency]) }}
                         </div>
 
                         @php
@@ -238,7 +236,7 @@
 
                             <div class="competitor-price-row">
                                 <span class="competitor-offer-label">
-                                    Offer {{ $index + 1 }}
+                                    {{ __('company/messages.quote.offer_n', ['number' => $index + 1]) }}
                                 </span>
 
                                 <strong class="competitor-price-value">
@@ -246,15 +244,15 @@
                                     {{ number_format((float) $offer->price, 2) }}
 
                                     @if ($isLowest && $isHighest)
-                                        <span class="price-arrow price-equal" title="All offers have the same price">
+                                        <span class="price-arrow price-equal" title="{{ __('company/messages.quote.same_price') }}">
                                             ↕
                                         </span>
                                     @elseif ($isLowest)
-                                        <span class="price-arrow price-down" title="Lowest price">
+                                        <span class="price-arrow price-down" title="{{ __('company/messages.quote.lowest_price') }}">
                                             ↓
                                         </span>
                                     @elseif ($isHighest)
-                                        <span class="price-arrow price-up" title="Highest price">
+                                        <span class="price-arrow price-up" title="{{ __('company/messages.quote.highest_price') }}">
                                             ↑
                                         </span>
                                     @endif
@@ -272,9 +270,7 @@
                     </svg>
 
                     <p>
-                        Review the competing prices and submit your best total price
-                        for the complete solar system. Focus on offering competitive
-                        value without compromising quality.
+                        {{ __('company/messages.quote.competitor_tip') }}
                     </p>
                 </div>
             </section>
@@ -296,24 +292,23 @@
 
                 <div class="offer-panel-copy">
                     @if ($companyQuotation?->status === 'selected')
-                        <span class="offer-eyebrow" style="color:#172b45;">YOUR OFFER WON</span>
-                        <h2>The customer chose you</h2>
-                        <p style="font-size:14px;">Plan the installation and keep the customer updated from the project page.
+                        <span class="offer-eyebrow" style="color:#172b45;">{{ __('company/messages.quote.your_offer_won') }}</span>
+                        <h2>{{ __('company/messages.quote.chose_you') }}</h2>
+                        <p style="font-size:14px;">{{ __('company/messages.quote.plan_installation') }}
                         </p>
                     @elseif ($canEditOffer)
-                        <span class="offer-eyebrow" style="color:#172b45;">OFFER SENT</span>
-                        <h2>Customer is comparing offers</h2>
-                        <p style="font-size:14px;">You can still improve your price or message until the customer decides.</p>
+                        <span class="offer-eyebrow" style="color:#172b45;">{{ __('company/messages.quote.offer_sent') }}</span>
+                        <h2>{{ __('company/messages.quote.comparing') }}</h2>
+                        <p style="font-size:14px;">{{ __('company/messages.quote.can_improve') }}</p>
                     @elseif ($canSubmitOffer)
-                        <span class="offer-eyebrow" style="color:#172b45;">COMPETE FOR THIS REQUEST</span>
-                        <h2>Win the customer's business</h2>
+                        <span class="offer-eyebrow" style="color:#172b45;">{{ __('company/messages.quote.compete') }}</span>
+                        <h2>{{ __('company/messages.quote.win_business') }}</h2>
                         <p style="font-size:14px;">
-                            Send one total price for the complete system. Customers compare price, message and your
-                            company profile.
+                            {{ __('company/messages.quote.send_total') }}
                         </p>
                     @else
-                        <span class="offer-eyebrow" style="color:#172b45;">REQUEST CLOSED</span>
-                        <h2>No more offers on this request</h2>
+                        <span class="offer-eyebrow" style="color:#172b45;">{{ __('company/messages.quote.request_closed') }}</span>
+                        <h2>{{ __('company/messages.quote.no_more_offers') }}</h2>
                         <p style="font-size:14px;">{{ $statusExplanation }}</p>
                     @endif
 
@@ -330,12 +325,12 @@
                         @endif
 
                         <span class="offer-submitted-label">
-                            <b>Offer status:</b>
+                            <b>{{ __('company/messages.quote.offer_status') }}</b>
                             {{ $statusLabels[$status] ?? ucfirst(str_replace('_', ' ', $companyQuotation->status)) }}
                         </span>
                     @else
                         <span class="offer-helper">
-                            Request {{ $reference }} · Price and currency required
+                            {{ __('company/messages.quote.offer_helper', ['reference' => $reference]) }}
                         </span>
                     @endif
                 </div>
@@ -354,15 +349,15 @@
                             </svg>
 
                             @if ($canEditOffer)
-                                Edit Your Offer
+                                {{ __('company/messages.quote.edit_offer') }}
                             @else
-                                Make an Offer
+                                {{ __('company/messages.quote.make_offer') }}
                             @endif
                         </button>
 
                     @elseif ($companyQuotation?->status === 'selected')
                         <span class="offer-locked-message">
-                            <strong>Your offer was selected by the customer!</strong>
+                            <strong>{{ __('company/messages.quote.your_offer_selected') }}</strong>
 
 
 
@@ -371,9 +366,9 @@
                                                     <div class="selected-offer-actions">
                                                         <a href="{{ route('company.projects.show', $project->id) }}" class="btn btn-primary">
                                                             {{ match ($project->status) {
-                                        'completed' => 'View Project',
-                                        'in_progress' => 'Update Project Progress',
-                                        default => "Let's Start the Project",
+                                        'completed' => __('company/messages.quote.view_project'),
+                                        'in_progress' => __('company/messages.quote.update_project'),
+                                        default => __('company/messages.quote.start_project'),
                                     } }} →
                                                         </a>
                                                     </div>
@@ -384,22 +379,22 @@
 
                     @elseif ($companyQuotation?->status === 'withdrawn')
                         <span class="offer-locked-message">
-                            <strong>Your offer was not selected by the customer.</strong>
+                            <strong>{{ __('company/messages.quote.offer_not_selected') }}</strong>
                         </span>
 
                     @elseif ($companyQuotation?->status === 'not_selected' || $acceptedByAnotherCompany)
                         <span class="offer-locked-message">
-                            <strong>Another company's offer was selected by the customer.</strong>
+                            <strong>{{ __('company/messages.quote.another_selected') }}</strong>
                         </span>
 
                     @elseif ($quote->status !== 'pending')
                         <span class="offer-locked-message">
-                            This request is no longer accepting offers.
+                            {{ __('company/messages.quote.no_longer_accepting') }}
                         </span>
 
                     @else
                         <span class="offer-locked-message">
-                            Your offer is no longer editable.
+                            {{ __('company/messages.quote.not_editable') }}
                         </span>
                     @endif
                 </div>
@@ -415,20 +410,20 @@
 
                     <div class="offer-modal-header">
                         <div>
-                            <span class="offer-eyebrow">QUOTE {{ $reference }}</span>
+                            <span class="offer-eyebrow">{{ __('company/messages.quote.modal_eyebrow', ['reference' => $reference]) }}</span>
 
                             <h2 id="offerModalTitle">
-                                {{ $canEditOffer ? 'Edit Your Offer' : 'Make an Offer' }}
+                                {{ $canEditOffer ? __('company/messages.quote.edit_offer') : __('company/messages.quote.make_offer') }}
                             </h2>
 
                             <p>
                                 {{ $canEditOffer
-                                    ? 'Update your price, invoice or message before the customer decides.'
-                                    : 'Build your price from an itemised invoice, or enter one total price.' }}
+                                    ? __('company/messages.quote.modal_edit_sub')
+                                    : __('company/messages.quote.modal_new_sub') }}
                             </p>
                         </div>
 
-                        <button type="button" class="offer-close-button" onclick="closeOfferModal()" aria-label="Close modal">
+                        <button type="button" class="offer-close-button" onclick="closeOfferModal()" aria-label="{{ __('company/messages.quote.close_modal') }}">
                             &times;
                         </button>
                     </div>
@@ -440,7 +435,7 @@
                         <div class="offer-modal-body">
                             @if ($errors->any())
                                 <div class="offer-form-errors">
-                                    <strong>Please correct the following:</strong>
+                                    <strong>{{ __('company/messages.quote.correct_following') }}</strong>
                                     <ul>
                                         @foreach ($errors->all() as $error)
                                             <li>{{ $error }}</li>
@@ -452,32 +447,32 @@
                             <div class="offer-modal-main">
                                 @include('partials.page-guide', [
                                     'key' => 'company-offer-modal',
-                                    'title' => 'How to submit your offer and invoice',
-                                    'intro' => 'Your offer is one total price for the complete system. Build it from an invoice, or turn the invoice off and type the price yourself.',
+                                    'title' => __('company/messages.quote.modal_guide_title'),
+                                    'intro' => __('company/messages.quote.modal_guide_intro'),
                                     'steps' => [
-                                        '<strong>Check the customer needs</strong>: the daily energy, peak load and lowest other offer are in the side panel.',
-                                        '<strong>Choose the currency</strong>: SDG or USD. The same currency is used for the offer and the invoice.',
-                                        '<strong>Fill in the invoice</strong>: check the invoice number and date. Each invoice number can be used only once by your company.',
-                                        '<strong>Add items and services</strong>: enter a quantity and unit price for each one, or use Quick add. Then add any discount, tax and shipping.',
-                                        '<strong>Check the offer total</strong>: it is calculated from the invoice, updates as you type, and must be at least 1,000.',
-                                        '<strong>Write your message</strong>: explain what is included, in both English and Arabic.',
-                                        '<strong>Press ' . ($canEditOffer ? 'Save Changes' : 'Submit Offer') . '</strong>: then use View Invoice or Download Invoice PDF at the top of this page.',
+                                        __('company/messages.quote.modal_guide_1'),
+                                        __('company/messages.quote.modal_guide_2'),
+                                        __('company/messages.quote.modal_guide_3'),
+                                        __('company/messages.quote.modal_guide_4'),
+                                        __('company/messages.quote.modal_guide_5'),
+                                        __('company/messages.quote.modal_guide_6'),
+                                        __('company/messages.quote.modal_guide_7', ['button' => $canEditOffer ? __('company/messages.common.save_changes') : __('company/messages.quote.submit_offer')]),
                                     ],
-                                    'note' => 'The customer sees your price, messages and invoice in the app. You can edit them until the customer chooses an offer; after that they are locked.',
+                                    'note' => __('company/messages.quote.modal_guide_note'),
                                 ])
 
                                 <div class="offer-form-group">
                                     <label for="offer_price">
-                                        Your total price <span>*</span>
-                                        <em class="offer-price-source" id="offerPriceSource" hidden>Calculated from the invoice</em>
+                                        {{ __('company/messages.quote.total_price') }} <span>*</span>
+                                        <em class="offer-price-source" id="offerPriceSource" hidden>{{ __('company/messages.quote.calculated_invoice') }}</em>
                                     </label>
 
                                     <div class="offer-price-input">
                                         <input type="number" id="offer_price" name="price" class="form-control" min="1000"
-                                            step="0.01" placeholder="e.g. 1500000"
+                                            step="0.01" placeholder="{{ __('company/messages.quote.price_placeholder') }}"
                                             value="{{ old('price', $companyQuotation?->price) }}" required>
 
-                                        <select name="currency" aria-label="Currency" required>
+                                        <select name="currency" aria-label="{{ __('company/messages.quote.currency') }}" required>
                                             <option value="SDG" @selected(old('currency', $companyQuotation?->currency ?? 'SDG') === 'SDG')>
                                                 SDG
                                             </option>
@@ -489,8 +484,7 @@
                                     </div>
 
                                     <small>
-                                        Total price for the complete solar system. Minimum: 1,000
-                                        in the selected currency.
+                                        {{ __('company/messages.quote.price_hint') }}
                                     </small>
                                     @error('price')
                                         <small class="field-error">{{ $message }}</small>
@@ -500,26 +494,26 @@
                                 <section class="offer-invoice-card" aria-labelledby="offerInvoiceTitle">
                                     <div class="offer-invoice-heading">
                                         <div>
-                                            <h3 id="offerInvoiceTitle">Invoice for this offer</h3>
-                                            <p>Saved with your offer. You can download it as a PDF, and the customer sees it in the app.</p>
+                                            <h3 id="offerInvoiceTitle">{{ __('company/messages.quote.invoice_heading') }}</h3>
+                                            <p>{{ __('company/messages.quote.invoice_sub') }}</p>
                                         </div>
                                         <label class="offer-invoice-switch">
                                             <input type="hidden" name="include_invoice" value="0">
                                             <input type="checkbox" name="include_invoice" value="1" id="include_invoice"
                                                 data-had-invoice="{{ $invoice ? '1' : '0' }}"
                                                 @checked(old('include_invoice', $companyQuotation ? (bool) $invoice : true))>
-                                            <span>Create invoice</span>
+                                            <span>{{ __('company/messages.quote.create_invoice') }}</span>
                                         </label>
                                     </div>
 
                                     <small class="offer-invoice-removal" id="invoiceRemovalNote" hidden>
-                                        Saving will remove the invoice from this offer.
+                                        {{ __('company/messages.quote.invoice_removal') }}
                                     </small>
 
                                     <div id="invoiceBuilder" class="offer-invoice-content">
                                         <div class="offer-invoice-meta">
                                             <div class="offer-form-group">
-                                                <label for="invoice_number">Invoice number <span>*</span></label>
+                                                <label for="invoice_number">{{ __('company/messages.quote.invoice_number') }} <span>*</span></label>
                                                 <input class="form-control" id="invoice_number" name="invoice_number" type="text" maxlength="60"
                                                     value="{{ old('invoice_number', $invoice?->invoice_number ?? $invoiceNumber) }}" required>
                                                 @error('invoice_number')
@@ -527,30 +521,30 @@
                                                 @enderror
                                             </div>
                                             <div class="offer-form-group">
-                                                <label for="invoice_date">Invoice date <span>*</span></label>
+                                                <label for="invoice_date">{{ __('company/messages.quote.invoice_date') }} <span>*</span></label>
                                                 <input class="form-control" id="invoice_date" name="invoice_date" type="date"
                                                     value="{{ old('invoice_date', $invoice && $invoice->invoice_date ? \Illuminate\Support\Carbon::parse($invoice->invoice_date)->toDateString() : now()->toDateString()) }}" required>
                                             </div>
                                         </div>
 
                                         <div class="offer-invoice-parties">
-                                            <div><span>Bill to</span><strong>{{ $customerName }}</strong><small>{{ $customer?->email }}</small><small>{{ $customer?->phone }}</small></div>
-                                            <div><span>Ship to</span><strong>{{ $customer?->full_name ?: $customerName }}</strong><small>{{ $customer?->address ?: $customer?->city }}</small></div>
+                                            <div><span>{{ __('company/messages.quote.bill_to') }}</span><strong>{{ $customerName }}</strong><small>{{ $customer?->email }}</small><small>{{ $customer?->phone }}</small></div>
+                                            <div><span>{{ __('company/messages.quote.ship_to') }}</span><strong>{{ $customer?->full_name ?: $customerName }}</strong><small>{{ $customer?->address ?: $customer?->city }}</small></div>
                                         </div>
 
                                         <div>
                                             <div class="offer-invoice-items-head">
-                                                <div><strong>Items and services</strong><span>List the equipment, installation, and other included work.</span></div>
-                                                <button type="button" class="btn btn-light" id="addInvoiceItem">+ Add item</button>
+                                                <div><strong>{{ __('company/messages.quote.items_services') }}</strong><span>{{ __('company/messages.quote.items_sub') }}</span></div>
+                                                <button type="button" class="btn btn-light" id="addInvoiceItem">{{ __('company/messages.quote.add_item') }}</button>
                                             </div>
                                             <div class="offer-invoice-items" id="invoiceItems">
                                                 @foreach ($invoiceItems as $item)
                                                     @include('company.quote-requests.partials.offer-invoice-item', ['index' => $loop->index, 'item' => $item])
                                                 @endforeach
                                             </div>
-                                            <div class="offer-invoice-suggestions" aria-label="Quick add items">
-                                                <span>Quick add:</span>
-                                                @foreach (['Solar panels', 'Inverter', 'Batteries', 'Mounting structure', 'Cables and protection', 'Installation and testing'] as $suggestion)
+                                            <div class="offer-invoice-suggestions" aria-label="{{ __('company/messages.quote.quick_add_label') }}">
+                                                <span>{{ __('company/messages.quote.quick_add') }}</span>
+                                                @foreach ([__('company/messages.quote.sug_panels'), __('company/messages.quote.sug_inverter'), __('company/messages.quote.sug_batteries'), __('company/messages.quote.sug_mounting'), __('company/messages.quote.sug_cables'), __('company/messages.quote.sug_installation')] as $suggestion)
                                                     <button type="button" data-invoice-suggestion="{{ $suggestion }}">{{ $suggestion }}</button>
                                                 @endforeach
                                             </div>
@@ -563,14 +557,14 @@
                                         </div>
 
                                         <div class="offer-invoice-adjustments">
-                                            <div class="offer-form-group"><label for="invoice_discount">Discount</label><input class="form-control" id="invoice_discount" name="invoice_discount" type="number" min="0" step="0.01" value="{{ old('invoice_discount', $invoice?->discount ?? 0) }}"></div>
-                                            <div class="offer-form-group"><label for="invoice_tax_rate">Tax rate (%)</label><input class="form-control" id="invoice_tax_rate" name="invoice_tax_rate" type="number" min="0" max="100" step="0.01" value="{{ old('invoice_tax_rate', $invoice?->tax_rate ?? 0) }}"></div>
-                                            <div class="offer-form-group"><label for="invoice_shipping">Shipping / handling</label><input class="form-control" id="invoice_shipping" name="invoice_shipping" type="number" min="0" step="0.01" value="{{ old('invoice_shipping', $invoice?->shipping ?? 0) }}"></div>
+                                            <div class="offer-form-group"><label for="invoice_discount">{{ __('company/messages.quote.discount') }}</label><input class="form-control" id="invoice_discount" name="invoice_discount" type="number" min="0" step="0.01" value="{{ old('invoice_discount', $invoice?->discount ?? 0) }}"></div>
+                                            <div class="offer-form-group"><label for="invoice_tax_rate">{{ __('company/messages.quote.tax_rate') }}</label><input class="form-control" id="invoice_tax_rate" name="invoice_tax_rate" type="number" min="0" max="100" step="0.01" value="{{ old('invoice_tax_rate', $invoice?->tax_rate ?? 0) }}"></div>
+                                            <div class="offer-form-group"><label for="invoice_shipping">{{ __('company/messages.quote.shipping') }}</label><input class="form-control" id="invoice_shipping" name="invoice_shipping" type="number" min="0" step="0.01" value="{{ old('invoice_shipping', $invoice?->shipping ?? 0) }}"></div>
                                         </div>
 
                                         <div class="offer-form-group">
-                                            <label for="invoice_notes">Payment instructions / remarks</label>
-                                            <textarea class="form-control" id="invoice_notes" name="invoice_notes" rows="3" maxlength="2000" placeholder="Bank details, deposit, delivery notes...">{{ old('invoice_notes', $invoice?->payment_instructions) }}</textarea>
+                                            <label for="invoice_notes">{{ __('company/messages.quote.payment_notes') }}</label>
+                                            <textarea class="form-control" id="invoice_notes" name="invoice_notes" rows="3" maxlength="2000" placeholder="{{ __('company/messages.quote.notes_placeholder') }}">{{ old('invoice_notes', $invoice?->payment_instructions) }}</textarea>
                                         </div>
                                     </div>
                                 </section>
@@ -578,11 +572,11 @@
                                 <div class="offer-messages">
                                     <div class="offer-form-group">
                                         <label for="message">
-                                            <span>*</span> Message to customer (English)
+                                            <span>*</span> {{ __('company/messages.quote.message_en') }}
                                         </label>
 
                                         <textarea name="message" id="message" class="form-control" rows="5" required maxlength="2000"
-                                            placeholder="Describe the proposed solar system, including panels, inverter, batteries, installation, warranty, delivery time, and what is included in the total price.">{{ old('message', $companyQuotation?->message ?? 'Thank you for considering our company for your solar energy project. This offer includes the proposed solar equipment, installation, system testing, and warranty as specified in the quotation. Please review the details and contact us if you have any questions.') }}</textarea>
+                                            placeholder="{{ __('company/messages.quote.message_placeholder') }}">{{ old('message', $companyQuotation?->message ?? 'Thank you for considering our company for your solar energy project. This offer includes the proposed solar equipment, installation, system testing, and warranty as specified in the quotation. Please review the details and contact us if you have any questions.') }}</textarea>
                                         @error('message')
                                             <small class="field-error">{{ $message }}</small>
                                         @enderror
@@ -590,12 +584,12 @@
 
                                     <div class="offer-form-group">
                                         <label for="ar_message">
-                                            <span>*</span> Message to customer (Arabic)
+                                            <span>*</span> {{ __('company/messages.quote.message_ar') }}
                                         </label>
 
                                         <textarea name="ar_message" id="ar_message" class="form-control" rows="5" dir="rtl" lang="ar"
                                             required maxlength="2000"
-                                            placeholder="اكتب تفاصيل عرض السعر، والألواح الشمسية، والعاكس، والبطاريات، والتركيب، والضمان، ومدة التنفيذ...">{{ old('ar_message', $companyQuotation?->ar_message ?? 'شكرًا لاختياركم شركتنا لتقديم عرض لنظام الطاقة الشمسية. يشمل هذا العرض المعدات المقترحة وأعمال التركيب واختبار النظام والضمان وفقًا للتفاصيل الموضحة في عرض السعر. يرجى مراجعة التفاصيل والتواصل معنا إذا كانت لديكم أي استفسارات.') }}</textarea>
+                                            placeholder="اكتب تفاصيل عرض السعر، والألواح الشمسية، والمحول، والبطاريات، والتركيب، والضمان، ومدة التنفيذ...">{{ old('ar_message', $companyQuotation?->ar_message ?? 'شكرًا لاختياركم شركتنا لتقديم عرض لنظام الطاقة الشمسية. يشمل هذا العرض المعدات المقترحة وأعمال التركيب واختبار النظام والضمان وفقًا للتفاصيل الموضحة في عرض السعر. يرجى مراجعة التفاصيل والتواصل معنا إذا كانت لديكم أي استفسارات.') }}</textarea>
                                         @error('ar_message')
                                             <small class="field-error">{{ $message }}</small>
                                         @enderror
@@ -605,14 +599,14 @@
 
                             <aside class="offer-modal-aside">
                                 <div class="offer-summary-card">
-                                    <h3>Customer needs</h3>
+                                    <h3>{{ __('company/messages.quote.customer_needs') }}</h3>
                                     <dl>
-                                        <div><dt>Customer</dt><dd>{{ $customerName }}</dd></div>
-                                        <div><dt>Daily energy</dt><dd>{{ $quote->daily_load ?: '—' }}</dd></div>
-                                        <div><dt>Peak load</dt><dd>{{ $quote->peak_load ?: '—' }}</dd></div>
+                                        <div><dt>{{ __('company/messages.common.customer') }}</dt><dd>{{ $customerName }}</dd></div>
+                                        <div><dt>{{ __('company/messages.quote.daily_energy') }}</dt><dd>{{ $quote->daily_load ?: '—' }}</dd></div>
+                                        <div><dt>{{ __('company/messages.quote.peak_load') }}</dt><dd>{{ $quote->peak_load ?: '—' }}</dd></div>
                                         @foreach (($competitorPrices ?? collect())->groupBy('currency') as $competitorCurrency => $competitorOffers)
                                             <div data-competitor-currency="{{ $competitorCurrency }}">
-                                                <dt>Lowest other offer</dt>
+                                                <dt>{{ __('company/messages.quote.lowest_other') }}</dt>
                                                 <dd>{{ number_format((float) $competitorOffers->min('price'), 2) }} {{ $competitorCurrency }}</dd>
                                             </div>
                                         @endforeach
@@ -620,19 +614,19 @@
                                 </div>
 
                                 <div class="offer-summary-card">
-                                    <h3>Offer summary</h3>
+                                    <h3>{{ __('company/messages.quote.offer_summary') }}</h3>
                                     <dl id="offerSummaryLines">
-                                        <div><dt>Subtotal</dt><dd id="summarySubtotal">0.00</dd></div>
-                                        <div><dt>Discount</dt><dd id="summaryDiscount">0.00</dd></div>
-                                        <div><dt>Tax</dt><dd id="summaryTax">0.00</dd></div>
-                                        <div><dt>Shipping / handling</dt><dd id="summaryShipping">0.00</dd></div>
+                                        <div><dt>{{ __('company/messages.quote.subtotal') }}</dt><dd id="summarySubtotal">0.00</dd></div>
+                                        <div><dt>{{ __('company/messages.quote.discount') }}</dt><dd id="summaryDiscount">0.00</dd></div>
+                                        <div><dt>{{ __('company/messages.quote.tax') }}</dt><dd id="summaryTax">0.00</dd></div>
+                                        <div><dt>{{ __('company/messages.quote.shipping') }}</dt><dd id="summaryShipping">0.00</dd></div>
                                     </dl>
                                     <div class="offer-summary-total">
-                                        <span>Offer total</span>
+                                        <span>{{ __('company/messages.quote.offer_total') }}</span>
                                         <strong><span id="summaryTotal">0.00</span> <small data-offer-currency>{{ old('currency', $companyQuotation?->currency ?? 'SDG') }}</small></strong>
                                     </div>
                                     <small class="offer-summary-minimum" id="offerMinimumWarning" hidden>
-                                        The offer total must be at least 1,000.
+                                        {{ __('company/messages.quote.minimum_warning') }}
                                     </small>
                                 </div>
 
@@ -644,8 +638,7 @@
                                     </svg>
 
                                     <p>
-                                        The customer sees your price and compares offers. You can edit
-                                        until they choose; after that your offer and invoice are locked.
+                                        {{ __('company/messages.quote.offer_notice') }}
                                     </p>
                                 </div>
                             </aside>
@@ -653,14 +646,14 @@
 
                         <div class="offer-modal-footer">
                             <div class="offer-footer-total">
-                                <span>Offer total</span>
+                                <span>{{ __('company/messages.quote.offer_total') }}</span>
                                 <strong><span id="footerTotal">0.00</span> <small data-offer-currency>{{ old('currency', $companyQuotation?->currency ?? 'SDG') }}</small></strong>
                             </div>
 
-                            <button type="button" class="offer-cancel-button" onclick="closeOfferModal()">Cancel</button>
+                            <button type="button" class="offer-cancel-button" onclick="closeOfferModal()">{{ __('company/messages.common.cancel') }}</button>
 
                             <button type="submit" class="offer-primary-button" id="submitOfferButton">
-                                {{ $canEditOffer ? 'Save Changes' : 'Submit Offer' }}
+                                {{ $canEditOffer ? __('company/messages.common.save_changes') : __('company/messages.quote.submit_offer') }}
                             </button>
                         </div>
                     </form>
@@ -672,8 +665,8 @@
         <section class="panel quote-panel">
             <div class="panel-heading quote-section-heading">
                 <div>
-                    <h2>Request information</h2>
-                    <p>Details submitted by the customer</p>
+                    <h2>{{ __('company/messages.quote.request_info') }}</h2>
+                    <p>{{ __('company/messages.quote.request_info_sub') }}</p>
                 </div>
 
                 <span class="pill {{ $statusClasses[$status] ?? 'pill-blue' }}">
@@ -683,40 +676,40 @@
 
             <div class="quote-detail-grid">
                 <div class="quote-detail">
-                    <span>Request reference</span>
+                    <span>{{ __('company/messages.common.reference') }}</span>
                     <strong>{{ $reference }}</strong>
                 </div>
 
                 <div class="quote-detail">
-                    <span>Quote name</span>
+                    <span>{{ __('company/messages.common.quote_name') }}</span>
                     <strong>{{ $quote->quote_name }}</strong>
                 </div>
 
                 <div class="quote-detail">
-                    <span>Company assignment</span>
+                    <span>{{ __('company/messages.quote.company_assignment') }}</span>
                     <strong class="quote-company-name">
-                        {{ $company?->name ?? 'No company assigned' }}
+                        {{ $company?->name ?? __('company/messages.quote.no_company') }}
                     </strong>
                 </div>
 
                 <div class="quote-detail">
-                    <span>Daily load</span>
+                    <span>{{ __('company/messages.quote.daily_load') }}</span>
                     <strong>{{ $quote->daily_load ?: '—' }}</strong>
                 </div>
 
                 <div class="quote-detail">
-                    <span>Peak load</span>
+                    <span>{{ __('company/messages.quote.peak_load') }}</span>
                     <strong>{{ $quote->peak_load ?: '—' }}</strong>
                 </div>
 
                 <div class="quote-detail">
-                    <span>Submitted</span>
-                    <strong>{{ $quote->created_at?->format('d M Y, H:i') ?? '—' }}</strong>
+                    <span>{{ __('company/messages.quote.submitted') }}</span>
+                    <strong>{{ $quote->created_at?->translatedFormat('d M Y, H:i') ?? '—' }}</strong>
                 </div>
 
                 <div class="quote-detail">
-                    <span>Last updated</span>
-                    <strong>{{ $quote->updated_at?->format('d M Y, H:i') ?? '—' }}</strong>
+                    <span>{{ __('company/messages.quote.last_updated') }}</span>
+                    <strong>{{ $quote->updated_at?->translatedFormat('d M Y, H:i') ?? '—' }}</strong>
                 </div>
             </div>
 
@@ -902,46 +895,46 @@
                
                 <div class="quote-subsection">
                     <div class="quote-subsection-heading">
-                        <h3>Estimated load summary</h3>
-                        <p>Calculator information submitted with this request</p>
+                        <h3>{{ __('company/messages.quote.load_summary') }}</h3>
+                        <p>{{ __('company/messages.quote.load_summary_sub') }}</p>
                     </div>
 
                     {{-- Energy requirements --}}
                     <div class="quote-energy-grid">
                         <div class="quote-energy-item">
-                            <span>Daily energy</span>
+                            <span>{{ __('company/messages.quote.daily_energy') }}</span>
                             <strong>{{ $dailyEnergy }}</strong>
                         </div>
 
                         <div class="quote-energy-item">
-                            <span>Peak load</span>
+                            <span>{{ __('company/messages.quote.peak_load') }}</span>
                             <strong>{{ $peakLoad }}</strong>
                         </div>
 
                         <div class="quote-energy-item">
-                            <span>System type</span>
+                            <span>{{ __('company/messages.quote.system_type') }}</span>
                             <strong>{{ $systemType }}</strong>
                         </div>
                     </div>
 
                     {{-- Recommended equipment --}}
                     <div class="quote-equipment-section">
-                        <h4>Suggested equipment</h4>
+                        <h4>{{ __('company/messages.quote.suggested_equipment') }}</h4>
 
                         <div class="quote-equipment-grid">
                             <div class="quote-equipment-item">
                                 <span class="quote-equipment-icon">☀</span>
                                 <div>
-                                    <small>Solar panels</small>
+                                    <small>{{ __('company/messages.quote.sug_panels') }}</small>
                                     <strong>{{ $panelCount }}
-                                        {{ is_numeric($panelCount) && (int) $panelCount === 1 ? 'Panel' : (is_numeric($panelCount) ? 'Panels' : '') }}</strong>
+                                        {{ is_numeric($panelCount) && (int) $panelCount === 1 ? __('company/messages.quote.panel_unit') : (is_numeric($panelCount) ? __('company/messages.quote.panels_unit') : '') }}</strong>
                                 </div>
                             </div>
 
                             <div class="quote-equipment-item">
                                 <span class="quote-equipment-icon">ϟ</span>
                                 <div>
-                                    <small>Inverter</small>
+                                    <small>{{ __('company/messages.quote.sug_inverter') }}</small>
                                     <strong>{{ $inverterSize }}</strong>
                                 </div>
                             </div>
@@ -949,26 +942,26 @@
                             <div class="quote-equipment-item">
                                 <span class="quote-equipment-icon">▣</span>
                                 <div>
-                                    <small>Batteries</small>
+                                    <small>{{ __('company/messages.quote.sug_batteries') }}</small>
                                     <strong>{{ $batteryCount }}
-                                        {{ is_numeric($batteryCount) && (int) $batteryCount === 1 ? 'Battery' : (is_numeric($batteryCount) ? 'Batteries' : '') }}</strong>
+                                        {{ is_numeric($batteryCount) && (int) $batteryCount === 1 ? __('company/messages.quote.battery_unit') : (is_numeric($batteryCount) ? __('company/messages.quote.sug_batteries') : '') }}</strong>
                                 </div>
                             </div>
                         </div>
                     </div>
                     {{-- Original calculator text --}}
-                    <div class="quote-text-content">{{ $loadSummary ?: 'No calculator summary provided.' }}</div>
+                    <div class="quote-text-content">{{ $loadSummary ?: __('company/messages.quote.no_summary') }}</div>
                 </div>
 
             </div>
 
             <div class="quote-subsection">
                 <div class="quote-subsection-heading">
-                    <h3>Customer message</h3>
-                    <p>Additional instructions or contact preferences</p>
+                    <h3>{{ __('company/messages.quote.customer_message') }}</h3>
+                    <p>{{ __('company/messages.quote.customer_message_sub') }}</p>
                 </div>
 
-                <div class="quote-text-content">{{ $quote->message ?: 'No additional message provided.' }}</div>
+                <div class="quote-text-content">{{ $quote->message ?: __('company/messages.quote.no_message') }}</div>
             </div>
         </section>
 
@@ -977,35 +970,35 @@
             <section class="panel quote-panel quote-party-panel">
                 <div class="panel-heading quote-section-heading">
                     <div>
-                        <h2>Customer information</h2>
-                        <p>Customer account associated with this quote</p>
+                        <h2>{{ __('company/messages.quote.customer_info') }}</h2>
+                        <p>{{ __('company/messages.quote.customer_info_sub') }}</p>
                     </div>
                 </div>
 
                 <div class="quote-detail-grid quote-party-details">
 
                     <div class="quote-detail">
-                        <span>Full name</span>
+                        <span>{{ __('company/messages.quote.full_name') }}</span>
                         <strong>{{ $customerName }}</strong>
                     </div>
 
                     <div class="quote-detail">
-                        <span>Email</span>
+                        <span>{{ __('company/messages.common.email') }}</span>
                         <strong>{{ $customer?->email ?? '—' }}</strong>
                     </div>
 
                     <div class="quote-detail">
-                        <span>Phone</span>
+                        <span>{{ __('company/messages.common.phone') }}</span>
                         <strong>{{ $customer?->phone ?? '—' }}</strong>
                     </div>
 
                     <div class="quote-detail">
-                        <span>City</span>
+                        <span>{{ __('company/messages.common.city') }}</span>
                         <strong>{{ $customer?->city ?? '—' }}</strong>
                     </div>
 
                     <div class="quote-detail">
-                        <span>Address</span>
+                        <span>{{ __('company/messages.quote.address') }}</span>
                         <strong>{{ $customer?->address ?? '—' }}</strong>
                     </div>
                 </div>
@@ -1014,8 +1007,8 @@
             <section class="panel quote-panel quote-party-panel">
                 <div class="panel-heading quote-section-heading">
                     <div>
-                        <h2>Company information</h2>
-                        <p>Company assigned to this request</p>
+                        <h2>{{ __('company/messages.quote.company_info') }}</h2>
+                        <p>{{ __('company/messages.quote.company_info_sub') }}</p>
                     </div>
                 </div>
 
@@ -1026,13 +1019,13 @@
                         </div>
 
                         <div class="quote-company-details">
-                            <span>Assigned solar company</span>
+                            <span>{{ __('company/messages.quote.assigned_company') }}</span>
                             <strong class="quote-company-name">{{ $company->name }}</strong>
                             {{-- <small>Company ID: {{ $company->id }}</small> --}}
                         </div>
                     @else
                         <div class="quote-company-details">
-                            <strong>No company assigned</strong>
+                            <strong>{{ __('company/messages.quote.no_company') }}</strong>
                         </div>
                     @endif
                 </div>
@@ -1040,8 +1033,8 @@
         </div>
 
         <footer class="quote-document-footer print-only">
-            <span> {{ $company?->name ?? 'Solar Company' }}</span>
-            <span>Request {{ $reference }}</span>
+            <span> {{ $company?->name ?? __('company/messages.quote.solar_company') }}</span>
+            <span>{{ __('company/messages.quote.footer_request', ['reference' => $reference]) }}</span>
 
         </footer>
     </div>
@@ -1052,7 +1045,7 @@
             const originalTitle = document.title;
 
             document.title = @json(
-                'Quote Details-' . $reference . '-' . ($company?->name ?? 'Solar Company')
+                __('company/messages.quote.print_title', ['reference' => $reference, 'company' => $company?->name ?? __('company/messages.quote.solar_company')])
             );
 
             window.addEventListener('afterprint', function restoreTitle() {
@@ -1225,7 +1218,7 @@
             // Stops a double click from sending the offer twice.
             offerForm.addEventListener('submit', function () {
                 submitButton.disabled = true;
-                submitButton.textContent = 'Saving...';
+                submitButton.textContent = @json(__('company/messages.quote.saving'));
             });
 
             updateInvoiceState();

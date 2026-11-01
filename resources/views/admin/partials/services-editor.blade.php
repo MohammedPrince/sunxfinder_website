@@ -13,14 +13,14 @@
 
     $serviceFields = [
         'services' => [
-            'label' => 'Company Services (English)',
-            'placeholder' => 'e.g. Hybrid systems',
+            'label' => company_text('shared.services.label_en', 'Company Services (English)'),
+            'placeholder' => company_text('shared.services.placeholder_en', 'e.g. Hybrid systems'),
             'values' => $toServiceList(old('services', $services ?? '')),
-            'add' => 'Add other service',
+            'add' => company_text('shared.services.add_en', 'Add other service'),
             'rtl' => false,
         ],
         'ar_services' => [
-            'label' => 'Company Services (Arabic)',
+            'label' => company_text('shared.services.label_ar', 'Company Services (Arabic)'),
             'placeholder' => 'مثال: الأنظمة الهجينة',
             'values' => $toServiceList(old('ar_services', $arServices ?? '')),
             'add' => 'إضافة خدمة أخرى',
@@ -29,7 +29,7 @@
     ];
 @endphp
 
-<div class="company-profile-grid" data-services-editor data-remove-label="Remove">
+<div class="company-profile-grid" data-services-editor data-remove-label="{{ company_text('shared.services.remove', 'Remove') }}">
     @foreach ($serviceFields as $name => $field)
         <div class="form-group">
             <label for="{{ $name }}-0">{{ $field['label'] }} <b style="color: red">*</b></label>
@@ -42,7 +42,7 @@
                             maxlength="5000" placeholder="{{ $field['placeholder'] }}"
                             @if ($field['rtl']) dir="rtl" lang="ar" @endif @if ($index === 0) required @endif>
                         @if ($index > 0)
-                            <button type="button" class="provider-service-remove">Remove</button>
+                            <button type="button" class="provider-service-remove">{{ company_text('shared.services.remove', 'Remove') }}</button>
                         @endif
                     </div>
                 @endforeach
