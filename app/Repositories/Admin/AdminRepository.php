@@ -1973,12 +1973,22 @@ class AdminRepository
                 ];
             }
 
-            // 4. Create the carousel entry.
+            // 4. Keep each display order to one company per platform.
+            $plan = $this->planCompanyCarouselOrderMoves($data);
+
+            if (!$plan['success']) {
+                return $plan;
+            }
+
+            // 5. Create the carousel entry.
             $entry = new CompanyCarousel();
 
             $this->assignCompanyCarouselFields($entry, $data);
 
-            $entry->save();
+            DB::transaction(function () use ($entry, $plan) {
+                $this->applyCompanyCarouselOrderMoves($plan['moves']);
+                $entry->save();
+            });
 
             return [
                 'success' => true,
@@ -2003,8 +2013,15 @@ class AdminRepository
             if (!SolarCompany::whereKey($data['company_id'])->exists()) {
                 return ['success' => false, 'message' => 'The selected company was not found.'];
             }
+            $plan = $this->planCompanyCarouselOrderMoves($data, $id);
+            if (!$plan['success']) {
+                return $plan;
+            }
             $this->assignCompanyCarouselFields($entry, $data);
-            $entry->save();
+            DB::transaction(function () use ($entry, $plan) {
+                $this->applyCompanyCarouselOrderMoves($plan['moves']);
+                $entry->save();
+            });
             return ['success' => true, 'message' => 'Carousel entry updated successfully.'];
         } catch (Throwable $e) {
             report($e);
@@ -2031,11 +2048,87 @@ class AdminRepository
     {
         $entry->company_id = (int) $data['company_id'];
         $entry->platform = $data['platform'];
+        $entry->is_sponsored = (bool) ($data['is_sponsored'] ?? false);
         $entry->sort_order = (int) $data['sort_order'];
         $entry->interval_seconds = (int) $data['interval_seconds'];
         $entry->is_active = (bool) ($data['is_active'] ?? false);
         $entry->starts_at = $data['starts_at'] ?? null;
         $entry->ends_at = $data['ends_at'] ?? null;
+    }
+
+    /**
+     * Two entries clash when they share an order on the same platform, so "both" clashes with
+     * everything. Returns the other companies' new orders, or what the form needs to ask for them.
+     */
+    private function planCompanyCarouselOrderMoves(array $data, ?int $entryId = null): array
+    {
+        $order = (int) $data['sort_order'];
+        $overlaps = fn(string $a, string $b) => $a === $b || $a === 'both' || $b === 'both';
+
+        /** @var \Illuminate\Database\Eloquent\Collection<int, CompanyCarousel> $others */
+        $others = CompanyCarousel::with('company:id,name')->where('id', '!=', (int) $entryId)->get();
+        $clashes = $others->filter(fn(CompanyCarousel $other) => $other->sort_order === $order && $overlaps($other->platform, $data['platform']));
+
+        if ($clashes->isEmpty()) {
+            return ['success' => true, 'moves' => []];
+        }
+
+        $taken = $others->diff($clashes)->map(fn(CompanyCarousel $other) => [$other->platform, $other->sort_order])->values()->all();
+        $isFree = function (string $platform, int $value) use (&$taken, $overlaps): bool {
+            foreach ($taken as [$takenPlatform, $takenOrder]) {
+                if ($takenOrder === $value && $overlaps($takenPlatform, $platform)) {
+                    return false;
+                }
+            }
+
+            return true;
+        };
+
+        $moves = [];
+        $rows = [];
+        $problem = null;
+
+        foreach ($clashes as $clash) {
+            $target = $data['order_moves'][$clash->id] ?? null;
+
+            if (filled($target)) {
+                if ((int) $target !== $order && $isFree($clash->platform, (int) $target)) {
+                    $moves[$clash->id] = (int) $target;
+                } else {
+                    $problem = "Display order {$target} is already used. Choose another order for {$clash->company?->name}.";
+                }
+            }
+
+            $suggested = $moves[$clash->id] ?? $order + 1;
+            while (!isset($moves[$clash->id]) && !$isFree($clash->platform, $suggested)) {
+                $suggested++;
+            }
+            $taken[] = [$clash->platform, $suggested];
+
+            $rows[] = [
+                'id' => $clash->id,
+                'company' => $clash->company?->name ?? 'Company #' . $clash->company_id,
+                'platform' => ['both' => 'App and website', 'app' => 'Mobile app', 'website' => 'Website'][$clash->platform] ?? $clash->platform,
+                'suggested' => $suggested,
+            ];
+        }
+
+        if (count($moves) === $clashes->count()) {
+            return ['success' => true, 'moves' => $moves];
+        }
+
+        return [
+            'success' => false,
+            'message' => $problem ?? "Display order {$order} is already used. Change the other company's order below, or choose another order.",
+            'order_clash' => ['order' => $order, 'entries' => $rows],
+        ];
+    }
+
+    private function applyCompanyCarouselOrderMoves(array $moves): void
+    {
+        foreach ($moves as $id => $order) {
+            CompanyCarousel::find($id)?->update(['sort_order' => $order]);
+        }
     }
 
     //App Slider Start

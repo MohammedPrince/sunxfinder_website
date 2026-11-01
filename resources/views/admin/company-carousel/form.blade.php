@@ -20,6 +20,31 @@
         </div>
     @endif
 
+    @if (session('orderClash'))
+        <section class="panel" id="orderClash" style="border-color:#fecaca;">
+            <div class="panel-heading">
+                <div>
+                    <h2>Change the other company's order</h2>
+                    <p>Display order {{ session('orderClash')['order'] }} is taken. Give the company below a new order, or
+                        enter a different Display order in the form and save.</p>
+                </div>
+            </div>
+
+            <div style="padding:22px;">
+                @foreach (session('orderClash')['entries'] as $clash)
+                    <div class="form-group" style="max-width:420px;margin-bottom:14px;">
+                        <label for="order_move_{{ $clash['id'] }}">{{ $clash['company'] }} ({{ $clash['platform'] }})</label>
+                        <input class="form-control" type="number" id="order_move_{{ $clash['id'] }}" min="0" max="65535"
+                            name="order_moves[{{ $clash['id'] }}]" form="companyCarouselForm"
+                            value="{{ old('order_moves.' . $clash['id'], $clash['suggested']) }}">
+                    </div>
+                @endforeach
+
+                <button type="submit" class="btn btn-primary" form="companyCarouselForm">Change Order and Save</button>
+            </div>
+        </section>
+    @endif
+
     <section class="panel">
         <div class="panel-heading">
             <div>
@@ -66,17 +91,6 @@
                             Website
                         </option>
                     </select>
-
-                    <label class="toggle-card" for="is_sponsored" style="margin-top:12px">
-                        <span class="toggle-card-copy">
-                            <strong>Sponsored</strong>
-                            <small>Shows a "Sponsored" label. Turn on for every paid ad.</small>
-                        </span>
-                        <input type="hidden" name="is_sponsored" value="0">
-                        <input class="toggle-input" type="checkbox" id="is_sponsored" name="is_sponsored" value="1" @checked((bool) old('is_sponsored', $entry?->is_sponsored ?? false))>
-                        <span class="toggle-switch" aria-hidden="true"></span>
-                    </label>
-
                     @error('platform')
                         <small class="text-danger">{{ $message }}</small>
                     @enderror
@@ -110,6 +124,16 @@
                     </select>
                     @error('is_active') <small class="text-danger">{{ $message }}</small> @enderror
                 </div>
+
+                <label class="toggle-card" for="is_sponsored" style="grid-column:1/-1;">
+                    <span class="toggle-card-copy">
+                        <strong>Sponsored</strong>
+                        <small>Shows a "Sponsored" label. Turn on for every paid ad.</small>
+                    </span>
+                    <input type="hidden" name="is_sponsored" value="0">
+                    <input class="toggle-input" type="checkbox" id="is_sponsored" name="is_sponsored" value="1" @checked((bool) old('is_sponsored', $entry?->is_sponsored ?? false))>
+                    <span class="toggle-switch" aria-hidden="true"></span>
+                </label>
             </div>
 
             <hr style="margin:26px 0;">

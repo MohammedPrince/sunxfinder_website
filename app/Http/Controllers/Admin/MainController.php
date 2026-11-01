@@ -873,13 +873,15 @@ class MainController extends Controller
             'starts_at' => ['nullable', 'date'],
             'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
             'is_sponsored' => ['nullable', 'boolean'],
+            'order_moves' => ['nullable', 'array'],
+            'order_moves.*' => ['nullable', 'integer', 'min:0', 'max:65535'],
         ]);
         $data['is_active'] = $request->boolean('is_active');
         $data['is_sponsored'] = $request->boolean('is_sponsored');
         $result = $this->adminService->createCompanyCarouselEntry($data);
         return $result['success']
             ? redirect()->route('admin.company-carousel.index')->with('success', $result['message'])
-            : back()->withInput()->with('error', $result['message']);
+            : back()->withInput()->with('error', $result['message'])->with('orderClash', $result['order_clash'] ?? null);
     }
 
     public function companyCarouselEdit(int $id)
@@ -900,13 +902,15 @@ class MainController extends Controller
             'starts_at' => ['nullable', 'date'],
             'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
             'is_sponsored' => ['nullable', 'boolean'],
+            'order_moves' => ['nullable', 'array'],
+            'order_moves.*' => ['nullable', 'integer', 'min:0', 'max:65535'],
         ]);
         $data['is_active'] = $request->boolean('is_active');
         $data['is_sponsored'] = $request->boolean('is_sponsored');
         $result = $this->adminService->updateCompanyCarouselEntry($id, $data);
         return $result['success']
             ? redirect()->route('admin.company-carousel.index')->with('success', $result['message'])
-            : back()->withInput()->with('error', $result['message']);
+            : back()->withInput()->with('error', $result['message'])->with('orderClash', $result['order_clash'] ?? null);
     }
 
     public function companyCarouselDestroy(int $id)
