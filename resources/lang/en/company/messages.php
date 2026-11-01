@@ -1230,7 +1230,7 @@ return [
         'request_button' => '+ Request an ad',
         'guide_title' => 'How advertising works',
         'guide_intro' => 'Ask for an ad here. SunXFinder confirms the price and puts it live after payment.',
-        'guide_1' => '<strong>Send a request</strong> with the ad type, dates and your image.',
+        'guide_1' => '<strong>Send a request</strong> with your dates and what you want to promote.',
         'guide_2' => '<strong>Pay by transfer</strong> once SunXFinder confirms the amount.',
         'guide_3' => '<strong>Follow the results</strong>: views and clicks appear here and in the monthly report.',
         'guide_note' => 'A view is one person seeing the ad on one day. Paid ads show a "Sponsored" label.',

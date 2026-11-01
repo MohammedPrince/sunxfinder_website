@@ -615,15 +615,18 @@ class MainController extends Controller
     {
         $validated = $request->validate([
             'product' => ['required', Rule::in(\App\Models\AdSale::REQUESTABLE_PRODUCTS)],
-            'platform' => ['required', Rule::in(['app', 'website', 'both'])],
+            'platform' => ['required', Rule::in(['app'])],
+            // 'platform' => ['required', Rule::in(['app', 'website', 'both'])],
             'starts_on' => ['required', 'date', 'after_or_equal:today'],
             'weeks' => ['required', 'integer', 'between:1,52'],
             'link_url' => ['nullable', 'url:http,https', 'max:500'],
-            'artwork' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            // 'artwork' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'request_note' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $this->companyService->requestAd($validated, $request->file('artwork'));
+        // Only admin adds ad images for now.
+        $this->companyService->requestAd($validated, null);
+        // $this->companyService->requestAd($validated, $request->file('artwork'));
 
         return redirect()->route('company.ads.index')->with('success', __('company/messages.ads.requested'));
     }

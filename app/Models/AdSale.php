@@ -22,8 +22,9 @@ class AdSale extends Model
         'other' => 'Other',
     ];
 
-    /** What a company may ask for. Packages and other deals are arranged by admin. */
-    public const REQUESTABLE_PRODUCTS = ['slider', 'carousel', 'campaign', 'all_customers'];
+    /** What a company may ask for. Everything else is arranged by admin. */
+    public const REQUESTABLE_PRODUCTS = ['slider'];
+    // public const REQUESTABLE_PRODUCTS = ['slider', 'carousel', 'campaign', 'all_customers'];
 
     public const STATUSES = [
         'requested' => 'Requested',
