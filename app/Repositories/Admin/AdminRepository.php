@@ -4142,6 +4142,7 @@ class AdminRepository
             'max_open_quotes' => Setting::maxOpenQuotes(),
             'maintenance' => Setting::maintenance(),
             'app_offline' => Setting::appOffline(),
+            'company_ads' => Setting::companyAdsAccess(),
             'quote_limit_customers' => $this->getQuoteLimitCustomers(),
             'notification_access_companies' => $this->getNotificationAccessCompanies(),
             'api_endpoints' => ApiEndpoint::query()->orderByDesc('is_active')->orderBy('name')->get(),
@@ -4477,6 +4478,9 @@ class AdminRepository
 
             Setting::set('max_open_quotes', (int) $data['max_open_quotes']);
 
+            Setting::set('company_ads_audience', $data['company_ads_audience']);
+            Setting::set('company_ads_company_ids', json_encode(array_values(array_map('intval', $data['company_ads_company_ids'] ?? []))));
+            cache()->forget(Setting::COMPANY_ADS_CACHE_KEY);
             Setting::set('app_offline_enabled', !empty($data['app_offline_enabled']) ? '1' : '0');
             foreach (['message_en', 'message_ar'] as $field) {
                 Setting::set("app_offline_{$field}", $data["app_offline_{$field}"] ?? null);

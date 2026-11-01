@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\MainController;
 use App\Http\Controllers\Company\AuthController as CompanyAuthController;
 use App\Http\Controllers\Company\MainController as CompanyMainController;
 use App\Http\Controllers\Company\ProjectController;
+use App\Http\Middleware\CompanyAdvertisingAccess;
 use App\Http\Middleware\CompanyValidationLines;
 use App\Http\Controllers\WebsiteController;
 use Illuminate\Support\Facades\Artisan;
@@ -405,7 +406,7 @@ Route::prefix('company')->name('company.')->middleware(CompanyValidationLines::c
             });
 
             // Advertising: the company's ads, results, and requests for new ones
-            Route::prefix('advertising')->name('ads.')->group(function () {
+            Route::prefix('advertising')->name('ads.')->middleware(CompanyAdvertisingAccess::class)->group(function () {
                 Route::get('/', 'companyAds')->name('index');
                 Route::get('/report', 'companyAdReport')->name('report');
                 Route::get('/request', 'createAdRequest')->name('create');

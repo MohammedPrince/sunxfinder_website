@@ -89,6 +89,55 @@
         </section>
 
         <section class="panel">
+            @php
+                $companyAds = $settings['company_ads'];
+                $adsAudience = old('company_ads_audience', $companyAds['audience']);
+                $adsCompanyIds = array_map('intval', (array) old('company_ads_company_ids', $companyAds['company_ids']));
+            @endphp
+
+            <div class="panel-heading">
+                <div>
+                    <h2>Company Advertising</h2>
+                    <p>Choose which companies see Advertising in their portal. Admin Ad Sales always stays available.</p>
+                </div>
+            </div>
+
+            <div class="panel-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="company_ads_audience">Show Advertising to</label>
+                        <select class="select-control" id="company_ads_audience" name="company_ads_audience" required>
+                            <option value="all" @selected($adsAudience === 'all')>All companies</option>
+                            <option value="selected" @selected($adsAudience === 'selected')>Selected companies only</option>
+                        </select>
+                        @error('company_ads_audience')<small class="field-error">{{ $message }}</small>@enderror
+                    </div>
+
+                    <div class="form-group" id="companyAdsPicker" @if ($adsAudience !== 'selected') hidden @endif>
+                        <label for="company_ads_company_ids">Companies</label>
+                        <select class="select-control" id="company_ads_company_ids" name="company_ads_company_ids[]" multiple size="8">
+                            @foreach ($settings['notification_access_companies'] as $company)
+                                <option value="{{ $company->id }}" @selected(in_array((int) $company->id, $adsCompanyIds, true))>
+                                    {{ $company->name }}{{ $company->city ? ' · ' . $company->city : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <small class="form-hint">Hold Ctrl (Windows) or Command (Mac) to select several. With none selected, no company sees Advertising.</small>
+                        @error('company_ads_company_ids')<small class="field-error">{{ $message }}</small>@enderror
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Save Settings</button>
+            </div>
+        </section>
+
+        <script>
+            document.getElementById('company_ads_audience').addEventListener('change', event => {
+                document.getElementById('companyAdsPicker').hidden = event.target.value !== 'selected';
+            });
+        </script>
+
+        <section class="panel">
             <div class="panel-heading">
                 <div>
                     <h2>Quote requests</h2>

@@ -15,6 +15,7 @@ use App\Models\Product;
 use App\Models\Project;
 use App\Models\Quote;
 use App\Models\Rating;
+use App\Models\Setting;
 use App\Models\SolarCompany;
 use App\Repositories\OtpRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -428,13 +429,13 @@ class CompanyRepository
             ->count();
 
         $attention = [
-            [
+            ...(Setting::companyAdsEnabled($companyId) ? [[
                 'label' => __('company/messages.ads.topbar_ending', ['days' => AdSale::ENDING_SOON_DAYS]),
                 'hint' => __('company/messages.ads.topbar_ending_hint'),
                 'count' => AdSale::query()->where('company_id', $companyId)->endingSoon()->count(),
                 'url' => route('company.ads.index'),
                 'tone' => 'blue',
-            ],
+            ]] : []),
             [
                 'label' => __('company/messages.topbar.waiting_offer'),
                 'hint' => __('company/messages.topbar.waiting_offer_hint'),

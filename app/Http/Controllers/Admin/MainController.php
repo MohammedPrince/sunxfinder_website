@@ -1812,6 +1812,9 @@ class MainController extends Controller
             'maintenance_message_en' => ['nullable', 'required_if:maintenance_enabled,1', 'string', 'max:2000'],
             'maintenance_message_ar' => ['nullable', 'required_if:maintenance_enabled,1', 'string', 'max:2000'],
             'maintenance_until' => ['nullable', 'date'],
+            'company_ads_audience' => ['required', 'in:all,selected'],
+            'company_ads_company_ids' => ['nullable', 'array'],
+            'company_ads_company_ids.*' => ['integer', 'exists:tbl_solar_companies,id'],
         ], [
             'app_offline_message_en.required_if' => 'Write the English message customers see while the app is offline.',
             'app_offline_message_ar.required_if' => 'Write the Arabic message customers see while the app is offline.',
