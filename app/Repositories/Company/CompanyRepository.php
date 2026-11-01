@@ -3,6 +3,9 @@
 namespace App\Repositories\Company;
 
 use App\Helpers\Helper;
+use App\Support\AdTracker;
+use App\Models\AppSlider;
+use App\Models\AdSale;
 use App\Models\CompanyQuotation;
 use App\Models\Customer;
 use App\Models\CustomerNotification;
@@ -425,6 +428,13 @@ class CompanyRepository
             ->count();
 
         $attention = [
+            [
+                'label' => __('company/messages.ads.topbar_ending', ['days' => AdSale::ENDING_SOON_DAYS]),
+                'hint' => __('company/messages.ads.topbar_ending_hint'),
+                'count' => AdSale::query()->where('company_id', $companyId)->endingSoon()->count(),
+                'url' => route('company.ads.index'),
+                'tone' => 'blue',
+            ],
             [
                 'label' => __('company/messages.topbar.waiting_offer'),
                 'hint' => __('company/messages.topbar.waiting_offer_hint'),
@@ -1592,9 +1602,45 @@ class CompanyRepository
                         ]);
                     }
 
+                    // Reaching beyond its own customers is a counted, sponsored send.
+                    $isSponsored = false;
+
+                    if ($senderType === 'company' && !$automatic) {
+                        $outsideIds = array_values(array_diff(
+                            $customerIds,
+                            array_map('intval', $this->getCompanyCustomerIds())
+                        ));
+
+                        if ($outsideIds) {
+                            $isSponsored = true;
+                            $company = SolarCompany::query()->find($senderId);
+                            $limit = $company?->all_customers_monthly_limit;
+
+                            if ($limit !== null && $company->allCustomerSendsThisMonth() >= $limit) {
+                                throw ValidationException::withMessages([
+                                    'customer_ids' => __('company/messages.ads.limit_reached', ['limit' => $limit]),
+                                ]);
+                            }
+
+                            $customerIds = array_values(array_diff($customerIds, Customer::query()
+                                ->whereIn('id', $outsideIds)
+                                ->where('sponsored_push_enabled', false)
+                                ->pluck('id')
+                                ->map(fn($id) => (int) $id)
+                                ->all()));
+
+                            if (empty($customerIds)) {
+                                throw ValidationException::withMessages([
+                                    'customer_ids' => __('company/messages.ads.all_opted_out'),
+                                ]);
+                            }
+                        }
+                    }
+
                     Log::info('SunXFinder notification: creating notification');
 
                     $notification = Notification::create([
+                        'is_sponsored' => $isSponsored,
                         'sender_type' => $senderType,
                         'sender_id' => $senderId,
                         'type' => $data['type'],
@@ -1885,8 +1931,125 @@ class CompanyRepository
         return [
             'customers' => $customers,
             'canNotifyAll' => $canNotifyAll,
+            'sendLimit' => $canNotifyAll ? $this->getSendLimitUsage() : null,
         ];
     }
+
+    /** This month's sends to all customers, and the limit set by admin (null: no limit). */
+    public function getSendLimitUsage(): array
+    {
+        $company = SolarCompany::query()->find($this->authenticatedCompanyId());
+
+        return [
+            'open' => (bool) $company?->can_notify_all_customers,
+            'limit' => $company?->all_customers_monthly_limit,
+            'used' => $company?->allCustomerSendsThisMonth() ?? 0,
+        ];
+    }
+
+    //Advertising Start
+
+    private const AD_ARTWORK_DIR = 'main/images/ad-requests';
+
+    public function getCompanyAds(): array
+    {
+        $companyId = $this->authenticatedCompanyId();
+
+        $sales = AdSale::query()
+            ->where('company_id', $companyId)
+            ->with('slider:id,name')
+            ->latest('id')
+            ->paginate(15);
+
+        $sales->getCollection()->each(function (AdSale $sale) {
+            $ad = $sale->trackedAd();
+            $sale->setAttribute('results', $ad ? AdTracker::adTotals($ad[0], $ad[1], $sale->starts_on, $sale->ends_on) : null);
+        });
+
+        $month = AdTracker::totals(now()->startOfMonth(), now()->endOfMonth(), $companyId);
+
+        return [
+            'sales' => $sales,
+            'viewsThisMonth' => array_sum(array_column($month, 'views')),
+            'clicksThisMonth' => array_sum(array_column($month, 'clicks')),
+            'activeAds' => AdSale::query()->where('company_id', $companyId)->where('status', 'paid')
+                ->where(fn($q) => $q->whereNull('ends_on')->orWhere('ends_on', '>=', today()))->count(),
+            'sendLimit' => $this->getSendLimitUsage(),
+        ];
+    }
+
+    public function requestAd(array $data, ?\Illuminate\Http\UploadedFile $artwork): AdSale
+    {
+        $start = Carbon::parse($data['starts_on']);
+
+        return AdSale::create([
+            'company_id' => $this->authenticatedCompanyId(),
+            'product' => $data['product'],
+            'platform' => $data['platform'],
+            'link_url' => $data['link_url'] ?? null,
+            'request_note' => $data['request_note'] ?? null,
+            'artwork_path' => $artwork ? Helper::storeOptimizedImage($artwork, self::AD_ARTWORK_DIR, 1600, 88)['path'] : null,
+            'currency' => 'SDG',
+            'starts_on' => $start,
+            'ends_on' => $start->copy()->addWeeks((int) $data['weeks'])->subDay(),
+            'status' => 'requested',
+        ]);
+    }
+
+    /** A company can withdraw a request only until admin has priced it. */
+    public function cancelAdRequest(int $id): array
+    {
+        $sale = AdSale::query()
+            ->where('company_id', $this->authenticatedCompanyId())
+            ->whereKey($id)
+            ->where('status', 'requested')
+            ->first();
+
+        if (!$sale) {
+            return ['success' => false, 'message' => __('company/messages.ads.cannot_cancel')];
+        }
+
+        $sale->update(['status' => 'cancelled']);
+
+        return ['success' => true, 'message' => __('company/messages.ads.cancelled')];
+    }
+
+    public function getCompanyAdReport(string $month): array
+    {
+        $companyId = $this->authenticatedCompanyId();
+        $from = Carbon::createFromFormat('!Y-m', $month)->startOfMonth();
+        $to = $from->copy()->endOfMonth();
+        $totals = AdTracker::totals($from, $to, $companyId);
+
+        $sliderNames = AppSlider::withTrashed()->where('company_id', $companyId)->pluck('name', 'id');
+
+        $rows = collect($totals)->map(function (array $stats, string $key) use ($sliderNames) {
+            [$type, $id] = explode(':', $key);
+
+            return $stats + [
+                'type' => $type,
+                'name' => $type === 'slider' ? ($sliderNames[(int) $id] ?? "#{$id}") : null,
+                'rate' => AdTracker::rate($stats['views'], $stats['clicks']),
+            ];
+        })->sortByDesc('views')->values();
+
+        return [
+            'month' => $month,
+            'from' => $from,
+            'rows' => $rows,
+            'totalViews' => $rows->sum('views'),
+            'totalClicks' => $rows->sum('clicks'),
+            'totalRate' => AdTracker::rate($rows->sum('views'), $rows->sum('clicks')),
+            'sponsoredSends' => Notification::withTrashed()
+                ->where('sender_type', 'company')
+                ->where('sender_id', $companyId)
+                ->where('is_sponsored', true)
+                ->whereBetween('created_at', [$from, $to])
+                ->count(),
+        ];
+    }
+
+    //Advertising End
 
     private function canNotifyAllCustomers(int $companyId): bool
     {

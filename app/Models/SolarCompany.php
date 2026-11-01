@@ -57,6 +57,7 @@ class SolarCompany extends Authenticatable
             'is_verified' => 'boolean',
             'is_active' => 'boolean',
             'can_notify_all_customers' => 'boolean',
+            'all_customers_monthly_limit' => 'integer',
         ];
     }
 
@@ -100,4 +101,14 @@ class SolarCompany extends Authenticatable
         return $this->hasMany(ProductSpec::class, 'product_id');
     }
 
+    /** Sends this month that reached beyond the company's own customers. Deleting a send does not refund it. */
+    public function allCustomerSendsThisMonth(): int
+    {
+        return Notification::withTrashed()
+            ->where('sender_type', 'company')
+            ->where('sender_id', $this->id)
+            ->where('is_sponsored', true)
+            ->where('created_at', '>=', now()->startOfMonth())
+            ->count();
+    }
 }

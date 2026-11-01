@@ -126,6 +126,37 @@
                         </div>
                     </div>
 
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="company_id">Advertiser company</label>
+                            <select class="form-control" id="company_id" name="company_id">
+                                <option value="">None (SunXFinder or other advertiser)</option>
+                                @foreach ($companies as $company)
+                                    <option value="{{ $company->id }}" @selected((string) old('company_id', $slider?->company_id) === (string) $company->id)>{{ $company->name }}</option>
+                                @endforeach
+                            </select>
+                            <small class="form-hint">The company sees this slide's views and clicks in its portal.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="platform">Show on *</label>
+                            <select class="form-control" id="platform" name="platform" required>
+                                @foreach (\App\Models\AdSale::PLATFORMS as $value => $label)
+                                    <option value="{{ $value }}" @selected(old('platform', $slider?->platform ?? 'app') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+
+                    <label class="toggle-card" for="is_sponsored">
+                        <span class="toggle-card-copy">
+                            <strong>Sponsored</strong>
+                            <small>Shows a "Sponsored" label. Turn on for every paid ad.</small>
+                        </span>
+                        <input type="hidden" name="is_sponsored" value="0">
+                        <input class="toggle-input" type="checkbox" id="is_sponsored" name="is_sponsored" value="1" @checked((bool) old('is_sponsored', $slider ? (int) $slider->is_sponsored : 1))>
+                        <span class="toggle-switch" aria-hidden="true"></span>
+                    </label>
+
                     <label class="toggle-card" for="is_active">
                         <span class="toggle-card-copy">
                             <strong>Active</strong>

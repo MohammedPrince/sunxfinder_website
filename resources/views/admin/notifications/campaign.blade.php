@@ -204,6 +204,18 @@
                     <div class="image-resize-info" id="campaignImageInfo" aria-live="polite" hidden></div>
                 </section>
 
+                <section class="panel">
+                    <label class="toggle-card" for="is_sponsored">
+                        <span class="toggle-card-copy">
+                            <strong>Sponsored campaign</strong>
+                            <small>Turn on for a paid push. Customers who switched off sponsored notifications are skipped.</small>
+                        </span>
+                        <input type="hidden" name="is_sponsored" value="0">
+                        <input class="toggle-input" type="checkbox" id="is_sponsored" name="is_sponsored" value="1" @checked((bool) old('is_sponsored'))>
+                        <span class="toggle-switch" aria-hidden="true"></span>
+                    </label>
+                </section>
+
                 {{-- 5. Offer --}}
                 <section class="panel">
                     <label class="toggle-card" for="has_offer">

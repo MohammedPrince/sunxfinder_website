@@ -35,6 +35,7 @@ class ActivityLogger
         \App\Models\ApplianceGroup::class => ['calculator group', 'app'],
         \App\Models\CompanyCarousel::class => ['carousel entry', 'app'],
         \App\Models\AppSlider::class => ['app slide', 'app'],
+        \App\Models\AdSale::class => ['ad sale', 'app'],
         \App\Models\AppVersion::class => ['app version', 'app'],
         \App\Models\ApiEndpoint::class => ['API endpoint', 'app'],
         \App\Models\LegalSection::class => ['legal section', 'app'],

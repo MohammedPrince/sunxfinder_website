@@ -67,6 +67,16 @@
                         </option>
                     </select>
 
+                    <label class="toggle-card" for="is_sponsored" style="margin-top:12px">
+                        <span class="toggle-card-copy">
+                            <strong>Sponsored</strong>
+                            <small>Shows a "Sponsored" label. Turn on for every paid ad.</small>
+                        </span>
+                        <input type="hidden" name="is_sponsored" value="0">
+                        <input class="toggle-input" type="checkbox" id="is_sponsored" name="is_sponsored" value="1" @checked((bool) old('is_sponsored', $entry?->is_sponsored ?? false))>
+                        <span class="toggle-switch" aria-hidden="true"></span>
+                    </label>
+
                     @error('platform')
                         <small class="text-danger">{{ $message }}</small>
                     @enderror

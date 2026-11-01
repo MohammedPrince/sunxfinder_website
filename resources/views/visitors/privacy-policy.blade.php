@@ -13,7 +13,7 @@
                     protecting your personal information when you explore solar
                     solutions, create an account, or connect with solar providers.
                 </p>
-                <span class="legal-updated">Last updated: October 31, 2026</span>
+                <span class="legal-updated">Last updated: November 1, 2026</span>
             </header>
 
             <section class="legal-card">
@@ -242,6 +242,7 @@
                     Some information may need to be retained where required by law
                     or necessary for legitimate security and recordkeeping purposes.
                 </p>
+                <p>We may send sponsored notifications from SunXFinder or solar companies. You can turn these off in the app without turning off updates about your requests and projects. Sponsored notifications are sent through SunXFinder, and your contact details are not given to companies you have not dealt with. We count how often ads are viewed and tapped, and share only totals with advertisers.</p>
             </section>
 
             <section class="legal-card">

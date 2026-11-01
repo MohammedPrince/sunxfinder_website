@@ -19,6 +19,14 @@ use Illuminate\Support\Facades\Route;
 // site.maintenance: shows the maintenance page when it is on (Admin → Settings).
 Route::controller(WebsiteController::class)->middleware('site.maintenance')->group(function () {
     Route::get('/', 'index')->name('home');
+
+    // Counts an ad click, then sends the visitor on to the ad's own link.
+    Route::get('/go/{type}/{id}/{platform?}', 'adClick')
+        ->whereIn('type', ['slider', 'carousel'])
+        ->whereNumber('id')
+        ->whereIn('platform', ['app', 'website'])
+        ->middleware('throttle:120,1')
+        ->name('ad.click');
     Route::get('/companies/{slug}', 'showCompany')->name('company-profile.show');
 
     // "Open in App": opens the company in the mobile app, or falls back to the store/website.
@@ -157,6 +165,17 @@ Route::prefix('admin')->name('admin.')->group(function () {
             });
 
             // Mobile app home slider (ads)
+            // Ad sales: what was sold, payment and results
+            Route::prefix('ad-sales')->name('ad-sales.')->group(function () {
+                Route::get('/', 'adSales')->name('index');
+                Route::get('/report', 'adReport')->name('report');
+                Route::get('/create', 'createAdSale')->name('create');
+                Route::post('/', 'storeAdSale')->name('store');
+                Route::get('/{id}/edit', 'editAdSale')->whereNumber('id')->name('edit');
+                Route::put('/{id}', 'updateAdSale')->whereNumber('id')->name('update');
+                Route::delete('/{id}', 'destroyAdSale')->whereNumber('id')->name('destroy');
+            });
+
             Route::prefix('app-sliders')->name('app-sliders.')->group(function () {
                 Route::get('/', 'appSliders')->name('index');
                 Route::get('/create', 'createAppSlider')->name('create');
@@ -264,6 +283,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::put('/settings', 'updateSettings')->name('settings.update');
             Route::post('/settings/customer-quote-limit', 'updateCustomerQuoteLimit')->name('settings.customer-quote-limit');
             Route::post('/settings/company-notification-access', 'updateCompanyNotificationAccess')->name('settings.company-notification-access');
+            Route::post('/settings/company-notification-limit', 'updateCompanyNotificationLimit')->name('settings.company-notification-limit');
 
             // API servers the app can use: one active, each online/offline (GET /api/v1/api-config)
             Route::prefix('settings/api-endpoints')->name('settings.api-endpoints.')->group(function () {
@@ -382,6 +402,15 @@ Route::prefix('company')->name('company.')->middleware(CompanyValidationLines::c
                 Route::post('/', 'storeNotification')->name('store');
                 Route::get('/{notification}', 'showNotification')->whereNumber('notification')->name('show');
                 Route::delete('/{notification}', 'destroyNotification')->whereNumber('notification')->name('destroy');
+            });
+
+            // Advertising: the company's ads, results, and requests for new ones
+            Route::prefix('advertising')->name('ads.')->group(function () {
+                Route::get('/', 'companyAds')->name('index');
+                Route::get('/report', 'companyAdReport')->name('report');
+                Route::get('/request', 'createAdRequest')->name('create');
+                Route::post('/request', 'storeAdRequest')->middleware('throttle:10,1')->name('store');
+                Route::delete('/request/{id}', 'cancelAdRequest')->whereNumber('id')->name('cancel');
             });
 
             // Customers who accepted this company's offers

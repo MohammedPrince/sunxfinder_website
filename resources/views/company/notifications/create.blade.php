@@ -60,6 +60,11 @@
                     <input type="hidden" name="audience_type" value="selected">
                     <div class="form-group">
                         <label for="customer_ids">{{ $canNotifyAll ? __('company/messages.common.customers') : __('company/messages.notifications.your_customers') }} <b style="color:red">*</b></label>
+                        @if (!empty($sendLimit) && $sendLimit['limit'] !== null)
+                            <small class="form-hint">
+                                {{ __('company/messages.ads.limit_hint', ['used' => $sendLimit['used'], 'limit' => $sendLimit['limit']]) }}
+                            </small>
+                        @endif
                         @if ($unreachable > 0)
                             <small class="form-hint" style="color:#b54708">
                                 {{ trans_choice('company/messages.notifications.unreachable_choice', $unreachable) }}

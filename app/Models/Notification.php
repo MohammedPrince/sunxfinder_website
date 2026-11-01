@@ -45,6 +45,7 @@ class Notification extends Model
         'offer_expires_at',
         'audience_type',
         'audience_city',
+        'is_sponsored',
         'status',
         'published_at',
     ];

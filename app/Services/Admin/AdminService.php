@@ -634,6 +634,46 @@ class AdminService
         return $this->adminRepository->setCustomerQuoteLimit($customerId, $limit);
     }
 
+    public function setCompanyNotificationLimit(int $companyId, ?int $limit): array
+    {
+        return $this->adminRepository->setCompanyNotificationLimit($companyId, $limit);
+    }
+
+    public function getAdSales(array $filters = [])
+    {
+        return $this->adminRepository->getAdSales($filters);
+    }
+
+    public function getAdSaleMetrics(): array
+    {
+        return $this->adminRepository->getAdSaleMetrics();
+    }
+
+    public function getAdSaleFormData(): array
+    {
+        return $this->adminRepository->getAdSaleFormData();
+    }
+
+    public function findAdSale(int $id): ?\App\Models\AdSale
+    {
+        return $this->adminRepository->findAdSale($id);
+    }
+
+    public function saveAdSale(array $data, ?int $id, ?int $adminId): array
+    {
+        return $this->adminRepository->saveAdSale($data, $id, $adminId);
+    }
+
+    public function deleteAdSale(int $id): array
+    {
+        return $this->adminRepository->deleteAdSale($id);
+    }
+
+    public function getAdReport(string $month): array
+    {
+        return $this->adminRepository->getAdReport($month);
+    }
+
     public function setCompanyNotificationAccess(int $companyId, bool $canNotifyAll): array
     {
         return $this->adminRepository->setCompanyNotificationAccess($companyId, $canNotifyAll);

@@ -230,6 +230,26 @@ class CompanyService
         return $this->companyRepository->getNotifications($filters);
     }
 
+    public function getCompanyAds(): array
+    {
+        return $this->companyRepository->getCompanyAds();
+    }
+
+    public function requestAd(array $data, ?\Illuminate\Http\UploadedFile $artwork): \App\Models\AdSale
+    {
+        return $this->companyRepository->requestAd($data, $artwork);
+    }
+
+    public function cancelAdRequest(int $id): array
+    {
+        return $this->companyRepository->cancelAdRequest($id);
+    }
+
+    public function getCompanyAdReport(string $month): array
+    {
+        return $this->companyRepository->getCompanyAdReport($month);
+    }
+
     public function getNotificationFormData(): array
     {
         return $this->companyRepository->getNotificationFormData();

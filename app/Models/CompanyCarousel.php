@@ -13,10 +13,11 @@ class CompanyCarousel extends Model
     use SoftDeletes, LogsActivity;
     protected $table = 'tbl_company_carousels';
 
-    protected $fillable = ['company_id', 'platform', 'sort_order', 'interval_seconds', 'is_active', 'starts_at', 'ends_at'];
+    protected $fillable = ['company_id', 'platform', 'is_sponsored', 'sort_order', 'interval_seconds', 'is_active', 'starts_at', 'ends_at'];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'is_sponsored' => 'boolean',
         'sort_order' => 'integer',
         'interval_seconds' => 'integer',
         'starts_at' => 'datetime',

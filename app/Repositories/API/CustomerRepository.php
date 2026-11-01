@@ -13,6 +13,7 @@ use App\Models\ApplianceGroup;
 use App\Models\AppVersion;
 use App\Models\AppSlider;
 use App\Models\CompanyCarousel;
+use App\Support\AdTracker;
 use App\Models\CompanyQuotation;
 use App\Models\Customer;
 use App\Models\CustomerDeviceToken;
@@ -1133,10 +1134,17 @@ class CustomerRepository
                 ->limit(3)
                 ->get();
 
+            $customer = $this->helper->isCustomerAuthenticated();
+            $sponsoredLabel = $this->sponsoredLabel((int) $customer->id);
+
+            AdTracker::views('carousel', $carouselRows->pluck('id')->all(), 'app', 'customer-' . $customer->id);
+
             $carousels = $carouselRows
-                ->map(function (CompanyCarousel $carousel): array {
+                ->map(function (CompanyCarousel $carousel) use ($sponsoredLabel): array {
                     return [
                         'id' => (int) $carousel->id,
+                        'is_sponsored' => (bool) $carousel->is_sponsored,
+                        'sponsored_label' => $carousel->is_sponsored ? $sponsoredLabel : null,
                         'sort_order' => (int) $carousel->sort_order,
                         'interval_seconds' => (int) $carousel->interval_seconds,
                         'platform' => $carousel->platform,
@@ -1234,6 +1242,45 @@ class CustomerRepository
         }
     }
 
+    private function sponsoredLabel(int $customerId): string
+    {
+        return $this->customerPreferredLanguage($customerId) === 'ar' ? 'ممول' : 'Sponsored';
+    }
+
+    /** A tap on a carousel entry, or on a slider whose link opens a screen in the app. */
+    public function recordAdClick(string $type, int $id): array
+    {
+        $exists = $type === 'slider'
+            ? AppSlider::query()->whereKey($id)->exists()
+            : CompanyCarousel::query()->whereKey($id)->exists();
+
+        if (!$exists) {
+            return ['success' => false, 'code' => 404, 'message' => 'Ad not found.'];
+        }
+
+        AdTracker::click($type, $id, 'app');
+
+        return ['success' => true, 'code' => 200, 'message' => 'Click recorded.'];
+    }
+
+    public function getNotificationPreferences(): array
+    {
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        return [
+            'sponsored_push_enabled' => (bool) ($customer->sponsored_push_enabled ?? true),
+        ];
+    }
+
+    public function updateNotificationPreferences(bool $sponsoredPushEnabled): array
+    {
+        $customer = $this->helper->isCustomerAuthenticated();
+        $customer->sponsored_push_enabled = $sponsoredPushEnabled;
+        $customer->save();
+
+        return $this->getNotificationPreferences();
+    }
+
     public function getAppSliders(): array
     {
         if (!$this->helper->isCustomerAuthenticated()) {
@@ -1246,6 +1293,7 @@ class CustomerRepository
 
         try {
             $rows = Cache::remember(AppSlider::CACHE_KEY, 60, fn() => AppSlider::currentlyVisible()
+                ->whereIn('platform', ['app', 'both'])
                 ->orderBy('sort_order')
                 ->orderBy('id')
                 ->limit(10)
@@ -1258,10 +1306,16 @@ class CustomerRepository
                     'image_width',
                     'image_height',
                     'link_url',
+                    'is_sponsored',
                     'interval_seconds',
                     'sort_order'
                 ])
                 ->toArray());
+
+            $customer = $this->helper->isCustomerAuthenticated();
+            $sponsoredLabel = $this->sponsoredLabel((int) $customer->id);
+
+            AdTracker::views('slider', array_column($rows, 'id'), 'app', 'customer-' . $customer->id);
 
             // URLs are built per request so the cached rows don't pin one host name.
             $sliders = array_map(fn(array $row): array => [
@@ -1274,7 +1328,13 @@ class CustomerRepository
                 'image_height' => $row['image_height'],
                 'interval_seconds' => (int) $row['interval_seconds'],
                 'has_link' => filled($row['link_url']),
-                'link_url' => $row['link_url'],
+                // Web links pass through the click counter; sunxfinder:// links are reported with POST /ad-click.
+                'link_url' => filled($row['link_url']) && preg_match('#^https?://#i', $row['link_url'])
+                    ? route('ad.click', ['type' => 'slider', 'id' => $row['id'], 'platform' => 'app'])
+                    : $row['link_url'],
+                'target_url' => $row['link_url'],
+                'is_sponsored' => (bool) $row['is_sponsored'],
+                'sponsored_label' => $row['is_sponsored'] ? $sponsoredLabel : null,
                 'sort_order' => (int) $row['sort_order'],
             ], $rows);
 
@@ -2671,6 +2731,7 @@ class CustomerRepository
         return [
             'id' => $notification->id,
             'type' => $notification->type,
+            'is_sponsored' => (bool) $notification->is_sponsored,
             // The customer's request this is about: the same id as in /my-quotes.
             'quote_id' => $notification->quote_id !== null ? (int) $notification->quote_id : null,
             'title' => $notification->title_en,

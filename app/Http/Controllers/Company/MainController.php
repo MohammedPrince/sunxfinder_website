@@ -527,6 +527,7 @@ class MainController extends Controller
         return view('company.notifications.create', [
             'customers' => $result['customers'],
             'canNotifyAll' => $result['canNotifyAll'],
+            'sendLimit' => $result['sendLimit'],
             'preselected' => $preselected,
         ]);
     }
@@ -597,6 +598,51 @@ class MainController extends Controller
     }
 
     //Notifications Managment Start
+
+    //Advertising Start
+
+    public function companyAds()
+    {
+        return view('company.ads.index', $this->companyService->getCompanyAds());
+    }
+
+    public function createAdRequest()
+    {
+        return view('company.ads.create');
+    }
+
+    public function storeAdRequest(Request $request)
+    {
+        $validated = $request->validate([
+            'product' => ['required', Rule::in(\App\Models\AdSale::REQUESTABLE_PRODUCTS)],
+            'platform' => ['required', Rule::in(['app', 'website', 'both'])],
+            'starts_on' => ['required', 'date', 'after_or_equal:today'],
+            'weeks' => ['required', 'integer', 'between:1,52'],
+            'link_url' => ['nullable', 'url:http,https', 'max:500'],
+            'artwork' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'request_note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $this->companyService->requestAd($validated, $request->file('artwork'));
+
+        return redirect()->route('company.ads.index')->with('success', __('company/messages.ads.requested'));
+    }
+
+    public function cancelAdRequest(int $id)
+    {
+        $result = $this->companyService->cancelAdRequest($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function companyAdReport(Request $request)
+    {
+        $data = $request->validate(['month' => ['nullable', 'date_format:Y-m']]);
+
+        return view('company.ads.report', $this->companyService->getCompanyAdReport($data['month'] ?? now()->format('Y-m')));
+    }
+
+    //Advertising End
 
     //Ratings Start
 

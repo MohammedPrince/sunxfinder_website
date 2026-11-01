@@ -70,6 +70,16 @@ class MainService
         return $this->mainRepository->getWebsiteCompanyCarousel();
     }
 
+    public function getWebsiteBanners(): array
+    {
+        return $this->mainRepository->getWebsiteBanners();
+    }
+
+    public function getAdTarget(string $type, int $id): ?string
+    {
+        return $this->mainRepository->getAdTarget($type, $id);
+    }
+
     public function sendContactMessage(array $data): array
     {
         return $this->mainRepository->sendContactMessage($data);

@@ -16,13 +16,17 @@ class AppSlider extends Model
     /** Cache key for the app's slider list; cleared whenever an admin changes a slide. */
     public const CACHE_KEY = 'app_sliders.visible';
 
+    /** Same for the website home banner. */
+    public const WEBSITE_CACHE_KEY = 'app_sliders.website';
+
     protected $fillable = [
-        'name', 'description_ar', 'description_en', 'image_path', 'image_width', 'image_height',
-        'link_url', 'interval_seconds', 'sort_order', 'is_active', 'starts_at', 'ends_at', 'created_by',
+        'company_id', 'name', 'description_ar', 'description_en', 'image_path', 'image_width', 'image_height',
+        'link_url', 'platform', 'is_sponsored', 'interval_seconds', 'sort_order', 'is_active', 'starts_at', 'ends_at', 'created_by',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'is_sponsored' => 'boolean',
         'sort_order' => 'integer',
         'interval_seconds' => 'integer',
         'image_width' => 'integer',
@@ -34,6 +38,17 @@ class AppSlider extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(Admin::class, 'created_by');
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(SolarCompany::class, 'company_id');
+    }
+
+    public static function clearCache(): void
+    {
+        cache()->forget(self::CACHE_KEY);
+        cache()->forget(self::WEBSITE_CACHE_KEY);
     }
 
     public function scopeCurrentlyVisible($query)

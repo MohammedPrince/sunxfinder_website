@@ -56,6 +56,8 @@ use Kreait\Firebase\Contract\Messaging;
 use Kreait\Firebase\Messaging\CloudMessage;
 use App\Helpers\Helper;
 use Kreait\Firebase\Messaging\Notification as FcmNotification;
+use App\Models\AdSale;
+use App\Support\AdTracker;
 
 class AdminRepository
 {
@@ -236,6 +238,20 @@ class AdminRepository
 
         // The top bar sorts by count; this order breaks ties.
         $attention = [
+            [
+                'label' => 'Ad requests from companies',
+                'hint' => 'Set the price and dates, then ask for payment.',
+                'count' => AdSale::query()->where('status', 'requested')->count(),
+                'url' => route('admin.ad-sales.index', ['status' => 'requested']),
+                'tone' => 'orange',
+            ],
+            [
+                'label' => 'Ads ending within ' . AdSale::ENDING_SOON_DAYS . ' days',
+                'hint' => 'Offer the company a renewal before the ad stops.',
+                'count' => AdSale::query()->endingSoon()->count(),
+                'url' => route('admin.ad-sales.index', ['ending' => 1]),
+                'tone' => 'blue',
+            ],
             [
                 'label' => 'Customers waiting for approval',
                 'hint' => 'New sign-ups who cannot log in to the app until approved.',
@@ -2080,7 +2096,7 @@ class AdminRepository
             $this->storeAppSliderImage($slider, $image);
             $slider->created_by = $adminId;
             $slider->save();
-            Cache::forget(AppSlider::CACHE_KEY);
+            AppSlider::clearCache();
 
             return ['success' => true, 'message' => 'Slide created successfully.'];
         } catch (Throwable $e) {
@@ -2105,7 +2121,7 @@ class AdminRepository
             }
 
             $slider->save();
-            Cache::forget(AppSlider::CACHE_KEY);
+            AppSlider::clearCache();
 
             // Remove the replaced file only after the new one is saved.
             if ($image && $oldImage && $oldImage !== $slider->image_path) {
@@ -2128,7 +2144,7 @@ class AdminRepository
 
         $slider->is_active = !$slider->is_active;
         $slider->save();
-        Cache::forget(AppSlider::CACHE_KEY);
+        AppSlider::clearCache();
 
         return ['success' => true, 'message' => $slider->is_active ? 'Slide activated.' : 'Slide hidden from the app.'];
     }
@@ -2144,7 +2160,7 @@ class AdminRepository
             // Soft delete: the image file stays so the slide can be restored from the archive.
             app(Helper::class)->archiveItem($slider, 'app_slider', null, 'website');
             $slider->delete();
-            Cache::forget(AppSlider::CACHE_KEY);
+            AppSlider::clearCache();
 
             return ['success' => true, 'message' => 'Slide deleted successfully.'];
         } catch (Throwable $e) {
@@ -2158,6 +2174,9 @@ class AdminRepository
         $slider->name = trim($data['name']);
         $slider->description_ar = filled($data['description_ar'] ?? null) ? trim($data['description_ar']) : null;
         $slider->description_en = filled($data['description_en'] ?? null) ? trim($data['description_en']) : null;
+        $slider->company_id = $data['company_id'] ?? null;
+        $slider->platform = $data['platform'];
+        $slider->is_sponsored = (bool) ($data['is_sponsored'] ?? false);
         $slider->link_url = !empty($data['has_link']) && filled($data['link_url'] ?? null) ? trim($data['link_url']) : null;
         $slider->interval_seconds = (int) $data['interval_seconds'];
         $slider->sort_order = (int) $data['sort_order'];
@@ -3214,6 +3233,22 @@ class AdminRepository
                         ]);
                     }
 
+                    // Sponsored campaigns skip customers who switched them off in the app.
+                    if (!empty($data['is_sponsored'])) {
+                        $customerIds = Customer::query()
+                            ->whereIn('id', $customerIds)
+                            ->where('sponsored_push_enabled', true)
+                            ->pluck('id')
+                            ->map(fn($id) => (int) $id)
+                            ->all();
+
+                        if (empty($customerIds)) {
+                            throw ValidationException::withMessages([
+                                'customer_ids' => 'All selected customers have switched off sponsored notifications.',
+                            ]);
+                        }
+                    }
+
                     $existingIds = Customer::query()
                         ->whereIn('id', $customerIds)
                         ->pluck('id')
@@ -3247,6 +3282,7 @@ class AdminRepository
                     ]));
 
                     $notification = Notification::create([
+                        'is_sponsored' => !empty($data['is_sponsored']),
                         'sender_type' => $senderType,
                         'sender_id' => $senderId,
                         'type' => $data['type'],
@@ -3673,6 +3709,150 @@ class AdminRepository
 
 
     //Notifications End
+
+    //Ad Sales Start
+
+    public function getAdSales(array $filters = []): LengthAwarePaginator
+    {
+        $sales = AdSale::query()
+            ->with(['company:id,name', 'slider:id,name', 'carousel:id,company_id'])
+            ->when(!empty($filters['status']), fn($q) => $q->where('status', $filters['status']))
+            ->when(!empty($filters['product']), fn($q) => $q->where('product', $filters['product']))
+            ->when(!empty($filters['company_id']), fn($q) => $q->where('company_id', (int) $filters['company_id']))
+            ->when(!empty($filters['ending']), fn($q) => $q->endingSoon())
+            ->latest('id')
+            ->paginate(20)
+            ->withQueryString();
+
+        $sales->getCollection()->each(function (AdSale $sale) {
+            $ad = $sale->trackedAd();
+            $sale->setAttribute('results', $ad ? AdTracker::adTotals($ad[0], $ad[1], $sale->starts_on, $sale->ends_on) : null);
+        });
+
+        return $sales;
+    }
+
+    public function getAdSaleMetrics(): array
+    {
+        $paid = AdSale::query()->where('status', 'paid')->where('paid_at', '>=', now()->startOfMonth());
+
+        return [
+            'requested' => AdSale::query()->where('status', 'requested')->count(),
+            'awaiting_payment' => AdSale::query()->where('status', 'awaiting_payment')->count(),
+            'ending_soon' => AdSale::query()->endingSoon()->count(),
+            'paid_this_month' => (clone $paid)->groupBy('currency')->selectRaw('currency, SUM(amount) as total')->pluck('total', 'currency')->all(),
+        ];
+    }
+
+    public function getAdSaleFormData(): array
+    {
+        return [
+            'companies' => SolarCompany::query()->orderBy('name')->get(['id', 'name']),
+            'sliders' => AppSlider::query()->orderBy('name')->get(['id', 'name', 'company_id']),
+            'carousels' => CompanyCarousel::query()->with('company:id,name')->get(['id', 'company_id', 'platform']),
+        ];
+    }
+
+    public function findAdSale(int $id): ?AdSale
+    {
+        return AdSale::find($id);
+    }
+
+    public function saveAdSale(array $data, ?int $id, ?int $adminId): array
+    {
+        try {
+            $sale = $id ? AdSale::find($id) : new AdSale(['created_by' => $adminId]);
+
+            if (!$sale) {
+                return ['success' => false, 'message' => 'Ad sale not found.'];
+            }
+
+            // The date money arrived stays fixed once set.
+            $data['paid_at'] = $data['status'] === 'paid' ? ($sale->paid_at ?? now()) : null;
+            $sale->created_by ??= $adminId;
+            $sale->fill($data)->save();
+
+            return ['success' => true, 'message' => 'Ad sale saved.'];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to save the ad sale. Please try again.'];
+        }
+    }
+
+    public function deleteAdSale(int $id): array
+    {
+        try {
+            $sale = AdSale::find($id);
+
+            if (!$sale) {
+                return ['success' => false, 'message' => 'Ad sale not found.'];
+            }
+
+            app(Helper::class)->archiveItem($sale, 'ad_sale', null, 'website');
+            $sale->delete();
+
+            return ['success' => true, 'message' => 'Ad sale deleted. A copy is kept in Archives.'];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to delete the ad sale. Please try again.'];
+        }
+    }
+
+    public function getAdReport(string $month): array
+    {
+        $from = Carbon::createFromFormat('!Y-m', $month)->startOfMonth();
+        $to = $from->copy()->endOfMonth();
+        $totals = AdTracker::totals($from, $to);
+
+        $sliders = AppSlider::withTrashed()->with('company:id,name')
+            ->whereIn('id', $this->adIdsOfType($totals, 'slider'))->get()->keyBy('id');
+        $carousels = CompanyCarousel::withTrashed()->with('company:id,name')
+            ->whereIn('id', $this->adIdsOfType($totals, 'carousel'))->get()->keyBy('id');
+
+        $rows = collect($totals)->map(function (array $stats, string $key) use ($sliders, $carousels) {
+            [$type, $id] = explode(':', $key);
+            $ad = $type === 'slider' ? $sliders->get((int) $id) : $carousels->get((int) $id);
+
+            return $stats + [
+                'type' => $type === 'slider' ? 'Slider' : 'Carousel',
+                'name' => $type === 'slider' ? ($ad?->name ?? "Slide #{$id}") : ($ad?->company?->name ?? "Carousel #{$id}"),
+                'company' => $ad?->company?->name ?? '—',
+                'rate' => AdTracker::rate($stats['views'], $stats['clicks']),
+            ];
+        })->sortByDesc('views')->values();
+
+        return [
+            'month' => $month,
+            'from' => $from,
+            'rows' => $rows,
+            'totalViews' => $rows->sum('views'),
+            'totalClicks' => $rows->sum('clicks'),
+            'revenue' => AdSale::query()
+                ->where('status', 'paid')
+                ->whereBetween('paid_at', [$from, $to])
+                ->groupBy('currency')
+                ->selectRaw('currency, SUM(amount) as total')
+                ->pluck('total', 'currency')
+                ->all(),
+        ];
+    }
+
+    private function adIdsOfType(array $totals, string $type): array
+    {
+        $ids = [];
+
+        foreach (array_keys($totals) as $key) {
+            if (str_starts_with($key, $type . ':')) {
+                $ids[] = (int) substr($key, strlen($type) + 1);
+            }
+        }
+
+        return $ids;
+    }
+
+    //Ad Sales End
 
     //Ratings Start
 
@@ -4211,10 +4391,35 @@ class AdminRepository
         return SolarCompany::query()
             ->where('status', '!=', 'deleted')
             ->orderBy('name')
-            ->get(['id', 'name', 'city', 'can_notify_all_customers']);
+            ->get(['id', 'name', 'city', 'can_notify_all_customers', 'all_customers_monthly_limit']);
     }
 
     /** Lets a company notify all customers, or puts it back to only its own. */
+    public function setCompanyNotificationLimit(int $companyId, ?int $limit): array
+    {
+        try {
+            $company = $this->getNotificationAccessCompanies()->firstWhere('id', $companyId);
+
+            if (!$company) {
+                return ['success' => false, 'message' => 'Company not found.'];
+            }
+
+            $company->all_customers_monthly_limit = $limit;
+            $company->save();
+
+            return [
+                'success' => true,
+                'message' => $limit === null
+                    ? "{$company->name} now has no monthly limit."
+                    : "{$company->name} can now make {$limit} sends to all customers each month.",
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to update the company. Please try again.'];
+        }
+    }
+
     public function setCompanyNotificationAccess(int $companyId, bool $canNotifyAll): array
     {
         try {

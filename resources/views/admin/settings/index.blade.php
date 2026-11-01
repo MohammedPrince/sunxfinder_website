@@ -210,6 +210,8 @@
                         By default a company can notify only its own customers: those with a quote request or project
                         with it. Open all customers for a specific company to let it notify every active customer with a
                         registered device. It still sees phone numbers and emails only for its own customers.
+                        Set a monthly limit for each opened company; leave it empty for no limit. Only sends that reach
+                        beyond its own customers count, and they skip customers who switched off sponsored notifications.
                     </p>
 
                     @if ($closedCompanies->isNotEmpty())
@@ -242,6 +244,8 @@
                                         <th>Company</th>
                                         <th>City</th>
                                         <th>Can notify</th>
+                                        <th>This month</th>
+                                        <th>Monthly limit</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
@@ -251,6 +255,15 @@
                                             <td><strong>{{ $company->name }}</strong></td>
                                             <td>{{ $company->city }}</td>
                                             <td><span class="pill pill-green">All customers</span></td>
+                                            <td>{{ number_format($company->allCustomerSendsThisMonth()) }}</td>
+                                            <td style="min-width:190px">
+                                                <div style="display:flex;gap:6px">
+                                                    <input class="form-control" type="number" min="0" max="100000" name="monthly_limit"
+                                                        form="companyLimitForm{{ $company->id }}" value="{{ $company->all_customers_monthly_limit }}"
+                                                        placeholder="No limit" aria-label="Monthly limit for {{ $company->name }}">
+                                                    <button type="submit" class="btn btn-light" form="companyLimitForm{{ $company->id }}">Save</button>
+                                                </div>
+                                            </td>
                                             <td>
                                                 <button type="submit" class="btn btn-light" style="margin-top:8px" form="companyNotificationResetForm"
                                                     name="company_id" value="{{ $company->id }}"
@@ -506,6 +519,12 @@
         @csrf
         <input type="hidden" name="can_notify_all" value="1">
     </form>
+    @foreach ($settings['notification_access_companies']->where('can_notify_all_customers', true) as $company)
+        <form id="companyLimitForm{{ $company->id }}" method="POST" action="{{ route('admin.settings.company-notification-limit') }}">
+            @csrf
+            <input type="hidden" name="company_id" value="{{ $company->id }}">
+        </form>
+    @endforeach
     <form id="companyNotificationResetForm" method="POST" action="{{ route('admin.settings.company-notification-access') }}">
         @csrf
         <input type="hidden" name="can_notify_all" value="0">

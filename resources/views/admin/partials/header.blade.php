@@ -88,7 +88,7 @@
         </a>
         @endcomponent
 
-        @component('partials.nav-group', ['key' => 'app', 'label' => 'App Management', 'icon' => 'layers', 'routes' => ['admin.calculator-groups.*', 'admin.company-carousel.*', 'admin.app-sliders.*', 'admin.app-versions.*']])
+        @component('partials.nav-group', ['key' => 'app', 'label' => 'App Management', 'icon' => 'layers', 'routes' => ['admin.ad-sales.*', 'admin.calculator-groups.*', 'admin.company-carousel.*', 'admin.app-sliders.*', 'admin.app-versions.*']])
         <a class="nav-link {{ request()->routeIs('admin.calculator-groups.*') ? 'active' : '' }}"
             href="{{ route('admin.calculator-groups.index') }}">
             <span class="nav-icon">
@@ -114,6 +114,18 @@
             </span>
             <span>Company Carousel</span>
             <span class="nav-count warm">{{ $carouselCount ?? 0 }}</span>
+        </a>
+        <a class="nav-link {{ request()->routeIs('admin.ad-sales.*') ? 'active' : '' }}"
+            href="{{ route('admin.ad-sales.index') }}">
+            <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 11v2a1 1 0 0 0 1 1h3l9 5V5L7 10H4a1 1 0 0 0-1 1Z" />
+                    <path d="M19.5 9.5a3.5 3.5 0 0 1 0 5" />
+                </svg>
+            </span>
+            <span>Ad Sales</span>
+            <span class="nav-count warm">{{ $adRequestCount ?? 0 }}</span>
         </a>
         <a class="nav-link {{ request()->routeIs('admin.app-sliders.*') ? 'active' : '' }}"
             href="{{ route('admin.app-sliders.index') }}">

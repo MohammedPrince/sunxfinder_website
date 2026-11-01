@@ -572,6 +572,45 @@ class MainController extends Controller
             ],
         ], $result['code']);
     }
+    public function recordAdClick(Request $request)
+    {
+        $validated = $request->validate([
+            'ad_type' => ['required', 'in:slider,carousel'],
+            'ad_id' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $result = $this->customerService->recordAdClick($validated['ad_type'], (int) $validated['ad_id']);
+
+        return response()->json([
+            'status' => $result['success'] ? 'success' : 'error',
+            'code' => $result['code'],
+            'message' => $result['message'],
+        ], $result['code']);
+    }
+
+    public function getNotificationPreferences()
+    {
+        return response()->json([
+            'status' => 'success',
+            'code' => 200,
+            'data' => $this->customerService->getNotificationPreferences(),
+        ], 200);
+    }
+
+    public function updateNotificationPreferences(Request $request)
+    {
+        $validated = $request->validate([
+            'sponsored_push_enabled' => ['required', 'boolean'],
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'code' => 200,
+            'message' => 'Preferences saved.',
+            'data' => $this->customerService->updateNotificationPreferences($request->boolean('sponsored_push_enabled')),
+        ], 200);
+    }
+
     public function getAppSliders()
     {
         $result = $this->customerService->getAppSliders();

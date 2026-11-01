@@ -483,4 +483,5 @@ return [
     'We will email you when your account is approved. Then open the SunXFinder app and log in with your username and password.' => 'We will email you when your account is approved. Then open the SunXFinder app and log in with your username and password.',
     'Contact us on WhatsApp' => 'Contact us on WhatsApp',
     'Hello, I would like to contact SunXFinder.' => 'Hello, I would like to contact SunXFinder.',
+    'Sponsored' => 'Sponsored',
 ];

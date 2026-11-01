@@ -283,6 +283,38 @@ class MainRepository
             ->all();
     }
 
+    /** Home banner: slides set to show on the website. Cached for a minute like the app list. */
+    public function getWebsiteBanners(): array
+    {
+        try {
+            return \Illuminate\Support\Facades\Cache::remember(\App\Models\AppSlider::WEBSITE_CACHE_KEY, 60, fn() => \App\Models\AppSlider::currentlyVisible()
+                ->whereIn('platform', ['website', 'both'])
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->limit(10)
+                ->get(['id', 'name', 'description_ar', 'description_en', 'image_path', 'image_width', 'image_height', 'link_url', 'is_sponsored', 'interval_seconds'])
+                ->toArray());
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
+    }
+
+    /** Where a tracked ad leads. Sliders only go to their stored web link. */
+    public function getAdTarget(string $type, int $id): ?string
+    {
+        if ($type === 'slider') {
+            $link = \App\Models\AppSlider::query()->whereKey($id)->value('link_url');
+
+            return $link && preg_match('#^https?://#i', $link) ? $link : null;
+        }
+
+        $slug = CompanyCarousel::query()->whereKey($id)->first()?->company?->slug;
+
+        return $slug ? route('company-profile.show', ['slug' => $slug]) : null;
+    }
+
     public function getWebsiteCompanyCarousel(): Collection
     {
         $now = now();

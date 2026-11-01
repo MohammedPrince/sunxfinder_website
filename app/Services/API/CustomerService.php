@@ -89,6 +89,21 @@ class CustomerService
         return $this->customerRepository->getAppSliders();
     }
 
+    public function recordAdClick(string $type, int $id): array
+    {
+        return $this->customerRepository->recordAdClick($type, $id);
+    }
+
+    public function getNotificationPreferences(): array
+    {
+        return $this->customerRepository->getNotificationPreferences();
+    }
+
+    public function updateNotificationPreferences(bool $sponsoredPushEnabled): array
+    {
+        return $this->customerRepository->updateNotificationPreferences($sponsoredPushEnabled);
+    }
+
     public function storeQuote(array $data): array
     {
         return $this->customerRepository->storeQuote($data);

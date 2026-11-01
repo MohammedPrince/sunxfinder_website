@@ -126,7 +126,7 @@
         </a>
         @endcomponent
 
-        @component('partials.nav-group', ['key' => 'customers', 'label' => __('company/messages.navigation.customers'), 'icon' => 'chat', 'routes' => ['company.customers.*', 'company.notifications.*', 'company.ratings.*']])
+        @component('partials.nav-group', ['key' => 'customers', 'label' => __('company/messages.navigation.customers'), 'icon' => 'chat', 'routes' => ['company.customers.*', 'company.notifications.*', 'company.ratings.*', 'company.ads.*']])
         <a class="nav-link {{ request()->routeIs('company.customers.*') ? 'active' : '' }}"
             href="{{ route('company.customers.index') }}">
             <span class="nav-icon">
@@ -153,6 +153,17 @@
             </span>
             <span>{{ __('company/messages.navigation.push_notifications') }}</span>
             <span class="nav-count warm">{{ $notificationsCount ?? 0 }}</span>
+        </a>
+        <a class="nav-link {{ request()->routeIs('company.ads.*') ? 'active' : '' }}"
+            href="{{ route('company.ads.index') }}">
+            <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 11v2a1 1 0 0 0 1 1h3l9 5V5L7 10H4a1 1 0 0 0-1 1Z" />
+                    <path d="M19.5 9.5a3.5 3.5 0 0 1 0 5" />
+                </svg>
+            </span>
+            <span>{{ __('company/messages.navigation.advertising') }}</span>
         </a>
         <a class="nav-link {{ request()->routeIs('company.ratings.*') ? 'active' : '' }}"
             href="{{ route('company.ratings.index') }}">

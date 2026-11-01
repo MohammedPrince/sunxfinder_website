@@ -16,7 +16,7 @@
                     Please read these terms carefully before using SunXFinder to discover solar solutions
                     or connect with solar energy companies and service providers.
                 </p>
-                <span class="legal-updated">Last updated: October 31, 2026</span>
+                <span class="legal-updated">Last updated: November 1, 2026</span>
             </header>
 
             <section class="legal-card">
@@ -108,6 +108,7 @@
                     agreements between the customer and provider. Solar output and savings depend on equipment,
                     installation, site conditions, weather, usage, and maintenance; no specific result is guaranteed by a
                     listing alone.</p>
+                <p>Some content on the platform is sponsored, including banners, featured companies and push notifications. Sponsored content is labelled and paid for by the advertiser, who is responsible for its accuracy. It is not a recommendation by SunXFinder and does not affect ratings or verification.</p>
             </section>
 
             <section class="legal-card">

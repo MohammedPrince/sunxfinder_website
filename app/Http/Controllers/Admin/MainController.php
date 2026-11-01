@@ -872,8 +872,10 @@ class MainController extends Controller
             'is_active' => ['nullable', 'boolean'],
             'starts_at' => ['nullable', 'date'],
             'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
+            'is_sponsored' => ['nullable', 'boolean'],
         ]);
         $data['is_active'] = $request->boolean('is_active');
+        $data['is_sponsored'] = $request->boolean('is_sponsored');
         $result = $this->adminService->createCompanyCarouselEntry($data);
         return $result['success']
             ? redirect()->route('admin.company-carousel.index')->with('success', $result['message'])
@@ -897,8 +899,10 @@ class MainController extends Controller
             'is_active' => ['nullable', 'boolean'],
             'starts_at' => ['nullable', 'date'],
             'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
+            'is_sponsored' => ['nullable', 'boolean'],
         ]);
         $data['is_active'] = $request->boolean('is_active');
+        $data['is_sponsored'] = $request->boolean('is_sponsored');
         $result = $this->adminService->updateCompanyCarouselEntry($id, $data);
         return $result['success']
             ? redirect()->route('admin.company-carousel.index')->with('success', $result['message'])
@@ -933,6 +937,7 @@ class MainController extends Controller
     public function createAppSlider()
     {
         return view('admin.app-sliders.form', [
+            'companies' => $this->adminService->getAdSaleFormData()['companies'],
             'slider' => null,
             'nextSortOrder' => $this->adminService->getNextAppSliderSortOrder(),
             'maxUploadKb' => $this->appSliderMaxUploadKb(),
@@ -955,6 +960,7 @@ class MainController extends Controller
         abort_unless($slider, 404);
 
         return view('admin.app-sliders.form', [
+            'companies' => $this->adminService->getAdSaleFormData()['companies'],
             'slider' => $slider,
             'nextSortOrder' => $slider->sort_order,
             'maxUploadKb' => $this->appSliderMaxUploadKb(),
@@ -1006,6 +1012,9 @@ class MainController extends Controller
             'has_link' => ['nullable', 'boolean'],
             // Web links, or in-app links such as sunxfinder://company/{slug}.
             'link_url' => ['nullable', 'required_if:has_link,1', 'string', 'max:500', 'regex:#^(https?|sunxfinder)://[^\s]+$#i'],
+            'company_id' => ['nullable', 'integer', 'min:1'],
+            'platform' => ['required', 'in:app,website,both'],
+            'is_sponsored' => ['nullable', 'boolean'],
             'interval_seconds' => ['required', 'integer', 'min:2', 'max:60'],
             'sort_order' => ['required', 'integer', 'min:0', 'max:65535'],
             'is_active' => ['nullable', 'boolean'],
@@ -1021,12 +1030,100 @@ class MainController extends Controller
 
         $data['has_link'] = $request->boolean('has_link');
         $data['is_active'] = $request->boolean('is_active');
+        $data['is_sponsored'] = $request->boolean('is_sponsored');
         unset($data['image']);
 
         return $data;
     }
 
     //App Slider End
+
+    //Ad Sales Start
+
+    public function adSales(Request $request)
+    {
+        $filters = $request->validate([
+            'status' => ['nullable', Rule::in(array_keys(\App\Models\AdSale::STATUSES))],
+            'product' => ['nullable', Rule::in(array_keys(\App\Models\AdSale::PRODUCTS))],
+            'company_id' => ['nullable', 'integer'],
+            'ending' => ['nullable', 'boolean'],
+        ]);
+
+        return view('admin.ad-sales.index', [
+            'sales' => $this->adminService->getAdSales($filters),
+            'metrics' => $this->adminService->getAdSaleMetrics(),
+            'companies' => $this->adminService->getAdSaleFormData()['companies'],
+        ]);
+    }
+
+    public function createAdSale()
+    {
+        return view('admin.ad-sales.form', $this->adminService->getAdSaleFormData() + ['sale' => null]);
+    }
+
+    public function storeAdSale(Request $request)
+    {
+        $result = $this->adminService->saveAdSale($this->validateAdSale($request), null, Auth::guard('admin')->id());
+
+        return $result['success']
+            ? redirect()->route('admin.ad-sales.index')->with('success', $result['message'])
+            : back()->withInput()->with('error', $result['message']);
+    }
+
+    public function editAdSale(int $id)
+    {
+        $sale = $this->adminService->findAdSale($id);
+        abort_if(!$sale, 404);
+
+        return view('admin.ad-sales.form', $this->adminService->getAdSaleFormData() + ['sale' => $sale]);
+    }
+
+    public function updateAdSale(Request $request, int $id)
+    {
+        $result = $this->adminService->saveAdSale($this->validateAdSale($request), $id, Auth::guard('admin')->id());
+
+        return $result['success']
+            ? redirect()->route('admin.ad-sales.index')->with('success', $result['message'])
+            : back()->withInput()->with('error', $result['message']);
+    }
+
+    public function destroyAdSale(int $id)
+    {
+        $result = $this->adminService->deleteAdSale($id);
+
+        return redirect()->route('admin.ad-sales.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function adReport(Request $request)
+    {
+        $data = $request->validate(['month' => ['nullable', 'date_format:Y-m']]);
+
+        return view('admin.ad-sales.report', $this->adminService->getAdReport($data['month'] ?? now()->format('Y-m')));
+    }
+
+    private function validateAdSale(Request $request): array
+    {
+        return $request->validate([
+            'company_id' => ['nullable', 'required_without:client_name', 'integer', 'exists:tbl_solar_companies,id'],
+            'client_name' => ['nullable', 'string', 'max:150'],
+            'product' => ['required', Rule::in(array_keys(\App\Models\AdSale::PRODUCTS))],
+            'platform' => ['required', 'in:app,website,both'],
+            'app_slider_id' => ['nullable', 'integer', 'exists:tbl_app_sliders,id'],
+            'company_carousel_id' => ['nullable', 'integer', 'exists:tbl_company_carousels,id'],
+            'amount' => ['nullable', 'numeric', 'min:0', 'max:9999999999999'],
+            'currency' => ['required', 'in:SDG,USD'],
+            'starts_on' => ['nullable', 'date'],
+            'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
+            'status' => ['required', Rule::in(array_keys(\App\Models\AdSale::STATUSES))],
+            'payment_reference' => ['nullable', 'string', 'max:150'],
+            'admin_notes' => ['nullable', 'string', 'max:2000'],
+        ], [
+            'company_id.required_without' => 'Choose a company, or type a client name for a supplier or other advertiser.',
+        ]);
+    }
+
+    //Ad Sales End
 
     //Privacy & Terms Start
 
@@ -1752,6 +1849,22 @@ class MainController extends Controller
     }
 
     /** Open all customers to one company's notifications, or set it back to its own. */
+    public function updateCompanyNotificationLimit(Request $request)
+    {
+        $data = $request->validate([
+            'company_id' => ['required', 'integer'],
+            'monthly_limit' => ['nullable', 'integer', 'min:0', 'max:100000'],
+        ]);
+
+        $result = $this->adminService->setCompanyNotificationLimit(
+            (int) $data['company_id'],
+            $data['monthly_limit'] ?? null
+        );
+
+        return redirect()->route('admin.settings.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
     public function updateCompanyNotificationAccess(Request $request)
     {
         $data = $request->validate([
@@ -1952,7 +2065,7 @@ class MainController extends Controller
                 'customer', 'product', 'prodcut', 'product_spec', 'offer', 'requestd_quote', 'requested_quote',
                 'notification', 'customer_notification', 'company', 'project', 'project_milestone', 'project_update',
                 'rating', 'rating_answer', 'supplier', 'appliance', 'appliance_group', 'company_carousel', 'app_slider', 'app_version',
-                'rating_question', 'customer_device_token', 'api_endpoint', 'sent_email', 'legal_section', 'other',
+                'rating_question', 'customer_device_token', 'api_endpoint', 'sent_email', 'legal_section', 'ad_sale', 'other',
             ])],
             'source' => ['nullable', Rule::in(['website', 'app'])],
             'customer_id' => ['nullable', 'integer', 'min:1'],
@@ -1970,7 +2083,7 @@ class MainController extends Controller
             'rating' => 'Rating', 'rating_answer' => 'Rating answer', 'supplier' => 'Supplier', 'appliance' => 'Appliance',
             'appliance_group' => 'Appliance group', 'company_carousel' => 'Company carousel', 'app_slider' => 'App slide', 'app_version' => 'App version',
             'rating_question' => 'Rating question', 'customer_device_token' => 'Device token', 'api_endpoint' => 'API endpoint',
-            'sent_email' => 'Sent email', 'legal_section' => 'Privacy & Terms section', 'other' => 'Other',
+            'sent_email' => 'Sent email', 'legal_section' => 'Privacy & Terms section', 'ad_sale' => 'Ad sale', 'other' => 'Other',
         ];
 
         return view('admin.archives.index', compact('archives', 'filters', 'types'));
@@ -2203,6 +2316,7 @@ class MainController extends Controller
             'offer_old_price' => ['nullable', 'numeric', 'min:0', 'max:999999999', 'gt:offer_price'],
             'offer_currency' => ['nullable', Rule::in(['SDG', 'USD'])],
             'offer_expires_at' => ['nullable', 'date', 'after:now'],
+            'is_sponsored' => ['nullable', 'boolean'],
         ], [
             'image.uploaded' => 'The image could not be uploaded. The server accepts files up to ' . round($maxKb / 1024, 1) . ' MB.',
             'image.max' => 'The image must be ' . round($maxKb / 1024, 1) . ' MB or smaller.',
@@ -2213,6 +2327,8 @@ class MainController extends Controller
             'audience_city.required_if' => 'Choose the city to send to.',
             'customer_ids.required_if' => 'Select at least one customer.',
         ]);
+
+        $data['is_sponsored'] = $request->boolean('is_sponsored');
 
         $result = $this->adminService->publishCampaign($data, $request->file('image'), Auth::guard('admin')->id());
 
