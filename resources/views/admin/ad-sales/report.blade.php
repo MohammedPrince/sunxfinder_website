@@ -23,7 +23,7 @@
     </section>
 
     <div class="metrics-strip">
-        <div><small>Views</small><strong>{{ number_format($totalViews) }}</strong></div>
+        <div><small>Views</small><strong>{{ number_format($totalViews) }}</strong><small>App {{ number_format($appViews) }} · Website {{ number_format($websiteViews) }}</small></div>
         <div><small>Clicks</small><strong>{{ number_format($totalClicks) }}</strong></div>
         <div><small>Click rate</small><strong>{{ $totalViews ? round($totalClicks / $totalViews * 100, 1) . '%' : '—' }}</strong></div>
         <div>
@@ -42,19 +42,20 @@
         <div class="panel-heading"><div><h2>{{ $from->format('F Y') }}</h2><p>Most viewed first. A view is one person seeing the ad on one day.</p></div></div>
         <div class="table-responsive">
             <table class="data-table">
-                <thead><tr><th>Ad</th><th>Type</th><th>Company</th><th>Views</th><th>Clicks</th><th>Click rate</th></tr></thead>
+                <thead><tr><th>Ad</th><th>Type</th><th>Company</th><th>App views</th><th>Website views</th><th>Clicks</th><th>Click rate</th></tr></thead>
                 <tbody>
                     @forelse ($rows as $row)
                         <tr>
                             <td><strong>{{ $row['name'] }}</strong></td>
                             <td>{{ $row['type'] }}</td>
                             <td>{{ $row['company'] }}</td>
-                            <td>{{ number_format($row['views']) }}</td>
+                            <td>{{ number_format($row['app_views']) }}</td>
+                            <td>{{ number_format($row['website_views']) }}</td>
                             <td>{{ number_format($row['clicks']) }}</td>
                             <td>{{ $row['rate'] !== null ? $row['rate'] . '%' : '—' }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="dashboard-empty">No ad views in this month.</td></tr>
+                        <tr><td colspan="7" class="dashboard-empty">No ad views in this month.</td></tr>
                     @endforelse
                 </tbody>
             </table>

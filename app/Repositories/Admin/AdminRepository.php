@@ -3715,7 +3715,7 @@ class AdminRepository
     public function getAdSales(array $filters = []): LengthAwarePaginator
     {
         $sales = AdSale::query()
-            ->with(['company:id,name', 'slider:id,name', 'carousel:id,company_id'])
+            ->with(['company:id,name', 'slider', 'carousel'])
             ->when(!empty($filters['status']), fn($q) => $q->where('status', $filters['status']))
             ->when(!empty($filters['product']), fn($q) => $q->where('product', $filters['product']))
             ->when(!empty($filters['company_id']), fn($q) => $q->where('company_id', (int) $filters['company_id']))
@@ -3725,8 +3725,7 @@ class AdminRepository
             ->withQueryString();
 
         $sales->getCollection()->each(function (AdSale $sale) {
-            $ad = $sale->trackedAd();
-            $sale->setAttribute('results', $ad ? AdTracker::adTotals($ad[0], $ad[1], $sale->starts_on, $sale->ends_on) : null);
+            $sale->setAttribute('results', AdTracker::saleTotals($sale));
         });
 
         return $sales;
@@ -3767,6 +3766,11 @@ class AdminRepository
                 return ['success' => false, 'message' => 'Ad sale not found.'];
             }
 
+            // Results follow the links, so a sale must not count another company's ad.
+            if ($mismatch = $this->adSaleCompanyMismatch($data)) {
+                return ['success' => false, 'message' => $mismatch];
+            }
+
             // The date money arrived stays fixed once set.
             $data['paid_at'] = $data['status'] === 'paid' ? ($sale->paid_at ?? now()) : null;
             $sale->created_by ??= $adminId;
@@ -3778,6 +3782,24 @@ class AdminRepository
 
             return ['success' => false, 'message' => 'Unable to save the ad sale. Please try again.'];
         }
+    }
+
+    private function adSaleCompanyMismatch(array $data): ?string
+    {
+        $companyId = (int) ($data['company_id'] ?? 0);
+
+        if (!$companyId) {
+            return null;
+        }
+
+        $sliderCompany = !empty($data['app_slider_id']) ? AppSlider::query()->whereKey($data['app_slider_id'])->value('company_id') : null;
+        $carouselCompany = !empty($data['company_carousel_id']) ? CompanyCarousel::query()->whereKey($data['company_carousel_id'])->value('company_id') : null;
+
+        return match (true) {
+            $sliderCompany !== null && (int) $sliderCompany !== $companyId => 'This slide belongs to a different company.',
+            $carouselCompany !== null && (int) $carouselCompany !== $companyId => 'This carousel entry belongs to a different company.',
+            default => null,
+        };
     }
 
     public function deleteAdSale(int $id): array
@@ -3829,6 +3851,8 @@ class AdminRepository
             'rows' => $rows,
             'totalViews' => $rows->sum('views'),
             'totalClicks' => $rows->sum('clicks'),
+            'appViews' => $rows->sum('app_views'),
+            'websiteViews' => $rows->sum('website_views'),
             'revenue' => AdSale::query()
                 ->where('status', 'paid')
                 ->whereBetween('paid_at', [$from, $to])

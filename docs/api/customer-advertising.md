@@ -56,7 +56,9 @@ Response: `200` with `"message": "Click recorded."`, or `404` if the ad no longe
 
 ## Views
 
-The app does nothing. The server counts one view per customer, per ad, per day when it returns the list.
+The app does nothing. The server counts one view per customer, per ad, per day when it returns the list. Website visits are counted separately, and reports show app and website views apart.
+
+The app receives up to 3 carousel entries. Sponsored entries come first, so a paid entry is not pushed out by `sort_order`.
 
 ## Sponsored notification setting
 

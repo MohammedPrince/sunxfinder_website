@@ -1957,13 +1957,11 @@ class CompanyRepository
 
         $sales = AdSale::query()
             ->where('company_id', $companyId)
-            ->with('slider:id,name')
             ->latest('id')
             ->paginate(15);
 
         $sales->getCollection()->each(function (AdSale $sale) {
-            $ad = $sale->trackedAd();
-            $sale->setAttribute('results', $ad ? AdTracker::adTotals($ad[0], $ad[1], $sale->starts_on, $sale->ends_on) : null);
+            $sale->setAttribute('results', AdTracker::saleTotals($sale));
         });
 
         $month = AdTracker::totals(now()->startOfMonth(), now()->endOfMonth(), $companyId);
@@ -2021,7 +2019,7 @@ class CompanyRepository
         $to = $from->copy()->endOfMonth();
         $totals = AdTracker::totals($from, $to, $companyId);
 
-        $sliderNames = AppSlider::withTrashed()->where('company_id', $companyId)->pluck('name', 'id');
+        $sliderNames = AppSlider::withTrashed()->whereIn('id', AdTracker::companyAdIds($companyId)['slider'])->pluck('name', 'id');
 
         $rows = collect($totals)->map(function (array $stats, string $key) use ($sliderNames) {
             [$type, $id] = explode(':', $key);
@@ -2039,6 +2037,8 @@ class CompanyRepository
             'rows' => $rows,
             'totalViews' => $rows->sum('views'),
             'totalClicks' => $rows->sum('clicks'),
+            'appViews' => $rows->sum('app_views'),
+            'websiteViews' => $rows->sum('website_views'),
             'totalRate' => AdTracker::rate($rows->sum('views'), $rows->sum('clicks')),
             'sponsoredSends' => Notification::withTrashed()
                 ->where('sender_type', 'company')

@@ -85,7 +85,12 @@
                             </td>
                             <td>{{ $sale->amount !== null ? number_format((float) $sale->amount, 2) . ' ' . $sale->currency : '—' }}</td>
                             <td><span class="pill {{ $statusClasses[$sale->status] ?? 'pill-blue' }}">{{ __('company/messages.ads.statuses.' . $sale->status) }}</span></td>
-                            <td>{{ $sale->results ? number_format($sale->results['views']) : '—' }}</td>
+                            <td>
+                                {{ $sale->results ? number_format($sale->results['views']) : '—' }}
+                                @if ($sale->results)
+                                    <small class="cell-note">{{ __('company/messages.ads.views_split', ['app' => number_format($sale->results['app_views']), 'website' => number_format($sale->results['website_views'])]) }}</small>
+                                @endif
+                            </td>
                             <td>{{ $sale->results ? number_format($sale->results['clicks']) : '—' }}</td>
                             <td>
                                 @if ($sale->status === 'requested')

@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\AdSale;
 use App\Models\AppSlider;
 use App\Models\CompanyCarousel;
 use Illuminate\Support\Carbon;
@@ -60,16 +61,20 @@ class AdTracker
     {
         $rows = DB::table(self::TABLE)
             ->whereBetween('stat_date', [$from->toDateString(), $to->toDateString()])
-            ->when($companyId !== null, fn($query) => $query->where(fn($ads) => $ads
-                ->where(fn($q) => $q->where('ad_type', 'slider')->whereIn('ad_id', AppSlider::withTrashed()->where('company_id', $companyId)->select('id')))
-                ->orWhere(fn($q) => $q->where('ad_type', 'carousel')->whereIn('ad_id', CompanyCarousel::withTrashed()->where('company_id', $companyId)->select('id')))))
+            ->when($companyId !== null, function ($query) use ($companyId) {
+                $ads = self::companyAdIds($companyId);
+
+                $query->where(fn($q) => $q
+                    ->where(fn($sliders) => $sliders->where('ad_type', 'slider')->whereIn('ad_id', $ads['slider']))
+                    ->orWhere(fn($carousels) => $carousels->where('ad_type', 'carousel')->whereIn('ad_id', $ads['carousel'])));
+            })
             ->groupBy('ad_type', 'ad_id')
-            ->get(['ad_type', 'ad_id', DB::raw('SUM(views) as views'), DB::raw('SUM(clicks) as clicks')]);
+            ->get(['ad_type', 'ad_id', ...self::sumColumns()]);
 
         $totals = [];
 
         foreach ($rows as $row) {
-            $totals["{$row->ad_type}:{$row->ad_id}"] = ['views' => (int) $row->views, 'clicks' => (int) $row->clicks];
+            $totals["{$row->ad_type}:{$row->ad_id}"] = self::numbers($row);
         }
 
         return $totals;
@@ -83,9 +88,64 @@ class AdTracker
             ->where('ad_id', $id)
             ->when($from, fn($query) => $query->where('stat_date', '>=', $from->toDateString()))
             ->when($to, fn($query) => $query->where('stat_date', '<=', $to->toDateString()))
-            ->first([DB::raw('SUM(views) as views'), DB::raw('SUM(clicks) as clicks')]);
+            ->first(self::sumColumns());
 
-        return ['views' => (int) ($row->views ?? 0), 'clicks' => (int) ($row->clicks ?? 0)];
+        return self::numbers($row);
+    }
+
+    /** All the ads of a sale added together, counting only the sale's dates. */
+    public static function saleTotals(AdSale $sale): ?array
+    {
+        $ads = $sale->trackedAds();
+
+        if (!$ads) {
+            return null;
+        }
+
+        $totals = [];
+
+        foreach ($ads as [$type, $id]) {
+            foreach (self::adTotals($type, $id, $sale->starts_on, $sale->ends_on) as $name => $number) {
+                $totals[$name] = ($totals[$name] ?? 0) + $number;
+            }
+        }
+
+        return $totals;
+    }
+
+    /** A company's ads: those assigned to it, plus any linked to its sales. */
+    public static function companyAdIds(int $companyId): array
+    {
+        $sales = AdSale::query()->where('company_id', $companyId);
+
+        return [
+            'slider' => AppSlider::withTrashed()->where('company_id', $companyId)->pluck('id')
+                ->merge((clone $sales)->whereNotNull('app_slider_id')->pluck('app_slider_id'))
+                ->unique()->values()->all(),
+            'carousel' => CompanyCarousel::withTrashed()->where('company_id', $companyId)->pluck('id')
+                ->merge((clone $sales)->whereNotNull('company_carousel_id')->pluck('company_carousel_id'))
+                ->unique()->values()->all(),
+        ];
+    }
+
+    private static function sumColumns(): array
+    {
+        return [
+            DB::raw('SUM(views) as views'),
+            DB::raw('SUM(clicks) as clicks'),
+            DB::raw("SUM(CASE WHEN platform = 'app' THEN views ELSE 0 END) as app_views"),
+            DB::raw("SUM(CASE WHEN platform = 'website' THEN views ELSE 0 END) as website_views"),
+        ];
+    }
+
+    private static function numbers(?object $row): array
+    {
+        return [
+            'views' => (int) ($row->views ?? 0),
+            'clicks' => (int) ($row->clicks ?? 0),
+            'app_views' => (int) ($row->app_views ?? 0),
+            'website_views' => (int) ($row->website_views ?? 0),
+        ];
     }
 
     /** Clicks as a percentage of views, or null with no views yet. */

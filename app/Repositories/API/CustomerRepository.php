@@ -1129,6 +1129,7 @@ class CustomerRepository
                 })
 
                 ->with('company')
+                ->orderByDesc('is_sponsored')
                 ->orderBy('sort_order')
                 ->orderBy('id')
                 ->limit(3)

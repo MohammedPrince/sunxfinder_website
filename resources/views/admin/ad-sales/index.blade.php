@@ -101,6 +101,9 @@
                             <td>
                                 {{ \App\Models\AdSale::PRODUCTS[$sale->product] ?? $sale->product }}
                                 <small class="cell-note">{{ \App\Models\AdSale::PLATFORMS[$sale->platform] ?? $sale->platform }}</small>
+                                @foreach ($sale->adWarnings() as $warning)
+                                    <span class="pill pill-red">{{ $warning }}</span>
+                                @endforeach
                             </td>
                             <td>
                                 {{ $sale->starts_on?->format('M d, Y') ?? '—' }} – {{ $sale->ends_on?->format('M d, Y') ?? '—' }}
@@ -110,7 +113,12 @@
                             </td>
                             <td>{{ $sale->amount !== null ? number_format((float) $sale->amount, 2) . ' ' . $sale->currency : '—' }}</td>
                             <td><span class="pill {{ $statusClasses[$sale->status] ?? 'pill-blue' }}">{{ \App\Models\AdSale::STATUSES[$sale->status] ?? $sale->status }}</span></td>
-                            <td>{{ $sale->results ? number_format($sale->results['views']) : '—' }}</td>
+                            <td>
+                                {{ $sale->results ? number_format($sale->results['views']) : '—' }}
+                                @if ($sale->results)
+                                    <small class="cell-note">App {{ number_format($sale->results['app_views']) }} · Website {{ number_format($sale->results['website_views']) }}</small>
+                                @endif
+                            </td>
                             <td>{{ $sale->results ? number_format($sale->results['clicks']) : '—' }}</td>
                             <td>
                                 <div class="company-actions">

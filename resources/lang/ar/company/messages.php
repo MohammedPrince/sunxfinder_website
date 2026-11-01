@@ -1220,6 +1220,9 @@ return [
         ],
     ],
     'ads' => [
+        'views_split' => 'التطبيق :app · الموقع :website',
+        'app_views' => 'مشاهدات التطبيق',
+        'website_views' => 'مشاهدات الموقع',
         'title' => 'الإعلانات',
         'eyebrow' => 'صل إلى المزيد من العملاء',
         'page_description' => 'إعلاناتك في تطبيق وموقع SunXFinder مع نتائجها.',

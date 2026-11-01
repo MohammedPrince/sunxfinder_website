@@ -83,14 +83,59 @@ class AdSale extends Model
             && $this->ends_on->betweenIncluded(today(), today()->addDays(self::ENDING_SOON_DAYS));
     }
 
-    /** The tracked ad behind this sale, as [type, id], or null for pushes and packages. */
-    public function trackedAd(): ?array
+    /** The tracked ads behind this sale as [type, id] pairs. Empty for pushes and packages. */
+    public function trackedAds(): array
     {
-        return match (true) {
-            $this->app_slider_id !== null => ['slider', (int) $this->app_slider_id],
-            $this->company_carousel_id !== null => ['carousel', (int) $this->company_carousel_id],
-            default => null,
-        };
+        $ads = [];
+
+        if ($this->app_slider_id !== null) {
+            $ads[] = ['slider', (int) $this->app_slider_id];
+        }
+
+        if ($this->company_carousel_id !== null) {
+            $ads[] = ['carousel', (int) $this->company_carousel_id];
+        }
+
+        return $ads;
+    }
+
+    /** Why a linked ad is not doing what was sold. Needs the slider and carousel relations. */
+    public function adWarnings(): array
+    {
+        if ($this->status === 'cancelled') {
+            return [];
+        }
+
+        $warnings = [];
+
+        if ($this->app_slider_id !== null) {
+            $state = $this->slider?->trashed() ? 'deleted' : $this->slider?->displayState();
+
+            if ($state !== 'live') {
+                $warnings[] = 'Slide is ' . ($state ?? 'missing');
+            }
+
+            if ($this->slider && !$this->slider->is_sponsored) {
+                $warnings[] = 'Slide has no Sponsored label';
+            }
+        }
+
+        if ($this->company_carousel_id !== null) {
+            $carousel = $this->carousel;
+            $showing = $carousel && !$carousel->trashed() && $carousel->is_active
+                && (!$carousel->starts_at || $carousel->starts_at->isPast())
+                && (!$carousel->ends_at || $carousel->ends_at->isFuture());
+
+            if (!$showing) {
+                $warnings[] = 'Carousel entry is not showing';
+            }
+
+            if ($carousel && !$carousel->is_sponsored) {
+                $warnings[] = 'Carousel entry has no Sponsored label';
+            }
+        }
+
+        return $warnings;
     }
 
     public function artworkUrl(): ?string
