@@ -426,6 +426,52 @@
         </section>
     </div>
 
+    {{-- Ratings and advertising --}}
+    <div class="report-columns">
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>{{ __('company/messages.reports.ratings_title') }}</h2>
+                    <p>{{ __('company/messages.reports.ratings_sub') }}</p>
+                </div>
+            </div>
+            <div class="report-metrics report-metrics-compact">
+                <div><small>{{ __('company/messages.reports.ratings_count') }}</small><strong>{{ number_format($ratings['count']) }}</strong></div>
+                <div><small>{{ __('company/messages.reports.average_rating') }}</small><strong dir="ltr">{{ $ratings['average'] !== null ? $ratings['average'] . ' ★' : '—' }}</strong></div>
+            </div>
+            @include('partials.report-breakdown', ['title' => __('company/messages.reports.by_stars'), 'items' => $ratings['count'] ? $ratings['by_stars'] : []])
+        </section>
+
+        @if ($advertising)
+            <section class="panel">
+                <div class="panel-heading">
+                    <div>
+                        <h2>{{ __('company/messages.reports.advertising') }}</h2>
+                        <p>{{ __('company/messages.reports.advertising_sub') }}</p>
+                    </div>
+                    <a class="text-link no-print" href="{{ route('company.ads.report') }}">{{ __('company/messages.reports.ad_details') }} ↗</a>
+                </div>
+                <div class="report-metrics report-metrics-compact">
+                    <div><small>{{ __('company/messages.reports.ad_views') }}</small><strong>{{ number_format($advertising['views']) }}</strong></div>
+                    <div><small>{{ __('company/messages.reports.ad_clicks') }}</small><strong>{{ number_format($advertising['clicks']) }}</strong>
+                        <span>{{ $advertising['click_rate'] !== null ? __('company/messages.reports.of_views', ['rate' => $advertising['click_rate']]) : __('company/messages.reports.no_views') }}</span></div>
+                    <div><small>{{ __('company/messages.reports.ads_running') }}</small><strong>{{ number_format($advertising['active']) }}</strong>
+                        <span>{{ __('company/messages.reports.requests_waiting', ['count' => number_format($advertising['requested']), 'awaiting' => number_format($advertising['awaiting_payment'])]) }}</span></div>
+                    @forelse ($advertising['paid'] as $paid)
+                        <div><small>{{ __('company/messages.reports.paid_currency', ['currency' => $paid['currency']]) }}</small><strong>{{ number_format($paid['total']) }}</strong></div>
+                    @empty
+                        <div><small>{{ __('company/messages.reports.paid') }}</small><strong>0</strong></div>
+                    @endforelse
+                </div>
+                @include('partials.report-breakdown', [
+                    'title' => __('company/messages.reports.by_product'),
+                    'items' => $advertising['by_product'],
+                    'labels' => collect(\App\Models\AdSale::PRODUCTS)->mapWithKeys(fn($label, $key) => [$key => company_label('ads.products.' . $key, $label)])->all(),
+                ])
+            </section>
+        @endif
+    </div>
+
     <p class="report-generated">{{ __('company/messages.reports.generated', ['date' => now()->translatedFormat('M d, Y H:i')]) }}</p>
 @endsection
 

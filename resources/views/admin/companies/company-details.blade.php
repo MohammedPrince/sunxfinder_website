@@ -53,7 +53,7 @@
         $description = $cleanDescription($company->description);
         $arabicDescription = $cleanDescription($company->ar_description);
         $logoUrl = app(\App\Helpers\Helper::class)->publicUrl($company->logo_path);
-        $initial = mb_strtoupper(mb_substr($company->name ?? '?', 0, 1, 'UTF-8'), 'UTF-8');
+        $initial = name_initials($company->name);
         $isPublic = $company->slug && $company->status === 'approved' && $company->is_active;
         $productCount = $company->products()->count();
 

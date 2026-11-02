@@ -29,7 +29,7 @@
         $milestoneTotal = $project->milestones->count();
         $milestoneDone = $project->milestones->where('status', 'completed')->count();
         $statusLabel = fn ($status) => $statusLabels[$status] ?? ucfirst(str_replace('_', ' ', (string) $status));
-        $initial = fn ($name) => mb_strtoupper(mb_substr(trim($name), 0, 1)) ?: '?';
+        $initial = fn ($name) => name_initials($name);
         $parties = [
             [
                 'role' => 'Company',

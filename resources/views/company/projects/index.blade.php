@@ -149,7 +149,7 @@
                             <td>
                                 <div class="person-cell">
                                     <span class="person-avatar">
-                                        {{ strtoupper(mb_substr($customerName, 0, 1)) }}
+                                        {{ name_initials($customerName) }}
                                     </span>
                                     <span>
                                         <strong>{{ $customerName }}</strong>

@@ -152,7 +152,7 @@
                             <td>
                                 <div class="company-cell">
                                     <span class="company-avatar {{ $actorClasses[$log->actor_type] ?? '' }}">
-                                        {{ strtoupper(mb_substr($actorName, 0, 1)) }}
+                                        {{ name_initials($actorName) }}
                                     </span>
                                     <span>
                                         @if ($log->actor_id)

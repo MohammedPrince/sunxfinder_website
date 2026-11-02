@@ -37,7 +37,10 @@
 @section('content')
     @php
         $customer = $quote->customer;
-        $company = $quote->company;
+        $authenticatedCompany = auth()->guard('company')->user();
+        // Another company's details are never shown; only this company, once it is chosen.
+        $company = (int) $quote->company_id === (int) $authenticatedCompany?->id ? $quote->company : null;
+        $hideCustomerContact = $quote->hidesCustomerContactFrom((int) $authenticatedCompany?->id, $companyQuotation ?? null);
 
         $customerName = $customer?->name
             ?? $customer?->full_name
@@ -131,7 +134,7 @@
     <div class="quote-print-page">
         <header class="quote-document-header print-only">
             <div class="quote-document-brand">
-                {{ $company?->name ?? __('company/messages.quote.solar_company') }}
+                {{ $authenticatedCompany?->name ?? __('company/messages.quote.solar_company') }}
             </div>
 
             <div class="quote-document-subtitle">
@@ -688,7 +691,7 @@
                 <div class="quote-detail">
                     <span>{{ __('company/messages.quote.company_assignment') }}</span>
                     <strong class="quote-company-name">
-                        {{ $company?->name ?? __('company/messages.quote.no_company') }}
+                        {{ $company?->name ?? ($quote->company_id ? __('company/messages.quote.another_company') : __('company/messages.quote.no_company')) }}
                     </strong>
                 </div>
 
@@ -982,25 +985,29 @@
                         <strong>{{ $customerName }}</strong>
                     </div>
 
-                    <div class="quote-detail">
-                        <span>{{ __('company/messages.common.email') }}</span>
-                        <strong>{{ $customer?->email ?? '—' }}</strong>
-                    </div>
+                    @if ($hideCustomerContact)
+                        <p class="gray-text" style="margin:0;grid-column:1/-1">{{ __('company/messages.quote.contact_hidden') }}</p>
+                    @else
+                        <div class="quote-detail">
+                            <span>{{ __('company/messages.common.email') }}</span>
+                            <strong>{{ $customer?->email ?? '—' }}</strong>
+                        </div>
 
-                    <div class="quote-detail">
-                        <span>{{ __('company/messages.common.phone') }}</span>
-                        <strong>{{ $customer?->phone ?? '—' }}</strong>
-                    </div>
+                        <div class="quote-detail">
+                            <span>{{ __('company/messages.common.phone') }}</span>
+                            <strong>{{ $customer?->phone ?? '—' }}</strong>
+                        </div>
 
-                    <div class="quote-detail">
-                        <span>{{ __('company/messages.common.city') }}</span>
-                        <strong>{{ $customer?->city ?? '—' }}</strong>
-                    </div>
+                        <div class="quote-detail">
+                            <span>{{ __('company/messages.common.city') }}</span>
+                            <strong>{{ $customer?->city ?? '—' }}</strong>
+                        </div>
 
-                    <div class="quote-detail">
-                        <span>{{ __('company/messages.quote.address') }}</span>
-                        <strong>{{ $customer?->address ?? '—' }}</strong>
-                    </div>
+                        <div class="quote-detail">
+                            <span>{{ __('company/messages.quote.address') }}</span>
+                            <strong>{{ $customer?->address ?? '—' }}</strong>
+                        </div>
+                    @endif
                 </div>
             </section>
 
@@ -1015,7 +1022,7 @@
                 <div class="quote-company-card">
                     @if ($company)
                         <div class="quote-company-mark" aria-hidden="true">
-                            {{ strtoupper(substr($company->name, 0, 1)) }}
+                            {{ name_initials($company->name) }}
                         </div>
 
                         <div class="quote-company-details">
@@ -1025,7 +1032,7 @@
                         </div>
                     @else
                         <div class="quote-company-details">
-                            <strong>{{ __('company/messages.quote.no_company') }}</strong>
+                            <strong>{{ $quote->company_id ? __('company/messages.quote.another_company') : __('company/messages.quote.no_company') }}</strong>
                         </div>
                     @endif
                 </div>
@@ -1033,7 +1040,7 @@
         </div>
 
         <footer class="quote-document-footer print-only">
-            <span> {{ $company?->name ?? __('company/messages.quote.solar_company') }}</span>
+            <span> {{ $authenticatedCompany?->name ?? __('company/messages.quote.solar_company') }}</span>
             <span>{{ __('company/messages.quote.footer_request', ['reference' => $reference]) }}</span>
 
         </footer>
@@ -1045,7 +1052,7 @@
             const originalTitle = document.title;
 
             document.title = @json(
-                __('company/messages.quote.print_title', ['reference' => $reference, 'company' => $company?->name ?? __('company/messages.quote.solar_company')])
+                __('company/messages.quote.print_title', ['reference' => $reference, 'company' => $authenticatedCompany?->name ?? __('company/messages.quote.solar_company')])
             );
 
             window.addEventListener('afterprint', function restoreTitle() {

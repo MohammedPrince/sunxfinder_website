@@ -130,6 +130,97 @@
         </article>
     </section>
 
+    {{-- Money and follow-ups: ads, complaints and ratings --}}
+    <section class="stats-grid" style="margin-top:15px">
+        <article class="stat-card">
+            <div class="stat-top">
+                <span>Ad revenue this month</span>
+                <span class="stat-icon green">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 2v20" />
+                        <path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                    </svg>
+                </span>
+            </div>
+            @php $mainRevenue = $ads['paid'][0] ?? null; @endphp
+            <div class="stat-value">{{ $mainRevenue ? number_format($mainRevenue['total']) . ' ' . $mainRevenue['currency'] : '0' }}</div>
+            <div class="stat-foot">
+                {{ number_format(array_sum(array_column($ads['paid'], 'count'))) }} paid {{ \Illuminate\Support\Str::plural('sale', array_sum(array_column($ads['paid'], 'count'))) }}
+                @foreach (array_slice($ads['paid'], 1) as $other)
+                    · {{ number_format($other['total']) }} {{ $other['currency'] }}
+                @endforeach
+            </div>
+            <small><a class="text-link" href="{{ route('admin.ad-sales.index') }}">{{ number_format($ads['active']) }} ads running now ↗</a></small>
+        </article>
+
+        <article class="stat-card">
+            <div class="stat-top">
+                <span>Ad requests</span>
+                <span class="stat-icon orange">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3 11v2a1 1 0 0 0 1 1h3l9 5V5L7 10H4a1 1 0 0 0-1 1Z" />
+                    </svg>
+                </span>
+            </div>
+            <div class="stat-value">{{ number_format($ads['requested']) }}</div>
+            <div class="stat-foot">
+                @if ($ads['requested'] > 0)
+                    <b class="warning">Needs a price</b>
+                @else
+                    <b class="positive">None waiting</b>
+                @endif
+                {{ number_format($ads['awaiting_payment']) }} awaiting payment
+            </div>
+            <small><a class="text-link" href="{{ route('admin.ad-sales.index', ['ending' => 1]) }}">{{ number_format($ads['ending_soon']) }} ending within {{ \App\Models\AdSale::ENDING_SOON_DAYS }} days ↗</a></small>
+        </article>
+
+        <article class="stat-card">
+            <div class="stat-top">
+                <span>Open complaints</span>
+                <span class="stat-icon purple">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 9v4" />
+                        <path d="M12 17h.01" />
+                        <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                    </svg>
+                </span>
+            </div>
+            <div class="stat-value">{{ number_format($complaints['open']) }}</div>
+            <div class="stat-foot">
+                @if ($complaints['open'] > 0)
+                    <b class="warning">Needs a reply</b>
+                @else
+                    <b class="positive">All answered</b>
+                @endif
+                {{ number_format($complaints['this_month']) }} new this month
+            </div>
+            <small><a class="text-link" href="{{ route('admin.complaints.index') }}">Open complaints ↗</a></small>
+        </article>
+
+        <article class="stat-card">
+            <div class="stat-top">
+                <span>Customer rating</span>
+                <span class="stat-icon blue">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9Z" />
+                    </svg>
+                </span>
+            </div>
+            <div class="stat-value">{{ $ratings['average'] !== null ? $ratings['average'] . ' ★' : '—' }}</div>
+            <div class="stat-foot">
+                {{ number_format($ratings['count']) }} {{ \Illuminate\Support\Str::plural('rating', $ratings['count']) }} · {{ number_format($ratings['this_month']) }} this month
+            </div>
+            <div class="stat-progress green-progress">
+                <span style="width:{{ $ratings['average'] !== null ? round($ratings['average'] / 5 * 100) : 0 }}%"></span>
+            </div>
+            <small><a class="text-link" href="{{ route('admin.ratings.index') }}">All ratings ↗</a></small>
+        </article>
+    </section>
+
     <section class="content-grid">
         <article class="panel">
             <div class="panel-heading">
@@ -223,7 +314,7 @@
                         <tr>
                             <td>
                                 <div class="company-cell">
-                                    <span class="company-avatar solar">{{ strtoupper(substr($company->name, 0, 1)) }}</span>
+                                    <span class="company-avatar solar">{{ name_initials($company->name) }}</span>
                                     <span>
                                         <strong>{{ $company->name }}</strong>
                                         <small>SF-{{ str_pad((string) $company->id, 5, '0', STR_PAD_LEFT) }}</small>

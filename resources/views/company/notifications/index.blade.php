@@ -102,7 +102,7 @@
                         <tr>
                             <td>
                                 <div class="person-cell">
-                                    <span class="company-avatar solar">{{ strtoupper(substr($notification->title_en ?? 'N', 0, 1)) }}</span>
+                                    <span class="company-avatar solar">{{ name_initials($notification->title_en ?? 'N') }}</span>
                                     <span>
                                         <strong>{{ $notification->title_en }}</strong>
                                         <small>{{ \Illuminate\Support\Str::limit(strip_tags($notification->message_en), 90) }}</small>

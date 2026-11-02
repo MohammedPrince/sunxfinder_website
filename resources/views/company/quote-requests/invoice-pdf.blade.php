@@ -2,6 +2,10 @@
 @php
     $company = $invoice->company_details ?? [];
     $customer = $invoice->customer_details ?? [];
+    // Once the customer turns this offer down, the invoice shows only their name.
+    if ($invoice->quotation?->quote?->hidesCustomerContactFrom((int) $invoice->company_id, $invoice->quotation)) {
+        $customer = ['name' => $customer['name'] ?? null];
+    }
     $money = fn ($amount) => number_format((float) $amount, 2) . ' ' . $invoice->currency;
     $quantity = fn ($value) => rtrim(rtrim(number_format((float) $value, 2), '0'), '.');
     $isArabic = app()->isLocale('ar');
@@ -34,10 +38,22 @@
         .totals td.value { color: #172b4d; font-weight: bold; text-align: {{ $end }}; }
         .totals .balance td { border-top: 1.5pt solid #f4510b; color: #172b4d; font-size: 11pt; font-weight: bold; padding-top: 8pt; }
         .totals .balance td.value { color: #f4510b; font-size: 12pt; }
+        .brand { padding-bottom: 12pt; text-align: {{ $start }}; }
+        .tagline { color: #10366b; font-size: 10pt; font-weight: bold; padding-top: 3pt; }
+        .accent { color: #f15b24; }
     </style>
 </head>
 
 <body dir="{{ $isArabic ? 'rtl' : 'ltr' }}">
+    <table>
+        <tr>
+            <td class="brand">
+                <img src="{{ public_path('visitors/images/sunxfinder-logo-email.png') }}" width="30mm">
+                <div class="tagline">{{ __('company/messages.invoices.brand_find') }} <span class="accent">{{ __('company/messages.invoices.brand_compare') }}</span> {{ __('company/messages.invoices.brand_connect') }}</div>
+            </td>
+        </tr>
+    </table>
+
     <table>
         <tr>
             <td class="rule">

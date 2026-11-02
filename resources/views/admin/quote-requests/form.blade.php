@@ -159,7 +159,7 @@
                                 <td>
                                     <div class="company-cell">
                                         <span
-                                            class="company-avatar solar">{{ strtoupper(mb_substr($offer->company?->name ?? '?', 0, 1)) }}</span>
+                                            class="company-avatar solar">{{ name_initials($offer->company?->name) }}</span>
                                         <span>
                                             <strong>
                                                 @if ($offer->company)
@@ -681,7 +681,7 @@
                 @if ($company)
                     <div class="quote-company-card">
                         <div class="quote-company-mark" aria-hidden="true">
-                            {{ strtoupper(substr($company->name, 0, 1)) }}
+                            {{ name_initials($company->name) }}
                         </div>
 
                         <div class="quote-company-details">

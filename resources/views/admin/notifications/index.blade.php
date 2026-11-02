@@ -110,7 +110,7 @@
                                     @if ($notification->image_path)
                                         <img class="slider-thumb" src="{{ $notification->imageUrl() }}" alt="" loading="lazy">
                                     @else
-                                        <span class="company-avatar solar">{{ strtoupper(substr($notification->title_en ?? 'N', 0, 1)) }}</span>
+                                        <span class="company-avatar solar">{{ name_initials($notification->title_en ?? 'N') }}</span>
                                     @endif
                                     <span>
                                         <strong>{{ $notification->title_en }}</strong>

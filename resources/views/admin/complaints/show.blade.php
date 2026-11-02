@@ -32,7 +32,7 @@
             ->filter()
             ->map(fn ($path) => $helper->publicUrl($path))
             ->values();
-        $initial = fn ($name) => mb_strtoupper(mb_substr(trim($name), 0, 1)) ?: '?';
+        $initial = fn ($name) => name_initials($name);
         $parties = [
             [
                 'role' => 'Company',

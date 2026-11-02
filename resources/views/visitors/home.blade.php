@@ -405,9 +405,9 @@
                                 @if ($logoUrl)
                                     <img src="{{ $logoUrl }}" alt="{{ $company->name }}" width="56" height="56" loading="lazy"
                                         decoding="async"
-                                        onerror="this.parentElement.classList.remove('has-logo');this.replaceWith(document.createTextNode({{ json_encode(mb_strtoupper(mb_substr($company->name, 0, 1))) }}))">
+                                        onerror="this.parentElement.classList.remove('has-logo');this.replaceWith(document.createTextNode({{ json_encode(name_initials($company->name)) }}))">
                                 @else
-                                    {{ mb_strtoupper(mb_substr($company->name, 0, 1)) }}
+                                    {{ name_initials($company->name) }}
                                 @endif
                             </div>
 

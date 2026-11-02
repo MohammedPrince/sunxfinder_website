@@ -18,7 +18,7 @@
                             <img src="{{ app(\App\Helpers\Helper::class)->publicUrl($company->logo_path) }}"
                                 alt="{{ $company->name }} logo" loading="lazy">
                         @else
-                            <span>{{ mb_strtoupper(mb_substr($companyName, 0, 1)) }}</span>
+                            <span>{{ name_initials($companyName) }}</span>
                         @endif
                     </div>
 
@@ -234,7 +234,7 @@
                                     <article class="company-review">
                                         <div class="review-head">
                                             <span class="review-avatar"
-                                                aria-hidden="true">{{ mb_strtoupper(mb_substr($reviewer, 0, 1)) }}</span>
+                                                aria-hidden="true">{{ name_initials($reviewer) }}</span>
                                             <span class="review-who">
                                                 <strong>{{ $reviewer }}</strong>
                                                 <small>{{ data_get($review, 'date', '') }}</small>

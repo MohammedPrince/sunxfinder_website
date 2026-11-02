@@ -165,6 +165,68 @@
         </article>
     </section>
 
+    {{-- Rating, customers and advertising --}}
+    <section class="stats-grid" style="margin-top:15px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+        <article class="stat-card">
+            <div class="stat-top">
+                <span>{{ __('company/messages.dashboard.your_rating') }}</span>
+                <span class="stat-icon blue">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9Z" />
+                    </svg>
+                </span>
+            </div>
+            <div class="stat-value" dir="ltr">{{ $rating['average'] !== null ? $rating['average'] . ' ★' : '—' }}</div>
+            <div class="stat-foot">
+                {{ $rating['count'] ? __('company/messages.dashboard.rating_counts', ['count' => number_format($rating['count']), 'month' => number_format($rating['this_month'])]) : __('company/messages.dashboard.no_ratings') }}
+            </div>
+            <div class="stat-progress green-progress">
+                <span style="width:{{ $rating['average'] !== null ? round($rating['average'] / 5 * 100) : 0 }}%"></span>
+            </div>
+            <small><a class="text-link" href="{{ route('company.ratings.index') }}">{{ __('company/messages.dashboard.view_ratings') }} ↗</a></small>
+        </article>
+
+        <article class="stat-card">
+            <div class="stat-top">
+                <span>{{ __('company/messages.dashboard.customers_served') }}</span>
+                <span class="stat-icon green">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="10" cy="7" r="4" />
+                    </svg>
+                </span>
+            </div>
+            <div class="stat-value">{{ number_format($customersServed) }}</div>
+            <div class="stat-foot">{{ __('company/messages.dashboard.customers_served_sub') }}</div>
+            <small><a class="text-link" href="{{ route('company.customers.index') }}">{{ __('company/messages.dashboard.view_customers') }} ↗</a></small>
+        </article>
+
+        @if ($ads)
+            <article class="stat-card">
+                <div class="stat-top">
+                    <span>{{ __('company/messages.dashboard.ad_views') }}</span>
+                    <span class="stat-icon orange">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M3 11v2a1 1 0 0 0 1 1h3l9 5V5L7 10H4a1 1 0 0 0-1 1Z" />
+                            <path d="M19.5 9.5a3.5 3.5 0 0 1 0 5" />
+                        </svg>
+                    </span>
+                </div>
+                <div class="stat-value">{{ number_format($ads['views']) }}</div>
+                <div class="stat-foot">
+                    {{ __('company/messages.dashboard.ad_clicks', [
+                        'clicks' => number_format($ads['clicks']),
+                        'rate' => $ads['click_rate'] !== null ? __('company/messages.dashboard.of_views', ['rate' => $ads['click_rate']]) : __('company/messages.dashboard.no_views'),
+                    ]) }}
+                </div>
+                <small><a class="text-link" href="{{ route('company.ads.index') }}">{{ __('company/messages.dashboard.ads_running', ['count' => number_format($ads['active'])]) }} ↗</a></small>
+            </article>
+        @endif
+    </section>
+
     <section class="content-grid">
         <article class="panel">
             <div class="panel-heading">
@@ -266,10 +328,12 @@
                             <td><strong>#Q-{{ str_pad((string) $quote->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
                             <td>
                                 <div class="person-cell">
-                                    <span class="person-avatar">{{ strtoupper(substr($customerName, 0, 1)) }}</span>
+                                    <span class="person-avatar">{{ name_initials($customerName) }}</span>
                                     <span>
                                         <strong>{{ $customerName }}</strong>
-                                        <small>{{ $customer?->email ?? __('company/messages.dashboard.no_email') }}</small>
+                                        @unless ($quote->hidesCustomerContactFrom((int) $authenticatedCompanyId, $myOffer))
+                                            <small>{{ $customer?->email ?? __('company/messages.dashboard.no_email') }}</small>
+                                        @endunless
                                     </span>
                                 </div>
                             </td>

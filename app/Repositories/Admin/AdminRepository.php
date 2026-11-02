@@ -23,6 +23,7 @@ use App\Models\AppVersion;
 use App\Models\AppSlider;
 use App\Models\CompanyCarousel;
 use App\Models\CompanyQuotation;
+use App\Models\CustomerComplaint;
 use App\Models\ApiEndpoint;
 use App\Models\Customer;
 use App\Models\Project;
@@ -58,6 +59,7 @@ use App\Helpers\Helper;
 use Kreait\Firebase\Messaging\Notification as FcmNotification;
 use App\Models\AdSale;
 use App\Support\AdTracker;
+use App\Support\BusinessStats;
 
 class AdminRepository
 {
@@ -225,6 +227,13 @@ class AdminRepository
             'activity' => $activity,
             'latestCompanies' => $latestCompanies,
             'topVisitorCountry' => $topVisitorCountry,
+            // Money, ads, complaints and ratings for the second row of cards.
+            'ads' => BusinessStats::advertising($thisMonth, now()),
+            'ratings' => BusinessStats::ratingOverall(),
+            'complaints' => [
+                'open' => CustomerComplaint::query()->where('status', 'pending')->count(),
+                'this_month' => CustomerComplaint::query()->where('created_at', '>=', $thisMonth)->count(),
+            ],
         ];
     }
 
@@ -353,6 +362,9 @@ class AdminRepository
             'companies' => $this->reportCompanies($from, $to),
             'catalog' => $this->reportCatalog(),
             'notifications' => $this->reportNotifications($from, $to),
+            'advertising' => BusinessStats::advertising($from, $to),
+            'ratings' => BusinessStats::ratings($from, $to),
+            'complaints' => BusinessStats::complaints($from, $to),
         ];
     }
 

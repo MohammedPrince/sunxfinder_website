@@ -57,3 +57,20 @@ if (! function_exists('company_date')) {
         return company_portal() ? $date->translatedFormat($format) : $date->format($format);
     }
 }
+
+if (! function_exists('name_initials')) {
+    /**
+     * Avatar letters for a name. Prefers English letters, so "تسلا - Tesla" gives "T";
+     * a name with none falls back to its first characters, never a broken byte.
+     */
+    function name_initials(?string $name, int $length = 1, string $fallback = '?'): string
+    {
+        $name = trim((string) $name);
+
+        if (preg_match_all('/[A-Za-z]/', $name, $letters) && $letters[0]) {
+            return strtoupper(implode('', array_slice($letters[0], 0, $length)));
+        }
+
+        return mb_strtoupper(mb_substr($name, 0, $length)) ?: $fallback;
+    }
+}

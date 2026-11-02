@@ -60,11 +60,11 @@
                                 <img id="companyLogoPreview" src="{{ $companyLogo }}" alt="{{ __('company/messages.profile.logo_alt', ['name' => $company->name]) }}"
                                     class="company-profile-logo">
                                 <div id="companyLogoPlaceholder" class="company-profile-logo-placeholder" hidden>
-                                    {{ strtoupper(mb_substr($company->name ?? 'S', 0, 1)) }}
+                                    {{ name_initials($company->name ?? 'S') }}
                                 </div>
                             @else
                                 <div id="companyLogoPlaceholder" class="company-profile-logo-placeholder">
-                                    {{ strtoupper(mb_substr($company->name ?? 'S', 0, 1)) }}
+                                    {{ name_initials($company->name ?? 'S') }}
                                 </div>
                                 <img id="companyLogoPreview" src="" alt="{{ __('company/messages.profile.logo_preview') }}" class="company-profile-logo"
                                     hidden>

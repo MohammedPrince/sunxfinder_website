@@ -125,7 +125,7 @@
                 </svg>
             </span>
             <span>Ad Sales</span>
-            <span class="nav-count warm">{{ $adRequestCount ?? 0 }}</span>
+            <span class="nav-count warm">{{ $adSaleCount ?? 0 }}</span>
         </a>
         <a class="nav-link {{ request()->routeIs('admin.app-sliders.*') ? 'active' : '' }}"
             href="{{ route('admin.app-sliders.index') }}">
@@ -349,7 +349,7 @@
             @endphp
 
             <div class="avatar">
-                {{ strtoupper(substr($adminUser->username ?? 'SA', 0, 2)) }}
+                {{ name_initials($adminUser->username ?? 'SA', 2) }}
             </div>
 
             <div class="admin-mini-copy">
@@ -369,7 +369,7 @@
 </aside>
 @include('partials.topbar', [
     'userName' => $adminUser?->name ?: ($adminUser?->username ?? 'SunXFinder Admin'),
-    'userInitials' => strtoupper(substr($adminUser->username ?? 'SA', 0, 2)),
+    'userInitials' => name_initials($adminUser->username ?? 'SA', 2),
     'roleLabel' => 'Administrator',
     'userEmail' => $adminUser->email ?? null,
     'quickActions' => [

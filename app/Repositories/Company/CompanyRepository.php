@@ -4,6 +4,7 @@ namespace App\Repositories\Company;
 
 use App\Helpers\Helper;
 use App\Support\AdTracker;
+use App\Support\BusinessStats;
 use App\Models\AppSlider;
 use App\Models\AdSale;
 use App\Models\CompanyQuotation;
@@ -400,6 +401,11 @@ class CompanyRepository
             'products' => $products,
             'activity' => $activity,
             'latestRequests' => $latestRequests,
+            'rating' => BusinessStats::ratingOverall($companyId),
+            'customersServed' => CompanyQuotation::query()->where('tbl_company_quotations.company_id', $companyId)->where('tbl_company_quotations.status', 'selected')
+                ->join('tbl_quote_requests as q', 'q.id', '=', 'tbl_company_quotations.quote_id')->distinct()->count('q.customer_id'),
+            // Ad results for the last 30 days, only when Advertising is open to this company.
+            'ads' => Setting::companyAdsEnabled($companyId) ? BusinessStats::advertising(now()->subDays(29)->startOfDay(), now(), $companyId) : null,
         ];
     }
 
@@ -514,6 +520,8 @@ class CompanyRepository
             'customers' => $this->companyReportCustomers($companyId, $from, $to),
             'products' => $this->companyReportProducts($companyId),
             'notifications' => $this->companyReportNotifications($companyId, $from, $to),
+            'ratings' => BusinessStats::ratings($from, $to, $companyId),
+            'advertising' => Setting::companyAdsEnabled($companyId) ? BusinessStats::advertising($from, $to, $companyId) : null,
         ];
     }
 

@@ -89,7 +89,7 @@
                             <td><strong>{{ $invoice->invoice_number }}</strong></td>
                             <td>
                                 <strong>{{ $customerName }}</strong>
-                                @if (data_get($invoice->customer_details, 'email'))
+                                @if (data_get($invoice->customer_details, 'email') && !$invoice->quotation?->quote?->hidesCustomerContactFrom((int) $invoice->company_id, $invoice->quotation))
                                     <small class="invoice-customer-email">{{ data_get($invoice->customer_details, 'email') }}</small>
                                 @endif
                             </td>

@@ -225,7 +225,7 @@
         $companyUsername = $companyUser->username ?? 'CO';
         $companyDisplayName = $companyUser->name ?? ($companyUser->username ?? 'SunXFinder Company');
 
-        $companyInitials = strtoupper(substr($companyUsername, 0, 2));
+        $companyInitials = name_initials($companyUsername, 2);
     @endphp
 
     <div class="sidebar-bottom">

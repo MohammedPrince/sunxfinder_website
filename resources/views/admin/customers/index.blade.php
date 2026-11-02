@@ -115,7 +115,7 @@
                             <td>
                                 <div class="company-cell">
                                     <span class="company-avatar solar">
-                                        {{ strtoupper(substr($customer->full_name ?: $customer->username, 0, 1)) }}
+                                        {{ name_initials($customer->full_name ?: $customer->username) }}
                                     </span>
 
                                     <span>

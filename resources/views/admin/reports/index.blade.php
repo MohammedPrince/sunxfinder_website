@@ -260,7 +260,7 @@
                         <tr>
                             <td>
                                 <div class="company-cell">
-                                    <span class="company-avatar solar">{{ strtoupper(mb_substr($company['name'], 0, 1)) }}</span>
+                                    <span class="company-avatar solar">{{ name_initials($company['name']) }}</span>
                                     <span>
                                         <strong>{{ $company['name'] }}</strong>
                                         <small>
@@ -488,6 +488,65 @@
             </div>
             @include('partials.report-breakdown', ['title' => 'By sender', 'items' => $notifications['by_sender']])
             @include('partials.report-breakdown', ['title' => 'By type', 'items' => $notifications['by_type']])
+        </section>
+    </div>
+
+    {{-- Advertising, ratings, complaints --}}
+    <div class="report-columns">
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Advertising</h2>
+                    <p>Sales, money received and ad results in this period</p>
+                </div>
+                <a class="text-link no-print" href="{{ route('admin.ad-sales.report') }}">Monthly ad report ↗</a>
+            </div>
+            <div class="report-metrics report-metrics-compact">
+                <div><small>Sales recorded</small><strong>{{ number_format($advertising['sales']) }}</strong></div>
+                @forelse ($advertising['paid'] as $paid)
+                    <div><small>Paid ({{ $paid['currency'] }})</small><strong>{{ number_format($paid['total']) }}</strong>
+                        <span>{{ number_format($paid['count']) }} {{ \Illuminate\Support\Str::plural('sale', $paid['count']) }}</span></div>
+                @empty
+                    <div><small>Paid</small><strong>0</strong></div>
+                @endforelse
+                <div><small>Running now</small><strong>{{ number_format($advertising['active']) }}</strong>
+                    <span>{{ number_format($advertising['requested']) }} requested · {{ number_format($advertising['awaiting_payment']) }} awaiting payment</span></div>
+                <div><small>Views</small><strong>{{ number_format($advertising['views']) }}</strong></div>
+                <div><small>Clicks</small><strong>{{ number_format($advertising['clicks']) }}</strong>
+                    <span>{{ $advertising['click_rate'] !== null ? $advertising['click_rate'] . '% of views' : 'No views yet' }}</span></div>
+            </div>
+            @include('partials.report-breakdown', ['title' => 'Sales by product', 'items' => $advertising['by_product'], 'labels' => \App\Models\AdSale::PRODUCTS])
+            @include('partials.report-breakdown', ['title' => 'Sales by status', 'items' => $advertising['by_status'], 'labels' => \App\Models\AdSale::STATUSES])
+        </section>
+
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Ratings</h2>
+                    <p>Ratings customers left in this period</p>
+                </div>
+            </div>
+            <div class="report-metrics report-metrics-compact">
+                <div><small>Ratings</small><strong>{{ number_format($ratings['count']) }}</strong></div>
+                <div><small>Average</small><strong>{{ $ratings['average'] !== null ? $ratings['average'] . ' ★' : '—' }}</strong></div>
+                <div><small>Hidden</small><strong>{{ number_format($ratings['hidden']) }}</strong><span>not shown to customers</span></div>
+            </div>
+            @include('partials.report-breakdown', ['title' => 'By stars', 'items' => $ratings['count'] ? $ratings['by_stars'] : []])
+        </section>
+
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Complaints</h2>
+                    <p>Complaints opened in this period</p>
+                </div>
+            </div>
+            <div class="report-metrics report-metrics-compact">
+                <div><small>Opened</small><strong>{{ number_format($complaints['opened']) }}</strong></div>
+                <div><small>Open now</small><strong>{{ number_format($complaints['open_now']) }}</strong><span>waiting for a reply</span></div>
+            </div>
+            @include('partials.report-breakdown', ['title' => 'By status', 'items' => $complaints['by_status']])
+            @include('partials.report-breakdown', ['title' => 'By category', 'items' => $complaints['by_category']])
         </section>
     </div>
 

@@ -19,10 +19,19 @@
     @php
         $company = $invoice->company_details ?? [];
         $customer = $invoice->customer_details ?? [];
+        // Once the customer turns this offer down, the invoice shows only their name.
+        if ($invoice->quotation?->quote?->hidesCustomerContactFrom((int) $invoice->company_id, $invoice->quotation)) {
+            $customer = ['name' => $customer['name'] ?? null];
+        }
         $formatMoney = fn ($amount) => number_format((float) $amount, 2);
     @endphp
 
     <article class="company-invoice">
+        <div class="company-invoice-brand">
+            <img src="{{ asset('visitors/images/sunxfinder-logo-email.png') }}" alt="SunXFinder" width="120" height="96">
+            <p>{{ __('company/messages.invoices.brand_find') }} <span>{{ __('company/messages.invoices.brand_compare') }}</span> {{ __('company/messages.invoices.brand_connect') }}</p>
+        </div>
+
         <header class="company-invoice-header">
             <div>
                 <span class="company-invoice-label">{{ __('company/messages.invoices.label') }}</span>

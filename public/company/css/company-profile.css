@@ -1007,6 +1007,27 @@
     box-shadow: 0 14px 40px rgb(15 23 42 / 8%);
 }
 
+.company-invoice-brand {
+    margin-bottom: 22px;
+}
+
+.company-invoice-brand img {
+    display: block;
+    width: 120px;
+    height: auto;
+}
+
+.company-invoice-brand p {
+    margin: 6px 0 0;
+    color: #10366b;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.company-invoice-brand span {
+    color: #f15b24;
+}
+
 .company-invoice-header {
     display: flex;
     justify-content: space-between;
