@@ -77,7 +77,6 @@
 
         {{-- Print document header --}}
         <header class="quote-document-header print-only">
-            <div class="quote-document-brand">SunXFinder</div>
             <div class="quote-document-subtitle">Solar Energy Quote Request</div>
             <div class="quote-document-reference">
                 Reference: <strong>{{ $reference }}</strong>
