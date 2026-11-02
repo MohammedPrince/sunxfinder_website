@@ -164,7 +164,9 @@
                                     <span class="person-avatar">{{ name_initials($customerName) }}</span>
                                     <span>
                                         <strong>{{ $customerName }}</strong>
-                                        <small>{{ $customer?->city ?: __('company/messages.common.city_not_set') }}</small>
+                                        @unless ($quote->hidesCustomerContactFrom((int) $authenticatedCompanyId, $myOffer))
+                                            <small>{{ $customer?->city ?: __('company/messages.common.city_not_set') }}</small>
+                                        @endunless
                                     </span>
                                 </div>
                             </td>

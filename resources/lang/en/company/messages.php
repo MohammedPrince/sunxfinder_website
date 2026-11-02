@@ -635,7 +635,6 @@ return [
         'company_assignment' => 'Company assignment',
         'no_company' => 'No company assigned',
         'another_company' => 'Another company was chosen',
-        'contact_hidden' => 'Contact details are hidden because the customer did not choose your offer.',
         'daily_load' => 'Daily load',
         'submitted' => 'Submitted',
         'last_updated' => 'Last updated',
@@ -685,6 +684,7 @@ return [
         'invoice_number_used' => 'You have already used this invoice number on another invoice.',
     ],
     'invoices' => [
+        'pdf_unavailable' => 'The PDF download is not available right now. Use Print to save the invoice as a PDF.',
         'brand_find' => 'Find.',
         'brand_compare' => 'Compare.',
         'brand_connect' => 'Connect',

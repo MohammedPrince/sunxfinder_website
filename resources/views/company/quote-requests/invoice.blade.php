@@ -26,6 +26,10 @@
         $formatMoney = fn ($amount) => number_format((float) $amount, 2);
     @endphp
 
+    @if (session('error'))
+        <div class="alert alert-danger no-print">{{ session('error') }}</div>
+    @endif
+
     <article class="company-invoice">
         <div class="company-invoice-brand">
             <img src="{{ asset('visitors/images/sunxfinder-logo-email.png') }}" alt="SunXFinder" width="120" height="96">

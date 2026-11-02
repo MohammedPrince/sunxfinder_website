@@ -133,6 +133,11 @@
 
     <div class="quote-print-page">
         <header class="quote-document-header print-only">
+            <div class="quote-document-logo">
+                <img src="{{ asset('visitors/images/sunxfinder-logo-email.png') }}" alt="SunXFinder" width="110" height="88">
+                <p>{{ __('company/messages.invoices.brand_find') }} <span>{{ __('company/messages.invoices.brand_compare') }}</span> {{ __('company/messages.invoices.brand_connect') }}</p>
+            </div>
+
             <div class="quote-document-brand">
                 {{ $authenticatedCompany?->name ?? __('company/messages.quote.solar_company') }}
             </div>
@@ -531,8 +536,8 @@
                                         </div>
 
                                         <div class="offer-invoice-parties">
-                                            <div><span>{{ __('company/messages.quote.bill_to') }}</span><strong>{{ $customerName }}</strong><small>{{ $customer?->email }}</small><small>{{ $customer?->phone }}</small></div>
-                                            <div><span>{{ __('company/messages.quote.ship_to') }}</span><strong>{{ $customer?->full_name ?: $customerName }}</strong><small>{{ $customer?->address ?: $customer?->city }}</small></div>
+                                            <div><span>{{ __('company/messages.quote.bill_to') }}</span><strong>{{ $customerName }}</strong>@unless ($hideCustomerContact)<small>{{ $customer?->email }}</small><small>{{ $customer?->phone }}</small>@endunless</div>
+                                            <div><span>{{ __('company/messages.quote.ship_to') }}</span><strong>{{ $customer?->full_name ?: $customerName }}</strong>@unless ($hideCustomerContact)<small>{{ $customer?->address ?: $customer?->city }}</small>@endunless</div>
                                         </div>
 
                                         <div>
@@ -985,9 +990,7 @@
                         <strong>{{ $customerName }}</strong>
                     </div>
 
-                    @if ($hideCustomerContact)
-                        <p class="gray-text" style="margin:0;grid-column:1/-1">{{ __('company/messages.quote.contact_hidden') }}</p>
-                    @else
+                    @unless ($hideCustomerContact)
                         <div class="quote-detail">
                             <span>{{ __('company/messages.common.email') }}</span>
                             <strong>{{ $customer?->email ?? '—' }}</strong>
@@ -1007,7 +1010,7 @@
                             <span>{{ __('company/messages.quote.address') }}</span>
                             <strong>{{ $customer?->address ?? '—' }}</strong>
                         </div>
-                    @endif
+                    @endunless
                 </div>
             </section>
 

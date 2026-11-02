@@ -167,18 +167,11 @@ class Quote extends Model
     }
 
     /**
-     * Whether a company sees only the customer's name: true once the customer turned its offer
-     * down, chose another company, or closed the request. The chosen company keeps full contact.
+     * A company sees only the customer's name until the customer accepts that company's offer.
      */
     public function hidesCustomerContactFrom(int $companyId, ?CompanyQuotation $offer = null): bool
     {
-        if ($offer?->status === 'selected') {
-            return false;
-        }
-
-        return in_array($offer?->status, ['not_selected', 'withdrawn'], true)
-            || in_array($this->status, ['rejected', 'cancelled'], true)
-            || ($this->company_id !== null && (int) $this->company_id !== $companyId);
+        return !($offer?->status === 'selected' && (int) $offer->company_id === $companyId);
     }
 
     /**

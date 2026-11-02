@@ -635,7 +635,6 @@ return [
         'company_assignment' => 'الشركة المعيّنة',
         'no_company' => 'لم تُعيّن شركة',
         'another_company' => 'تم اختيار شركة أخرى',
-        'contact_hidden' => 'بيانات التواصل مخفية لأن العميل لم يختر عرضك.',
         'daily_load' => 'الحمل اليومي',
         'submitted' => 'تاريخ التقديم',
         'last_updated' => 'آخر تحديث',
@@ -685,6 +684,7 @@ return [
         'invoice_number_used' => 'لقد استخدمت رقم الفاتورة هذا في فاتورة أخرى.',
     ],
     'invoices' => [
+        'pdf_unavailable' => 'تنزيل PDF غير متاح حاليًا. استخدم الطباعة لحفظ الفاتورة بصيغة PDF.',
         'brand_find' => 'اكتشف.',
         'brand_compare' => 'قارن.',
         'brand_connect' => 'تواصل',

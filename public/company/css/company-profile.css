@@ -614,6 +614,26 @@
         print-color-adjust: exact;
     }
 
+    .quote-document-logo img {
+        display: block;
+        width: 110px;
+        height: auto;
+        margin: 0 auto 4px;
+    }
+
+    .quote-document-logo p {
+        margin: 0 0 12px;
+        color: #10366b !important;
+        font-size: 13px;
+        font-weight: 800;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .quote-document-logo span {
+        color: #f15b24 !important;
+    }
+
     .quote-document-subtitle {
         margin-top: 5px;
         font-size: 13px;

@@ -476,6 +476,14 @@ class MainController extends Controller
                 ->with('error', __('company/messages.quote.no_invoice'));
         }
 
+        // The PDF library comes from Composer; if the server has not installed it, offer printing instead.
+        if (!class_exists(\Mpdf\Mpdf::class)) {
+            report(new \RuntimeException('mpdf/mpdf is missing: run composer install on this server.'));
+
+            return redirect()->route('company.quote-requests.invoice', $id)
+                ->with('error', __('company/messages.invoices.pdf_unavailable'));
+        }
+
         $pdf = InvoicePdf::render($invoice);
 
         return response()->streamDownload(function () use ($pdf) {
