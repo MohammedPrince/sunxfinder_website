@@ -67,7 +67,7 @@ class Helper
             'year_of_exp' => $company->year_of_exp,
             'number_of_projects' => $company->number_of_projects,
             'status' => $company->status,
-
+            'on_app' => (bool) $company->on_app,
         ];
 
         if (!$detailed) {
@@ -563,13 +563,17 @@ class Helper
         return $links;
     }
 
-    /** Companies the app may show: active, verified and approved. Anything else is hidden (404 on detail). */
+    /**
+     * Companies the app may show: active, verified, approved and on_app (not hidden from
+     * Admin → Company Carousel). Anything else is hidden (404 on detail).
+     */
     public function visibleCompanies()
     {
         return SolarCompany::query()
             ->where('status', 'approved')
             ->where('is_active', true)
-            ->where('is_verified', true);
+            ->where('is_verified', true)
+            ->where('on_app', true);
     }
 
     /** Same rule as visibleCompanies(), for a company already loaded. */
@@ -578,7 +582,8 @@ class Helper
         return $company !== null
             && $company->status === 'approved'
             && (bool) $company->is_active
-            && (bool) $company->is_verified;
+            && (bool) $company->is_verified
+            && (bool) $company->on_app;
     }
 
     /**

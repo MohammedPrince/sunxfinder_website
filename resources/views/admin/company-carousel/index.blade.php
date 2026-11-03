@@ -74,7 +74,7 @@
                                         @csrf
                                         @method('PATCH')
                                         <button type="submit" class="row-action row-action-icon"
-                                            title="{{ $entry->is_active ? 'Hide from the carousel' : 'Show in the carousel' }}"
+                                            title="{{ $entry->is_active ? 'Hide from the carousel and the app' : 'Show in the carousel and the app' }}"
                                             aria-label="{{ $entry->is_active ? 'Hide' : 'Show' }} {{ $entry->company?->name ?? 'carousel entry' }}">
                                             @if ($entry->is_active)
                                                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

@@ -1130,7 +1130,8 @@ class CustomerRepository
                 ->whereHas('company', function ($query) {
                     $query->where('status', 'approved')
                         ->where('is_verified', true)
-                        ->where('is_active', true);
+                        ->where('is_active', true)
+                        ->where('on_app', true);
                 })
 
                 ->with('company')

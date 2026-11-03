@@ -2050,9 +2050,16 @@ class AdminRepository
         }
 
         $entry->is_active = !$entry->is_active;
-        $entry->save();
 
-        return ['success' => true, 'message' => $entry->is_active ? 'Carousel entry activated.' : 'Carousel entry hidden from the app and website.'];
+        // The eye also shows/hides the company itself in the app (/companies, /main-data, ...).
+        DB::transaction(function () use ($entry) {
+            $entry->save();
+            SolarCompany::whereKey($entry->company_id)->update(['on_app' => $entry->is_active]);
+        });
+
+        return ['success' => true, 'message' => $entry->is_active
+            ? 'Company is active again in the carousel and the app.'
+            : 'Company hidden from the carousel and the app.'];
     }
 
     public function deleteCompanyCarouselEntry(int $id): array

@@ -55,6 +55,7 @@ class HiddenCompaniesApiTest extends TestCase
             'rejected' => $this->makeCompany('rejected', ['status' => 'rejected']),
             'unverified' => $this->makeCompany('unverified', ['is_verified' => false]),
             'inactive' => $this->makeCompany('inactive', ['is_active' => false]),
+            'off_app' => $this->makeCompany('offapp', ['on_app' => false]),
         ];
 
         Sanctum::actingAs($this->customer);
@@ -123,6 +124,43 @@ class HiddenCompaniesApiTest extends TestCase
             ->pluck('id')->all();
 
         $this->assertSame([$live->id], $ids);
+    }
+
+    public function test_carousel_eye_toggle_sets_on_app_and_hides_the_company_from_the_app(): void
+    {
+        $admin = \App\Models\Admin::query()->forceCreate([
+            'username' => 'admin',
+            'password' => Hash::make('secret123'),
+            'is_active' => true,
+        ]);
+        $entry = CompanyCarousel::query()->forceCreate([
+            'company_id' => $this->visible->id,
+            'platform' => 'app',
+            'interval_seconds' => 5,
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        $toggle = fn() => $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+            ->actingAs($admin, 'admin')
+            ->patch(route('admin.company-carousel.toggle', $entry->id))
+            ->assertRedirect();
+
+        $toggle();
+        $this->assertFalse($entry->fresh()->is_active);
+        $this->assertFalse($this->visible->fresh()->on_app);
+
+        Sanctum::actingAs($this->customer);
+        $this->assertSame([], $this->getJson('/api/v1/customer/companies')->json('data.companies'));
+        $this->getJson('/api/v1/customer/companies/' . $this->visible->id)->assertNotFound();
+
+        $toggle();
+        $this->assertTrue($this->visible->fresh()->on_app);
+
+        Sanctum::actingAs($this->customer);
+        $this->getJson('/api/v1/customer/companies')
+            ->assertJsonPath('data.companies.0.id', $this->visible->id)
+            ->assertJsonPath('data.companies.0.on_app', true);
     }
 
     public function test_main_data_returns_only_visible_companies(): void
