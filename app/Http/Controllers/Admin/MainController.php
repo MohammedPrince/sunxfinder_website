@@ -961,7 +961,7 @@ class MainController extends Controller
     public function editAppSlider(int $id)
     {
         $slider = $this->adminService->findAppSlider($id);
-        abort_unless($slider, 404);
+        abort_unless($slider !== null, 404);
 
         return view('admin.app-sliders.form', [
             'companies' => $this->adminService->getAdSaleFormData()['companies'],
@@ -1164,7 +1164,7 @@ class MainController extends Controller
     public function editLegalSection(int $id)
     {
         $section = $this->adminService->findLegalSection($id);
-        abort_unless($section, 404);
+        abort_unless($section !== null, 404);
 
         return view('admin.legal.form', ['page' => $section->page, 'section' => $section]);
     }
@@ -1172,7 +1172,7 @@ class MainController extends Controller
     public function updateLegalSection(Request $request, int $id)
     {
         $section = $this->adminService->findLegalSection($id);
-        abort_unless($section, 404);
+        abort_unless($section !== null, 404);
 
         $data = $this->validateLegalSection($request, $section);
         $result = $this->adminService->updateLegalSection($id, $data);

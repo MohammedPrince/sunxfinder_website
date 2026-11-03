@@ -159,12 +159,12 @@
                         <div class="form-group">
                             <label for="title_en">Title (English) *</label>
                             <input type="text" class="form-control" id="title_en" name="title_en" maxlength="180" required
-                                value="{{ old('title_en') }}" placeholder="e.g. 20% off solar systems this week">
+                                value="{{ old('title_en', '20% off solar systems this week') }}">
                         </div>
                         <div class="form-group">
                             <label for="title_ar">Title (Arabic)</label>
                             <input type="text" class="form-control" id="title_ar" name="title_ar" maxlength="180" dir="rtl" lang="ar"
-                                value="{{ old('title_ar') }}" placeholder="مثال: خصم 20٪ على أنظمة الطاقة الشمسية هذا الأسبوع">
+                                value="{{ old('title_ar', 'خصم 20٪ على أنظمة الطاقة الشمسية هذا الأسبوع') }}">
                         </div>
 
                         @foreach (['en' => ['Message (English) *', 'ltr', 'Write the message…'], 'ar' => ['Message (Arabic)', 'rtl', 'اكتب نص الرسالة…']] as $lang => [$label, $dir, $placeholder])
@@ -180,7 +180,7 @@
                                 </div>
                                 <textarea class="form-control" id="message_{{ $lang }}" name="message_{{ $lang }}" rows="7" maxlength="5000"
                                     dir="{{ $dir }}" @if ($lang === 'ar') lang="ar" @else required @endif
-                                    placeholder="{{ $placeholder }}">{{ old('message_' . $lang) }}</textarea>
+                                    placeholder="{{ $placeholder }}">{{ old('message_' . $lang, $lang === 'ar' ? "استفيدوا من خصم 20٪ على أنظمة الطاقة الشمسية هذا الأسبوع.\n\nاكتشفوا الشركات الموثوقة وقارنوا الحلول المتاحة عبر SunXFinder.\n\nالعرض لفترة محدودة. يرجى التواصل مع الشركة لمعرفة التفاصيل." : "Save 20% on solar energy systems this week.\n\nDiscover trusted companies and compare available solutions on SunXFinder.\n\nThis offer is available for a limited time. Contact the company for details.") }}</textarea>
                             </div>
                         @endforeach
                     </div>
