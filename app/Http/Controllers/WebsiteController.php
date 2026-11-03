@@ -437,6 +437,10 @@ class WebsiteController extends Controller
 
     public function storeCustomer(Request $request)
     {
+        // ٠٩١٢٣٤٥٦٧٨ is accepted and saved as 0912345678.
+        if (is_string($request->input('phone'))) {
+            $request->merge(['phone' => app(Helper::class)->westernDigits($request->input('phone'))]);
+        }
 
         $validator = Validator::make($request->all(), [
             'username' => [
@@ -444,7 +448,8 @@ class WebsiteController extends Controller
                 'string',
                 'max:15',
                 'min:6',
-                'regex:/^[a-zA-Z0-9_]+$/',
+                // English letters, numbers and _ only (no Arabic).
+                'regex:/\A[a-zA-Z0-9_]+\z/',
                 'unique:tbl_customers,username',
             ],
             'first_name' => ['required', 'string', 'max:15', 'min:3'],
@@ -453,8 +458,9 @@ class WebsiteController extends Controller
             'phone' => [
                 'required',
                 'string',
-                'max:10',
                 'min:9',
+                'max:10',
+                'regex:/\A[0-9]+\z/',
                 'unique:tbl_customers,phone',
             ],
             'email' => [

@@ -400,6 +400,7 @@ return [
     'We will email you when it is approved. Then log in to the SunXFinder app with your username and password.' => 'We will email you when it is approved. Then log in to the SunXFinder app with your username and password.',
     'Please check the highlighted fields.' => 'Please check the highlighted fields.',
     '10 digits, for example 0912345678.' => '10 digits, for example 0912345678.',
+    '9 or 10 digits, for example 0912345678.' => '9 or 10 digits, for example 0912345678.',
     'We send your account updates here.' => 'We send your account updates here.',
     'Companies use it to plan the site visit and the installation.' => 'Companies use it to plan the site visit and the installation.',
     'Login details' => 'Login details',

@@ -576,6 +576,17 @@ class Helper
             ->where('on_app', true);
     }
 
+    /** Arabic-Indic (٠١٢…) and Persian (۰۱۲…) digits to 0-9, e.g. ٠٩١٢٣٤٥٦٧٨ → 0912345678. */
+    public function westernDigits(?string $value): ?string
+    {
+        return $value === null ? null : strtr($value, [
+            '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
+            '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+            '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4',
+            '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9',
+        ]);
+    }
+
     /** Same rule as visibleCompanies(), for a company already loaded. */
     public function isCompanyVisible(?SolarCompany $company): bool
     {

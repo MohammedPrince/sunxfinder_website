@@ -129,10 +129,10 @@
                             <div class="provider-field">
                                 <label for="phone">{{ __('messages.Phone number') }} <b>*</b></label>
                                 <input type="tel" id="phone" name="phone" value="{{ old('phone') }}" required
-                                    minlength="10" maxlength="10" pattern="[0-9]{10}" inputmode="numeric"
+                                    minlength="9" maxlength="10" pattern="[0-9]{9,10}" inputmode="numeric"
                                     autocomplete="tel" placeholder="0912345678" data-digits-only
                                     @class(['is-invalid' => $errors->has('phone')])>
-                                <small>{{ __('messages.10 digits, for example 0912345678.') }}</small>
+                                <small>{{ __('messages.9 or 10 digits, for example 0912345678.') }}</small>
                                 @error('phone')
                                     <small class="provider-field-error">{{ $message }}</small>
                                 @enderror
