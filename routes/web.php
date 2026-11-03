@@ -58,6 +58,8 @@ Route::controller(WebsiteController::class)->middleware('site.maintenance')->gro
 // Legal pages: ?lang=ar shows the Arabic version (text from Admin → System → Privacy & Terms)
 Route::get('/terms', [WebsiteController::class, 'terms'])->name('terms');
 Route::get('/privacy-policy', [WebsiteController::class, 'privacyPolicy'])->name('privacy-policy');
+// How customers delete their account (store listing link); ?lang=ar for Arabic
+Route::get('/delete-account', [WebsiteController::class, 'deleteAccount'])->name('delete-account');
 
 /*
 |--------------------------------------------------------------------------

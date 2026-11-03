@@ -124,6 +124,7 @@ return [
     'All rights reserved.' => 'All rights reserved.',
     'A platform connecting customers with energy providers.' => 'A platform connecting customers with trusted solar energy providers.',
     'Privacy' => 'Privacy',
+    'Delete account' => 'Delete account',
     'Terms' => 'Terms',
 
 

@@ -58,7 +58,7 @@
         <link rel="stylesheet" href="{{ asset_v('main/css/quill.snow.css') }}">
     @endif
 
-    @if ($currentRoute === 'privacy-policy')
+    @if (in_array($currentRoute, ['privacy-policy', 'delete-account'], true))
         @if ($language === 'ar')
             <link rel="stylesheet" href="{{ asset_v('visitors/css/privacy-policy-ar.css') }}">
         @else
@@ -173,6 +173,9 @@
                     </a>
                     <a href="{{ route('terms', ['lang' => app()->getLocale()]) }}">
                         {{ trans('messages.Terms') }}
+                    </a>
+                    <a href="{{ route('delete-account', ['lang' => app()->getLocale()]) }}">
+                        {{ trans('messages.Delete account') }}
                     </a>
                 </div>
 
