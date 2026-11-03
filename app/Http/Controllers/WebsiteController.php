@@ -35,6 +35,14 @@ class WebsiteController extends Controller
         return $this->legalPage($request, 'privacy', 'visitors.privacy-policy');
     }
 
+    /** How a customer deletes their account. ?lang=ar shows the Arabic version. */
+    public function deleteAccount(Request $request)
+    {
+        $lang = $request->query('lang', app()->getLocale()) === 'ar' ? 'ar' : 'en';
+
+        return view('visitors.delete-account', compact('lang'));
+    }
+
     /** ?lang=ar shows the Arabic version. Pages without admin text use the built-in view. */
     private function legalPage(Request $request, string $page, string $builtInView)
     {

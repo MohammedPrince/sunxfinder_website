@@ -125,6 +125,7 @@ return [
     'All rights reserved.' => 'جميع الحقوق محفوظة.',
     'A platform connecting customers with energy providers.' => 'منصة تربط العملاء بمقدمي خدمات الطاقة الشمسية الموثقيين.',
     'Privacy' => 'الخصوصية',
+    'Delete account' => 'حذف الحساب',
     'Terms' => 'الشروط',
 
     'Find and compare trusted solar companies for your home, business, or agricultural project.' => 'اعثر على شركات الطاقة الشمسية المناسبة لمنزلك أو نشاطك التجاري أو مشروعك الزراعي، وقارن بينها بثقة.',
