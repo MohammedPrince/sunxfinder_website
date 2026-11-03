@@ -3,7 +3,7 @@
 @section('breadcrumb', 'Settings')
 @section('eyebrow', 'SYSTEM')
 @section('page-title', 'Settings')
-@section('page-description', 'App rules, website maintenance mode and which API the app uses.')
+@section('page-description', 'App rules, app Home sections, website maintenance mode and which API the app uses.')
 
 @section('content')
     @if (session('success'))
@@ -422,6 +422,96 @@
             </div>
         </section>
     </form>
+
+    {{-- App Home sections. The app reads these from /main-data and GET /api/v1/customer/home-sections. --}}
+    @php
+        $liveSlides = $settings['live_slides_by_placement'];
+    @endphp
+    <section class="panel" id="app-home" style="margin-top:24px">
+        <div class="panel-heading">
+            <div>
+                <h2>App Home</h2>
+                <p>
+                    Choose what the app Home screen shows. Changes reach the app within five minutes, or right away
+                    when the customer pulls to refresh. Choose where each banner shows in
+                    <a href="{{ route('admin.app-sliders.index') }}">App Slider</a> (Placement).
+                </p>
+            </div>
+        </div>
+
+        <div class="panel-body" style="display:grid;gap:16px">
+            @foreach ($settings['home_sections'] as $section)
+                @php
+                    $isOld = old('key') === $section->key;
+                    $isVisible = (bool) ($isOld ? old('is_visible') : $section->is_visible);
+                    $showCompanies = (bool) ($isOld ? old('show_companies') : $section->show_companies);
+                    $featuredSlides = (int) ($liveSlides['home_featured'] ?? 0);
+                @endphp
+                <form method="POST" action="{{ route('admin.settings.home-sections.update', $section->key) }}"
+                    style="border:1px solid #e6edf5;border-radius:14px;padding:16px">
+                    @csrf
+                    @method('PUT')
+                    <input type="hidden" name="key" value="{{ $section->key }}">
+
+                    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px">
+                        <strong style="font-size:16px">{{ \App\Models\HomeSection::SECTIONS[$section->key] ?? $section->key }}</strong>
+                        <span class="pill {{ $section->is_visible ? 'pill-green' : 'pill-red' }}">
+                            {{ $section->is_visible ? 'Shown' : 'Hidden' }}
+                        </span>
+                    </div>
+
+                    <label class="toggle-card" for="home_{{ $section->key }}_visible">
+                        <span class="toggle-card-copy">
+                            <strong>Show this section</strong>
+                            <small>Off hides the whole section, heading included.</small>
+                        </span>
+                        <input type="hidden" name="is_visible" value="0">
+                        <input class="toggle-input" type="checkbox" id="home_{{ $section->key }}_visible" name="is_visible"
+                            value="1" @checked($isVisible)>
+                        <span class="toggle-switch" aria-hidden="true"></span>
+                    </label>
+
+                    <label class="toggle-card" for="home_{{ $section->key }}_companies" style="margin-top:12px">
+                        <span class="toggle-card-copy">
+                            <strong>Show companies in this section</strong>
+                            <small>
+                                Off shows only the banners placed in this section
+                                ({{ $featuredSlides }} live {{ $featuredSlides === 1 ? 'slide' : 'slides' }} now).
+                                With neither companies nor banners, the app hides the section.
+                            </small>
+                        </span>
+                        <input type="hidden" name="show_companies" value="0">
+                        <input class="toggle-input" type="checkbox" id="home_{{ $section->key }}_companies" name="show_companies"
+                            value="1" @checked($showCompanies)>
+                        <span class="toggle-switch" aria-hidden="true"></span>
+                    </label>
+
+                    <div class="form-grid" style="margin-top:18px">
+                        <div class="form-group">
+                            <label for="home_{{ $section->key }}_title_en">Title (English)</label>
+                            <input class="form-control" type="text" id="home_{{ $section->key }}_title_en" name="title_en"
+                                maxlength="60" placeholder="Leave empty for the app's own title"
+                                value="{{ $isOld ? old('title_en') : $section->title_en }}">
+                            @if ($isOld)
+                                @error('title_en')<small class="field-error">{{ $message }}</small>@enderror
+                            @endif
+                        </div>
+                        <div class="form-group">
+                            <label for="home_{{ $section->key }}_title_ar">Title (Arabic)</label>
+                            <input class="form-control" type="text" id="home_{{ $section->key }}_title_ar" name="title_ar"
+                                maxlength="60" dir="rtl" lang="ar" placeholder="اتركه فارغاً لاستخدام عنوان التطبيق"
+                                value="{{ $isOld ? old('title_ar') : $section->title_ar }}">
+                            @if ($isOld)
+                                @error('title_ar')<small class="field-error">{{ $message }}</small>@enderror
+                            @endif
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" style="margin-top:12px">Save {{ \App\Models\HomeSection::SECTIONS[$section->key] ?? $section->key }}</button>
+                </form>
+            @endforeach
+        </div>
+    </section>
 
     {{-- API selector + accessibility. The app reads this from GET /api/v1/api-config. --}}
     @php

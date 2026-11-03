@@ -17,6 +17,7 @@ use App\Support\AdTracker;
 use App\Models\CompanyQuotation;
 use App\Models\Customer;
 use App\Models\CustomerDeviceToken;
+use App\Models\HomeSection;
 use App\Repositories\MainRepository;
 use App\Repositories\OtpRepository;
 use App\Models\CustomerNotification;
@@ -264,6 +265,9 @@ class CustomerRepository
             // Home slider: a failure here never blocks the rest of the home screen.
             $sliders = $this->getAppSliders()['sliders'] ?? [];
 
+            // Same for the Home section switches: the app falls back to today's Home without them.
+            $homeSections = $this->getHomeSections()['home_sections'] ?? [];
+
             // Companies: method requires filters and returns a paginated result.
             $companiesResult = $this->getCompanies([
                 'per_page' => 50,
@@ -324,6 +328,7 @@ class CustomerRepository
                 'services' => $services,
                 'services_ar' => $servicesAr,
                 'carousels' => $carousels,
+                'home_sections' => $homeSections,
                 'sliders' => $sliders,
                 'companies' => $companies,
                 'calculator' => $calculator,
@@ -1282,7 +1287,8 @@ class CustomerRepository
         return $this->getNotificationPreferences();
     }
 
-    public function getAppSliders(): array
+    /** @param string|null $placement Only slides for this Home placement; null = all placements. */
+    public function getAppSliders(?string $placement = null): array
     {
         if (!$this->helper->isCustomerAuthenticated()) {
             return [
@@ -1295,9 +1301,10 @@ class CustomerRepository
         try {
             $rows = Cache::remember(AppSlider::CACHE_KEY, 60, fn() => AppSlider::currentlyVisible()
                 ->whereIn('platform', ['app', 'both'])
+                ->whereIn('placement', array_keys(AppSlider::PLACEMENTS))
                 ->orderBy('sort_order')
                 ->orderBy('id')
-                ->limit(10)
+                ->limit(AppSlider::MAX_PER_PLACEMENT * count(AppSlider::PLACEMENTS))
                 ->get([
                     'id',
                     'name',
@@ -1307,11 +1314,21 @@ class CustomerRepository
                     'image_width',
                     'image_height',
                     'link_url',
+                    'placement',
                     'is_sponsored',
                     'interval_seconds',
                     'sort_order'
                 ])
                 ->toArray());
+
+            // Up to 10 per placement, in display order.
+            $rows = collect($rows)
+                ->when($placement !== null, fn($all) => $all->where('placement', $placement))
+                ->groupBy('placement')
+                ->flatMap(fn($group) => $group->take(AppSlider::MAX_PER_PLACEMENT))
+                ->sortBy([['sort_order', 'asc'], ['id', 'asc']])
+                ->values()
+                ->all();
 
             $customer = $this->helper->isCustomerAuthenticated();
             $sponsoredLabel = $this->sponsoredLabel((int) $customer->id);
@@ -1328,6 +1345,7 @@ class CustomerRepository
                 'image_width' => $row['image_width'],
                 'image_height' => $row['image_height'],
                 'interval_seconds' => (int) $row['interval_seconds'],
+                'placement' => $row['placement'],
                 'has_link' => filled($row['link_url']),
                 // Web links pass through the click counter; sunxfinder:// links are reported with POST /ad-click.
                 'link_url' => filled($row['link_url']) && preg_match('#^https?://#i', $row['link_url'])
@@ -1353,6 +1371,46 @@ class CustomerRepository
                 'code' => 500,
                 'message' => 'Unable to retrieve sliders.',
                 'sliders' => [],
+            ];
+        }
+    }
+
+    /**
+     * Admin show/hide switches for Home sections (Admin → Settings → App Home). All rows,
+     * hidden ones included: the app needs is_visible false to hide a section.
+     */
+    public function getHomeSections(): array
+    {
+        if (!$this->helper->isCustomerAuthenticated()) {
+            return [
+                'success' => false,
+                'code' => 401,
+                'message' => 'Unauthenticated.',
+            ];
+        }
+
+        try {
+            $sections = Cache::remember(HomeSection::CACHE_KEY, 300, fn() => HomeSection::query()
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get()
+                ->map(fn(HomeSection $section) => $section->toApiArray())
+                ->all());
+
+            return [
+                'success' => true,
+                'code' => 200,
+                'message' => 'Home sections loaded.',
+                'home_sections' => $sections,
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+                'message' => 'Unable to retrieve home sections.',
+                'home_sections' => [],
             ];
         }
     }

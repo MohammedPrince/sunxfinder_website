@@ -19,9 +19,22 @@ class AppSlider extends Model
     /** Same for the website home banner. */
     public const WEBSITE_CACHE_KEY = 'app_sliders.website';
 
+    /**
+     * Where the slide shows on the app Home screen. Only add a value here once the app
+     * supports it: the app skips placements it does not know.
+     */
+    public const PLACEMENTS = [
+        'home_top' => 'Home – top',
+        'home_featured' => 'Home – Featured section',
+        'home_bottom' => 'Home – bottom',
+    ];
+
+    /** Most slides the app receives for one placement. */
+    public const MAX_PER_PLACEMENT = 10;
+
     protected $fillable = [
         'company_id', 'name', 'description_ar', 'description_en', 'image_path', 'image_width', 'image_height',
-        'link_url', 'platform', 'is_sponsored', 'interval_seconds', 'sort_order', 'is_active', 'starts_at', 'ends_at', 'created_by',
+        'link_url', 'platform', 'placement', 'is_sponsored', 'interval_seconds', 'sort_order', 'is_active', 'starts_at', 'ends_at', 'created_by',
     ];
 
     protected $casts = [

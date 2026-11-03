@@ -21,6 +21,7 @@ use App\Models\Appliance;
 use App\Models\ApplianceGroup;
 use App\Models\AppVersion;
 use App\Models\AppSlider;
+use App\Models\HomeSection;
 use App\Models\CompanyCarousel;
 use App\Models\CompanyQuotation;
 use App\Models\CustomerComplaint;
@@ -2281,6 +2282,7 @@ class AdminRepository
         $slider->description_en = filled($data['description_en'] ?? null) ? trim($data['description_en']) : null;
         $slider->company_id = $data['company_id'] ?? null;
         $slider->platform = $data['platform'];
+        $slider->placement = $data['placement'];
         $slider->is_sponsored = (bool) ($data['is_sponsored'] ?? false);
         $slider->link_url = !empty($data['has_link']) && filled($data['link_url'] ?? null) ? trim($data['link_url']) : null;
         $slider->interval_seconds = (int) $data['interval_seconds'];
@@ -4251,7 +4253,38 @@ class AdminRepository
             'quote_limit_customers' => $this->getQuoteLimitCustomers(),
             'notification_access_companies' => $this->getNotificationAccessCompanies(),
             'api_endpoints' => ApiEndpoint::query()->orderByDesc('is_active')->orderBy('name')->get(),
+            'home_sections' => HomeSection::allForAdmin(),
+            // Live app slides per placement, for the hints on the App Home card.
+            'live_slides_by_placement' => AppSlider::currentlyVisible()
+                ->whereIn('platform', ['app', 'both'])
+                ->selectRaw('placement, COUNT(*) as total')
+                ->groupBy('placement')
+                ->pluck('total', 'placement'),
         ];
+    }
+
+    public function updateHomeSection(string $key, array $data): array
+    {
+        try {
+            HomeSection::query()->updateOrCreate(['key' => $key], [
+                'is_visible' => (bool) $data['is_visible'],
+                'show_companies' => (bool) $data['show_companies'],
+                'title_en' => filled($data['title_en'] ?? null) ? trim($data['title_en']) : null,
+                'title_ar' => filled($data['title_ar'] ?? null) ? trim($data['title_ar']) : null,
+            ]);
+            HomeSection::clearCache();
+
+            $label = HomeSection::SECTIONS[$key] ?? $key;
+
+            return [
+                'success' => true,
+                'message' => "{$label} saved. The app shows the change on its next refresh.",
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to save the Home section. Please try again.'];
+        }
     }
 
     //Send Email Start

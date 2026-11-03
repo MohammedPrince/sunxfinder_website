@@ -145,6 +145,15 @@
                                 @endforeach
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label for="placement">Placement in the app *</label>
+                            <select class="form-control" id="placement" name="placement" required>
+                                @foreach (\App\Models\AppSlider::PLACEMENTS as $value => $label)
+                                    <option value="{{ $value }}" @selected(old('placement', $slider?->placement ?? 'home_top') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            <small class="form-hint">Top: under "Calculate my load". Featured section: inside Featured Solar Companies (Settings → App Home). Bottom: at the end of Home.</small>
+                        </div>
                     </div>
 
                     <label class="toggle-card" for="is_sponsored">

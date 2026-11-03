@@ -285,6 +285,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('/settings/customer-quote-limit', 'updateCustomerQuoteLimit')->name('settings.customer-quote-limit');
             Route::post('/settings/company-notification-access', 'updateCompanyNotificationAccess')->name('settings.company-notification-access');
             Route::post('/settings/company-notification-limit', 'updateCompanyNotificationLimit')->name('settings.company-notification-limit');
+            // App Home sections: show/hide, companies on/off, titles (GET /api/v1/customer/home-sections)
+            Route::put('/settings/home-sections/{key}', 'updateHomeSection')
+                ->whereIn('key', array_keys(\App\Models\HomeSection::SECTIONS))
+                ->name('settings.home-sections.update');
 
             // API servers the app can use: one active, each online/offline (GET /api/v1/api-config)
             Route::prefix('settings/api-endpoints')->name('settings.api-endpoints.')->group(function () {

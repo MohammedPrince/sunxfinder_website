@@ -84,9 +84,14 @@ class CustomerService
         return $this->customerRepository->getLegalPage($page, $lang);
     }
 
-    public function getAppSliders(): array
+    public function getAppSliders(?string $placement = null): array
     {
-        return $this->customerRepository->getAppSliders();
+        return $this->customerRepository->getAppSliders($placement);
+    }
+
+    public function getHomeSections(): array
+    {
+        return $this->customerRepository->getHomeSections();
     }
 
     public function recordAdClick(string $type, int $id): array

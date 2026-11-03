@@ -639,6 +639,11 @@ class AdminService
         return $this->adminRepository->setCompanyNotificationLimit($companyId, $limit);
     }
 
+    public function updateHomeSection(string $key, array $data): array
+    {
+        return $this->adminRepository->updateHomeSection($key, $data);
+    }
+
     public function getAdSales(array $filters = [])
     {
         return $this->adminRepository->getAdSales($filters);

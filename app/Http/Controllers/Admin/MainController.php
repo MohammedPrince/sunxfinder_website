@@ -1018,6 +1018,7 @@ class MainController extends Controller
             'link_url' => ['nullable', 'required_if:has_link,1', 'string', 'max:500', 'regex:#^(https?|sunxfinder)://[^\s]+$#i'],
             'company_id' => ['nullable', 'integer', 'min:1'],
             'platform' => ['required', 'in:app,website,both'],
+            'placement' => ['required', Rule::in(array_keys(\App\Models\AppSlider::PLACEMENTS))],
             'is_sponsored' => ['nullable', 'boolean'],
             'interval_seconds' => ['required', 'integer', 'min:2', 'max:60'],
             'sort_order' => ['required', 'integer', 'min:0', 'max:65535'],
@@ -1869,6 +1870,24 @@ class MainController extends Controller
         );
 
         return redirect()->route('admin.settings.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function updateHomeSection(Request $request, string $key)
+    {
+        $data = $request->validate([
+            'is_visible' => ['nullable', 'boolean'],
+            'show_companies' => ['nullable', 'boolean'],
+            'title_en' => ['nullable', 'string', 'max:60'],
+            'title_ar' => ['nullable', 'string', 'max:60'],
+        ]);
+
+        $data['is_visible'] = $request->boolean('is_visible');
+        $data['show_companies'] = $request->boolean('show_companies');
+
+        $result = $this->adminService->updateHomeSection($key, $data);
+
+        return redirect()->to(route('admin.settings.index') . '#app-home')
             ->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 

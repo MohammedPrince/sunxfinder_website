@@ -4,7 +4,7 @@
 @section('breadcrumb', 'App Slider')
 @section('eyebrow', 'APP MANAGEMENT')
 @section('page-title', 'App Slider')
-@section('page-description', 'Ads and announcements shown in the slider at the top of the app Home screen.')
+@section('page-description', 'Ads and announcements shown in the sliders on the app Home screen.')
 
 @section('page-actions')
     <a href="{{ route('admin.app-sliders.create') }}" class="btn btn-primary">+ Add slide</a>
@@ -19,12 +19,13 @@
     @include('partials.page-guide', [
         'key' => 'admin-app-sliders',
         'title' => 'How the app slider works',
-        'intro' => 'Slides appear at the top of the Home screen in the customer app and rotate automatically, lowest order number first.',
+        'intro' => 'Slides appear on the Home screen in the customer app and rotate automatically, lowest order number first.',
         'steps' => [
+            '<strong>Placement</strong>: top (under "Calculate my load"), inside the Featured Solar Companies section, or at the bottom of Home. Each placement is its own slider.',
             '<strong>Image</strong>: upload a wide banner (about 1280 × 640 px works well). It is converted to a light WebP so the app loads it quickly.',
             '<strong>Timing</strong>: "Display time" is how many seconds the slide stays before the next one.',
             '<strong>Link</strong>: optionally open a website (https://…) or an in-app page (sunxfinder://company/{slug}) when tapped.',
-            '<strong>Schedule</strong>: a slide is "Live" only while it is active and inside its start/end dates. The app shows up to 10 live slides.',
+            '<strong>Schedule</strong>: a slide is "Live" only while it is active and inside its start/end dates. The app shows up to 10 live slides per placement.',
         ],
         'note' => 'Changes reach the app within a minute. Deleted slides are kept in Archives and can be recovered.',
     ])
@@ -68,6 +69,7 @@
                     <tr>
                         <th>Order</th>
                         <th>Slide</th>
+                        <th>Placement</th>
                         <th>Link</th>
                         <th>Display time</th>
                         <th>Schedule</th>
@@ -89,6 +91,7 @@
                                     </span>
                                 </div>
                             </td>
+                            <td style="white-space:nowrap">{{ \App\Models\AppSlider::PLACEMENTS[$slider->placement] ?? $slider->placement }}</td>
                             <td class="cell-wrap">
                                 @if ($slider->link_url)
                                     <span class="slider-link" title="{{ $slider->link_url }}">{{ \Illuminate\Support\Str::limit($slider->link_url, 40) }}</span>
@@ -148,7 +151,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="dashboard-empty">
+                            <td colspan="8" class="dashboard-empty">
                                 <strong>No slides found.</strong>
                                 @if (request()->hasAny(['search', 'state']))
                                     Try adjusting or clearing the filters.

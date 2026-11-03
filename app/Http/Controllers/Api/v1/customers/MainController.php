@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api\v1\customers;
 
 use App\Http\Controllers\Controller;
+use App\Models\AppSlider;
 use App\Models\CustomerDeviceToken;
 use App\Models\CustomerComplaint;
 use App\Services\API\CustomerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Validation\Rule;
 use Throwable;
 
 
@@ -222,7 +224,9 @@ class MainController extends Controller
                     'services' => $result['services'],
                     'services_ar' => $result['services_ar'],
                     'carousels' => $result['carousels'],
-                    // Home slider ads, in display order. Each: image_url, interval_seconds, has_link, link_url, descriptions.
+                    // Admin switches per Home section: key, is_visible, show_companies, title_en, title_ar.
+                    'home_sections' => $result['home_sections'],
+                    // Home slider ads, in display order. Each: image_url, placement, interval_seconds, has_link, link_url, descriptions.
                     'sliders' => $result['sliders'],
                     'companies' => $result['companies'],
                     'calculator' => $result['calculator'],
@@ -611,9 +615,13 @@ class MainController extends Controller
         ], 200);
     }
 
-    public function getAppSliders()
+    public function getAppSliders(Request $request)
     {
-        $result = $this->customerService->getAppSliders();
+        $validated = $request->validate([
+            'placement' => ['nullable', Rule::in(array_keys(AppSlider::PLACEMENTS))],
+        ]);
+
+        $result = $this->customerService->getAppSliders($validated['placement'] ?? null);
 
         if ($result['success']) {
             return response()->json([
@@ -632,6 +640,31 @@ class MainController extends Controller
             'error' => $result['message'],
             'data' => [
                 'sliders' => [],
+            ],
+        ], $result['code']);
+    }
+
+    public function getHomeSections()
+    {
+        $result = $this->customerService->getHomeSections();
+
+        if ($result['success']) {
+            return response()->json([
+                'status' => 'success',
+                'code' => $result['code'],
+                'message' => $result['message'],
+                'data' => [
+                    'home_sections' => $result['home_sections'],
+                ],
+            ], $result['code']);
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'code' => $result['code'],
+            'error' => $result['message'],
+            'data' => [
+                'home_sections' => [],
             ],
         ], $result['code']);
     }
