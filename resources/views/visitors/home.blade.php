@@ -344,7 +344,8 @@
         </div>
     </section>
 
-    {{-- ============ Companies ============ --}}
+    {{-- ============ Companies (hidden when no company is active in Company Carousel) ============ --}}
+    @if ($companies->isNotEmpty())
     <section class="hx-section" id="companies">
         <div class="container">
             <div class="hx-heading hx-heading-row">
@@ -370,7 +371,7 @@
             </div>
 
             <div class="companies-slider" id="companiesSlider">
-                @forelse ($companies as $carouselEntry)
+                @foreach ($companies as $carouselEntry)
                     @php
                         $company = $carouselEntry->company;
 
@@ -473,14 +474,11 @@
                             </a>
                         </div>
                     </article>
-                @empty
-                    <div class="company-empty-state">
-                        <p>{{ __('messages.No companies available yet.') }}</p>
-                    </div>
-                @endforelse
+                @endforeach
             </div>
         </div>
     </section>
+    @endif
 
     {{-- ============ For companies ============ --}}
     <section class="hx-section hx-section-navy" id="for-companies">
