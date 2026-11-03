@@ -2057,6 +2057,9 @@ class AdminRepository
             SolarCompany::whereKey($entry->company_id)->update(['on_app' => $entry->is_active]);
         });
 
+        // The website home caches its "N verified companies" count for 5 minutes.
+        Cache::forget('home:verified-count');
+
         return ['success' => true, 'message' => $entry->is_active
             ? 'Company is active again in the carousel and the app.'
             : 'Company hidden from the carousel and the app.'];

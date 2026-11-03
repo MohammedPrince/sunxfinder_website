@@ -40,11 +40,13 @@ class MainRepository
             ->get();
     }
 
+    /** Home hero count: companies a visitor can actually get offers from (not hidden from Company Carousel). */
     public function verifiedCount(): int
     {
         return SolarCompany::where('is_verified', true)
             ->where('is_active', true)
             ->where('status', 'approved')
+            ->where('on_app', true)
             ->count();
     }
 
@@ -333,7 +335,8 @@ class MainRepository
             ->whereHas('company', function ($query) {
                 $query->where('status', 'approved')
                     ->where('is_verified', true)
-                    ->where('is_active', true);
+                    ->where('is_active', true)
+                    ->where('on_app', true);
             })
             // Average stars and count of visible ratings, shown on each card.
             ->with(['company' => fn($query) => $query
