@@ -26,6 +26,8 @@ class Customer extends Authenticatable
         'address',
         'status',
         'is_active',
+        'registration_source',
+        'preferred_language',
     ];
 
     protected $hidden = [

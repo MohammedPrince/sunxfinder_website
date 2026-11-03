@@ -23,6 +23,7 @@ class ActivityLogger
         \App\Models\SolarCompany::class => ['company', 'companies'],
         \App\Models\Quote::class => ['quote request', 'quotes'],
         \App\Models\CompanyQuotation::class => ['offer', 'quotes'],
+        \App\Models\Invoice::class => ['invoice', 'quotes'],
         \App\Models\Project::class => ['project', 'projects'],
         \App\Models\ProjectUpdate::class => ['project update', 'projects'],
         \App\Models\Rating::class => ['rating', 'ratings'],
@@ -33,8 +34,12 @@ class ActivityLogger
         \App\Models\Supplier::class => ['supplier', 'catalog'],
         \App\Models\ApplianceGroup::class => ['calculator group', 'app'],
         \App\Models\CompanyCarousel::class => ['carousel entry', 'app'],
+        \App\Models\AppSlider::class => ['app slide', 'app'],
+        \App\Models\HomeSection::class => ['app Home section', 'app'],
+        \App\Models\AdSale::class => ['ad sale', 'app'],
         \App\Models\AppVersion::class => ['app version', 'app'],
         \App\Models\ApiEndpoint::class => ['API endpoint', 'app'],
+        \App\Models\LegalSection::class => ['legal section', 'app'],
         \App\Models\Setting::class => ['setting', 'app'],
     ];
 
@@ -122,7 +127,7 @@ class ActivityLogger
 
     public static function labelFor(Model $subject): string
     {
-        foreach (['name', 'title_en', 'quote_name', 'full_name', 'username', 'label_en', 'key', 'platform'] as $attribute) {
+        foreach (['name', 'title_en', 'quote_name', 'full_name', 'username', 'label_en', 'key', 'platform', 'invoice_number'] as $attribute) {
             $value = $subject->getAttribute($attribute);
 
             if (is_string($value) && trim($value) !== '') {

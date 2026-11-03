@@ -1,21 +1,21 @@
 @extends('company.layouts.app')
 
-@section('title', $product ? 'Edit Product' : 'Add Product')
-@section('breadcrumb', 'My Products')
-@section('eyebrow', 'COMPANY CATALOG')
-@section('page-title', $product ? 'Edit Product' : 'Add Product')
-@section('page-description', 'Manage the product information and specifications displayed on your company profile.')
+@section('title', $product ? __('company/messages.products.form_edit') : __('company/messages.products.form_add'))
+@section('breadcrumb', __('company/messages.products.title'))
+@section('eyebrow', __('company/messages.products.eyebrow'))
+@section('page-title', $product ? __('company/messages.products.form_edit') : __('company/messages.products.form_add'))
+@section('page-description', __('company/messages.products.form_description'))
 
 @section('page-actions')
     <a href="{{ route('company.products.index') }}" class="btn btn-secondary">
-        &larr; Back to Products
+        {{ __('company/messages.products.back') }}
     </a>
 @endsection
 
 @section('content')
     @if ($errors->any())
         <div class="alert alert-danger">
-            <strong>Please correct the following errors:</strong>
+            <strong>{{ __('company/messages.common.fix_errors') }}</strong>
             <ul class="mb-0">
                 @foreach ($errors->all() as $error)
                     <li>{{ $error }}</li>
@@ -63,16 +63,16 @@
                             <i data-lucide="package"></i>
                         </div>
                         <div>
-                            <h2>Product Information</h2>
-                            <p>Enter the basic details of your solar product.</p>
+                            <h2>{{ __('company/messages.products.info') }}</h2>
+                            <p>{{ __('company/messages.products.info_sub') }}</p>
                         </div>
                     </div>
 
                     <div class="product-form-grid">
                         <div class="product-field">
-                            <label for="supplier_id">Supplier / Brand <span>*</span></label>
+                            <label for="supplier_id">{{ __('company/messages.products.supplier_brand') }} <span>*</span></label>
                             <select name="supplier_id" id="supplier_id" required>
-                                <option value="">Select supplier</option>
+                                <option value="">{{ __('company/messages.products.select_supplier') }}</option>
                                 @foreach ($suppliers as $supplier)
                                     <option value="{{ $supplier->id }}" @selected((string) old('supplier_id', $product?->supplier_id) === (string) $supplier->id)>
                                         {{ $supplier->name }}
@@ -85,14 +85,14 @@
                         </div>
 
                         <div class="product-field">
-                            <label for="type">Product Category <span>*</span></label>
+                            <label for="type">{{ __('company/messages.products.category') }} <span>*</span></label>
                             <select name="type" id="type" required>
-                                <option value="">Select category</option>
+                                <option value="">{{ __('company/messages.products.select_category') }}</option>
                                 @foreach ([
-            'inverter' => 'Inverter',
-            'solar_panel' => 'Solar Panel',
-            'battery' => 'Battery',
-            'other' => 'Other',
+            'inverter' => __('company/messages.common.product_type_inverter'),
+            'solar_panel' => __('company/messages.common.product_type_solar_panel'),
+            'battery' => __('company/messages.common.product_type_battery'),
+            'other' => __('company/messages.common.product_type_other'),
         ] as $value => $label)
                                     <option value="{{ $value }}" @selected(old('type', $product?->type) === $value)>
                                         {{ $label }}
@@ -105,9 +105,9 @@
                         </div>
 
                         <div class="product-field">
-                            <label for="name">Product Name <span>*</span></label>
+                            <label for="name">{{ __('company/messages.products.name') }} <span>*</span></label>
                             <input type="text" name="name" id="name" maxlength="150"
-                                placeholder="e.g. Hybrid Solar Inverter" value="{{ old('name', $product?->name) }}"
+                                placeholder="{{ __('company/messages.products.name_placeholder') }}" value="{{ old('name', $product?->name) }}"
                                 required>
                             @error('name')
                                 <small class="product-field-error">{{ $message }}</small>
@@ -115,8 +115,8 @@
                         </div>
 
                         <div class="product-field">
-                            <label for="model">Model Number</label>
-                            <input type="text" name="model" id="model" maxlength="100" placeholder="e.g. M88PW PRO"
+                            <label for="model">{{ __('company/messages.products.model_number') }}</label>
+                            <input type="text" name="model" id="model" maxlength="100" placeholder="{{ __('company/messages.products.model_placeholder') }}"
                                 value="{{ old('model', $product?->model) }}">
                             @error('model')
                                 <small class="product-field-error">{{ $message }}</small>
@@ -124,9 +124,9 @@
                         </div>
 
                         <div class="product-field product-field-full">
-                            <label for="description">Description</label>
+                            <label for="description">{{ __('company/messages.products.description') }}</label>
                             <textarea name="description" id="description" rows="4"
-                                placeholder="Describe the product and its main features...">{{ old('description', $product?->description) }}</textarea>
+                                placeholder="{{ __('company/messages.products.description_placeholder') }}">{{ old('description', $product?->description) }}</textarea>
                             @error('description')
                                 <small class="product-field-error">{{ $message }}</small>
                             @enderror
@@ -141,35 +141,33 @@
                             <i data-lucide="list-checks"></i>
                         </div>
                         <div>
-                            <h2>Product Specifications</h2>
-                            <p>Add technical details relevant to this product.</p>
+                            <h2>{{ __('company/messages.products.specs') }}</h2>
+                            <p>{{ __('company/messages.products.specs_sub') }}</p>
                         </div>
                     </div>
 
                     <div class="product-spec-examples">
-                        <strong>Examples:</strong>
-                        Inverter — Capacity, MPPT, Output Voltage.
-                        Solar Panel — Wattage, Cell Type, Efficiency.
-                        Battery — Capacity, Voltage, Chemistry.
+                        <strong>{{ __('company/messages.products.examples') }}</strong>
+                        {{ __('company/messages.products.examples_body') }}
                     </div>
 
                     <div id="product-specs">
                         @foreach ($specRows as $i => $spec)
                             <div class="product-spec-row">
                                 <div class="product-field">
-                                    <label>Specification Name</label>
+                                    <label>{{ __('company/messages.products.spec_name') }}</label>
                                     <input type="text" name="specs[{{ $i }}][name]"
-                                        placeholder="e.g. Capacity" value="{{ $spec['name'] ?? '' }}">
+                                        placeholder="{{ __('company/messages.products.spec_name_placeholder') }}" value="{{ $spec['name'] ?? '' }}">
                                 </div>
 
                                 <div class="product-field">
-                                    <label>Specification Value</label>
-                                    <input type="text" name="specs[{{ $i }}][value]" placeholder="e.g. 5 kW"
+                                    <label>{{ __('company/messages.products.spec_value') }}</label>
+                                    <input type="text" name="specs[{{ $i }}][value]" placeholder="{{ __('company/messages.products.spec_value_placeholder') }}"
                                         value="{{ $spec['value'] ?? '' }}">
                                 </div>
 
-                                <button type="button" class="product-spec-remove" aria-label="Remove specification"
-                                    title="Remove specification" @if (count($specRows) === 1) disabled @endif>
+                                <button type="button" class="product-spec-remove" aria-label="{{ __('company/messages.products.remove_spec') }}"
+                                    title="{{ __('company/messages.products.remove_spec') }}" @if (count($specRows) === 1) disabled @endif>
                                     <i data-lucide="trash-2"></i>
                                 </button>
                             </div>
@@ -178,7 +176,7 @@
 
                     <button type="button" class="btn btn-secondary product-add-spec" id="add-spec">
                         <i data-lucide="plus"></i>
-                        Add Specification
+                        {{ __('company/messages.products.add_spec') }}
                     </button>
                 </section>
             </div>
@@ -191,15 +189,15 @@
                             <i data-lucide="eye"></i>
                         </div>
                         <div>
-                            <h2>Visibility</h2>
-                            <p>Control whether customers can see this product.</p>
+                            <h2>{{ __('company/messages.products.visibility') }}</h2>
+                            <p>{{ __('company/messages.products.visibility_sub') }}</p>
                         </div>
                     </div>
 
                     <label class="product-visibility-option" for="is_active">
                         <span class="product-visibility-text">
-                            <strong>Show on company profile</strong>
-                            <small>Allow visitors to see this product on your public profile.</small>
+                            <strong>{{ __('company/messages.products.show_on_profile') }}</strong>
+                            <small>{{ __('company/messages.products.show_on_profile_sub') }}</small>
                         </span>
 
                         <input type="checkbox" name="is_active" value="1" id="is_active" @checked((bool) old('is_active', $product?->is_active ?? true))>
@@ -208,10 +206,9 @@
 
                 <section class="panel product-form-panel product-help-panel">
                     <i data-lucide="lightbulb"></i>
-                    <h3>Helpful Tip</h3>
+                    <h3>{{ __('company/messages.products.tip') }}</h3>
                     <p>
-                        Add accurate specifications so customers can understand your product
-                        and compare technical features.
+                        {{ __('company/messages.products.tip_body') }}
                     </p>
                 </section>
             </aside>
@@ -219,12 +216,12 @@
 
         <div class="product-form-footer">
             <a href="{{ route('company.products.index') }}" class="btn btn-secondary">
-                Cancel
+                {{ __('company/messages.common.cancel') }}
             </a>
 
             <button type="submit" class="btn btn-primary">
                 <i data-lucide="check"></i>
-                {{ $product ? 'Save Changes' : 'Add Product' }}
+                {{ $product ? __('company/messages.common.save_changes') : __('company/messages.products.form_add') }}
             </button>
         </div>
     </form>
@@ -269,12 +266,12 @@
                     nameField.className = 'product-field';
 
                     const nameLabel = document.createElement('label');
-                    nameLabel.textContent = 'Specification Name';
+                    nameLabel.textContent = @json(__('company/messages.products.spec_name'));
 
                     const nameInput = document.createElement('input');
                     nameInput.type = 'text';
                     nameInput.name = `specs[${nextIndex}][name]`;
-                    nameInput.placeholder = 'e.g. Capacity';
+                    nameInput.placeholder = @json(__('company/messages.products.spec_name_placeholder'));
 
                     nameField.append(nameLabel, nameInput);
 
@@ -282,20 +279,20 @@
                     valueField.className = 'product-field';
 
                     const valueLabel = document.createElement('label');
-                    valueLabel.textContent = 'Specification Value';
+                    valueLabel.textContent = @json(__('company/messages.products.spec_value'));
 
                     const valueInput = document.createElement('input');
                     valueInput.type = 'text';
                     valueInput.name = `specs[${nextIndex}][value]`;
-                    valueInput.placeholder = 'e.g. 5 kW';
+                    valueInput.placeholder = @json(__('company/messages.products.spec_value_placeholder'));
 
                     valueField.append(valueLabel, valueInput);
 
                     const removeButton = document.createElement('button');
                     removeButton.type = 'button';
                     removeButton.className = 'product-spec-remove';
-                    removeButton.setAttribute('aria-label', 'Remove specification');
-                    removeButton.title = 'Remove specification';
+                    removeButton.setAttribute('aria-label', @json(__('company/messages.products.remove_spec')));
+                    removeButton.title = @json(__('company/messages.products.remove_spec'));
                     removeButton.innerHTML = '<i data-lucide="trash-2"></i>';
 
                     row.append(nameField, valueField, removeButton);

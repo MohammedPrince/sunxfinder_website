@@ -5,8 +5,9 @@ use App\Http\Controllers\Admin\MainController;
 use App\Http\Controllers\Company\AuthController as CompanyAuthController;
 use App\Http\Controllers\Company\MainController as CompanyMainController;
 use App\Http\Controllers\Company\ProjectController;
+use App\Http\Middleware\CompanyAdvertisingAccess;
+use App\Http\Middleware\CompanyValidationLines;
 use App\Http\Controllers\WebsiteController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 
@@ -19,6 +20,14 @@ use Illuminate\Support\Facades\Route;
 // site.maintenance: shows the maintenance page when it is on (Admin → Settings).
 Route::controller(WebsiteController::class)->middleware('site.maintenance')->group(function () {
     Route::get('/', 'index')->name('home');
+
+    // Counts an ad click, then sends the visitor on to the ad's own link.
+    Route::get('/go/{type}/{id}/{platform?}', 'adClick')
+        ->whereIn('type', ['slider', 'carousel'])
+        ->whereNumber('id')
+        ->whereIn('platform', ['app', 'website'])
+        ->middleware('throttle:120,1')
+        ->name('ad.click');
     Route::get('/companies/{slug}', 'showCompany')->name('company-profile.show');
 
     // "Open in App": opens the company in the mobile app, or falls back to the store/website.
@@ -46,14 +55,9 @@ Route::controller(WebsiteController::class)->middleware('site.maintenance')->gro
     });
 });
 
-// Legal pages: ?lang=ar shows the Arabic version
-Route::get('/terms', function (Request $request) {
-    return view($request->query('lang', app()->getLocale()) === 'ar' ? 'visitors.terms-ar' : 'visitors.terms');
-})->name('terms');
-
-Route::get('/privacy-policy', function (Request $request) {
-    return view($request->query('lang', app()->getLocale()) === 'ar' ? 'visitors.privacy-policy-ar' : 'visitors.privacy-policy');
-})->name('privacy-policy');
+// Legal pages: ?lang=ar shows the Arabic version (text from Admin → System → Privacy & Terms)
+Route::get('/terms', [WebsiteController::class, 'terms'])->name('terms');
+Route::get('/privacy-policy', [WebsiteController::class, 'privacyPolicy'])->name('privacy-policy');
 
 /*
 |--------------------------------------------------------------------------
@@ -158,7 +162,30 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::post('/', 'companyCarouselStore')->name('store');
                 Route::get('/{id}/edit', 'companyCarouselEdit')->whereNumber('id')->name('edit');
                 Route::put('/{id}', 'companyCarouselUpdate')->whereNumber('id')->name('update');
+                Route::patch('/{id}/toggle', 'companyCarouselToggle')->whereNumber('id')->name('toggle');
                 Route::delete('/{id}', 'companyCarouselDestroy')->whereNumber('id')->name('destroy');
+            });
+
+            // Mobile app home slider (ads)
+            // Ad sales: what was sold, payment and results
+            Route::prefix('ad-sales')->name('ad-sales.')->group(function () {
+                Route::get('/', 'adSales')->name('index');
+                Route::get('/report', 'adReport')->name('report');
+                Route::get('/create', 'createAdSale')->name('create');
+                Route::post('/', 'storeAdSale')->name('store');
+                Route::get('/{id}/edit', 'editAdSale')->whereNumber('id')->name('edit');
+                Route::put('/{id}', 'updateAdSale')->whereNumber('id')->name('update');
+                Route::delete('/{id}', 'destroyAdSale')->whereNumber('id')->name('destroy');
+            });
+
+            Route::prefix('app-sliders')->name('app-sliders.')->group(function () {
+                Route::get('/', 'appSliders')->name('index');
+                Route::get('/create', 'createAppSlider')->name('create');
+                Route::post('/', 'storeAppSlider')->name('store');
+                Route::get('/{id}/edit', 'editAppSlider')->whereNumber('id')->name('edit');
+                Route::put('/{id}', 'updateAppSlider')->whereNumber('id')->name('update');
+                Route::patch('/{id}/toggle', 'toggleAppSlider')->whereNumber('id')->name('toggle');
+                Route::delete('/{id}', 'destroyAppSlider')->whereNumber('id')->name('destroy');
             });
 
             // Mobile app versions
@@ -189,6 +216,20 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::post('/{id}/nudge', 'nudgeCompaniesForQuote')->whereNumber('id')->middleware('throttle:10,1')->name('nudge');
             });
 
+            // Platform-wide project oversight and stalled-project follow-up.
+            Route::prefix('projects')->name('projects.')->group(function () {
+                Route::get('/', 'projects')->name('index');
+                Route::get('/{id}', 'projectDetails')->whereNumber('id')->name('show');
+            });
+
+            // Customer complaints and company follow-up.
+            Route::prefix('complaints')->name('complaints.')->group(function () {
+                Route::get('/', 'complaints')->name('index');
+                Route::get('/{id}', 'complaintDetails')->whereNumber('id')->name('show');
+                Route::put('/{id}', 'updateComplaint')->whereNumber('id')->name('update');
+                Route::post('/{id}/company-email', 'emailComplaintToCompany')->whereNumber('id')->name('company-email');
+            });
+
             // Background jobs: queue health and failed emails/pushes with retry
             Route::prefix('background-jobs')->name('queue.')->group(function () {
                 Route::get('/', 'backgroundJobs')->name('index');
@@ -204,6 +245,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::get('/', 'notifications')->name('index');
                 Route::get('/create', 'createNotification')->name('create');
                 Route::post('/', 'storeNotification')->name('store');
+                // Rich customer campaign: offer / new company / news with image and link
+                Route::get('/campaign', 'createCampaign')->name('campaign.create');
+                Route::post('/campaign', 'storeCampaign')->middleware('throttle:10,1')->name('campaign.store');
                 Route::get('/{notification}', 'showNotification')->whereNumber('notification')->name('show');
                 Route::delete('/{notification}', 'destroyNotification')->whereNumber('notification')->name('destroy');
             });
@@ -233,11 +277,19 @@ Route::prefix('admin')->name('admin.')->group(function () {
             // Send Email: admin writes to a solar company (from info@, bcc the owner)
             Route::get('/send-email', 'sendEmail')->name('send-email.index');
             Route::post('/send-email', 'sendEmailSubmit')->middleware('throttle:20,1')->name('send-email.send');
+            Route::post('/send-email/{sentEmail}/resend', 'resendSentEmail')->name('send-email.resend');
+            Route::delete('/send-email/{sentEmail}', 'deleteSentEmail')->name('send-email.delete');
 
             // App settings (open quote limit, ...)
             Route::get('/settings', 'settings')->name('settings.index');
             Route::put('/settings', 'updateSettings')->name('settings.update');
             Route::post('/settings/customer-quote-limit', 'updateCustomerQuoteLimit')->name('settings.customer-quote-limit');
+            Route::post('/settings/company-notification-access', 'updateCompanyNotificationAccess')->name('settings.company-notification-access');
+            Route::post('/settings/company-notification-limit', 'updateCompanyNotificationLimit')->name('settings.company-notification-limit');
+            // App Home sections: show/hide, companies on/off, titles (GET /api/v1/customer/home-sections)
+            Route::put('/settings/home-sections/{key}', 'updateHomeSection')
+                ->whereIn('key', array_keys(\App\Models\HomeSection::SECTIONS))
+                ->name('settings.home-sections.update');
 
             // API servers the app can use: one active, each online/offline (GET /api/v1/api-config)
             Route::prefix('settings/api-endpoints')->name('settings.api-endpoints.')->group(function () {
@@ -255,6 +307,23 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::delete('/{file}', 'deleteDatabaseBackup')->where('file', '[A-Za-z0-9_\-]+\.sql')->name('destroy');
             });
 
+            // Privacy Policy and Terms text, section by section, in English and Arabic
+            Route::prefix('legal-pages')->name('legal.')->group(function () {
+                Route::get('/', 'legalPages')->name('index');
+                Route::get('/{page}/create', 'createLegalSection')->whereIn('page', ['privacy', 'terms'])->name('create');
+                Route::post('/{page}', 'storeLegalSection')->whereIn('page', ['privacy', 'terms'])->name('store');
+                Route::post('/{page}/load-current', 'loadLegalDefaults')->whereIn('page', ['privacy', 'terms'])->name('load');
+                Route::get('/sections/{id}/edit', 'editLegalSection')->whereNumber('id')->name('edit');
+                Route::put('/sections/{id}', 'updateLegalSection')->whereNumber('id')->name('update');
+                Route::patch('/sections/{id}/toggle', 'toggleLegalSection')->whereNumber('id')->name('toggle');
+                Route::patch('/sections/{id}/move', 'moveLegalSection')->whereNumber('id')->name('move');
+                Route::delete('/sections/{id}', 'destroyLegalSection')->whereNumber('id')->name('destroy');
+            });
+
+            // Archived website and app records. Removing an archive entry is a soft delete.
+            Route::get('/archives', 'archives')->name('archives.index');
+            Route::delete('/archives/{archivedItem}', 'deleteArchivedItem')->whereNumber('archivedItem')->name('archives.destroy');
+
             // Activity logs (admins, companies and customers). Admin only.
             Route::prefix('activity-logs')->name('logs.')->group(function () {
                 Route::get('/', 'activityLogs')->name('index');
@@ -271,7 +340,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::prefix('company')->name('company.')->group(function () {
+Route::prefix('company')->name('company.')->middleware(CompanyValidationLines::class)->group(function () {
 
     // /company -> dashboard when logged in, otherwise the login page
     Route::get('/', function () {
@@ -325,7 +394,12 @@ Route::prefix('company')->name('company.')->group(function () {
                 Route::get('/', 'quoteRequests')->name('index');
                 Route::get('/{id}', 'quoteRequestDetails')->whereNumber('id')->name('show');
                 Route::post('/{id}/offer', 'submitQuoteOffer')->whereNumber('id')->name('offer.store');
+                Route::get('/{id}/invoice', 'showQuoteInvoice')->whereNumber('id')->name('invoice');
+                Route::get('/{id}/invoice/pdf', 'downloadQuoteInvoice')->whereNumber('id')->middleware('throttle:30,1')->name('invoice.pdf');
             });
+
+            Route::get('/invoices', 'companyInvoices')->name('invoices.index');
+            Route::delete('/invoices/{id}', 'deleteCompanyInvoice')->whereNumber('id')->name('invoices.destroy');
 
             // Push notifications
             Route::prefix('notifications')->name('notifications.')->group(function () {
@@ -334,6 +408,15 @@ Route::prefix('company')->name('company.')->group(function () {
                 Route::post('/', 'storeNotification')->name('store');
                 Route::get('/{notification}', 'showNotification')->whereNumber('notification')->name('show');
                 Route::delete('/{notification}', 'destroyNotification')->whereNumber('notification')->name('destroy');
+            });
+
+            // Advertising: the company's ads, results, and requests for new ones
+            Route::prefix('advertising')->name('ads.')->middleware(CompanyAdvertisingAccess::class)->group(function () {
+                Route::get('/', 'companyAds')->name('index');
+                Route::get('/report', 'companyAdReport')->name('report');
+                Route::get('/request', 'createAdRequest')->name('create');
+                Route::post('/request', 'storeAdRequest')->middleware('throttle:10,1')->name('store');
+                Route::delete('/request/{id}', 'cancelAdRequest')->whereNumber('id')->name('cancel');
             });
 
             // Customers who accepted this company's offers

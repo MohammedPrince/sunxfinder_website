@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Validator;
 use Kreait\Firebase\Messaging\CloudMessage;
 use Kreait\Firebase\Messaging\Notification as FcmNotification;
 use Kreait\Firebase\Contract\Messaging;
+use App\Support\AdTracker;
 
 class WebsiteController extends Controller
 {
@@ -24,9 +25,50 @@ class WebsiteController extends Controller
         $this->mainService = $mainService;
     }
 
+    public function terms(Request $request)
+    {
+        return $this->legalPage($request, 'terms', 'visitors.terms');
+    }
+
+    public function privacyPolicy(Request $request)
+    {
+        return $this->legalPage($request, 'privacy', 'visitors.privacy-policy');
+    }
+
+    /** ?lang=ar shows the Arabic version. Pages without admin text use the built-in view. */
+    private function legalPage(Request $request, string $page, string $builtInView)
+    {
+        $lang = $request->query('lang', app()->getLocale()) === 'ar' ? 'ar' : 'en';
+        $legal = $this->mainService->getLegalPage($page);
+
+        if (!$legal) {
+            return view($lang === 'ar' ? $builtInView . '-ar' : $builtInView);
+        }
+
+        return view('visitors.legal-page', [...$legal, 'lang' => $lang]);
+    }
+
+    // Counts the click (not for link previews) and redirects only to the ad's stored target.
+    public function adClick(string $type, int $id, string $platform = 'website')
+    {
+        $target = $this->mainService->getAdTarget($type, $id);
+
+        if (!AdTracker::isBot(request()->userAgent()) && $target) {
+            AdTracker::click($type, $id, $platform);
+        }
+
+        return redirect()->away($target ?? route('home'));
+    }
+
     public function index()
     {
         $companies = $this->mainService->getWebsiteCompanyCarousel();
+        $adBanners = $this->mainService->getWebsiteBanners();
+
+        if (!AdTracker::isBot(request()->userAgent())) {
+            AdTracker::views('slider', collect($adBanners)->pluck('id')->all(), 'website', session()->getId());
+            AdTracker::views('carousel', $companies->pluck('id')->all(), 'website', session()->getId());
+        }
 
         // Counts are only display numbers: a few minutes old is fine, and it saves
         // a COUNT(*) on the ever-growing visitors table for every home page view.
@@ -51,6 +93,7 @@ class WebsiteController extends Controller
 
         return view('visitors.home', compact(
             'companies',
+            'adBanners',
             'verifiedCount',
             'visitorCount',
             'appLinks',

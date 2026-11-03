@@ -1,22 +1,22 @@
 @extends('company.layouts.app')
-@section('title', 'Dashboard')
-@section('breadcrumb', 'Dashboard')
-@section('eyebrow', 'COMPANY WORKSPACE')
-@section('page-title', 'Dashboard overview')
-@section('page-description', 'Here is what is happening with ' . ($company->name ?? 'your company') . ' today.')
+@section('title', __('company/messages.dashboard.title'))
+@section('breadcrumb', __('company/messages.dashboard.title'))
+@section('eyebrow', __('company/messages.dashboard.eyebrow'))
+@section('page-title', __('company/messages.dashboard.page_title'))
+@section('page-description', __('company/messages.dashboard.page_description', ['company' => $company->name ?? __('company/messages.dashboard.your_company')]))
 @section('page-actions')
-    <a class="btn btn-light" href="{{ route('company.products.index') }}">My products</a>
-    <a class="btn btn-primary" href="{{ route('company.quote-requests.index') }}">Browse quote requests</a>
+    <a class="btn btn-light" href="{{ route('company.products.index') }}">{{ __('company/messages.dashboard.my_products') }}</a>
+    <a class="btn btn-primary" href="{{ route('company.quote-requests.index') }}">{{ __('company/messages.dashboard.browse_requests') }}</a>
 @endsection
 
 @section('content')
     @php
         $requestStatusLabels = [
-            'pending' => 'Pending',
-            'accepted' => 'Accepted',
-            'rejected' => 'Rejected',
-            'completed' => 'Completed',
-            'cancelled' => 'Cancelled',
+            'pending' => __('company/messages.common.pending'),
+            'accepted' => __('company/messages.common.accepted'),
+            'rejected' => __('company/messages.common.rejected'),
+            'completed' => __('company/messages.common.completed'),
+            'cancelled' => __('company/messages.common.cancelled'),
         ];
 
         $requestStatusClasses = [
@@ -28,10 +28,10 @@
         ];
 
         $offerStatusLabels = [
-            'submitted' => 'Pending',
-            'selected' => 'Selected',
-            'not_selected' => 'Not Selected',
-            'withdrawn' => 'Rejected',
+            'submitted' => __('company/messages.common.pending'),
+            'selected' => __('company/messages.common.selected'),
+            'not_selected' => __('company/messages.dashboard.status_not_selected'),
+            'withdrawn' => __('company/messages.common.rejected'),
         ];
 
         $offerStatusClasses = [
@@ -63,16 +63,15 @@
 
     @if ($company && $company->status !== 'approved')
         <div class="dashboard-notice">
-            <strong>Your company profile is {{ $company->status === 'rejected' ? 'not approved' : 'awaiting approval' }}.</strong>
-            <span>Customers can find you on SunXFinder after an administrator approves your profile.
-                Keep your <a href="{{ route('company.profile') }}">company profile</a> complete to speed this up.</span>
+            <strong>{{ $company->status === 'rejected' ? __('company/messages.dashboard.not_approved_notice') : __('company/messages.dashboard.awaiting_notice') }}</strong>
+            <span>{!! __('company/messages.dashboard.approval_body', ['link' => '<a href="' . route('company.profile') . '">' . e(__('company/messages.dashboard.company_profile')) . '</a>']) !!}</span>
         </div>
     @endif
 
     <section class="stats-grid">
         <article class="stat-card">
             <div class="stat-top">
-                <span>Awaiting your offer</span>
+                <span>{{ __('company/messages.dashboard.awaiting_offer') }}</span>
                 <span class="stat-icon orange">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -84,21 +83,21 @@
             <div class="stat-value">{{ number_format($awaitingOffer) }}</div>
             <div class="stat-foot">
                 @if ($awaitingOffer > 0)
-                    <b class="warning">Needs attention</b>
+                    <b class="warning">{{ __('company/messages.dashboard.needs_attention') }}</b>
                 @else
-                    <b class="positive">All caught up</b>
+                    <b class="positive">{{ __('company/messages.dashboard.all_caught_up') }}</b>
                 @endif
-                {{ number_format($pendingRequests) }} open requests
+                {{ __('company/messages.dashboard.open_requests', ['count' => number_format($pendingRequests)]) }}
             </div>
             <div class="stat-progress">
                 <span style="width:{{ $percentOf($pendingRequests - $awaitingOffer, $pendingRequests) }}%"></span>
             </div>
-            <small>Open requests you have already offered on</small>
+            <small>{{ __('company/messages.dashboard.open_offered') }}</small>
         </article>
 
         <article class="stat-card">
             <div class="stat-top">
-                <span>Offers submitted</span>
+                <span>{{ __('company/messages.dashboard.offers_submitted') }}</span>
                 <span class="stat-icon purple">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -110,11 +109,11 @@
             <div class="stat-value">{{ number_format($offers['total']) }}</div>
             <div class="stat-foot">
                 @if ($offers['win_rate'] !== null)
-                    <b class="positive">{{ $offers['win_rate'] }}% win rate</b>
+                    <b class="positive">{{ __('company/messages.dashboard.win_rate', ['rate' => $offers['win_rate']]) }}</b>
                 @endif
-                {{ number_format($offers['selected']) }} selected by customers
+                {{ __('company/messages.dashboard.selected_by_customers', ['count' => number_format($offers['selected'])]) }}
             </div>
-            <div class="mini-bars" title="Offers per day, last 7 days">
+            <div class="mini-bars" title="{{ __('company/messages.dashboard.offers_per_day') }}">
                 @foreach ($activity as $day)
                     <i style="height:{{ max(8, $barHeight($day['offers'])) }}%"></i>
                 @endforeach
@@ -123,7 +122,7 @@
 
         <article class="stat-card">
             <div class="stat-top">
-                <span>Active projects</span>
+                <span>{{ __('company/messages.dashboard.active_projects') }}</span>
                 <span class="stat-icon blue">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -134,18 +133,18 @@
             </div>
             <div class="stat-value">{{ number_format($projects['active']) }}</div>
             <div class="stat-foot">
-                <b class="positive">{{ number_format($projects['completed']) }} completed</b>
-                {{ number_format($projects['in_progress']) }} in progress
+                <b class="positive">{{ __('company/messages.dashboard.completed_count', ['count' => number_format($projects['completed'])]) }}</b>
+                {{ __('company/messages.dashboard.in_progress_count', ['count' => number_format($projects['in_progress'])]) }}
             </div>
             <div class="stat-progress green-progress">
                 <span style="width:{{ $projects['average_progress'] }}%"></span>
             </div>
-            <small>{{ $projects['average_progress'] }}% average progress on active projects</small>
+            <small>{{ __('company/messages.dashboard.average_progress', ['percent' => $projects['average_progress']]) }}</small>
         </article>
 
         <article class="stat-card">
             <div class="stat-top">
-                <span>Products listed</span>
+                <span>{{ __('company/messages.dashboard.products_listed') }}</span>
                 <span class="stat-icon green">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -156,32 +155,94 @@
             </div>
             <div class="stat-value">{{ number_format($products['total']) }}</div>
             <div class="stat-foot">
-                <b class="positive">{{ number_format($products['active']) }} active</b>
-                {{ number_format($products['total'] - $products['active']) }} hidden
+                <b class="positive">{{ __('company/messages.dashboard.active_count', ['count' => number_format($products['active'])]) }}</b>
+                {{ __('company/messages.dashboard.hidden_count', ['count' => number_format($products['total'] - $products['active'])]) }}
             </div>
             <div class="stat-progress green-progress">
                 <span style="width:{{ $percentOf($products['active'], $products['total']) }}%"></span>
             </div>
-            <small>Visible to customers on your profile</small>
+            <small>{{ __('company/messages.dashboard.visible_customers') }}</small>
         </article>
+    </section>
+
+    {{-- Rating, customers and advertising --}}
+    <section class="stats-grid" style="margin-top:15px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+        <article class="stat-card">
+            <div class="stat-top">
+                <span>{{ __('company/messages.dashboard.your_rating') }}</span>
+                <span class="stat-icon blue">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9Z" />
+                    </svg>
+                </span>
+            </div>
+            <div class="stat-value" dir="ltr">{{ $rating['average'] !== null ? $rating['average'] . ' ★' : '—' }}</div>
+            <div class="stat-foot">
+                {{ $rating['count'] ? __('company/messages.dashboard.rating_counts', ['count' => number_format($rating['count']), 'month' => number_format($rating['this_month'])]) : __('company/messages.dashboard.no_ratings') }}
+            </div>
+            <div class="stat-progress green-progress">
+                <span style="width:{{ $rating['average'] !== null ? round($rating['average'] / 5 * 100) : 0 }}%"></span>
+            </div>
+            <small><a class="text-link" href="{{ route('company.ratings.index') }}">{{ __('company/messages.dashboard.view_ratings') }} ↗</a></small>
+        </article>
+
+        <article class="stat-card">
+            <div class="stat-top">
+                <span>{{ __('company/messages.dashboard.customers_served') }}</span>
+                <span class="stat-icon green">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="10" cy="7" r="4" />
+                    </svg>
+                </span>
+            </div>
+            <div class="stat-value">{{ number_format($customersServed) }}</div>
+            <div class="stat-foot">{{ __('company/messages.dashboard.customers_served_sub') }}</div>
+            <small><a class="text-link" href="{{ route('company.customers.index') }}">{{ __('company/messages.dashboard.view_customers') }} ↗</a></small>
+        </article>
+
+        @if ($ads)
+            <article class="stat-card">
+                <div class="stat-top">
+                    <span>{{ __('company/messages.dashboard.ad_views') }}</span>
+                    <span class="stat-icon orange">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M3 11v2a1 1 0 0 0 1 1h3l9 5V5L7 10H4a1 1 0 0 0-1 1Z" />
+                            <path d="M19.5 9.5a3.5 3.5 0 0 1 0 5" />
+                        </svg>
+                    </span>
+                </div>
+                <div class="stat-value">{{ number_format($ads['views']) }}</div>
+                <div class="stat-foot">
+                    {{ __('company/messages.dashboard.ad_clicks', [
+                        'clicks' => number_format($ads['clicks']),
+                        'rate' => $ads['click_rate'] !== null ? __('company/messages.dashboard.of_views', ['rate' => $ads['click_rate']]) : __('company/messages.dashboard.no_views'),
+                    ]) }}
+                </div>
+                <small><a class="text-link" href="{{ route('company.ads.index') }}">{{ __('company/messages.dashboard.ads_running', ['count' => number_format($ads['active'])]) }} ↗</a></small>
+            </article>
+        @endif
     </section>
 
     <section class="content-grid">
         <article class="panel">
             <div class="panel-heading">
                 <div>
-                    <h2>Your activity</h2>
-                    <p>New quote requests and offers you sent, last 7 days</p>
+                    <h2>{{ __('company/messages.dashboard.your_activity') }}</h2>
+                    <p>{{ __('company/messages.dashboard.activity_sub') }}</p>
                 </div>
             </div>
             <div class="chart-legend">
-                <span>● Quote requests</span>
-                <span class="orange-text">● Your offers</span>
+                <span>{{ __('company/messages.dashboard.legend_requests') }}</span>
+                <span class="orange-text">{{ __('company/messages.dashboard.legend_offers') }}</span>
             </div>
             <div class="simple-chart">
                 @foreach ($activity as $day)
                     <div class="chart-col"
-                        title="{{ $day['date'] }}: {{ $day['requests'] }} requests, {{ $day['offers'] }} offers">
+                        title="{{ __('company/messages.dashboard.chart_title', ['date' => $day['date'], 'requests' => $day['requests'], 'offers' => $day['offers']]) }}">
                         <i style="height:{{ $barHeight($day['requests']) }}%"></i>
                         <b style="height:{{ $barHeight($day['offers']) }}%"></b>
                     </div>
@@ -197,53 +258,53 @@
         <article class="panel">
             <div class="panel-heading">
                 <div>
-                    <h2>Offer outcomes</h2>
-                    <p>How customers responded to your offers</p>
+                    <h2>{{ __('company/messages.dashboard.offer_outcomes') }}</h2>
+                    <p>{{ __('company/messages.dashboard.outcomes_sub') }}</p>
                 </div>
             </div>
             <div class="donut-area">
                 <div class="donut" style="background:{{ $donutBackground }}">
-                    <div><strong>{{ number_format($offers['total']) }}</strong><small>Offers</small></div>
+                    <div><strong>{{ number_format($offers['total']) }}</strong><small>{{ __('company/messages.dashboard.offers') }}</small></div>
                 </div>
             </div>
             <div class="status-list">
                 <div>
-                    <span class="positive">● Selected</span>
+                    <span class="positive">{{ __('company/messages.dashboard.legend_selected') }}</span>
                     <strong>{{ number_format($offers['selected']) }} <small>{{ $selectedShare }}%</small></strong>
                 </div>
                 <div>
-                    <span class="orange-text">● Awaiting customer</span>
+                    <span class="orange-text">{{ __('company/messages.dashboard.legend_awaiting') }}</span>
                     <strong>{{ number_format($offers['submitted']) }} <small>{{ $awaitingShare }}%</small></strong>
                 </div>
                 <div>
-                    <span class="gray-text">● Not selected / withdrawn</span>
+                    <span class="gray-text">{{ __('company/messages.dashboard.legend_closed') }}</span>
                     <strong>{{ number_format($offers['not_selected'] + $offers['withdrawn']) }}
                         <small>{{ $closedShare }}%</small></strong>
                 </div>
             </div>
-            <a class="text-link" href="{{ route('company.projects.index') }}">View projects →</a>
+            <a class="text-link" href="{{ route('company.projects.index') }}">{{ __('company/messages.dashboard.view_projects') }}</a>
         </article>
     </section>
 
     <section class="panel table-panel">
         <div class="panel-heading">
             <div>
-                <h2>Latest quote requests</h2>
-                <p>Newest customer enquiries available to your company</p>
+                <h2>{{ __('company/messages.dashboard.latest_requests') }}</h2>
+                <p>{{ __('company/messages.dashboard.latest_sub') }}</p>
             </div>
-            <a class="text-link" href="{{ route('company.quote-requests.index') }}">View all →</a>
+            <a class="text-link" href="{{ route('company.quote-requests.index') }}">{{ __('company/messages.dashboard.view_all') }}</a>
         </div>
         <div class="table-responsive">
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Request</th>
-                        <th>Customer</th>
-                        <th>Quote name</th>
-                        <th>Received</th>
-                        <th>Your offer</th>
-                        <th>Request status</th>
-                        <th>Action</th>
+                        <th>{{ __('company/messages.common.request') }}</th>
+                        <th>{{ __('company/messages.common.customer') }}</th>
+                        <th>{{ __('company/messages.common.quote_name') }}</th>
+                        <th>{{ __('company/messages.common.received') }}</th>
+                        <th>{{ __('company/messages.common.your_offer') }}</th>
+                        <th>{{ __('company/messages.dashboard.request_status') }}</th>
+                        <th>{{ __('company/messages.common.action') }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -254,7 +315,7 @@
                             $customerName = $customer?->name
                                 ?? $customer?->full_name
                                 ?? $customer?->customer_name
-                                ?? 'Customer #' . $quote->customer_id;
+                                ?? __('company/messages.common.customer_number', ['id' => $quote->customer_id]);
 
                             $myOffer = $quote->companyQuotations->first();
 
@@ -267,15 +328,17 @@
                             <td><strong>#Q-{{ str_pad((string) $quote->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
                             <td>
                                 <div class="person-cell">
-                                    <span class="person-avatar">{{ strtoupper(substr($customerName, 0, 1)) }}</span>
+                                    <span class="person-avatar">{{ name_initials($customerName) }}</span>
                                     <span>
                                         <strong>{{ $customerName }}</strong>
-                                        <small>{{ $customer?->email ?? 'No email' }}</small>
+                                        @unless ($quote->hidesCustomerContactFrom((int) $authenticatedCompanyId, $myOffer))
+                                            <small>{{ $customer?->email ?? __('company/messages.dashboard.no_email') }}</small>
+                                        @endunless
                                     </span>
                                 </div>
                             </td>
-                            <td>{{ $quote->quote_name ?? 'Solar installation' }}</td>
-                            <td>{{ $quote->created_at?->format('M d, Y') ?? '—' }}</td>
+                            <td>{{ $quote->quote_name ?? __('company/messages.common.solar_installation') }}</td>
+                            <td>{{ $quote->created_at?->translatedFormat('M d, Y') ?? '—' }}</td>
                             <td>
                                 @if ($myOffer)
                                     <strong>{{ $myOffer->currency }} {{ number_format((float) $myOffer->price, 2) }}</strong>
@@ -283,7 +346,7 @@
                                         {{ $offerStatusLabels[$myOffer->status] ?? ucfirst($myOffer->status) }}
                                     </span>
                                 @else
-                                    <span class="gray-text">No offer yet</span>
+                                    <span class="gray-text">{{ __('company/messages.dashboard.no_offer_yet') }}</span>
                                 @endif
                             </td>
                             <td>
@@ -293,15 +356,15 @@
                             </td>
                             <td>
                                 <a class="row-action" href="{{ route('company.quote-requests.show', $quote->id) }}">
-                                    {{ $canOffer ? 'Send offer' : 'View' }} ↗
+                                    {{ $canOffer ? __('company/messages.dashboard.send_offer') : __('company/messages.dashboard.view') }} ↗
                                 </a>
                             </td>
                         </tr>
                     @empty
                         <tr>
                             <td colspan="7" class="dashboard-empty">
-                                <strong>No quote requests yet.</strong>
-                                New customer requests will appear here as soon as they arrive.
+                                <strong>{{ __('company/messages.dashboard.empty_title') }}</strong>
+                                {{ __('company/messages.dashboard.empty_body') }}
                             </td>
                         </tr>
                     @endforelse

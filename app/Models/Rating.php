@@ -6,10 +6,11 @@ use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Rating extends Model
 {
-    use LogsActivity;
+    use LogsActivity, SoftDeletes;
 
     protected $table = 'tbl_ratings';
 

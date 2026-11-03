@@ -22,6 +22,6 @@
             </span>
         </div>
     @empty
-        <p class="report-empty">No data for this period.</p>
+        <p class="report-empty">{{ company_text('shared.no_data_period', 'No data for this period.') }}</p>
     @endforelse
 </div>

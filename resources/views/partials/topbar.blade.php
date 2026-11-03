@@ -14,21 +14,28 @@
 @endphp
 
 <header class="topbar">
-    <button class="icon-button mobile-menu" id="sidebarToggle" type="button" aria-label="Toggle navigation">☰</button>
+    <button class="icon-button mobile-menu" id="sidebarToggle" type="button" aria-label="{{ company_text('shared.toggle_navigation', 'Toggle navigation') }}">☰</button>
 
     <div class="topbar-left">
         <div class="breadcrumb">
             <span>SunXFinder</span>
             <span>/</span>
-            <strong>@yield('breadcrumb', 'Overview')</strong>
+            <strong>@yield('breadcrumb', company_text('shared.overview_crumb', 'Overview'))</strong>
         </div>
         <div class="topbar-greeting">
-            <span data-greeting data-name="{{ $greetingName }}">Welcome back, {{ $greetingName }}</span>
+            <span data-greeting data-name="{{ $greetingName }}">{{ company_text('shared.welcome_back', 'Welcome back, ' . $greetingName, ['name' => $greetingName]) }}</span>
         </div>
     </div>
 
     <div class="topbar-right">
-        <div class="topbar-clock" title="Your local date and time">
+        @if (company_portal())
+            <nav class="topbar-language" aria-label="{{ __('company/messages.auth.language') }}">
+                <a href="{{ request()->fullUrlWithQuery(['lang' => 'en']) }}" lang="en" @class(['is-active' => app()->isLocale('en')])>English</a>
+                <a href="{{ request()->fullUrlWithQuery(['lang' => 'ar']) }}" lang="ar" @class(['is-active' => app()->isLocale('ar')])>العربية</a>
+            </nav>
+        @endif
+
+        <div class="topbar-clock" title="{{ company_text('shared.local_time', 'Your local date and time') }}">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8"
                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <rect x="3" y="4.5" width="18" height="16.5" rx="2" />
@@ -40,11 +47,11 @@
 
         @if ($quickActions)
             <details class="topbar-menu">
-                <summary class="topbar-action" aria-label="Quick actions">
-                    <span aria-hidden="true">+</span><span class="topbar-action-label">Quick actions</span>
+                <summary class="topbar-action" aria-label="{{ company_text('shared.quick_actions', 'Quick actions') }}">
+                    <span aria-hidden="true">+</span><span class="topbar-action-label">{{ company_text('shared.quick_actions', 'Quick actions') }}</span>
                 </summary>
                 <div class="topbar-dropdown topbar-dropdown-sm">
-                    <div class="topbar-dropdown-head"><strong>Quick actions</strong></div>
+                    <div class="topbar-dropdown-head"><strong>{{ company_text('shared.quick_actions', 'Quick actions') }}</strong></div>
                     @foreach ($quickActions as $action)
                         <a class="topbar-item" href="{{ $action['url'] }}">
                             <span class="topbar-item-copy">
@@ -60,7 +67,7 @@
 
         <details class="topbar-menu">
             <summary class="icon-button topbar-bell {{ $attentionTotal ? 'has-alerts' : '' }}"
-                aria-label="Needs your attention: {{ $attentionTotal }}">
+                aria-label="{{ company_text('shared.attention_count', 'Needs your attention: ' . $attentionTotal, ['count' => $attentionTotal]) }}">
                 <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8"
                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
@@ -72,8 +79,8 @@
             </summary>
             <div class="topbar-dropdown">
                 <div class="topbar-dropdown-head">
-                    <strong>Needs your attention</strong>
-                    <small>{{ $attentionTotal ? $attentionTotal . ' item' . ($attentionTotal === 1 ? '' : 's') . ' to act on' : 'You are all caught up' }}</small>
+                    <strong>{{ company_text('shared.needs_attention', 'Needs your attention') }}</strong>
+                    <small>{{ $attentionTotal ? (company_portal() ? trans_choice('company/messages.shared.items_to_act', $attentionTotal) : $attentionTotal . ' item' . ($attentionTotal === 1 ? '' : 's') . ' to act on') : company_text('shared.all_caught_up', 'You are all caught up') }}</small>
                 </div>
 
                 @foreach ($attention as $item)
@@ -81,7 +88,7 @@
                         <span class="topbar-count tone-{{ $item['count'] ? $item['tone'] : 'muted' }}">{{ $item['count'] }}</span>
                         <span class="topbar-item-copy">
                             <strong>{{ $item['label'] }}</strong>
-                            <small>{{ $item['count'] ? $item['hint'] : 'Nothing waiting.' }}</small>
+                            <small>{{ $item['count'] ? $item['hint'] : company_text('shared.nothing_waiting', 'Nothing waiting.') }}</small>
                         </span>
                         <span class="topbar-item-arrow" aria-hidden="true">→</span>
                     </a>
@@ -89,7 +96,7 @@
 
                 @if ($today)
                     <div class="topbar-today">
-                        <span class="topbar-today-title">Today so far</span>
+                        <span class="topbar-today-title">{{ company_text('shared.today_so_far', 'Today so far') }}</span>
                         <div class="topbar-today-grid">
                             @foreach ($today as $stat)
                                 <div><strong>{{ number_format($stat['count']) }}</strong><small>{{ $stat['label'] }}</small></div>
@@ -101,7 +108,7 @@
         </details>
 
         <details class="topbar-menu">
-            <summary class="topbar-account" aria-label="Account menu">
+            <summary class="topbar-account" aria-label="{{ company_text('shared.account_menu', 'Account menu') }}">
                 <span class="topbar-avatar">{{ $userInitials }}</span>
                 <span class="topbar-account-copy">
                     <strong>{{ $userName }}</strong>
@@ -114,7 +121,7 @@
                     <span class="topbar-avatar topbar-avatar-lg">{{ $userInitials }}</span>
                     <span>
                         <strong>{{ $userName }}</strong>
-                        <small>{{ $userEmail ?: 'No email on file' }}</small>
+                        <small>{{ $userEmail ?: company_text('shared.no_email_on_file', 'No email on file') }}</small>
                         @if (!empty($accountBadge))
                             <span class="pill {{ $accountBadge[1] }}">{{ $accountBadge[0] }}</span>
                         @endif
@@ -129,7 +136,7 @@
                 @endforeach
                 <form method="POST" action="{{ route($logoutRoute) }}" class="topbar-logout">
                     @csrf
-                    <button type="submit">Log out</button>
+                    <button type="submit">{{ company_text('shared.log_out', 'Log out') }}</button>
                 </form>
             </div>
         </details>

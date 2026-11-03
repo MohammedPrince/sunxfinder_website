@@ -3,7 +3,7 @@
 @section('breadcrumb', 'Settings')
 @section('eyebrow', 'SYSTEM')
 @section('page-title', 'Settings')
-@section('page-description', 'App rules, website maintenance mode and which API the app uses.')
+@section('page-description', 'App rules, app Home sections, website maintenance mode and which API the app uses.')
 
 @section('content')
     @if (session('success'))
@@ -28,11 +28,120 @@
         @csrf
         @method('PUT')
 
+        {{-- App online/offline for all customers. The app reads this from /main-data. --}}
+        @php
+            $appOffline = $settings['app_offline'];
+        @endphp
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>
+                        Mobile app status
+                        <span class="pill {{ $appOffline['enabled'] ? 'pill-red' : 'pill-green' }}">
+                            {{ $appOffline['enabled'] ? 'Offline' : 'Online' }}
+                        </span>
+                    </h2>
+                    <p>
+                        Take the app offline for all customers, for example during an update. The app shows your message
+                        instead of its normal screens. The website and the admin and company panels keep working.
+                    </p>
+                </div>
+            </div>
+
+            <div class="panel-body">
+                <label class="toggle-card" for="app_offline_enabled">
+                    <span class="toggle-card-copy">
+                        <strong>Set the app offline</strong>
+                        <small>Each customer's app goes offline the next time it loads its data.</small>
+                    </span>
+                    <input type="hidden" name="app_offline_enabled" value="0">
+                    <input class="toggle-input" type="checkbox" id="app_offline_enabled" name="app_offline_enabled"
+                        value="1" @checked(old('app_offline_enabled', $appOffline['enabled']))>
+                    <span class="toggle-switch" aria-hidden="true"></span>
+                </label>
+
+                <div class="form-grid" style="margin-top:18px">
+                    <div class="form-group">
+                        <label for="app_offline_message_en">Offline message (English)</label>
+                        <textarea class="form-control" id="app_offline_message_en" name="app_offline_message_en" rows="3"
+                            maxlength="1000" placeholder="e.g. SunXFinder is being updated. Please try again in a few hours.">{{ old('app_offline_message_en', $appOffline['message_en']) }}</textarea>
+                        <small class="form-hint">Required while the app is offline.</small>
+                        @error('app_offline_message_en')
+                            <small class="field-error">{{ $message }}</small>
+                        @enderror
+                    </div>
+
+                    <div class="form-group">
+                        <label for="app_offline_message_ar">Offline message (Arabic)</label>
+                        <textarea class="form-control" id="app_offline_message_ar" name="app_offline_message_ar" rows="3"
+                            maxlength="1000" dir="rtl" lang="ar" placeholder="مثال: يجري تحديث SunXFinder. يرجى المحاولة بعد بضع ساعات.">{{ old('app_offline_message_ar', $appOffline['message_ar']) }}</textarea>
+                        <small class="form-hint">Required while the app is offline.</small>
+                        @error('app_offline_message_ar')
+                            <small class="field-error">{{ $message }}</small>
+                        @enderror
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save Settings</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel">
+            @php
+                $companyAds = $settings['company_ads'];
+                $adsAudience = old('company_ads_audience', $companyAds['audience']);
+                $adsCompanyIds = array_map('intval', (array) old('company_ads_company_ids', $companyAds['company_ids']));
+            @endphp
+
+            <div class="panel-heading">
+                <div>
+                    <h2>Company Advertising</h2>
+                    <p>Choose which companies see Advertising in their portal. Admin Ad Sales always stays available.</p>
+                </div>
+            </div>
+
+            <div class="panel-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="company_ads_audience">Show Advertising to</label>
+                        <select class="select-control" id="company_ads_audience" name="company_ads_audience" required>
+                            <option value="all" @selected($adsAudience === 'all')>All companies</option>
+                            <option value="selected" @selected($adsAudience === 'selected')>Selected companies only</option>
+                        </select>
+                        @error('company_ads_audience')<small class="field-error">{{ $message }}</small>@enderror
+                    </div>
+
+                    <div class="form-group" id="companyAdsPicker" @if ($adsAudience !== 'selected') hidden @endif>
+                        <label for="company_ads_company_ids">Companies</label>
+                        <select class="select-control" id="company_ads_company_ids" name="company_ads_company_ids[]" multiple size="8">
+                            @foreach ($settings['notification_access_companies'] as $company)
+                                <option value="{{ $company->id }}" @selected(in_array((int) $company->id, $adsCompanyIds, true))>
+                                    {{ $company->name }}{{ $company->city ? ' · ' . $company->city : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <small class="form-hint">Hold Ctrl (Windows) or Command (Mac) to select several. With none selected, no company sees Advertising.</small>
+                        @error('company_ads_company_ids')<small class="field-error">{{ $message }}</small>@enderror
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Save Settings</button>
+            </div>
+        </section>
+
+        <script>
+            document.getElementById('company_ads_audience').addEventListener('change', event => {
+                document.getElementById('companyAdsPicker').hidden = event.target.value !== 'selected';
+            });
+        </script>
+
         <section class="panel">
             <div class="panel-heading">
                 <div>
                     <h2>Quote requests</h2>
-                    <p>Limits on what customers can send from the app.</p>
+                    <p>Limits on what customers can send from the app, and which customers companies can notify.</p>
                 </div>
             </div>
 
@@ -125,6 +234,88 @@
                                                 <button type="submit" class="btn btn-light" style="margin-top:8px" form="customerQuoteLimitResetForm"
                                                     name="customer_id" value="{{ $customer->id }}"
                                                     onclick="return confirm('Set this customer back to the default limit of {{ $defaultLimit }}?');">
+                                                    Back to default
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                </div>
+
+                {{-- Open all customers for one company. These fields belong to #companyNotificationAccessForm
+                     (below the main form: forms cannot be nested), via the form="" attribute. --}}
+                @php
+                    $accessCompanies = $settings['notification_access_companies'];
+                    $openCompanies = $accessCompanies->where('can_notify_all_customers', true);
+                    $closedCompanies = $accessCompanies->where('can_notify_all_customers', false);
+                @endphp
+
+                <div style="margin-top:22px;padding-top:18px;border-top:1px solid #e6edf5">
+                    <h3 style="margin:0 0 4px;font-size:16px">Company notifications</h3>
+                    <p class="form-hint" style="margin:0 0 14px">
+                        By default a company can notify only its own customers: those who accepted its offer. Open all customers for a specific company to let it notify every active customer with a
+                        registered device. It still sees phone numbers and emails only for its own customers.
+                        Set a monthly limit for each opened company; leave it empty for no limit. Only sends that reach
+                        beyond its own customers count, and they skip customers who switched off sponsored notifications.
+                    </p>
+
+                    @if ($closedCompanies->isNotEmpty())
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="notification_company_id">Company</label>
+                                <select class="form-control" id="notification_company_id" name="company_id"
+                                    form="companyNotificationAccessForm" required>
+                                    <option value="">Choose a company…</option>
+                                    @foreach ($closedCompanies as $company)
+                                        <option value="{{ $company->id }}">
+                                            {{ $company->name }}{{ $company->city ? ' · ' . $company->city : '' }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <p></p>
+                        <button type="submit" class="btn btn-primary" form="companyNotificationAccessForm"
+                            onclick="return confirm('Let this company send notifications to all customers?');">
+                            Open all customers
+                        </button>
+                    @endif
+
+                    @if ($openCompanies->isNotEmpty())
+                        <div class="table-responsive" style="margin-top:18px">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Company</th>
+                                        <th>City</th>
+                                        <th>Can notify</th>
+                                        <th>This month</th>
+                                        <th>Monthly limit</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($openCompanies as $company)
+                                        <tr>
+                                            <td><strong>{{ $company->name }}</strong></td>
+                                            <td>{{ $company->city }}</td>
+                                            <td><span class="pill pill-green">All customers</span></td>
+                                            <td>{{ number_format($company->allCustomerSendsThisMonth()) }}</td>
+                                            <td style="min-width:190px">
+                                                <div style="display:flex;gap:6px">
+                                                    <input class="form-control" type="number" min="0" max="100000" name="monthly_limit"
+                                                        form="companyLimitForm{{ $company->id }}" value="{{ $company->all_customers_monthly_limit }}"
+                                                        placeholder="No limit" aria-label="Monthly limit for {{ $company->name }}">
+                                                    <button type="submit" class="btn btn-light" form="companyLimitForm{{ $company->id }}">Save</button>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <button type="submit" class="btn btn-light" style="margin-top:8px" form="companyNotificationResetForm"
+                                                    name="company_id" value="{{ $company->id }}"
+                                                    onclick="return confirm('Limit this company to its own customers again?');">
                                                     Back to default
                                                 </button>
                                             </td>
@@ -231,6 +422,96 @@
             </div>
         </section>
     </form>
+
+    {{-- App Home sections. The app reads these from /main-data and GET /api/v1/customer/home-sections. --}}
+    @php
+        $liveSlides = $settings['live_slides_by_placement'];
+    @endphp
+    <section class="panel" id="app-home" style="margin-top:24px">
+        <div class="panel-heading">
+            <div>
+                <h2>App Home</h2>
+                <p>
+                    Choose what the app Home screen shows. Changes reach the app within five minutes, or right away
+                    when the customer pulls to refresh. Choose where each banner shows in
+                    <a href="{{ route('admin.app-sliders.index') }}">App Slider</a> (Placement).
+                </p>
+            </div>
+        </div>
+
+        <div class="panel-body" style="display:grid;gap:16px">
+            @foreach ($settings['home_sections'] as $section)
+                @php
+                    $isOld = old('key') === $section->key;
+                    $isVisible = (bool) ($isOld ? old('is_visible') : $section->is_visible);
+                    $showCompanies = (bool) ($isOld ? old('show_companies') : $section->show_companies);
+                    $featuredSlides = (int) ($liveSlides['home_featured'] ?? 0);
+                @endphp
+                <form method="POST" action="{{ route('admin.settings.home-sections.update', $section->key) }}"
+                    style="border:1px solid #e6edf5;border-radius:14px;padding:16px">
+                    @csrf
+                    @method('PUT')
+                    <input type="hidden" name="key" value="{{ $section->key }}">
+
+                    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px">
+                        <strong style="font-size:16px">{{ \App\Models\HomeSection::SECTIONS[$section->key] ?? $section->key }}</strong>
+                        <span class="pill {{ $section->is_visible ? 'pill-green' : 'pill-red' }}">
+                            {{ $section->is_visible ? 'Shown' : 'Hidden' }}
+                        </span>
+                    </div>
+
+                    <label class="toggle-card" for="home_{{ $section->key }}_visible">
+                        <span class="toggle-card-copy">
+                            <strong>Show this section</strong>
+                            <small>Off hides the whole section, heading included.</small>
+                        </span>
+                        <input type="hidden" name="is_visible" value="0">
+                        <input class="toggle-input" type="checkbox" id="home_{{ $section->key }}_visible" name="is_visible"
+                            value="1" @checked($isVisible)>
+                        <span class="toggle-switch" aria-hidden="true"></span>
+                    </label>
+
+                    <label class="toggle-card" for="home_{{ $section->key }}_companies" style="margin-top:12px">
+                        <span class="toggle-card-copy">
+                            <strong>Show companies in this section</strong>
+                            <small>
+                                Off shows only the banners placed in this section
+                                ({{ $featuredSlides }} live {{ $featuredSlides === 1 ? 'slide' : 'slides' }} now).
+                                With neither companies nor banners, the app hides the section.
+                            </small>
+                        </span>
+                        <input type="hidden" name="show_companies" value="0">
+                        <input class="toggle-input" type="checkbox" id="home_{{ $section->key }}_companies" name="show_companies"
+                            value="1" @checked($showCompanies)>
+                        <span class="toggle-switch" aria-hidden="true"></span>
+                    </label>
+
+                    <div class="form-grid" style="margin-top:18px">
+                        <div class="form-group">
+                            <label for="home_{{ $section->key }}_title_en">Title (English)</label>
+                            <input class="form-control" type="text" id="home_{{ $section->key }}_title_en" name="title_en"
+                                maxlength="60" placeholder="Leave empty for the app's own title"
+                                value="{{ $isOld ? old('title_en') : $section->title_en }}">
+                            @if ($isOld)
+                                @error('title_en')<small class="field-error">{{ $message }}</small>@enderror
+                            @endif
+                        </div>
+                        <div class="form-group">
+                            <label for="home_{{ $section->key }}_title_ar">Title (Arabic)</label>
+                            <input class="form-control" type="text" id="home_{{ $section->key }}_title_ar" name="title_ar"
+                                maxlength="60" dir="rtl" lang="ar" placeholder="اتركه فارغاً لاستخدام عنوان التطبيق"
+                                value="{{ $isOld ? old('title_ar') : $section->title_ar }}">
+                            @if ($isOld)
+                                @error('title_ar')<small class="field-error">{{ $message }}</small>@enderror
+                            @endif
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" style="margin-top:12px">Save {{ \App\Models\HomeSection::SECTIONS[$section->key] ?? $section->key }}</button>
+                </form>
+            @endforeach
+        </div>
+    </section>
 
     {{-- API selector + accessibility. The app reads this from GET /api/v1/api-config. --}}
     @php
@@ -369,5 +650,21 @@
     </form>
     <form id="customerQuoteLimitResetForm" method="POST" action="{{ route('admin.settings.customer-quote-limit') }}">
         @csrf
+    </form>
+
+    {{-- Targets of the company notification fields in the Quote requests panel --}}
+    <form id="companyNotificationAccessForm" method="POST" action="{{ route('admin.settings.company-notification-access') }}">
+        @csrf
+        <input type="hidden" name="can_notify_all" value="1">
+    </form>
+    @foreach ($settings['notification_access_companies']->where('can_notify_all_customers', true) as $company)
+        <form id="companyLimitForm{{ $company->id }}" method="POST" action="{{ route('admin.settings.company-notification-limit') }}">
+            @csrf
+            <input type="hidden" name="company_id" value="{{ $company->id }}">
+        </form>
+    @endforeach
+    <form id="companyNotificationResetForm" method="POST" action="{{ route('admin.settings.company-notification-access') }}">
+        @csrf
+        <input type="hidden" name="can_notify_all" value="0">
     </form>
 @endsection

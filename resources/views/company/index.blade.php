@@ -1,10 +1,10 @@
 @extends('company.layouts.app')
 
-@section('title', 'Company Profile')
-@section('breadcrumb', 'Company Profile')
-@section('eyebrow', 'COMPANY ACCOUNT')
-@section('page-title', 'Company Profile')
-@section('page-description', 'Manage the information customers see on your public company profile.')
+@section('title', __('company/messages.navigation.company_profile'))
+@section('breadcrumb', __('company/messages.navigation.company_profile'))
+@section('eyebrow', __('company/messages.profile.eyebrow'))
+@section('page-title', __('company/messages.navigation.company_profile'))
+@section('page-description', __('company/messages.profile.page_description'))
 
 @section('content')
     @php
@@ -38,7 +38,7 @@
 
         @if ($errors->any())
             <div class="alert alert-danger">
-                <strong>Please correct the following errors:</strong>
+                <strong>{{ __('company/messages.common.fix_errors') }}</strong>
                 <ul>
                     @foreach ($errors->all() as $error)
                         <li>{{ $error }}</li>
@@ -57,30 +57,30 @@
                     <div class="company-profile-identity">
                         <div class="company-profile-logo-wrapper">
                             @if ($companyLogo)
-                                <img id="companyLogoPreview" src="{{ $companyLogo }}" alt="{{ $company->name }} logo"
+                                <img id="companyLogoPreview" src="{{ $companyLogo }}" alt="{{ __('company/messages.profile.logo_alt', ['name' => $company->name]) }}"
                                     class="company-profile-logo">
                                 <div id="companyLogoPlaceholder" class="company-profile-logo-placeholder" hidden>
-                                    {{ strtoupper(mb_substr($company->name ?? 'S', 0, 1)) }}
+                                    {{ name_initials($company->name ?? 'S') }}
                                 </div>
                             @else
                                 <div id="companyLogoPlaceholder" class="company-profile-logo-placeholder">
-                                    {{ strtoupper(mb_substr($company->name ?? 'S', 0, 1)) }}
+                                    {{ name_initials($company->name ?? 'S') }}
                                 </div>
-                                <img id="companyLogoPreview" src="" alt="Company logo preview" class="company-profile-logo"
+                                <img id="companyLogoPreview" src="" alt="{{ __('company/messages.profile.logo_preview') }}" class="company-profile-logo"
                                     hidden>
                             @endif
                         </div>
 
                         <div class="company-profile-identity-copy">
-                            <span class="company-profile-eyebrow">COMPANY INFORMATION</span>
+                            <span class="company-profile-eyebrow">{{ __('company/messages.profile.info_eyebrow') }}</span>
                             <h2>{{ $company->name }}</h2>
-                            <p>{{ $company->city ?: 'City not provided' }}</p>
+                            <p>{{ $company->city ?: __('company/messages.profile.city_not_provided') }}</p>
                             <div class="company-profile-badges">
-                                <span class="company-profile-badge">{{ ucfirst($company->status ?? 'pending') }}</span>
+                                <span class="company-profile-badge">{{ company_label('common.' . ($company->status ?? 'pending'), ucfirst($company->status ?? 'pending')) }}</span>
                                 @if ($company->is_verified)
-                                    <span class="company-profile-badge is-verified">Verified</span>
+                                    <span class="company-profile-badge is-verified">{{ __('company/messages.profile.verified') }}</span>
                                 @else
-                                    <span class="company-profile-badge is-pending">Verification pending</span>
+                                    <span class="company-profile-badge is-pending">{{ __('company/messages.profile.verification_pending') }}</span>
                                 @endif
                             </div>
 
@@ -89,9 +89,7 @@
                                 @if (!$company->is_verified || empty($company->license_number) || empty($company->phone) || empty($company->email))
                                     <p>
                                         <span class="pill pill-yellow">
-                                            Your company profile is incomplete. Please provide the required
-                                            information, including your license number, phone number, and
-                                            email address, to complete verification.
+                                            {{ __('company/messages.profile.incomplete') }}
                                         </span>
                                     </p>
                                 @elseif (
@@ -103,22 +101,19 @@
                                     )
                                     <p>
                                         <span class="pill pill-yellow">
-                                            Your company information is complete and is waiting for
-                                            SunXFinder approval. Please wait. Meanwhile, you can still
-                                            update your information. Thank you.
+                                            {{ __('company/messages.profile.waiting_approval') }}
                                         </span>
                                     </p>
                                 @elseif ($company->is_verified && $company->status === 'approved')
                                     <p>
                                         <span class="pill pill-green">
-                                            Your company has been verified and approved by SunXFinder.
+                                            {{ __('company/messages.profile.approved_message') }}
                                         </span>
                                     </p>
                                 @elseif ($company->status === 'rejected')
                                     <p>
                                         <span class="pill pill-red">
-                                            Your company application has been rejected. Please contact
-                                            SunXFinder support for further information.
+                                            {{ __('company/messages.profile.rejected_message') }}
                                         </span>
                                     </p>
                                 @endif
@@ -133,16 +128,16 @@
             {{-- Company information --}}
             <section class="panel">
                 <div class="panel-heading">
-                    <h2>Company Information</h2>
-                    <p>Manage the public profile, license, and contact details customers see.</p>
+                    <h2>{{ __('company/messages.profile.section_info') }}</h2>
+                    <p>{{ __('company/messages.profile.section_info_sub') }}</p>
                 </div>
 
                 <div class="panel-body">
                     <div class="form-grid">
                         <div class="form-group">
-                            <label for="name">Company Name <b class="required-mark">*</b></label>
+                            <label for="name">{{ __('company/messages.profile.name') }} <b class="required-mark">*</b></label>
                             <input class="form-control" type="text" id="name" name="name" minlength="10" maxlength="200"
-                                dir="auto" placeholder="Enter your company's official name (English or Arabic)"
+                                dir="auto" placeholder="{{ __('company/messages.profile.name_placeholder') }}"
                                 value="{{ old('name', $company->name) }}" required>
                             @error('name')
                                 <small class="field-error">{{ $message }}</small>
@@ -150,16 +145,16 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="username">Company Username <b class="required-mark">*</b></label>
+                            <label for="username">{{ __('company/messages.profile.username') }} <b class="required-mark">*</b></label>
                             <input class="form-control" type="text" id="username" value="{{ $company->username }}"
-                                placeholder="Enter your company's username" readonly>
-                            <small class="form-hint">Contact support if you need to change your username.</small>
+                                placeholder="{{ __('company/messages.profile.username_placeholder') }}" readonly>
+                            <small class="form-hint">{{ __('company/messages.profile.username_hint') }}</small>
                         </div>
 
                         <div class="form-group">
-                            <label for="email">Email Address <b class="required-mark">*</b></label>
+                            <label for="email">{{ __('company/messages.profile.email') }} <b class="required-mark">*</b></label>
                             <input class="form-control" type="email" id="email" name="email" maxlength="191"
-                                placeholder="Enter your company's official email"
+                                placeholder="{{ __('company/messages.profile.email_placeholder') }}"
                                 value="{{ old('email', $company->email) }}" required>
                             @error('email')
                                 <small class="field-error">{{ $message }}</small>
@@ -167,9 +162,9 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="phone">Phone Number <b class="required-mark">*</b></label>
+                            <label for="phone">{{ __('company/messages.profile.phone') }} <b class="required-mark">*</b></label>
                             <input class="form-control" type="text" id="phone" name="phone" maxlength="30"
-                                placeholder="Enter your company's official phone"
+                                placeholder="{{ __('company/messages.profile.phone_placeholder') }}"
                                 value="{{ old('phone', $company->phone) }}" required>
                             @error('phone')
                                 <small class="field-error">{{ $message }}</small>
@@ -177,20 +172,20 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="year_of_exp">Years Experience <b style="color: red">*</b></label>
+                            <label for="year_of_exp">{{ __('company/messages.profile.years') }} <b style="color: red">*</b></label>
                             <input class="form-control" type="number" name="year_of_exp" required
                                 value="{{ old('year_of_exp', $company->year_of_exp ?? '') }}"
-                                placeholder="How many years you are in the market?">
+                                placeholder="{{ __('company/messages.profile.years_placeholder') }}">
                             @error('year_of_exp')
                                 <small class="field-error">{{ $message }}</small>
                             @enderror
                         </div>
 
                         <div class="form-group">
-                            <label for="number_of_projects">Number of Projects <b style="color: red">*</b></label>
+                            <label for="number_of_projects">{{ __('company/messages.profile.projects_count') }} <b style="color: red">*</b></label>
                             <input class="form-control" type="number" name="number_of_projects" required
                                 value="{{ old('number_of_projects', $company->number_of_projects ?? '') }}"
-                                placeholder="How many project you complete?">
+                                placeholder="{{ __('company/messages.profile.projects_placeholder') }}">
                             @error('number_of_projects')
                                 <small class="field-error">{{ $message }}</small>
                             @enderror
@@ -199,14 +194,13 @@
 
                         {{-- Change Password --}}
                         <div class="form-group">
-                            <label for="password">New Password</label>
+                            <label for="password">{{ __('company/messages.profile.new_password') }}</label>
 
                             <input class="form-control" type="password" id="password" name="password" minlength="8"
-                                autocomplete="new-password" placeholder="Leave blank to keep your current password">
+                                autocomplete="new-password" placeholder="{{ __('company/messages.profile.new_password_placeholder') }}">
 
                             <small class="form-hint">
-                                Minimum 8 characters, including uppercase, lowercase,
-                                a number, and a special character.
+                                {{ __('company/messages.profile.password_hint') }}
                             </small>
 
                             @error('password')
@@ -216,11 +210,11 @@
 
                         {{-- Confirm Password --}}
                         <div class="form-group">
-                            <label for="password_confirmation">Confirm New Password</label>
+                            <label for="password_confirmation">{{ __('company/messages.profile.confirm_password') }}</label>
 
                             <input class="form-control" type="password" id="password_confirmation"
                                 name="password_confirmation" minlength="8" autocomplete="new-password"
-                                placeholder="Confirm your new password">
+                                placeholder="{{ __('company/messages.profile.confirm_placeholder') }}">
 
                             @error('password_confirmation')
                                 <small class="field-error">{{ $message }}</small>
@@ -229,11 +223,11 @@
 
 
                         <div class="form-group">
-                            <label for="city">City <b class="required-mark">*</b></label>
+                            <label for="city">{{ __('company/messages.common.city') }} <b class="required-mark">*</b></label>
                             <select class="select-control" id="city" name="city" required>
-                                <option value="">Select city</option>
-                                @foreach (['Khartoum', 'Port Sudan', 'Atbara', 'Wad Madani', 'Merowe', 'Kassala', 'Al Qadarif', 'Dongola', 'Halfa'] as $city)
-                                    <option value="{{ $city }}" @selected(old('city', $company->city) === $city)>{{ $city }}
+                                <option value="">{{ __('company/messages.profile.select_city') }}</option>
+                                @foreach ([__('company/messages.common.city_khartoum'), __('company/messages.common.city_port_sudan'), __('company/messages.common.city_atbara'), __('company/messages.common.city_wad_madani'), __('company/messages.common.city_merowe'), __('company/messages.common.city_kassala'), __('company/messages.common.city_al_qadarif'), __('company/messages.common.city_dongola'), __('company/messages.common.city_halfa')] as $city)
+                                    <option value="{{ $city }}" @selected(old('city', $company->city) === $city)>{{ __('company/messages.common.city_' . \Illuminate\Support\Str::snake(strtolower($city))) }}
                                     </option>
                                 @endforeach
                             </select>
@@ -243,11 +237,11 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="license_number">License Number <b class="required-mark">*</b></label>
+                            <label for="license_number">{{ __('company/messages.profile.license') }} <b class="required-mark">*</b></label>
                             <input class="form-control" type="text" id="license_number" name="license_number"
-                                placeholder="Enter your company's official license number" maxlength="191"
+                                placeholder="{{ __('company/messages.profile.license_placeholder') }}" maxlength="191"
                                 value="{{ old('license_number', $company->license_number) }}" required>
-                            <small class="form-hint">Enter your company's official license number.</small>
+                            <small class="form-hint">{{ __('company/messages.profile.license_hint') }}</small>
                             @error('license_number')
                                 <small class="field-error">{{ $message }}</small>
                             @enderror
@@ -255,7 +249,7 @@
 
                         <div class="form-group">
                             <label for="logo">
-                                Company Logo
+                                {{ __('company/messages.profile.logo') }}
                                 @if (empty($company->logo_path))
                                     <b class="required-mark">*</b>
                                 @endif
@@ -263,9 +257,9 @@
 
                             <input class="form-control" type="file" id="logo" name="logo" accept=".jpg,.jpeg,.png,.webp" @if (empty($company->logo_path)) required @endif>
                             <small class="form-hint">
-                                JPG, JPEG, PNG, or WEBP. Maximum size: 2 MB.
+                                {{ __('company/messages.profile.logo_hint') }}
                                 @if (!empty($company->logo_path))
-                                    Leave empty to keep the existing logo.
+                                    {{ __('company/messages.profile.logo_keep') }}
                                 @endif
                             </small>
 
@@ -276,11 +270,10 @@
 
 
                         <div class="form-group">
-                            <label for="social_media">Social Media Links <b class="required-mark">*</b></label>
+                            <label for="social_media">{{ __('company/messages.profile.social') }}</label>
                             <textarea class="form-control" id="social_media" name="social_media" rows="3" maxlength="2000"
-                                required
-                                placeholder="Enter one URL per line">{{ old('social_media', $company->social_media) }}</textarea>
-                            <small class="form-hint">Enter one URL per line.</small>
+                                placeholder="{{ __('company/messages.profile.social_placeholder') }}">{{ old('social_media', $company->social_media) }}</textarea>
+                            <small class="form-hint">{{ __('company/messages.profile.social_hint') }}</small>
                             @error('social_media')
                                 <small class="field-error">{{ $message }}</small>
                             @enderror
@@ -292,8 +285,8 @@
             {{-- Company profile and services --}}
             <section class="panel">
                 <div class="panel-heading">
-                    <h2>Company Profile &amp; Services</h2>
-                    <p>Describe your company and list the solar services you provide.</p>
+                    <h2>{{ __('company/messages.profile.section_services') }}</h2>
+                    <p>{{ __('company/messages.profile.section_services_sub') }}</p>
                 </div>
 
                 <div class="panel-body">
@@ -301,17 +294,17 @@
                         {{-- English Company Profile --}}
                         <div class="form-group">
                             <label for="companyEditor">
-                                Company Profile <b class="required-mark">*</b>
+                                {{ __('company/messages.profile.description') }} <b class="required-mark">*</b>
                             </label>
 
                             <div class="editor-hint">
-                                Describe the company, its solar services, experience, and areas served.
+                                {{ __('company/messages.profile.description_hint') }}
                             </div>
 
                             <div id="companyEditor">{!! old('description', $sanitizedDescription ?? '') !!}</div>
 
                             <input type="hidden" name="description" id="description"
-                                placeholder="Enter your company English description"
+                                placeholder="{{ __('company/messages.profile.description_placeholder') }}"
                                 value="{{ old('description', $company->description ?? '') }}" required>
 
                             @error('description')
@@ -322,7 +315,7 @@
                         {{-- Arabic Company Profile --}}
                         <div class="form-group">
                             <label for="companyEditorAr">
-                                Company Profile (Arabic) <b class="required-mark">*</b>
+                                {{ __('company/messages.profile.description_ar') }} <b class="required-mark">*</b>
                             </label>
 
                             <div class="editor-hint">
@@ -332,7 +325,7 @@
                             <div id="companyEditorAr">{!! $sanitizedArDescription ?? '' !!}</div>
 
                             <input type="hidden" name="ar_description" id="ar_description"
-                                placeholder="Enter your company Arabic description"
+                                placeholder="{{ __('company/messages.profile.description_ar_placeholder') }}"
                                 value="{{ old('ar_description', $company->ar_description ?? '') }}" required>
 
                             @error('ar_description')
@@ -351,8 +344,8 @@
             {{-- Account status is read-only for the company account --}}
             <section class="panel">
                 <div class="panel-heading">
-                    <h2>Account Status -- ReadOnly</h2>
-                    <p>Approval and verification are managed by SunXFinder administrators.</p>
+                    <h2>{{ __('company/messages.profile.account_status') }}</h2>
+                    <p>{{ __('company/messages.profile.account_status_sub') }}</p>
                 </div>
 
                 <div class="panel-body">
@@ -360,7 +353,7 @@
 
                         {{-- Approval Status --}}
                         <div class="form-group">
-                            <label>Approval Status</label>
+                            <label>{{ __('company/messages.profile.approval_status') }}</label>
                             @php
                                 $status = strtolower($company->status ?? 'pending');
 
@@ -374,33 +367,33 @@
 
                             <div>
                                 <span class="pill {{ $statusClass }}">
-                                    {{ ucfirst($status) }}
+                                    {{ company_label('common.' . $status, ucfirst($status)) }}
                                 </span>
                             </div>
                         </div>
 
                         {{-- Company Verification --}}
                         <div class="form-group">
-                            <label>Company Verified</label>
+                            <label>{{ __('company/messages.profile.company_verified') }}</label>
 
                             <div>
                                 @if ($company->is_verified)
-                                    <span class="pill pill-green">Verified</span>
+                                    <span class="pill pill-green">{{ __('company/messages.profile.verified') }}</span>
                                 @else
-                                    <span class="pill pill-yellow">Not verified</span>
+                                    <span class="pill pill-yellow">{{ __('company/messages.profile.not_verified') }}</span>
                                 @endif
                             </div>
                         </div>
 
                         {{-- Account Active --}}
                         <div class="form-group">
-                            <label>Account Active</label>
+                            <label>{{ __('company/messages.profile.account_active') }}</label>
 
                             <div>
                                 @if ($company->is_active)
-                                    <span class="pill pill-green">Active</span>
+                                    <span class="pill pill-green">{{ __('company/messages.common.active') }}</span>
                                 @else
-                                    <span class="pill pill-red">Inactive</span>
+                                    <span class="pill pill-red">{{ __('company/messages.common.inactive') }}</span>
                                 @endif
                             </div>
                         </div>
@@ -412,11 +405,11 @@
 
             <div class="form-actions">
 
-                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <button type="submit" class="btn btn-primary">{{ __('company/messages.common.save_changes') }}</button>
                 @if ($company->is_verified && $company->status != 'pending')
                     <a href="{{ url('/companies/' . $company->slug) }}?lang={{ request('lang', app()->getLocale()) }}"
                         class="btn btn-light" target="_blank" rel="noopener noreferrer">
-                        View on Website
+                        {{ __('company/messages.profile.view_on_website') }}
                     </a>
                 @endif
 
@@ -441,7 +434,7 @@
 
                     if (!file.type.startsWith('image/')) {
                         logoInput.value = '';
-                        alert('Please select a valid image file.');
+                        alert(@json(__('company/messages.profile.invalid_image')));
                         return;
                     }
 

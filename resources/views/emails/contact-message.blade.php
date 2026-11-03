@@ -19,6 +19,7 @@
                                     style="color:#f15b24;">X</b>Finder</div>
                             <div style="font-size:13px;color:#526783;margin-top:4px;">New message from the website
                                 contact form</div>
+                            @include('emails.partials.brand-tagline', ['emailTaglineLocale' => 'en'])
                         </td>
                     </tr>
                     <tr>

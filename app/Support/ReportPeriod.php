@@ -87,8 +87,8 @@ class ReportPeriod
             $key = $monthly ? $cursor->format('Y-m') : $cursor->format('Y-m-d');
 
             $bucket = [
-                'label' => $monthly ? $cursor->format('M Y') : $cursor->format('d M'),
-                'short' => $monthly ? $cursor->format('M') : $cursor->format('d'),
+                'label' => company_date($cursor, $monthly ? 'M Y' : 'd M'),
+                'short' => company_date($cursor, $monthly ? 'M' : 'd'),
             ];
 
             foreach ($series as $name => $counts) {

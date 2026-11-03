@@ -3,14 +3,20 @@
 namespace App\Repositories\Company;
 
 use App\Helpers\Helper;
+use App\Support\AdTracker;
+use App\Support\BusinessStats;
+use App\Models\AppSlider;
+use App\Models\AdSale;
 use App\Models\CompanyQuotation;
 use App\Models\Customer;
 use App\Models\CustomerNotification;
+use App\Models\Invoice;
 use App\Models\Notification;
 use App\Models\Product;
 use App\Models\Project;
 use App\Models\Quote;
 use App\Models\Rating;
+use App\Models\Setting;
 use App\Models\SolarCompany;
 use App\Repositories\OtpRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -51,7 +57,7 @@ class CompanyRepository
             if (!$company) {
                 return [
                     'success' => false,
-                    'message' => 'Company not found.',
+                    'message' => __('company/messages.profile.not_found'),
                 ];
             }
 
@@ -65,7 +71,7 @@ class CompanyRepository
 
             return [
                 'success' => false,
-                'message' => 'Unable to retrieve company details.',
+                'message' => __('company/messages.profile.retrieve_failed'),
             ];
         }
     }
@@ -79,7 +85,7 @@ class CompanyRepository
             if (!$company) {
                 return [
                     'success' => false,
-                    'message' => 'Company not found.',
+                    'message' => __('company/messages.profile.not_found'),
                 ];
             }
 
@@ -110,13 +116,13 @@ class CompanyRepository
             if (!$company->save()) {
                 return [
                     'success' => false,
-                    'message' => 'Unable to update the company profile.',
+                    'message' => __('company/messages.profile.update_failed'),
                 ];
             }
 
             return [
                 'success' => true,
-                'message' => 'Company profile updated successfully.',
+                'message' => __('company/messages.profile.updated'),
                 'company' => $company->fresh(),
             ];
         } catch (Throwable $e) {
@@ -124,7 +130,7 @@ class CompanyRepository
 
             return [
                 'success' => false,
-                'message' => 'An error occurred while updating the company profile.',
+                'message' => __('company/messages.profile.update_error'),
             ];
         }
     }
@@ -207,7 +213,11 @@ class CompanyRepository
     ): bool {
         $product = $this->findForCompany($companyId, $productId);
 
-        return (bool) $product->delete();
+        return DB::transaction(function () use ($product) {
+            $this->helper->archiveItem($product, 'product', null, 'website');
+
+            return (bool) $product->delete();
+        });
     }
 
     //Company profile END
@@ -217,15 +227,23 @@ class CompanyRepository
 
     public function companyEmailExists(string $email): bool
     {
-        return SolarCompany::query()->where('email', $email)->exists();
+        return SolarCompany::query()
+            ->where('email', $email)
+            ->where('status', 'approved')
+            ->where('is_active', true)
+            ->exists();
     }
 
     public function sendPasswordResetOtp(string $email, string $locale = 'en'): array
     {
-        $company = SolarCompany::query()->where('email', $email)->first();
+        $company = SolarCompany::query()
+            ->where('email', $email)
+            ->where('status', 'approved')
+            ->where('is_active', true)
+            ->first();
 
         if (!$company) {
-            return ['success' => false, 'message' => 'No company account is registered with this email.'];
+            return ['success' => false, 'message' => __('company/messages.auth.no_account')];
         }
 
         return $this->otpRepository->sendPasswordResetCode(
@@ -245,10 +263,14 @@ class CompanyRepository
             return $check;
         }
 
-        $company = SolarCompany::query()->where('email', $email)->first();
+        $company = SolarCompany::query()
+            ->where('email', $email)
+            ->where('status', 'approved')
+            ->where('is_active', true)
+            ->first();
 
         if (!$company) {
-            return ['success' => false, 'message' => 'No company account is registered with this email.'];
+            return ['success' => false, 'message' => __('company/messages.auth.no_account')];
         }
 
         // The "hashed" cast hashes the new password; a new remember token signs out other devices.
@@ -258,7 +280,7 @@ class CompanyRepository
 
         $this->otpRepository->consume($check['otp']);
 
-        return ['success' => true, 'message' => 'Your password has been reset. Sign in with your new password.'];
+        return ['success' => true, 'message' => __('company/messages.auth.reset_done')];
     }
 
     //Password Recovery End
@@ -349,8 +371,8 @@ class CompanyRepository
             $key = $date->toDateString();
 
             $activity[] = [
-                'label' => $date->format('D'),
-                'date' => $date->format('d M'),
+                'label' => $date->translatedFormat('D'),
+                'date' => $date->translatedFormat('d M'),
                 'requests' => (int) ($requestsPerDay[$key] ?? 0),
                 'offers' => (int) ($offersPerDay[$key] ?? 0),
             ];
@@ -379,6 +401,11 @@ class CompanyRepository
             'products' => $products,
             'activity' => $activity,
             'latestRequests' => $latestRequests,
+            'rating' => BusinessStats::ratingOverall($companyId),
+            'customersServed' => CompanyQuotation::query()->where('tbl_company_quotations.company_id', $companyId)->where('tbl_company_quotations.status', 'selected')
+                ->join('tbl_quote_requests as q', 'q.id', '=', 'tbl_company_quotations.quote_id')->distinct()->count('q.customer_id'),
+            // Ad results for the last 30 days, only when Advertising is open to this company.
+            'ads' => Setting::companyAdsEnabled($companyId) ? BusinessStats::advertising(now()->subDays(29)->startOfDay(), now(), $companyId) : null,
         ];
     }
 
@@ -408,9 +435,16 @@ class CompanyRepository
             ->count();
 
         $attention = [
+            ...(Setting::companyAdsEnabled($companyId) ? [[
+                'label' => __('company/messages.ads.topbar_ending', ['days' => AdSale::ENDING_SOON_DAYS]),
+                'hint' => __('company/messages.ads.topbar_ending_hint'),
+                'count' => AdSale::query()->where('company_id', $companyId)->endingSoon()->count(),
+                'url' => route('company.ads.index'),
+                'tone' => 'blue',
+            ]] : []),
             [
-                'label' => 'Requests waiting for your offer',
-                'hint' => 'Send a price before another company does.',
+                'label' => __('company/messages.topbar.waiting_offer'),
+                'hint' => __('company/messages.topbar.waiting_offer_hint'),
                 'count' => Quote::query()
                     ->visibleToCompany($companyId)
                     ->where('status', 'pending')
@@ -420,22 +454,22 @@ class CompanyRepository
                 'tone' => 'orange',
             ],
             [
-                'label' => 'Projects not started',
-                'hint' => 'The customer accepted your offer. Start the installation.',
+                'label' => __('company/messages.topbar.not_started'),
+                'hint' => __('company/messages.topbar.not_started_hint'),
                 'count' => (clone $projects)->where('status', 'accepted')->count(),
                 'url' => route('company.projects.index', ['status' => 'accepted']),
                 'tone' => 'blue',
             ],
             [
-                'label' => 'Ready for customer handover',
-                'hint' => 'All phases done. Confirm the handover to close it.',
+                'label' => __('company/messages.topbar.ready_handover'),
+                'hint' => __('company/messages.topbar.ready_handover_hint'),
                 'count' => (clone $projects)->where('status', 'in_progress')->where('progress_percent', '>=', 99)->count(),
                 'url' => route('company.projects.index', ['status' => 'in_progress']),
                 'tone' => 'green',
             ],
             [
-                'label' => 'Projects idle for ' . ReportPeriod::STALLED_DAYS . '+ days',
-                'hint' => 'Post an update so the customer knows what is happening.',
+                'label' => __('company/messages.topbar.idle', ['days' => ReportPeriod::STALLED_DAYS]),
+                'hint' => __('company/messages.topbar.idle_hint'),
                 'count' => $idleProjects,
                 'url' => route('company.projects.index'),
                 'tone' => 'red',
@@ -446,9 +480,9 @@ class CompanyRepository
             'attention' => $attention,
             'attentionTotal' => array_sum(array_column($attention, 'count')),
             'today' => [
-                ['label' => 'New requests', 'count' => Quote::query()->visibleToCompany($companyId)->where('created_at', '>=', $today)->count()],
-                ['label' => 'Offers sent', 'count' => CompanyQuotation::query()->where('company_id', $companyId)->where('created_at', '>=', $today)->count()],
-                ['label' => 'Project updates', 'count' => DB::table('tbl_project_updates as pu')
+                ['label' => __('company/messages.topbar.new_requests'), 'count' => Quote::query()->visibleToCompany($companyId)->where('created_at', '>=', $today)->count()],
+                ['label' => __('company/messages.topbar.offers_sent'), 'count' => CompanyQuotation::query()->where('company_id', $companyId)->where('created_at', '>=', $today)->count()],
+                ['label' => __('company/messages.topbar.project_updates'), 'count' => DB::table('tbl_project_updates as pu')
                     ->join('tbl_projects as p', 'p.id', '=', 'pu.project_id')
                     ->where('p.company_id', $companyId)
                     ->whereNull('pu.deleted_at')
@@ -486,6 +520,8 @@ class CompanyRepository
             'customers' => $this->companyReportCustomers($companyId, $from, $to),
             'products' => $this->companyReportProducts($companyId),
             'notifications' => $this->companyReportNotifications($companyId, $from, $to),
+            'ratings' => BusinessStats::ratings($from, $to, $companyId),
+            'advertising' => Setting::companyAdsEnabled($companyId) ? BusinessStats::advertising($from, $to, $companyId) : null,
         ];
     }
 
@@ -513,7 +549,7 @@ class CompanyRepository
 
             return [
                 'filename' => "my-offers_{$suffix}.csv",
-                'headers' => ['Request', 'Request received', 'Offer sent', 'Customer', 'City', 'Quote name', 'Price', 'Currency', 'Offer status', 'Request status'],
+                'headers' => array_map(fn($key) => __('company/messages.' . $key), ['common.request', 'reports.request_date', 'reports.offer_sent_date', 'common.customer', 'common.city', 'common.quote_name', 'reports.price', 'reports.currency', 'reports.offer_status_label', 'reports.request_status_label']),
                 'rows' => $rows->map(fn($r) => [
                     $ref($r->quote_id), $r->received_at, $r->offered_at, $r->full_name ?: $r->username, $r->city,
                     $r->quote_name, $r->price, $r->currency, $r->status, $r->request_status,
@@ -534,7 +570,7 @@ class CompanyRepository
 
             return [
                 'filename' => "my-projects_{$suffix}.csv",
-                'headers' => ['Project', 'Request', 'Customer', 'City', 'Quote name', 'Status', 'Progress %', 'Price', 'Currency', 'Accepted', 'Started', 'Completed'],
+                'headers' => array_map(fn($key) => __('company/messages.' . $key), ['common.project', 'common.request', 'common.customer', 'common.city', 'common.quote_name', 'common.status', 'reports.progress_percent', 'reports.price', 'reports.currency', 'reports.accepted_date', 'reports.started_date', 'reports.completed_date']),
                 'rows' => $rows->map(fn($r) => [
                     $r->id, $ref($r->quote_id), $r->full_name ?: $r->username, $r->city, $r->quote_name, $r->status,
                     $r->progress_percent, $r->price, $r->currency, $r->accepted_at, $r->started_at, $r->completed_at,
@@ -549,7 +585,7 @@ class CompanyRepository
 
         return [
             'filename' => "my-customers_{$suffix}.csv",
-            'headers' => ['Customer', 'City', 'Offers won', 'Value won (SDG)', 'First win', 'Last win'],
+            'headers' => array_map(fn($key) => __('company/messages.' . $key), ['common.customer', 'common.city', 'reports.offers_won', 'reports.value_won_sdg', 'reports.first_win', 'reports.last_win_csv']),
             'rows' => $rows->map(fn($r) => [
                 $r->full_name ?: $r->username, $r->city, (int) $r->wins, $r->value_sdg, $r->first_win_at, $r->last_win_at,
             ])->all(),
@@ -586,13 +622,13 @@ class CompanyRepository
     private function companyReportKpis(int $companyId, array $period): array
     {
         $counters = [
-            'requests_received' => ['Requests received', fn($a, $b) => $this->companyVisibleQuotes($companyId)->whereBetween('created_at', [$a, $b])->count()],
-            'offers_sent' => ['Offers sent', fn($a, $b) => $this->companyOffers($companyId)->whereBetween('created_at', [$a, $b])->count()],
-            'offers_won' => ['Offers won', fn($a, $b) => $this->companyOffers($companyId)->where('status', 'selected')->whereBetween('created_at', [$a, $b])->count()],
-            'value_won' => ['Value won (SDG)', fn($a, $b) => (float) $this->companyOffers($companyId)->where('status', 'selected')->where('currency', 'SDG')->whereBetween('created_at', [$a, $b])->sum('price')],
-            'customers_won' => ['Customers won', fn($a, $b) => $this->companyOffers($companyId)->where('status', 'selected')->whereBetween('created_at', [$a, $b])->distinct()->count('customer_id')],
-            'projects_started' => ['Projects started', fn($a, $b) => $this->companyProjects($companyId)->whereBetween('created_at', [$a, $b])->count()],
-            'projects_completed' => ['Projects completed', fn($a, $b) => $this->companyProjects($companyId)->whereNotNull('completed_at')->whereBetween('completed_at', [$a, $b])->count()],
+            'requests_received' => [__('company/messages.reports.requests_received'), fn($a, $b) => $this->companyVisibleQuotes($companyId)->whereBetween('created_at', [$a, $b])->count()],
+            'offers_sent' => [__('company/messages.reports.offers_sent'), fn($a, $b) => $this->companyOffers($companyId)->whereBetween('created_at', [$a, $b])->count()],
+            'offers_won' => [__('company/messages.reports.offers_won'), fn($a, $b) => $this->companyOffers($companyId)->where('status', 'selected')->whereBetween('created_at', [$a, $b])->count()],
+            'value_won' => [__('company/messages.reports.value_won_sdg'), fn($a, $b) => (float) $this->companyOffers($companyId)->where('status', 'selected')->where('currency', 'SDG')->whereBetween('created_at', [$a, $b])->sum('price')],
+            'customers_won' => [__('company/messages.reports.customers_won'), fn($a, $b) => $this->companyOffers($companyId)->where('status', 'selected')->whereBetween('created_at', [$a, $b])->distinct()->count('customer_id')],
+            'projects_started' => [__('company/messages.reports.projects_started'), fn($a, $b) => $this->companyProjects($companyId)->whereBetween('created_at', [$a, $b])->count()],
+            'projects_completed' => [__('company/messages.reports.projects_completed'), fn($a, $b) => $this->companyProjects($companyId)->whereNotNull('completed_at')->whereBetween('completed_at', [$a, $b])->count()],
         ];
 
         $kpis = [];
@@ -617,12 +653,12 @@ class CompanyRepository
             ->count();
 
         $kpis['response_rate'] = [
-            'label' => 'Response rate',
+            'label' => __('company/messages.reports.response_rate'),
             'value' => $received > 0 ? (int) round($answered / $received * 100) : 0,
             'suffix' => '%',
             'previous' => null,
             'change' => null,
-            'hint' => "Offered on {$answered} of {$received} requests",
+            'hint' => __('company/messages.reports.kpi_response_hint', ['answered' => $answered, 'received' => $received]),
         ];
 
         // Win rate: selected ÷ decided offers sent in the period.
@@ -630,12 +666,12 @@ class CompanyRepository
         $lost = $this->companyOffers($companyId)->where('status', 'not_selected')->whereBetween('created_at', [$period['from'], $period['to']])->count();
 
         $kpis['win_rate'] = [
-            'label' => 'Win rate',
+            'label' => __('company/messages.reports.win_rate'),
             'value' => ($selected + $lost) > 0 ? (int) round($selected / ($selected + $lost) * 100) : 0,
             'suffix' => '%',
             'previous' => null,
             'change' => null,
-            'hint' => "{$selected} won, {$lost} not selected",
+            'hint' => __('company/messages.reports.kpi_win_hint', ['selected' => $selected, 'lost' => $lost]),
         ];
 
         return $kpis;
@@ -1082,17 +1118,18 @@ class CompanyRepository
 
     public function submitQuoteOffer(int $quoteId, array $data): CompanyQuotation
     {
+        /** @var SolarCompany|null $company */
         $company = Auth::guard('company')->user();
 
-        abort_if(
-            !$company || !$company->getAuthIdentifier(),
+        abort_unless(
+            $company instanceof SolarCompany && $company->getAuthIdentifier(),
             403,
             'Company authentication required.'
         );
 
         $companyId = (int) $company->getAuthIdentifier();
 
-        [$quotation, $type] = DB::transaction(function () use ($quoteId, $companyId, $data) {
+        [$quotation, $type] = DB::transaction(function () use ($quoteId, $companyId, $company, $data) {
             // Lock the request to prevent offer submission while it is being closed.
             $quote = Quote::query()
                 ->whereKey($quoteId)
@@ -1102,9 +1139,17 @@ class CompanyRepository
             // Offers can only be created or edited while the request is pending.
             if ($quote->status !== 'pending') {
                 throw ValidationException::withMessages([
-                    'price' => 'This request is no longer accepting or updating offers.',
+                    'price' => __('company/messages.quote.not_accepting_updates'),
                 ]);
             }
+
+            $quote->loadMissing('customer');
+            $invoiceData = !empty($data['include_invoice'])
+                ? $this->makeQuoteInvoiceData($quote, $company, $data)
+                : null;
+            $offerPrice = $invoiceData
+                ? $invoiceData['balance_due']
+                : $data['price'];
 
             // Find this company's existing offer for the request.
             $quotation = CompanyQuotation::query()
@@ -1127,24 +1172,26 @@ class CompanyRepository
                 // Once selected by the customer, the offer is permanently locked.
                 if ($quotation->status === 'selected') {
                     throw ValidationException::withMessages([
-                        'price' => 'The customer has selected your offer. You can no longer edit it.',
+                        'price' => __('company/messages.quote.selected_locked'),
                     ]);
                 }
 
                 // Only submitted offers may be edited.
                 if ($quotation->status !== 'submitted') {
                     throw ValidationException::withMessages([
-                        'price' => 'This offer cannot be edited because it is no longer active.',
+                        'price' => __('company/messages.quote.inactive_offer'),
                     ]);
                 }
 
                 // Update the existing row; do not insert another quotation.
                 $quotation->customer_id = $quote->customer_id;
-                $quotation->price = $data['price'];
+                $quotation->price = $offerPrice;
                 $quotation->currency = $data['currency'];
                 $quotation->message = $data['message'] ?? null;
                 $quotation->ar_message = $data['ar_message'] ?? null;
                 $quotation->save();
+
+                $this->saveOfferInvoice($quotation, $invoiceData);
 
                 return [$quotation->refresh(), 'offer_updated'];
             }
@@ -1154,20 +1201,120 @@ class CompanyRepository
             $quotation->quote_id = $quote->id;
             $quotation->customer_id = $quote->customer_id;
             $quotation->company_id = $companyId;
-            $quotation->price = $data['price'];
+            $quotation->price = $offerPrice;
             $quotation->currency = $data['currency'];
             $quotation->message = $data['message'] ?? null;
             $quotation->ar_message = $data['ar_message'] ?? null;
             $quotation->status = 'submitted';
             $quotation->save();
 
-            return [$quotation, 'offer_new'];
+            $this->saveOfferInvoice($quotation, $invoiceData);
+
+            return [$quotation, 'offer_received'];
         });
 
         // Push only after commit, so a rolled-back offer never notifies.
         $this->helper->notifyCustomerAboutOffer($quotation, $type);
 
         return $quotation;
+    }
+
+    private function makeQuoteInvoiceData(Quote $quote, SolarCompany $company, array $data): array
+    {
+        $items = collect($data['invoice_items'] ?? [])->map(function (array $item) {
+            $quantity = (float) $item['quantity'];
+            $unitPrice = round((float) $item['unit_price'], 2);
+
+            return [
+                'description' => trim($item['description']),
+                'quantity' => $quantity,
+                'unit_price' => $unitPrice,
+                'total' => round($quantity * $unitPrice, 2),
+            ];
+        })->values()->all();
+
+        $subtotal = round(array_sum(array_column($items, 'total')), 2);
+        $discount = min($subtotal, round((float) ($data['invoice_discount'] ?? 0), 2));
+        $taxRate = round((float) ($data['invoice_tax_rate'] ?? 0), 2);
+        $tax = round(max(0, $subtotal - $discount) * $taxRate / 100, 2);
+        $shipping = round((float) ($data['invoice_shipping'] ?? 0), 2);
+        $balanceDue = round($subtotal - $discount + $tax + $shipping, 2);
+
+        if ($balanceDue < 1000 || max($subtotal, $balanceDue) > 9999999999999) {
+            throw ValidationException::withMessages([
+                'invoice_items' => __('company/messages.quote.balance_limit'),
+            ]);
+        }
+
+        return [
+            'quote_id' => $quote->id,
+            'company_id' => $company->getAuthIdentifier(),
+            'customer_id' => $quote->customer_id,
+            'invoice_number' => trim((string) $data['invoice_number']),
+            'invoice_date' => $data['invoice_date'],
+            'payment_terms' => 'Due upon acceptance',
+            'payment_instructions' => trim((string) ($data['invoice_notes'] ?? '')) ?: null,
+            'currency' => $data['currency'],
+            'company_details' => [
+                'name' => $company->name,
+                'email' => $company->email,
+                'phone' => $company->phone,
+                'address' => $company->city,
+            ],
+            'customer_details' => [
+                'name' => $quote->customer?->full_name ?: $quote->customer?->username,
+                'email' => $quote->customer?->email,
+                'phone' => $quote->customer?->phone,
+                'address' => $quote->customer?->address,
+            ],
+            'items' => $items,
+            'subtotal' => $subtotal,
+            'discount' => $discount,
+            'tax_rate' => $taxRate,
+            'tax' => $tax,
+            'shipping' => $shipping,
+            'balance_due' => $balanceDue,
+        ];
+    }
+
+    /**
+     * Keep the offer's invoice in step with the submitted form. Each offer has one
+     * invoice row: turning the invoice off soft-deletes it, turning it on again restores it.
+     */
+    private function saveOfferInvoice(CompanyQuotation $quotation, ?array $invoiceData): void
+    {
+        $invoice = Invoice::withTrashed()
+            ->where('company_quotation_id', $quotation->id)
+            ->first();
+
+        if (!$invoiceData) {
+            if ($invoice && !$invoice->trashed()) {
+                $invoice->delete();
+            }
+
+            return;
+        }
+
+        // Numbers stay reserved by soft-deleted invoices, matching the unique index.
+        $numberTaken = Invoice::withTrashed()
+            ->where('company_id', $invoiceData['company_id'])
+            ->where('invoice_number', $invoiceData['invoice_number'])
+            ->where('company_quotation_id', '!=', $quotation->id)
+            ->exists();
+
+        if ($numberTaken) {
+            throw ValidationException::withMessages([
+                'invoice_number' => __('company/messages.quote.invoice_number_used'),
+            ]);
+        }
+
+        $invoice ??= new Invoice(['company_quotation_id' => $quotation->id]);
+
+        if ($invoice->trashed()) {
+            $invoice->restore();
+        }
+
+        $invoice->fill($invoiceData)->save();
     }
 
     public function getCompanyQuotationForQuote(int $quoteId): ?CompanyQuotation
@@ -1184,6 +1331,109 @@ class CompanyRepository
             ->where('quote_id', $quoteId)
             ->where('company_id', $company->getAuthIdentifier())
             // Include withdrawn offers so the company sees its final offer status.
+            ->first();
+    }
+
+    public function getQuoteInvoice(int $quoteId): ?Invoice
+    {
+        if (!$this->getQuoteRequestById($quoteId)) {
+            return null;
+        }
+
+        return $this->getCompanyQuotationForQuote($quoteId)?->invoice;
+    }
+
+    public function getCompanyInvoices(array $filters = []): LengthAwarePaginator
+    {
+        $companyId = $this->authenticatedCompanyId();
+        $query = Invoice::query()
+            ->with('quotation.quote')
+            ->where('company_id', $companyId);
+
+        $search = trim((string) ($filters['search'] ?? ''));
+        if ($search !== '') {
+            $query->where(function (Builder $query) use ($search) {
+                $query->where('invoice_number', 'like', '%' . $search . '%')
+                    ->orWhere('customer_details->name', 'like', '%' . $search . '%');
+
+                if (ctype_digit($search)) {
+                    $query->orWhere('quote_id', (int) $search);
+                }
+            });
+        }
+
+        return $query
+            ->orderByDesc('invoice_date')
+            ->orderByDesc('id')
+            ->paginate(15)
+            ->withQueryString();
+    }
+
+    public function deleteCompanyInvoice(int $invoiceId): array
+    {
+        $companyId = $this->authenticatedCompanyId();
+
+        return DB::transaction(function () use ($invoiceId, $companyId) {
+            $invoiceReference = Invoice::query()
+                ->where('company_id', $companyId)
+                ->find($invoiceId);
+
+            if (!$invoiceReference) {
+                return ['success' => false, 'message' => __('company/messages.invoices.not_found')];
+            }
+
+            // Match the acceptance flow lock order: quote first, then offer.
+            $quote = Quote::query()
+                ->whereKey($invoiceReference->quote_id)
+                ->lockForUpdate()
+                ->first();
+
+            $quotation = CompanyQuotation::query()
+                ->whereKey($invoiceReference->company_quotation_id)
+                ->where('company_id', $companyId)
+                ->lockForUpdate()
+                ->first();
+
+            $invoice = Invoice::query()
+                ->where('company_id', $companyId)
+                ->whereKey($invoiceId)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$invoice || !$quote || !$quotation) {
+                return ['success' => false, 'message' => __('company/messages.invoices.not_found')];
+            }
+
+            $acceptedByCustomer = $quotation->status === 'selected'
+                || (in_array($quote->status, ['accepted', 'completed'], true)
+                    && (int) $quote->company_id === $companyId);
+
+            if ($acceptedByCustomer) {
+                return [
+                    'success' => false,
+                    'message' => __('company/messages.invoices.locked'),
+                ];
+            }
+
+            $invoice->delete();
+
+            return ['success' => true, 'message' => __('company/messages.invoices.deleted')];
+        });
+    }
+
+    public function getProjectForQuote(int $quoteId): ?Project
+    {
+        $company = Auth::guard('company')->user();
+
+        abort_if(
+            !$company || !$company->getAuthIdentifier(),
+            403,
+            'Company authentication required.'
+        );
+
+        return Project::query()
+            ->where('quote_id', $quoteId)
+            ->where('company_id', $company->getAuthIdentifier())
             ->first();
     }
 
@@ -1233,18 +1483,39 @@ class CompanyRepository
         }
 
         try {
-            CustomerNotification::query()->where('notification_id', $notification->id)->delete();
-            $notification->delete();
+            DB::transaction(function () use ($notification) {
+                $this->helper->archiveItem($notification, 'notification', null, 'website');
+
+                $customerNotifications = CustomerNotification::query()
+                    ->where('notification_id', $notification->id)
+                    ->get();
+
+                foreach ($customerNotifications as $customerNotification) {
+                    $this->helper->archiveItem(
+                        $customerNotification,
+                        'customer_notification',
+                        (int) $customerNotification->customer_id,
+                        'website'
+                    );
+                }
+
+                CustomerNotification::query()->where('notification_id', $notification->id)->delete();
+                $notification->delete();
+            });
         } catch (Throwable $e) {
             report($e);
 
-            return ['success' => false, 'message' => 'Unable to delete the notification. Please try again.'];
+            return ['success' => false, 'message' => __('company/messages.notifications.delete_failed')];
         }
 
-        return ['success' => true, 'message' => 'Notification deleted. Customers no longer see it in the app.'];
+        return ['success' => true, 'message' => __('company/messages.notifications.deleted')];
     }
 
-    public function publishNotification(array $data): Notification
+    /**
+     * $automatic marks updates about the customer's own request or project, such as a
+     * new offer. They skip the audience rules, which only limit what a company sends itself.
+     */
+    public function publishNotification(array $data, bool $automatic = false): Notification
     {
         $startedAt = microtime(true);
 
@@ -1262,7 +1533,7 @@ class CompanyRepository
         try {
             $result = (new Notification())
                 ->getConnection()
-                ->transaction(function () use ($data, $context) {
+                ->transaction(function () use ($data, $context, $automatic) {
                     Log::info('SunXFinder notification: transaction started', $context);
 
                     $senderType = $data['sender_type'] ?? 'admin';
@@ -1277,7 +1548,7 @@ class CompanyRepository
 
                         throw ValidationException::withMessages([
                             'audience_type' =>
-                                'Companies cannot broadcast to all customers.',
+                                __('company/messages.notifications.no_broadcast'),
                         ]);
                     }
 
@@ -1309,11 +1580,15 @@ class CompanyRepository
                         );
 
                         throw ValidationException::withMessages([
-                            'customer_ids' => 'Select at least one customer.',
+                            'customer_ids' => __('company/messages.notifications.select_one'),
                         ]);
                     }
 
-                    $existingIds = Customer::query()
+                    $validCustomers = $senderType === 'company' && !$automatic
+                        ? $this->notifiableCustomers((int) $senderId)
+                        : Customer::query();
+
+                    $existingIds = $validCustomers
                         ->whereIn('id', $customerIds)
                         ->pluck('id')
                         ->map(fn($id) => (int) $id)
@@ -1330,14 +1605,51 @@ class CompanyRepository
                         );
 
                         throw ValidationException::withMessages([
-                            'customer_ids' =>
-                                'One or more selected customers are invalid.',
+                            'customer_ids' => $senderType === 'company'
+                                ? __('company/messages.notifications.cannot_notify')
+                                : 'One or more selected customers are invalid.',
                         ]);
+                    }
+
+                    // Reaching beyond its own customers is a counted, sponsored send.
+                    $isSponsored = false;
+
+                    if ($senderType === 'company' && !$automatic) {
+                        $outsideIds = array_values(array_diff(
+                            $customerIds,
+                            array_map('intval', $this->getCompanyCustomerIds())
+                        ));
+
+                        if ($outsideIds) {
+                            $isSponsored = true;
+                            $company = SolarCompany::query()->find($senderId);
+                            $limit = $company?->all_customers_monthly_limit;
+
+                            if ($limit !== null && $company->allCustomerSendsThisMonth() >= $limit) {
+                                throw ValidationException::withMessages([
+                                    'customer_ids' => __('company/messages.ads.limit_reached', ['limit' => $limit]),
+                                ]);
+                            }
+
+                            $customerIds = array_values(array_diff($customerIds, Customer::query()
+                                ->whereIn('id', $outsideIds)
+                                ->where('sponsored_push_enabled', false)
+                                ->pluck('id')
+                                ->map(fn($id) => (int) $id)
+                                ->all()));
+
+                            if (empty($customerIds)) {
+                                throw ValidationException::withMessages([
+                                    'customer_ids' => __('company/messages.ads.all_opted_out'),
+                                ]);
+                            }
+                        }
                     }
 
                     Log::info('SunXFinder notification: creating notification');
 
                     $notification = Notification::create([
+                        'is_sponsored' => $isSponsored,
                         'sender_type' => $senderType,
                         'sender_id' => $senderId,
                         'type' => $data['type'],
@@ -1345,6 +1657,7 @@ class CompanyRepository
                         'title_ar' => $data['title_ar'] ?? null,
                         'message_en' => $data['message_en'],
                         'message_ar' => $data['message_ar'] ?? null,
+                        'quote_id' => $data['quote_id'] ?? null,
                         'audience_type' => $audienceType,
                         'status' => 'published',
                         'published_at' => now(),
@@ -1416,7 +1729,9 @@ class CompanyRepository
         ]);
 
         try {
+            // Inactive devices have switched notifications off in the app.
             $devices = CustomerDeviceToken::query()
+                ->active()
                 ->whereIn('customer_id', $customerIds)
                 ->get([
                     'id',
@@ -1601,17 +1916,187 @@ class CompanyRepository
 
     public function getNotificationFormData(): array
     {
-        $customers = Customer::query()
-            ->whereHas('deviceTokens')
-            ->select('id', 'full_name', 'username', 'phone')
+        $companyId = $this->authenticatedCompanyId();
+        $canNotifyAll = $this->canNotifyAllCustomers($companyId);
+
+        /** @var \Illuminate\Database\Eloquent\Collection<int, Customer> $customers */
+        $customers = $this->notifiableCustomers($companyId)
+            ->select('id', 'full_name', 'username', 'phone', 'email')
             ->orderBy('username')
             ->get();
 
+        // Opening all customers lets a company message them, not read their contact details.
+        if ($canNotifyAll) {
+            $ownCustomerIds = array_flip($this->getCompanyCustomerIds());
+
+            $customers
+                ->reject(fn(Customer $customer) => isset($ownCustomerIds[$customer->id]))
+                ->each(function (Customer $customer) {
+                    $customer->phone = null;
+                    $customer->email = null;
+                });
+        }
+
         return [
             'customers' => $customers,
+            'canNotifyAll' => $canNotifyAll,
+            'sendLimit' => $canNotifyAll ? $this->getSendLimitUsage() : null,
         ];
     }
 
+    /** This month's sends to all customers, and the limit set by admin (null: no limit). */
+    public function getSendLimitUsage(): array
+    {
+        $company = SolarCompany::query()->find($this->authenticatedCompanyId());
+
+        return [
+            'open' => (bool) $company?->can_notify_all_customers,
+            'limit' => $company?->all_customers_monthly_limit,
+            'used' => $company?->allCustomerSendsThisMonth() ?? 0,
+        ];
+    }
+
+    //Advertising Start
+
+    private const AD_ARTWORK_DIR = 'main/images/ad-requests';
+
+    public function getCompanyAds(): array
+    {
+        $companyId = $this->authenticatedCompanyId();
+
+        $sales = AdSale::query()
+            ->where('company_id', $companyId)
+            ->latest('id')
+            ->paginate(15);
+
+        $sales->getCollection()->each(function (AdSale $sale) {
+            $sale->setAttribute('results', AdTracker::saleTotals($sale));
+        });
+
+        $month = AdTracker::totals(now()->startOfMonth(), now()->endOfMonth(), $companyId);
+
+        return [
+            'sales' => $sales,
+            'viewsThisMonth' => array_sum(array_column($month, 'views')),
+            'clicksThisMonth' => array_sum(array_column($month, 'clicks')),
+            'activeAds' => AdSale::query()->where('company_id', $companyId)->where('status', 'paid')
+                ->where(fn($q) => $q->whereNull('ends_on')->orWhere('ends_on', '>=', today()))->count(),
+            'sendLimit' => $this->getSendLimitUsage(),
+        ];
+    }
+
+    public function requestAd(array $data, ?\Illuminate\Http\UploadedFile $artwork): AdSale
+    {
+        $start = Carbon::parse($data['starts_on']);
+
+        return AdSale::create([
+            'company_id' => $this->authenticatedCompanyId(),
+            'product' => $data['product'],
+            'platform' => $data['platform'],
+            'link_url' => $data['link_url'] ?? null,
+            'request_note' => $data['request_note'] ?? null,
+            'artwork_path' => $artwork ? Helper::storeOptimizedImage($artwork, self::AD_ARTWORK_DIR, 1600, 88)['path'] : null,
+            'currency' => 'SDG',
+            'starts_on' => $start,
+            'ends_on' => $start->copy()->addWeeks((int) $data['weeks'])->subDay(),
+            'status' => 'requested',
+        ]);
+    }
+
+    /** A company can withdraw a request only until admin has priced it. */
+    public function cancelAdRequest(int $id): array
+    {
+        $sale = AdSale::query()
+            ->where('company_id', $this->authenticatedCompanyId())
+            ->whereKey($id)
+            ->where('status', 'requested')
+            ->first();
+
+        if (!$sale) {
+            return ['success' => false, 'message' => __('company/messages.ads.cannot_cancel')];
+        }
+
+        $sale->update(['status' => 'cancelled']);
+
+        return ['success' => true, 'message' => __('company/messages.ads.cancelled')];
+    }
+
+    public function getCompanyAdReport(string $month): array
+    {
+        $companyId = $this->authenticatedCompanyId();
+        $from = Carbon::createFromFormat('!Y-m', $month)->startOfMonth();
+        $to = $from->copy()->endOfMonth();
+        $totals = AdTracker::totals($from, $to, $companyId);
+
+        $sliderNames = AppSlider::withTrashed()->whereIn('id', AdTracker::companyAdIds($companyId)['slider'])->pluck('name', 'id');
+
+        $rows = collect($totals)->map(function (array $stats, string $key) use ($sliderNames) {
+            [$type, $id] = explode(':', $key);
+
+            return $stats + [
+                'type' => $type,
+                'name' => $type === 'slider' ? ($sliderNames[(int) $id] ?? "#{$id}") : null,
+                'rate' => AdTracker::rate($stats['views'], $stats['clicks']),
+            ];
+        })->sortByDesc('views')->values();
+
+        return [
+            'month' => $month,
+            'from' => $from,
+            'rows' => $rows,
+            'totalViews' => $rows->sum('views'),
+            'totalClicks' => $rows->sum('clicks'),
+            'appViews' => $rows->sum('app_views'),
+            'websiteViews' => $rows->sum('website_views'),
+            'totalRate' => AdTracker::rate($rows->sum('views'), $rows->sum('clicks')),
+            'sponsoredSends' => Notification::withTrashed()
+                ->where('sender_type', 'company')
+                ->where('sender_id', $companyId)
+                ->where('is_sponsored', true)
+                ->whereBetween('created_at', [$from, $to])
+                ->count(),
+        ];
+    }
+
+    //Advertising End
+
+    private function canNotifyAllCustomers(int $companyId): bool
+    {
+        return (bool) SolarCompany::query()->whereKey($companyId)->value('can_notify_all_customers');
+    }
+
+    /**
+     * Customers this company may notify: its own (those who accepted its offer) that the
+     * app can reach, or every active customer with a registered device once an admin has
+     * opened all customers for it. Devices with notifications switched off are never pushed to.
+     */
+    private function notifiableCustomers(int $companyId): Builder
+    {
+        $customers = Customer::query()
+            ->where('status', 'active')
+            ->where('is_active', true);
+
+        if ($this->canNotifyAllCustomers($companyId)) {
+            return $customers->whereHas('deviceTokens');
+        }
+
+        return $this->onlyCompanyCustomers($customers, $companyId)
+            ->whereHas('deviceTokens', fn($tokens) => $tokens->active());
+    }
+
+    /** A customer belongs to a company once they accept its offer (which also opens a project). */
+    private function onlyCompanyCustomers(Builder $customers, int $companyId): Builder
+    {
+        return $customers->where(fn($query) => $query
+            ->whereIn('id', CompanyQuotation::query()
+                ->where('company_id', $companyId)
+                ->where('status', 'selected')
+                ->whereNotNull('customer_id')
+                ->select('customer_id'))
+            ->orWhereIn('id', Project::query()
+                ->where('company_id', $companyId)
+                ->select('customer_id')));
+    }
 
     public function getNotificationDetails(int $id): array
     {
@@ -1623,9 +2108,7 @@ class CompanyRepository
         if (!$notification) {
             return [
                 'success' => false,
-                'message' => app()->getLocale() === 'ar'
-                    ? 'الإشعار غير موجود.'
-                    : 'Notification not found.',
+                'message' => __('company/messages.notifications.not_found'),
             ];
         }
 
@@ -1694,14 +2177,11 @@ class CompanyRepository
             ->withQueryString();
     }
 
-    /** Ids of every customer who accepted one of this company's offers. */
+    /** IDs of this company's own customers. */
     public function getCompanyCustomerIds(): array
     {
-        return DB::table('tbl_projects')
-            ->where('company_id', $this->authenticatedCompanyId())
-            ->whereNull('deleted_at')
-            ->distinct()
-            ->pluck('customer_id')
+        return $this->onlyCompanyCustomers(Customer::query(), $this->authenticatedCompanyId())
+            ->pluck('id')
             ->map(fn($id) => (int) $id)
             ->all();
     }

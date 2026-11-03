@@ -40,7 +40,7 @@ trait HandlesPasswordReset
         $label = $this->passwordResetAccountLabel();
 
         if (!$this->passwordResetEmailExists($email)) {
-            $message = "No {$label} account is registered with this email.";
+            $message = company_text('auth.no_account', "No {$label} account is registered with this email.");
 
             return $request->expectsJson()
                 ? response()->json(['success' => true, 'exists' => false, 'message' => $message])
@@ -77,7 +77,7 @@ trait HandlesPasswordReset
         if (!$pending) {
             return redirect()
                 ->route($this->passwordResetPortal() . '.login')
-                ->withErrors(['email' => 'Start by entering your registered email under "Forgot password?".']);
+                ->withErrors(['email' => company_text('auth.start_over', 'Start by entering your registered email under "Forgot password?".')]);
         }
 
         return view('admin.auth.reset-password', array_merge($this->passwordResetViewData(), [
@@ -98,7 +98,7 @@ trait HandlesPasswordReset
         if (!$pending) {
             return redirect()
                 ->route($this->passwordResetPortal() . '.login')
-                ->withErrors(['email' => 'Your reset request has ended. Please start again.']);
+                ->withErrors(['email' => company_text('auth.reset_ended', 'Your reset request has ended. Please start again.')]);
         }
 
         $data = $request->validate([
@@ -109,8 +109,8 @@ trait HandlesPasswordReset
                 Password::min(8)->mixedCase()->numbers()->symbols(),
             ],
         ], [
-            'otp.required' => 'Enter the 6-digit code from your email.',
-            'otp.digits' => 'The code must be exactly 6 digits.',
+            'otp.required' => company_text('auth.otp_required', 'Enter the 6-digit code from your email.'),
+            'otp.digits' => company_text('auth.otp_digits', 'The code must be exactly 6 digits.'),
         ]);
 
         $result = $this->resetPasswordWithOtp($pending['email'], $data['otp'], $data['password']);
@@ -143,7 +143,7 @@ trait HandlesPasswordReset
 
         $this->rememberPasswordResetRequest($request, $pending['email'], $result['expires_at']);
 
-        return back()->with('status', 'A new code was sent to your email. It expires in 5 minutes.');
+        return back()->with('status', company_text('auth.code_resent', 'A new code was sent to your email. It expires in 5 minutes.'));
     }
 
     private function passwordResetSessionKey(): string

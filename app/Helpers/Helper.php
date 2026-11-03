@@ -3,18 +3,22 @@
 namespace App\Helpers;
 
 use App\Models\SolarCompany;
+use App\Models\ArchivedItem;
 use Illuminate\Support\Str;
 use App\Models\Product;
 use App\Models\ProductSpec;
 use App\Models\CompanyQuotation;
 use App\Models\CustomerDeviceToken;
 use App\Models\CustomerNotification;
+use App\Models\Invoice;
 use App\Models\Project;
 use App\Models\ProjectMilestone;
 use App\Models\ProjectUpdate;
 use App\Models\Quote;
 use App\Models\Rating;
+use App\Models\RatingAnswer;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use App\Repositories\Admin\AdminRepository;
 use App\Repositories\Company\CompanyRepository;
 use Kreait\Firebase\Messaging\CloudMessage;
@@ -63,7 +67,7 @@ class Helper
             'year_of_exp' => $company->year_of_exp,
             'number_of_projects' => $company->number_of_projects,
             'status' => $company->status,
-
+            'on_app' => (bool) $company->on_app,
         ];
 
         if (!$detailed) {
@@ -134,9 +138,13 @@ class Helper
             ->limit($limit)
             ->get();
 
+        $currentCustomerId = auth('sanctum')->id();
+
         return $ratings
             ->map(fn(Rating $rating): array => [
                 'id' => (int) $rating->id,
+                'is_mine' => $currentCustomerId !== null
+                    && (int) $currentCustomerId === (int) $rating->customer_id,
                 // Full name as-is (falls back to username); the app shows the first word only.
                 'full_name' => trim((string) ($rating->customer?->full_name ?: $rating->customer?->username)) ?: null,
                 'username' => $rating->customer?->username,
@@ -148,6 +156,44 @@ class Helper
             ])
             ->values()
             ->all();
+    }
+
+    public function ratingResponseMessages(string $key, string $lang): array
+    {
+        $translations = [
+            'unauthenticated' => [
+                'en' => 'Unauthenticated.',
+                'ar' => 'يرجى تسجيل الدخول أولاً.',
+            ],
+            'not_found' => [
+                'en' => 'Rating not found.',
+                'ar' => 'لم يتم العثور على التقييم.',
+            ],
+            'update_success' => [
+                'en' => 'Rating updated successfully.',
+                'ar' => 'تم تحديث التقييم بنجاح.',
+            ],
+            'update_failed' => [
+                'en' => 'Unable to update your rating. Please try again.',
+                'ar' => 'تعذر تحديث تقييمك. يُرجى المحاولة مرة أخرى.',
+            ],
+            'delete_success' => [
+                'en' => 'Rating deleted successfully.',
+                'ar' => 'تم حذف التقييم بنجاح.',
+            ],
+            'delete_failed' => [
+                'en' => 'Unable to delete your rating. Please try again.',
+                'ar' => 'تعذر حذف تقييمك. يُرجى المحاولة مرة أخرى.',
+            ],
+        ];
+
+        $messages = $translations[$key] ?? $translations['update_failed'];
+
+        return [
+            'message' => $messages[$lang] ?? $messages['en'],
+            'message_en' => $messages['en'],
+            'message_ar' => $messages['ar'],
+        ];
     }
 
     public function shortCustomerName(?\App\Models\Customer $customer): string
@@ -179,6 +225,91 @@ class Helper
         return trim(preg_replace('/\s+/u', ' ', $text));
     }
 
+    /**
+     * Allowlist sanitizer for admin-written rich messages shown in the app.
+     * Keeps basic formatting and safe links; unknown tags are unwrapped (text kept),
+     * dangerous ones (script, style, iframe...) are dropped with their content.
+     * Website pages can also link to site paths such as /terms?lang=en.
+     */
+    public static function sanitizeRichText(?string $html, bool $allowSitePaths = false): string
+    {
+        $html = trim((string) $html);
+        if ($html === '') {
+            return '';
+        }
+
+        $allowed = ['p', 'br', 'b', 'strong', 'i', 'em', 'u', 's', 'ul', 'ol', 'li', 'a', 'h3', 'h4', 'blockquote', 'small'];
+        $dropWithContent = ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'textarea', 'select', 'svg', 'math', 'template', 'noscript', 'head', 'title', 'meta', 'link'];
+
+        $dom = new \DOMDocument();
+        $previous = libxml_use_internal_errors(true);
+        $dom->loadHTML('<?xml encoding="UTF-8"><div id="__root">' . $html . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        $root = $dom->getElementById('__root');
+        if (!$root) {
+            return e(strip_tags($html));
+        }
+
+        $clean = function (\DOMNode $node) use (&$clean, $allowed, $dropWithContent, $allowSitePaths) {
+            foreach (iterator_to_array($node->childNodes) as $child) {
+                if ($child instanceof \DOMComment || $child instanceof \DOMProcessingInstruction) {
+                    $node->removeChild($child);
+                    continue;
+                }
+                if (!$child instanceof \DOMElement) {
+                    continue;
+                }
+
+                $tag = strtolower($child->tagName);
+
+                if (in_array($tag, $dropWithContent, true)) {
+                    $node->removeChild($child);
+                    continue;
+                }
+
+                $clean($child);
+
+                if (!in_array($tag, $allowed, true)) {
+                    // Unwrap: keep the text, lose the tag.
+                    while ($child->firstChild) {
+                        $node->insertBefore($child->firstChild, $child);
+                    }
+                    $node->removeChild($child);
+                    continue;
+                }
+
+                $href = $tag === 'a' ? trim($child->getAttribute('href')) : '';
+                foreach (iterator_to_array($child->attributes) as $attribute) {
+                    $child->removeAttribute($attribute->nodeName);
+                }
+
+                if ($tag === 'a') {
+                    $isSitePath = $allowSitePaths && preg_match('#^/(?![/\\\\])#', $href);
+
+                    if ($isSitePath || preg_match('#^(https?://|mailto:|tel:|sunxfinder://)#i', $href)) {
+                        $child->setAttribute('href', $href);
+                    } else {
+                        while ($child->firstChild) {
+                            $node->insertBefore($child->firstChild, $child);
+                        }
+                        $node->removeChild($child);
+                    }
+                }
+            }
+        };
+
+        $clean($root);
+
+        $output = '';
+        foreach ($root->childNodes as $child) {
+            $output .= $dom->saveHTML($child);
+        }
+
+        return trim($output);
+    }
+
     public function splitList(?string $value): array
     {
         if (!$value) {
@@ -195,21 +326,42 @@ class Helper
 
     public function publicUrl(?string $path): ?string
     {
-        if (!$path) {
+        $path = trim((string) $path);
+
+        if ($path === '') {
             return null;
         }
 
-        // Uploaded logos were saved as full URLs with the host at upload time
-        // (e.g. http://127.0.0.1:8001/main/images/...). Rebuild those on the current host.
-        if (Str::startsWith($path, ['http://', 'https://'])) {
-            $localPath = Str::after((string) parse_url($path, PHP_URL_PATH), '/');
+        $originalPath = $path;
 
-            return Str::startsWith($localPath, 'main/images/') && is_file(public_path($localPath))
-                ? asset($localPath)
-                : $path;
+        // Older company uploads stored the host as part of logo_path. Convert local
+        // company image URLs to the current host so dev/prod hostnames do not persist.
+        // Keep genuinely external image URLs intact.
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            $urlHost = strtolower((string) parse_url($path, PHP_URL_HOST));
+
+            // Preserve local test URLs as-is; APP_URL may use the other loopback host.
+            if (in_array($urlHost, ['localhost', '127.0.0.1', '::1'], true)) {
+                return $originalPath;
+            }
+
+            $urlPath = parse_url($path, PHP_URL_PATH);
+            $path = is_string($urlPath) ? $urlPath : '';
+
+            if (!Str::startsWith(ltrim($path, '/'), ['main/images/', 'company/'])) {
+                return $originalPath;
+            }
         }
 
-        return asset(ltrim($path, '/'));
+        $relativePath = str_replace('\\', '/', ltrim($path, '/'));
+        $relativePath = preg_replace('#^(?:public/)+#', '', $relativePath);
+
+        if (!Str::startsWith($relativePath, 'main/images/')) {
+            // Company logo paths without a folder are relative to main/images.
+            $relativePath = 'main/images/' . $relativePath;
+        }
+
+        return asset($relativePath);
     }
 
     /**
@@ -268,6 +420,101 @@ class Helper
         }
     }
 
+    /**
+     * Largest upload PHP accepts on this server, in KB (upload_max_filesize / post_max_size).
+     * Files above it never reach Laravel and fail as "The image failed to upload."
+     */
+    public static function serverUploadLimitKb(): int
+    {
+        $toKb = function ($value): int {
+            $value = trim((string) $value);
+            $number = (float) $value;
+
+            return (int) match (strtolower(substr($value, -1))) {
+                'g' => $number * 1024 * 1024,
+                'm' => $number * 1024,
+                'k' => $number,
+                default => $number / 1024,
+            };
+        };
+
+        $limits = array_filter([$toKb(ini_get('upload_max_filesize')), $toKb(ini_get('post_max_size'))]);
+
+        return $limits ? min($limits) : 2048;
+    }
+
+    /**
+     * Saves an uploaded image under public/$relativeDir as a WebP no wider than $maxWidth,
+     * so the app downloads a light file. Falls back to the original format (shrunk) when
+     * GD has no WebP support.
+     *
+     * @return array{path: string, width: ?int, height: ?int} path is relative to public/
+     */
+    public static function storeOptimizedImage(
+        \Illuminate\Http\UploadedFile $file,
+        string $relativeDir,
+        int $maxWidth = 1280,
+        int $quality = 80
+    ): array {
+        $relativeDir = trim(str_replace('\\', '/', $relativeDir), '/');
+        $directory = public_path($relativeDir);
+
+        if (!File::isDirectory($directory)) {
+            File::makeDirectory($directory, 0755, true);
+        }
+
+        $baseName = now()->format('YmdHis') . '-' . Str::lower(Str::random(8));
+        $info = @getimagesize($file->getRealPath()) ?: [0, 0, null];
+        [$width, $height] = $info;
+
+        // Already a WebP at the target size (the admin forms resize in the browser):
+        // store it untouched; re-encoding would only lose quality.
+        if (($info[2] ?? null) === IMAGETYPE_WEBP && $width > 0 && $width <= $maxWidth) {
+            $fileName = $baseName . '.webp';
+            $file->move($directory, $fileName);
+
+            return ['path' => "{$relativeDir}/{$fileName}", 'width' => (int) $width, 'height' => (int) $height];
+        }
+
+        try {
+            $source = function_exists('imagewebp') && $width && $height
+                ? imagecreatefromstring(file_get_contents($file->getRealPath()))
+                : false;
+
+            if ($source) {
+                $scale = min(1, $maxWidth / $width);
+                $newWidth = max(1, (int) round($width * $scale));
+                $newHeight = max(1, (int) round($height * $scale));
+
+                $target = imagecreatetruecolor($newWidth, $newHeight);
+                imagealphablending($target, false);
+                imagesavealpha($target, true);
+                imagecopyresampled($target, $source, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+
+                $fileName = $baseName . '.webp';
+                $saved = imagewebp($target, $directory . DIRECTORY_SEPARATOR . $fileName, $quality);
+
+                imagedestroy($source);
+                imagedestroy($target);
+
+                if ($saved) {
+                    return ['path' => "{$relativeDir}/{$fileName}", 'width' => $newWidth, 'height' => $newHeight];
+                }
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
+
+        // No WebP support: keep the original format, resized in place.
+        $fileName = $baseName . '.' . strtolower($file->getClientOriginalExtension() ?: 'jpg');
+        $file->move($directory, $fileName);
+        $fullPath = $directory . DIRECTORY_SEPARATOR . $fileName;
+        self::shrinkImage($fullPath, $maxWidth);
+        [$width, $height] = @getimagesize($fullPath) ?: [null, null];
+
+        return ['path' => "{$relativeDir}/{$fileName}", 'width' => $width ?: null, 'height' => $height ?: null];
+    }
+
     public function parseSocialLinks(?string $value): array
     {
         $links = [
@@ -316,17 +563,32 @@ class Helper
         return $links;
     }
 
+    /**
+     * Companies the app may show: active, verified, approved and on_app (not hidden from
+     * Admin → Company Carousel). Anything else is hidden (404 on detail).
+     */
     public function visibleCompanies()
     {
         return SolarCompany::query()
-            ->whereIn('status', ['approved', 'pending'])
+            ->where('status', 'approved')
             ->where('is_active', true)
-            ->where('is_verified', true);
+            ->where('is_verified', true)
+            ->where('on_app', true);
+    }
+
+    /** Same rule as visibleCompanies(), for a company already loaded. */
+    public function isCompanyVisible(?SolarCompany $company): bool
+    {
+        return $company !== null
+            && $company->status === 'approved'
+            && (bool) $company->is_active
+            && (bool) $company->is_verified
+            && (bool) $company->on_app;
     }
 
     /**
      * Builds the push title/body for a customer in the app language.
-     * Supported types: offer_new, offer_updated, start_installation, project_completed, account_approved,
+     * Supported types: offer_received, offer_updated, start_installation, project_completed, account_approved,
      * request_cancelled ($price carries the request reference). $price is shown as given
      * (e.g. "1,500 SDG").
      */
@@ -338,15 +600,15 @@ class Helper
         $name = trim((string) \App\Models\Customer::query()->whereKey($customer_id)->value('full_name'));
 
         $templates = [
-            'offer_new' => [
+            'offer_received' => [
                 'en' => [
-                    'title' => 'New offer received',
+                    'title' => 'New offer on your request',
                     'body' => $price !== null
                         ? 'You received a new offer of :price on your quote request.'
                         : 'You received a new offer on your quote request.',
                 ],
                 'ar' => [
-                    'title' => 'عرض سعر جديد',
+                    'title' => 'عرض جديد على طلبك',
                     'body' => $price !== null
                         ? 'وصلك عرض سعر جديد بقيمة :price على طلبك.'
                         : 'وصلك عرض سعر جديد على طلبك.',
@@ -440,7 +702,7 @@ class Helper
 
         $price = number_format((float) $quotation->price) . ' ' . $quotation->currency;
 
-        $this->notifyCustomer((int) $quotation->customer_id, $type, $price);
+        $this->notifyCustomer((int) $quotation->customer_id, $type, $price, 'company', (int) $quotation->quote_id);
     }
 
     /**
@@ -504,26 +766,165 @@ class Helper
      *
      * @return array{quotes: int, offers: int, projects: int}
      */
-    public function softDeleteCustomerData(\App\Models\Customer $customer): array
+    public function archiveItem(
+        \Illuminate\Database\Eloquent\Model $item,
+        string $type,
+        ?int $customerId = null,
+        string $source = 'website'
+    ): ArchivedItem {
+        $attributes = $item->attributesToArray();
+
+        // Archive useful item data without copying credentials or device tokens.
+        foreach (array_keys($attributes) as $key) {
+            if (preg_match('/password|token|secret|credential/i', $key)) {
+                unset($attributes[$key]);
+            }
+        }
+
+        $archive = ArchivedItem::withTrashed()
+            ->where('customer_id', $customerId)
+            ->where('type', $type)
+            ->where('item_id', $item->getKey())
+            ->first();
+
+        if (!$archive) {
+            $archive = new ArchivedItem([
+                'customer_id' => $customerId,
+                'type' => $type,
+                'item_id' => $item->getKey(),
+            ]);
+        }
+
+        $archive->fill([
+            'data' => $attributes,
+            'source' => $source,
+        ]);
+
+        if ($archive->trashed()) {
+            $archive->restore();
+        }
+
+        $archive->save();
+
+        return $archive;
+    }
+
+    /** Archive a customer quote request and soft-delete its complete quote/project history. */
+    public function archiveQuoteAndRelated(Quote $quote, int $customerId, string $source = 'app'): array
     {
-        $counts = DB::transaction(function () use ($customer) {
+        return DB::transaction(function () use ($quote, $customerId, $source) {
+            $quote->loadMissing('companyQuotations');
+            $offers = CompanyQuotation::query()->where('quote_id', $quote->id)->get();
+            $projects = Project::query()->where('quote_id', $quote->id)->get();
+            $projectIds = $projects->modelKeys();
+            $offerIds = $offers->modelKeys();
+
+            $milestones = ProjectMilestone::query()->whereIn('project_id', $projectIds)->get();
+            $updates = ProjectUpdate::query()->whereIn('project_id', $projectIds)->get();
+            $ratings = Rating::query()
+                ->where('quote_id', $quote->id)
+                ->orWhereIn('project_id', $projectIds ?: [-1])
+                ->orWhereIn('offer_id', $offerIds ?: [-1])
+                ->get();
+            $ratingAnswers = RatingAnswer::query()->whereIn('rating_id', $ratings->modelKeys())->get();
+
+            // Save each record before marking it deleted so the archive remains recoverable.
+            $this->archiveItem($quote, 'requestd_quote', $customerId, $source);
+            foreach ($offers as $offer) {
+                $this->archiveItem($offer, 'offer', $customerId, $source);
+            }
+            foreach ($projects as $project) {
+                $this->archiveItem($project, 'project', $customerId, $source);
+            }
+            foreach ($milestones as $milestone) {
+                $this->archiveItem($milestone, 'project_milestone', $customerId, $source);
+            }
+            foreach ($updates as $update) {
+                $this->archiveItem($update, 'project_update', $customerId, $source);
+            }
+            foreach ($ratings as $rating) {
+                $this->archiveItem($rating, 'rating', $customerId, $source);
+            }
+            foreach ($ratingAnswers as $answer) {
+                $this->archiveItem($answer, 'rating_answer', $customerId, $source);
+            }
+
+            // Delete dependants first to preserve history and avoid foreign-key issues.
+            RatingAnswer::query()->whereIn('id', $ratingAnswers->modelKeys())->delete();
+            Rating::query()->whereIn('id', $ratings->modelKeys())->delete();
+            ProjectMilestone::query()->whereIn('id', $milestones->modelKeys())->delete();
+            ProjectUpdate::query()->whereIn('id', $updates->modelKeys())->delete();
+            Project::query()->whereIn('id', $projectIds)->delete();
+            Invoice::query()->whereIn('company_quotation_id', $offerIds)->delete();
+            CompanyQuotation::query()->whereIn('id', $offerIds)->delete();
+            $quote->delete();
+
+            return [
+                'offers' => $offers->count(),
+                'projects' => $projects->count(),
+                'milestones' => $milestones->count(),
+                'updates' => $updates->count(),
+                'ratings' => $ratings->count(),
+                'rating_answers' => $ratingAnswers->count(),
+            ];
+        });
+    }
+
+    public function softDeleteCustomerData(\App\Models\Customer $customer, string $source = 'website'): array
+    {
+        $counts = DB::transaction(function () use ($customer, $source) {
+            $quoteRows = Quote::query()->where('customer_id', $customer->id)->get();
+            $quoteIds = $quoteRows->modelKeys();
+
+            $projectRows = Project::query()
+                ->where(function ($query) use ($customer, $quoteIds) {
+                    $query->where('customer_id', $customer->id)
+                        ->orWhereIn('quote_id', $quoteIds);
+                })
+                ->get();
+            $projectIds = $projectRows->modelKeys();
+
+            $offerRows = CompanyQuotation::query()->whereIn('quote_id', $quoteIds)->get();
+            $milestoneRows = ProjectMilestone::query()->whereIn('project_id', $projectIds)->get();
+            $updateRows = ProjectUpdate::query()->whereIn('project_id', $projectIds)->get();
+            $notificationRows = CustomerNotification::query()->where('customer_id', $customer->id)->get();
+            $ratingRows = Rating::query()->where('customer_id', $customer->id)->get();
+
+            // Keep a recoverable snapshot of every customer-owned record before soft deletion.
+            $this->archiveItem($customer, 'customer', $customer->id, $source);
+            foreach ($quoteRows as $quote) {
+                $this->archiveItem($quote, 'requestd_quote', $customer->id, $source);
+            }
+            foreach ($offerRows as $offer) {
+                $this->archiveItem($offer, 'offer', $customer->id, $source);
+            }
+            foreach ($projectRows as $project) {
+                $this->archiveItem($project, 'project', $customer->id, $source);
+            }
+            foreach ($milestoneRows as $milestone) {
+                $this->archiveItem($milestone, 'project_milestone', $customer->id, $source);
+            }
+            foreach ($updateRows as $update) {
+                $this->archiveItem($update, 'project_update', $customer->id, $source);
+            }
+            foreach ($notificationRows as $notification) {
+                $this->archiveItem($notification, 'customer_notification', $customer->id, $source);
+            }
+            foreach ($ratingRows as $rating) {
+                $this->archiveItem($rating, 'rating', $customer->id, $source);
+            }
+
             $customer->status = 'deleted';
             $customer->is_active = false;
             $customer->save();
-
-            $quoteIds = Quote::query()->where('customer_id', $customer->id)->pluck('id');
-
-            $projectIds = Project::query()
-                ->where('customer_id', $customer->id)
-                ->orWhereIn('quote_id', $quoteIds)
-                ->pluck('id');
 
             // Builder delete() on SoftDeletes models only sets deleted_at.
             ProjectMilestone::query()->whereIn('project_id', $projectIds)->delete();
             ProjectUpdate::query()->whereIn('project_id', $projectIds)->delete();
             $projects = Project::query()->whereIn('id', $projectIds)->delete();
 
-            // Company offers on this customer's requests.
+            // Company offers on this customer's requests, with their invoices.
+            Invoice::query()->whereIn('quote_id', $quoteIds)->delete();
             $offers = CompanyQuotation::query()->whereIn('quote_id', $quoteIds)->delete();
             $quotes = Quote::query()->whereIn('id', $quoteIds)->delete();
 
@@ -559,8 +960,13 @@ class Helper
      * each in its own app language. A failed push never throws.
      * $sender: "company" (logged-in company) or "admin" (logged-in admin).
      */
-    public function notifyCustomer(int $customerId, string $type, $price = null, string $sender = 'company'): void
-    {
+    public function notifyCustomer(
+        int $customerId,
+        string $type,
+        $price = null,
+        string $sender = 'company',
+        ?int $quoteId = null
+    ): void {
         $en = $this->notificationsTemplate($customerId, 'en', $type, $price);
         $ar = $this->notificationsTemplate($customerId, 'ar', $type, $price);
 
@@ -572,6 +978,7 @@ class Helper
             'message_en' => $en['body'],
             'title_ar' => $ar['title'],
             'message_ar' => $ar['body'],
+            'quote_id' => $quoteId,
         ];
 
         try {
@@ -582,7 +989,7 @@ class Helper
                     'sender_id' => auth('admin')->id(),
                 ]);
             } else {
-                app(CompanyRepository::class)->publishNotification($data);
+                app(CompanyRepository::class)->publishNotification($data, true);
             }
         } catch (Throwable $e) {
             report($e);

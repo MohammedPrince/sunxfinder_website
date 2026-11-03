@@ -2,9 +2,11 @@
 
 namespace App\Repositories\Admin;
 
+use App\Jobs\SendCustomerAccountStatusEmail;
 use App\Mail\CompanyJoinRequestMail;
 use App\Mail\CompanyRequestWaitingMail;
 use App\Models\ActivityLog;
+use App\Models\ArchivedItem;
 use App\Models\Admin;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -13,11 +15,16 @@ use App\Repositories\OtpRepository;
 use App\Support\ActivityLogger;
 use App\Support\ApkDownload;
 use App\Support\DatabaseBackup;
+use App\Support\LegalDefaults;
+use App\Models\LegalSection;
 use App\Models\Appliance;
 use App\Models\ApplianceGroup;
 use App\Models\AppVersion;
+use App\Models\AppSlider;
+use App\Models\HomeSection;
 use App\Models\CompanyCarousel;
 use App\Models\CompanyQuotation;
+use App\Models\CustomerComplaint;
 use App\Models\ApiEndpoint;
 use App\Models\Customer;
 use App\Models\Project;
@@ -31,7 +38,9 @@ use App\Models\RatingQuestion;
 use App\Models\RatingValue;
 use App\Models\Setting;
 use App\Models\SolarCompany;
+use App\Models\SentEmail;
 use App\Models\Supplier;
+use App\Models\Visitor;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use App\Support\ReportPeriod;
 use Illuminate\Support\Carbon;
@@ -49,6 +58,9 @@ use Kreait\Firebase\Contract\Messaging;
 use Kreait\Firebase\Messaging\CloudMessage;
 use App\Helpers\Helper;
 use Kreait\Firebase\Messaging\Notification as FcmNotification;
+use App\Models\AdSale;
+use App\Support\AdTracker;
+use App\Support\BusinessStats;
 
 class AdminRepository
 {
@@ -187,12 +199,42 @@ class AdminRepository
             ->limit(5)
             ->get(['id', 'name', 'username', 'city', 'status', 'is_verified', 'is_active', 'created_at']);
 
+        $topVisitorCountryRow = Visitor::query()
+            ->whereNotNull('country')
+            ->selectRaw('country, COUNT(*) as visitors')
+            ->groupBy('country')
+            ->orderByDesc('visitors')
+            ->orderBy('country')
+            ->first();
+
+        $topVisitorCountry = null;
+        if ($topVisitorCountryRow) {
+            $countryCode = strtoupper($topVisitorCountryRow->country);
+            $countryName = class_exists(\Locale::class)
+                ? \Locale::getDisplayRegion('en_' . $countryCode, 'en')
+                : '';
+
+            $topVisitorCountry = [
+                'name' => $countryName && $countryName !== $countryCode ? $countryName : $countryCode,
+                'code' => $countryCode,
+                'visitors' => (int) $topVisitorCountryRow->visitors,
+            ];
+        }
+
         return [
             'companies' => $companies,
             'quotes' => $quotes,
             'customers' => $customers,
             'activity' => $activity,
             'latestCompanies' => $latestCompanies,
+            'topVisitorCountry' => $topVisitorCountry,
+            // Money, ads, complaints and ratings for the second row of cards.
+            'ads' => BusinessStats::advertising($thisMonth, now()),
+            'ratings' => BusinessStats::ratingOverall(),
+            'complaints' => [
+                'open' => CustomerComplaint::query()->where('status', 'pending')->count(),
+                'this_month' => CustomerComplaint::query()->where('created_at', '>=', $thisMonth)->count(),
+            ],
         ];
     }
 
@@ -206,6 +248,20 @@ class AdminRepository
 
         // The top bar sorts by count; this order breaks ties.
         $attention = [
+            [
+                'label' => 'Ad requests from companies',
+                'hint' => 'Set the price and dates, then ask for payment.',
+                'count' => AdSale::query()->where('status', 'requested')->count(),
+                'url' => route('admin.ad-sales.index', ['status' => 'requested']),
+                'tone' => 'orange',
+            ],
+            [
+                'label' => 'Ads ending within ' . AdSale::ENDING_SOON_DAYS . ' days',
+                'hint' => 'Offer the company a renewal before the ad stops.',
+                'count' => AdSale::query()->endingSoon()->count(),
+                'url' => route('admin.ad-sales.index', ['ending' => 1]),
+                'tone' => 'blue',
+            ],
             [
                 'label' => 'Customers waiting for approval',
                 'hint' => 'New sign-ups who cannot log in to the app until approved.',
@@ -307,6 +363,9 @@ class AdminRepository
             'companies' => $this->reportCompanies($from, $to),
             'catalog' => $this->reportCatalog(),
             'notifications' => $this->reportNotifications($from, $to),
+            'advertising' => BusinessStats::advertising($from, $to),
+            'ratings' => BusinessStats::ratings($from, $to),
+            'complaints' => BusinessStats::complaints($from, $to),
         ];
     }
 
@@ -1037,6 +1096,8 @@ class AdminRepository
                 ];
             }
 
+            app(Helper::class)->archiveItem($company, 'company', null, 'website');
+
             // Keep the status in step with the soft delete.
             $company->forceFill(['status' => 'deleted'])->save();
             $company->delete();
@@ -1073,6 +1134,8 @@ class AdminRepository
             $customer->city = $data['city'] ?? null;
             $customer->address = $data['address'] ?? null;
             $customer->status = $data['status'];
+            $customer->registration_source = 'admin';
+            $customer->preferred_language = 'en';
 
             // Only active customers can have active accounts.
             $customer->is_active = $data['status'] === 'active' ? 1 : 0;
@@ -1272,7 +1335,8 @@ class AdminRepository
                 ];
             }
 
-            $wasActive = $customer->status === 'active';
+            $previousStatus = $customer->status;
+            $wasActive = $previousStatus === 'active';
 
             $customer->username = $data['username'];
             $customer->full_name = $data['full_name'];
@@ -1299,9 +1363,34 @@ class AdminRepository
                 ];
             }
 
+            if ($customer->status === 'suspended') {
+                // Revoke every app login immediately and stop push delivery.
+                $customer->tokens()->delete();
+                CustomerDeviceToken::query()
+                    ->where('customer_id', $customer->id)
+                    ->update(['is_active' => false]);
+            }
+
             // Account approved (pending/suspended -> active): tell the customer.
             if (!$wasActive && $customer->status === 'active') {
                 app(Helper::class)->notifyCustomerAccountApproved((int) $customer->id);
+            }
+
+            if (
+                $previousStatus === 'pending'
+                && $customer->registration_source === 'website'
+                && in_array($customer->status, ['active', 'suspended'], true)
+                && filter_var($customer->email, FILTER_VALIDATE_EMAIL)
+            ) {
+                try {
+                    SendCustomerAccountStatusEmail::dispatch(
+                        (int) $customer->id,
+                        $customer->status === 'active' ? 'approved' : 'declined'
+                    );
+                } catch (Throwable $emailQueueException) {
+                    // The status update is already saved; a mail queue problem must not undo it.
+                    report($emailQueueException);
+                }
             }
 
             return [
@@ -1571,6 +1660,7 @@ class AdminRepository
                 $removedRows = $removedAppliances->get();
 
                 $removedRows->each(function (Appliance $appliance) {
+                    app(Helper::class)->archiveItem($appliance, 'appliance', null, 'website');
                     $appliance->delete();
                 });
 
@@ -1610,9 +1700,11 @@ class AdminRepository
 
                 $appliances
                     ->each(function (Appliance $appliance) {
+                        app(Helper::class)->archiveItem($appliance, 'appliance', null, 'website');
                         $appliance->delete();
                     });
 
+                app(Helper::class)->archiveItem($group, 'appliance_group', null, 'website');
                 $group->delete();
 
                 return [
@@ -1694,6 +1786,7 @@ class AdminRepository
             return ['success' => false, 'message' => 'Supplier not found.'];
         if ($supplier->products_count > 0)
             return ['success' => false, 'message' => 'This supplier still has products. Delete or reassign its products first.'];
+        app(Helper::class)->archiveItem($supplier, 'supplier', null, 'website');
         $supplier->delete();
         return ['success' => true, 'message' => 'Supplier deleted successfully.'];
     }
@@ -1772,12 +1865,20 @@ class AdminRepository
         $product = Product::find($id);
         if (!$product)
             return ['success' => false, 'message' => 'Product not found.'];
+
+        foreach ($product->specs as $spec) {
+            app(Helper::class)->archiveItem($spec, 'product_spec', null, 'website');
+        }
+        app(Helper::class)->archiveItem($product, 'product', null, 'website');
         $product->delete();
         return ['success' => true, 'message' => 'Product deleted successfully.'];
     }
 
     private function syncProductSpecs(Product $product, array $specs): void
     {
+        foreach ($product->specs as $spec) {
+            app(Helper::class)->archiveItem($spec, 'product_spec', null, 'website');
+        }
         $product->specs()->delete();
         $seen = [];
         foreach ($specs as $spec) {
@@ -1885,12 +1986,22 @@ class AdminRepository
                 ];
             }
 
-            // 4. Create the carousel entry.
+            // 4. Keep each display order to one company per platform.
+            $plan = $this->planCompanyCarouselOrderMoves($data);
+
+            if (!$plan['success']) {
+                return $plan;
+            }
+
+            // 5. Create the carousel entry.
             $entry = new CompanyCarousel();
 
             $this->assignCompanyCarouselFields($entry, $data);
 
-            $entry->save();
+            DB::transaction(function () use ($entry, $plan) {
+                $this->applyCompanyCarouselOrderMoves($plan['moves']);
+                $entry->save();
+            });
 
             return [
                 'success' => true,
@@ -1915,13 +2026,40 @@ class AdminRepository
             if (!SolarCompany::whereKey($data['company_id'])->exists()) {
                 return ['success' => false, 'message' => 'The selected company was not found.'];
             }
+            $plan = $this->planCompanyCarouselOrderMoves($data, $id);
+            if (!$plan['success']) {
+                return $plan;
+            }
             $this->assignCompanyCarouselFields($entry, $data);
-            $entry->save();
+            DB::transaction(function () use ($entry, $plan) {
+                $this->applyCompanyCarouselOrderMoves($plan['moves']);
+                $entry->save();
+            });
             return ['success' => true, 'message' => 'Carousel entry updated successfully.'];
         } catch (Throwable $e) {
             report($e);
             return ['success' => false, 'message' => 'Unable to update the carousel entry. Please try again.'];
         }
+    }
+
+    public function toggleCompanyCarouselEntry(int $id): array
+    {
+        $entry = CompanyCarousel::find($id);
+        if (!$entry) {
+            return ['success' => false, 'message' => 'Carousel entry not found.'];
+        }
+
+        $entry->is_active = !$entry->is_active;
+
+        // The eye also shows/hides the company itself in the app (/companies, /main-data, ...).
+        DB::transaction(function () use ($entry) {
+            $entry->save();
+            SolarCompany::whereKey($entry->company_id)->update(['on_app' => $entry->is_active]);
+        });
+
+        return ['success' => true, 'message' => $entry->is_active
+            ? 'Company is active again in the carousel and the app.'
+            : 'Company hidden from the carousel and the app.'];
     }
 
     public function deleteCompanyCarouselEntry(int $id): array
@@ -1930,6 +2068,7 @@ class AdminRepository
             $entry = CompanyCarousel::find($id);
             if (!$entry)
                 return ['success' => false, 'message' => 'Carousel entry not found.'];
+            app(Helper::class)->archiveItem($entry, 'company_carousel', null, 'website');
             $entry->delete();
             return ['success' => true, 'message' => 'Carousel entry deleted successfully.'];
         } catch (Throwable $e) {
@@ -1942,12 +2081,445 @@ class AdminRepository
     {
         $entry->company_id = (int) $data['company_id'];
         $entry->platform = $data['platform'];
+        $entry->is_sponsored = (bool) ($data['is_sponsored'] ?? false);
         $entry->sort_order = (int) $data['sort_order'];
         $entry->interval_seconds = (int) $data['interval_seconds'];
         $entry->is_active = (bool) ($data['is_active'] ?? false);
         $entry->starts_at = $data['starts_at'] ?? null;
         $entry->ends_at = $data['ends_at'] ?? null;
     }
+
+    /**
+     * Two entries clash when they share an order on the same platform, so "both" clashes with
+     * everything. Returns the other companies' new orders, or what the form needs to ask for them.
+     */
+    private function planCompanyCarouselOrderMoves(array $data, ?int $entryId = null): array
+    {
+        $order = (int) $data['sort_order'];
+        $overlaps = fn(string $a, string $b) => $a === $b || $a === 'both' || $b === 'both';
+
+        /** @var \Illuminate\Database\Eloquent\Collection<int, CompanyCarousel> $others */
+        $others = CompanyCarousel::with('company:id,name')->where('id', '!=', (int) $entryId)->get();
+        $clashes = $others->filter(fn(CompanyCarousel $other) => $other->sort_order === $order && $overlaps($other->platform, $data['platform']));
+
+        if ($clashes->isEmpty()) {
+            return ['success' => true, 'moves' => []];
+        }
+
+        $taken = $others->diff($clashes)->map(fn(CompanyCarousel $other) => [$other->platform, $other->sort_order])->values()->all();
+        $isFree = function (string $platform, int $value) use (&$taken, $overlaps): bool {
+            foreach ($taken as [$takenPlatform, $takenOrder]) {
+                if ($takenOrder === $value && $overlaps($takenPlatform, $platform)) {
+                    return false;
+                }
+            }
+
+            return true;
+        };
+
+        $moves = [];
+        $rows = [];
+        $problem = null;
+
+        foreach ($clashes as $clash) {
+            $target = $data['order_moves'][$clash->id] ?? null;
+
+            if (filled($target)) {
+                if ((int) $target !== $order && $isFree($clash->platform, (int) $target)) {
+                    $moves[$clash->id] = (int) $target;
+                } else {
+                    $problem = "Display order {$target} is already used. Choose another order for {$clash->company?->name}.";
+                }
+            }
+
+            $suggested = $moves[$clash->id] ?? $order + 1;
+            while (!isset($moves[$clash->id]) && !$isFree($clash->platform, $suggested)) {
+                $suggested++;
+            }
+            $taken[] = [$clash->platform, $suggested];
+
+            $rows[] = [
+                'id' => $clash->id,
+                'company' => $clash->company?->name ?? 'Company #' . $clash->company_id,
+                'platform' => ['both' => 'App and website', 'app' => 'Mobile app', 'website' => 'Website'][$clash->platform] ?? $clash->platform,
+                'suggested' => $suggested,
+            ];
+        }
+
+        if (count($moves) === $clashes->count()) {
+            return ['success' => true, 'moves' => $moves];
+        }
+
+        return [
+            'success' => false,
+            'message' => $problem ?? "Display order {$order} is already used. Change the other company's order below, or choose another order.",
+            'order_clash' => ['order' => $order, 'entries' => $rows],
+        ];
+    }
+
+    private function applyCompanyCarouselOrderMoves(array $moves): void
+    {
+        foreach ($moves as $id => $order) {
+            CompanyCarousel::find($id)?->update(['sort_order' => $order]);
+        }
+    }
+
+    //App Slider Start
+
+    private const SLIDER_IMAGE_DIR = 'main/images/sliders';
+
+    public function getAppSliders(array $filters = [])
+    {
+        $now = now();
+
+        return AppSlider::query()
+            ->with('creator:id,username')
+            ->when(!empty($filters['search']), function ($query) use ($filters) {
+                $term = '%' . $filters['search'] . '%';
+                $query->where(fn($q) => $q->where('name', 'like', $term)
+                    ->orWhere('description_en', 'like', $term)
+                    ->orWhere('description_ar', 'like', $term));
+            })
+            ->when(($filters['state'] ?? '') === 'live', fn($q) => $q->currentlyVisible())
+            ->when(($filters['state'] ?? '') === 'scheduled', fn($q) => $q->where('is_active', true)->where('starts_at', '>', $now))
+            ->when(($filters['state'] ?? '') === 'expired', fn($q) => $q->where('is_active', true)->where('ends_at', '<', $now))
+            ->when(($filters['state'] ?? '') === 'inactive', fn($q) => $q->where('is_active', false))
+            ->orderBy('sort_order')
+            ->orderByDesc('id')
+            ->paginate(15)
+            ->withQueryString();
+    }
+
+    public function getAppSliderMetrics(): array
+    {
+        return [
+            'total' => AppSlider::count(),
+            'live' => AppSlider::currentlyVisible()->count(),
+            'scheduled' => AppSlider::where('is_active', true)->where('starts_at', '>', now())->count(),
+            'inactive' => AppSlider::where('is_active', false)->count(),
+        ];
+    }
+
+    public function findAppSlider(int $id): ?AppSlider
+    {
+        return AppSlider::find($id);
+    }
+
+    public function getNextAppSliderSortOrder(): int
+    {
+        return ((int) AppSlider::max('sort_order')) + 1;
+    }
+
+    public function createAppSlider(array $data, ?\Illuminate\Http\UploadedFile $image, ?int $adminId): array
+    {
+        try {
+            if (!$image) {
+                return ['success' => false, 'message' => 'Please upload a slide image.'];
+            }
+
+            $slider = new AppSlider();
+            $this->assignAppSliderFields($slider, $data);
+            $this->storeAppSliderImage($slider, $image);
+            $slider->created_by = $adminId;
+            $slider->save();
+            AppSlider::clearCache();
+
+            return ['success' => true, 'message' => 'Slide created successfully.'];
+        } catch (Throwable $e) {
+            report($e);
+            return ['success' => false, 'message' => 'Unable to create the slide. Please try again.'];
+        }
+    }
+
+    public function updateAppSlider(int $id, array $data, ?\Illuminate\Http\UploadedFile $image): array
+    {
+        try {
+            $slider = AppSlider::find($id);
+            if (!$slider) {
+                return ['success' => false, 'message' => 'Slide not found.'];
+            }
+
+            $oldImage = $slider->image_path;
+            $this->assignAppSliderFields($slider, $data);
+
+            if ($image) {
+                $this->storeAppSliderImage($slider, $image);
+            }
+
+            $slider->save();
+            AppSlider::clearCache();
+
+            // Remove the replaced file only after the new one is saved.
+            if ($image && $oldImage && $oldImage !== $slider->image_path) {
+                $this->deleteAppSliderImageFile($oldImage);
+            }
+
+            return ['success' => true, 'message' => 'Slide updated successfully.'];
+        } catch (Throwable $e) {
+            report($e);
+            return ['success' => false, 'message' => 'Unable to update the slide. Please try again.'];
+        }
+    }
+
+    public function toggleAppSlider(int $id): array
+    {
+        $slider = AppSlider::find($id);
+        if (!$slider) {
+            return ['success' => false, 'message' => 'Slide not found.'];
+        }
+
+        $slider->is_active = !$slider->is_active;
+        $slider->save();
+        AppSlider::clearCache();
+
+        return ['success' => true, 'message' => $slider->is_active ? 'Slide activated.' : 'Slide hidden from the app.'];
+    }
+
+    public function deleteAppSlider(int $id): array
+    {
+        try {
+            $slider = AppSlider::find($id);
+            if (!$slider) {
+                return ['success' => false, 'message' => 'Slide not found.'];
+            }
+
+            // Soft delete: the image file stays so the slide can be restored from the archive.
+            app(Helper::class)->archiveItem($slider, 'app_slider', null, 'website');
+            $slider->delete();
+            AppSlider::clearCache();
+
+            return ['success' => true, 'message' => 'Slide deleted successfully.'];
+        } catch (Throwable $e) {
+            report($e);
+            return ['success' => false, 'message' => 'Unable to delete the slide. Please try again.'];
+        }
+    }
+
+    private function assignAppSliderFields(AppSlider $slider, array $data): void
+    {
+        $slider->name = trim($data['name']);
+        $slider->description_ar = filled($data['description_ar'] ?? null) ? trim($data['description_ar']) : null;
+        $slider->description_en = filled($data['description_en'] ?? null) ? trim($data['description_en']) : null;
+        $slider->company_id = $data['company_id'] ?? null;
+        $slider->platform = $data['platform'];
+        $slider->placement = $data['placement'];
+        $slider->is_sponsored = (bool) ($data['is_sponsored'] ?? false);
+        $slider->link_url = !empty($data['has_link']) && filled($data['link_url'] ?? null) ? trim($data['link_url']) : null;
+        $slider->interval_seconds = (int) $data['interval_seconds'];
+        $slider->sort_order = (int) $data['sort_order'];
+        $slider->is_active = (bool) ($data['is_active'] ?? false);
+        $slider->starts_at = $data['starts_at'] ?? null;
+        $slider->ends_at = $data['ends_at'] ?? null;
+    }
+
+    private function storeAppSliderImage(AppSlider $slider, \Illuminate\Http\UploadedFile $image): void
+    {
+        $stored = Helper::storeOptimizedImage($image, self::SLIDER_IMAGE_DIR, 1280, 88);
+        $slider->image_path = $stored['path'];
+        $slider->image_width = $stored['width'];
+        $slider->image_height = $stored['height'];
+    }
+
+    private function deleteAppSliderImageFile(string $relativePath): void
+    {
+        // Only ever delete inside the slider folder.
+        if (Str::startsWith($relativePath, self::SLIDER_IMAGE_DIR . '/')) {
+            \Illuminate\Support\Facades\File::delete(public_path($relativePath));
+        }
+    }
+
+    //App Slider End
+
+    //Privacy & Terms Start
+
+    public function getLegalSections(string $page)
+    {
+        return LegalSection::query()->forPage($page)->get();
+    }
+
+    public function findLegalSection(int $id): ?LegalSection
+    {
+        return LegalSection::find($id);
+    }
+
+    public function createLegalSection(string $page, array $data, ?int $adminId): array
+    {
+        try {
+            if (!LegalSection::where('page', $page)->exists()) {
+                return ['success' => false, 'message' => 'Load the current text first, then add sections to it.'];
+            }
+
+            $section = new LegalSection(['page' => $page, 'type' => $data['type']]);
+            $section->sort_order = $this->nextLegalSortOrder($page, $data['type']);
+            $section->created_by = $adminId;
+
+            if (!$this->assignLegalFields($section, $data)) {
+                return ['success' => false, 'message' => 'Enter the text in both English and Arabic.'];
+            }
+
+            $section->save();
+            $this->touchLegalPageDate($page, $data);
+
+            return ['success' => true, 'message' => 'Section added successfully.'];
+        } catch (Throwable $e) {
+            report($e);
+            return ['success' => false, 'message' => 'Unable to add the section. Please try again.'];
+        }
+    }
+
+    public function updateLegalSection(int $id, array $data): array
+    {
+        try {
+            $section = LegalSection::find($id);
+            if (!$section) {
+                return ['success' => false, 'message' => 'Section not found.'];
+            }
+
+            if (!$this->assignLegalFields($section, $data)) {
+                return ['success' => false, 'message' => 'Enter the text in both English and Arabic.'];
+            }
+
+            // Moving to the other type places it at the end of that group.
+            if ($section->isDirty('type')) {
+                $section->sort_order = $this->nextLegalSortOrder($section->page, $section->type);
+            }
+
+            $section->save();
+            $this->touchLegalPageDate($section->page, $data);
+
+            return ['success' => true, 'message' => 'Section updated successfully.'];
+        } catch (Throwable $e) {
+            report($e);
+            return ['success' => false, 'message' => 'Unable to update the section. Please try again.'];
+        }
+    }
+
+    public function toggleLegalSection(int $id): array
+    {
+        $section = LegalSection::find($id);
+        if (!$section || $section->isHeader()) {
+            return ['success' => false, 'message' => 'Section not found.'];
+        }
+
+        $section->is_active = !$section->is_active;
+        $section->save();
+        $this->touchLegalPageDate($section->page);
+
+        return ['success' => true, 'message' => $section->is_active ? 'Section is now shown on the website.' : 'Section hidden from the website.'];
+    }
+
+    public function moveLegalSection(int $id, string $direction): array
+    {
+        $section = LegalSection::find($id);
+        if (!$section || $section->isHeader()) {
+            return ['success' => false, 'message' => 'Section not found.'];
+        }
+
+        $ids = LegalSection::query()->forPage($section->page)->where('type', $section->type)->pluck('id')->all();
+        $from = array_search($section->id, $ids, true);
+        $to = $direction === 'up' ? $from - 1 : $from + 1;
+
+        if (!isset($ids[$to])) {
+            return ['success' => true, 'message' => 'Section is already in that position.'];
+        }
+
+        [$ids[$from], $ids[$to]] = [$ids[$to], $ids[$from]];
+
+        // Bulk update: reordering is not worth an activity log row per section.
+        foreach ($ids as $index => $sectionId) {
+            LegalSection::whereKey($sectionId)->update(['sort_order' => $index + 1]);
+        }
+
+        return ['success' => true, 'message' => 'Section moved.'];
+    }
+
+    public function deleteLegalSection(int $id): array
+    {
+        try {
+            $section = LegalSection::find($id);
+            if (!$section || $section->isHeader()) {
+                return ['success' => false, 'message' => 'The page header cannot be deleted. Edit it instead.'];
+            }
+
+            app(Helper::class)->archiveItem($section, 'legal_section', null, 'website');
+            $section->delete();
+            $this->touchLegalPageDate($section->page);
+
+            return ['success' => true, 'message' => 'Section deleted successfully.'];
+        } catch (Throwable $e) {
+            report($e);
+            return ['success' => false, 'message' => 'Unable to delete the section. Please try again.'];
+        }
+    }
+
+    /** Replaces a page's sections with the built-in text. The replaced ones go to Archives. */
+    public function loadLegalDefaults(string $page): array
+    {
+        try {
+            $count = DB::transaction(function () use ($page) {
+                foreach (LegalSection::where('page', $page)->get() as $section) {
+                    app(Helper::class)->archiveItem($section, 'legal_section', null, 'website');
+                    $section->delete();
+                }
+
+                return LegalDefaults::seed($page);
+            });
+
+            ActivityLogger::log('updated', 'Loaded the built-in text of ' . LegalSection::PAGES[$page], null, ['sections' => $count], null, 'app');
+
+            return ['success' => true, 'message' => 'The current text was loaded. You can now edit it.'];
+        } catch (Throwable $e) {
+            report($e);
+            return ['success' => false, 'message' => 'Unable to load the current text. Please try again.'];
+        }
+    }
+
+    /** Returns false when a language was left without real text. */
+    private function assignLegalFields(LegalSection $section, array $data): bool
+    {
+        $section->title_en = trim($data['title_en']);
+        $section->title_ar = trim($data['title_ar']);
+
+        if ($section->isHeader()) {
+            $section->eyebrow_en = filled($data['eyebrow_en'] ?? null) ? trim($data['eyebrow_en']) : null;
+            $section->eyebrow_ar = filled($data['eyebrow_ar'] ?? null) ? trim($data['eyebrow_ar']) : null;
+            $section->body_en = trim(strip_tags($data['body_en']));
+            $section->body_ar = trim(strip_tags($data['body_ar']));
+            $section->last_updated = $data['last_updated'];
+        } else {
+            $section->type = $data['type'] ?? $section->type;
+            $section->body_en = $this->cleanLegalBody($data['body_en']);
+            $section->body_ar = $this->cleanLegalBody($data['body_ar']);
+            $section->is_active = (bool) ($data['is_active'] ?? false);
+        }
+
+        return $section->body_en !== '' && $section->body_ar !== '';
+    }
+
+    private function cleanLegalBody(string $html): string
+    {
+        // The editor turns spaces into non-breaking ones, which stops lines wrapping.
+        $html = Helper::sanitizeRichText(str_replace(['&nbsp;', "\u{00A0}"], ' ', $html), true);
+
+        return trim(strip_tags($html)) === '' ? '' : $html;
+    }
+
+    private function nextLegalSortOrder(string $page, string $type): int
+    {
+        return ((int) LegalSection::where('page', $page)->where('type', $type)->max('sort_order')) + 1;
+    }
+
+    /** A content change updates "Last updated" unless the admin unticked it. Header dates are set by hand. */
+    private function touchLegalPageDate(string $page, array $data = []): void
+    {
+        if (!($data['bump_date'] ?? true)) {
+            return;
+        }
+
+        LegalSection::where('page', $page)->where('type', 'header')->update(['last_updated' => now()->toDateString()]);
+    }
+
+    //Privacy & Terms End
 
     //App Versions Start
 
@@ -2021,6 +2593,7 @@ class AdminRepository
                 return ['success' => false, 'message' => 'App version not found.'];
             }
 
+            app(Helper::class)->archiveItem($version, 'app_version', null, 'website');
             $version->delete();
 
             return ['success' => true, 'message' => 'App version deleted successfully.'];
@@ -2225,6 +2798,114 @@ class AdminRepository
             ->find($id);
     }
 
+    public function getAdminProjects(array $filters = []): LengthAwarePaginator
+    {
+        $query = $this->adminProjectsQuery($filters)
+            ->with([
+                'company' => fn($q) => $q->withTrashed(),
+                'customer' => fn($q) => $q->withTrashed(),
+                'quote',
+            ])
+            ->select('tbl_projects.*')
+            ->selectSub(
+                DB::table('tbl_project_updates')
+                    ->selectRaw('MAX(created_at)')
+                    ->whereColumn('project_id', 'tbl_projects.id')
+                    ->whereNull('deleted_at'),
+                'last_update_at'
+            )
+            ->orderByRaw($this->projectLastActivitySql() . ' DESC')
+            ->orderByDesc('tbl_projects.id');
+
+        return $query->paginate(25)->withQueryString();
+    }
+
+    public function getAdminProjectById(int $id): ?Project
+    {
+        return Project::query()
+            ->with([
+                'company' => fn($q) => $q->withTrashed(),
+                'customer' => fn($q) => $q->withTrashed(),
+                'quote',
+                'companyQuotation',
+                'milestones',
+                'updates',
+            ])
+            ->find($id);
+    }
+
+    public function getAdminProjectMetrics(): array
+    {
+        $query = Project::query();
+
+        return [
+            'total' => (clone $query)->count(),
+            'accepted' => (clone $query)->where('status', 'accepted')->count(),
+            'in_progress' => (clone $query)->where('status', 'in_progress')->count(),
+            'completed' => (clone $query)->where('status', 'completed')->count(),
+            'stalled' => (clone $query)
+                ->whereIn('status', ['accepted', 'in_progress'])
+                ->whereRaw($this->projectLastActivitySql() . ' < ?', [now()->subDays(ReportPeriod::STALLED_DAYS)])
+                ->count(),
+        ];
+    }
+
+    public function getAdminProjectCompanies()
+    {
+        return SolarCompany::withTrashed()->orderBy('name')->get(['id', 'name', 'deleted_at']);
+    }
+
+    private function adminProjectsQuery(array $filters)
+    {
+        return Project::query()
+            ->when(!empty($filters['status']), fn($q) => $q->where('status', $filters['status']))
+            ->when(!empty($filters['company_id']), fn($q) => $q->where('company_id', (int) $filters['company_id']))
+            ->when(!empty($filters['customer']), function ($query) use ($filters) {
+                $search = trim($filters['customer']);
+                $query->where(function ($q) use ($search) {
+                    if (ctype_digit($search)) {
+                        $q->orWhere('customer_id', (int) $search);
+                    }
+
+                    $q->orWhereHas('customer', function ($customerQuery) use ($search) {
+                        $customerQuery->withTrashed()
+                            ->where('full_name', 'like', "%{$search}%")
+                            ->orWhere('username', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%")
+                            ->orWhere('phone', 'like', "%{$search}%");
+                    });
+                });
+            })
+            ->when(!empty($filters['search']), function ($query) use ($filters) {
+                $search = trim($filters['search']);
+                $query->where(function ($q) use ($search) {
+                    if (ctype_digit($search)) {
+                        $q->orWhere('tbl_projects.id', (int) $search)
+                            ->orWhere('quote_id', (int) $search);
+                    }
+
+                    $q->orWhereHas('quote', fn($quoteQuery) => $quoteQuery->where('quote_name', 'like', "%{$search}%"))
+                        ->orWhereHas('company', fn($companyQuery) => $companyQuery->withTrashed()->where('name', 'like', "%{$search}%"));
+                });
+            })
+            ->when(!empty($filters['last_activity_from']), fn($q) => $q->whereRaw(
+                $this->projectLastActivitySql() . ' >= ?',
+                [Carbon::parse($filters['last_activity_from'])->startOfDay()]
+            ))
+            ->when(!empty($filters['last_activity_to']), fn($q) => $q->whereRaw(
+                $this->projectLastActivitySql() . ' <= ?',
+                [Carbon::parse($filters['last_activity_to'])->endOfDay()]
+            ))
+            ->when(!empty($filters['stalled']), fn($q) => $q
+                ->whereIn('status', ['accepted', 'in_progress'])
+                ->whereRaw($this->projectLastActivitySql() . ' < ?', [now()->subDays(ReportPeriod::STALLED_DAYS)]));
+    }
+
+    private function projectLastActivitySql(): string
+    {
+        return 'COALESCE((SELECT MAX(pu.created_at) FROM tbl_project_updates pu WHERE pu.project_id = tbl_projects.id AND pu.deleted_at IS NULL), tbl_projects.updated_at)';
+    }
+
     /** Hours before the same request can be nudged again. */
     public const NUDGE_COOLDOWN_HOURS = 12;
 
@@ -2425,7 +3106,7 @@ class AdminRepository
             ->whereIn('id', $companyIds)
             ->whereNotNull('email')
             ->where('email', '!=', '')
-            ->get(['id', 'name', 'email']);
+            ->get(['id', 'name', 'email', 'phone']);
 
         foreach ($companies as $company) {
             Mail::mailer('offer')->to($company->email)->queue(new CompanyRequestWaitingMail([
@@ -2644,15 +3325,22 @@ class AdminRepository
                             count($data['customer_ids'] ?? []),
                     ]);
 
-                    $customerIds = $audienceType === 'all'
-                        ? Customer::query()
+                    $customerIds = match ($audienceType) {
+                        'all' => Customer::query()
                             ->whereHas('deviceTokens')
                             ->pluck('id')
                             ->map(fn($id) => (int) $id)
-                            ->all()
-                        : array_values(array_unique(
+                            ->all(),
+                        'city' => Customer::query()
+                            ->whereHas('deviceTokens')
+                            ->where('city', $data['audience_city'] ?? '')
+                            ->pluck('id')
+                            ->map(fn($id) => (int) $id)
+                            ->all(),
+                        default => array_values(array_unique(
                             array_map('intval', $data['customer_ids'] ?? [])
-                        ));
+                        )),
+                    };
 
                     Log::info('SunXFinder notification: recipients resolved', [
                         ...$context,
@@ -2666,8 +3354,26 @@ class AdminRepository
                         );
 
                         throw ValidationException::withMessages([
-                            'customer_ids' => 'Select at least one customer.',
+                            'customer_ids' => $audienceType === 'city'
+                                ? 'No app customers live in ' . ($data['audience_city'] ?? 'this city') . ' yet.'
+                                : 'Select at least one customer.',
                         ]);
+                    }
+
+                    // Sponsored campaigns skip customers who switched them off in the app.
+                    if (!empty($data['is_sponsored'])) {
+                        $customerIds = Customer::query()
+                            ->whereIn('id', $customerIds)
+                            ->where('sponsored_push_enabled', true)
+                            ->pluck('id')
+                            ->map(fn($id) => (int) $id)
+                            ->all();
+
+                        if (empty($customerIds)) {
+                            throw ValidationException::withMessages([
+                                'customer_ids' => 'All selected customers have switched off sponsored notifications.',
+                            ]);
+                        }
                     }
 
                     $existingIds = Customer::query()
@@ -2694,7 +3400,16 @@ class AdminRepository
 
                     Log::info('SunXFinder notification: creating notification');
 
+                    // Campaign extras (image, link, company, offer) are optional.
+                    $campaignFields = array_intersect_key($data, array_flip([
+                        'format', 'image_path', 'image_width', 'image_height',
+                        'link_url', 'link_label_en', 'link_label_ar', 'company_id',
+                        'offer_title_en', 'offer_title_ar', 'offer_price', 'offer_old_price',
+                        'offer_currency', 'offer_expires_at', 'audience_city',
+                    ]));
+
                     $notification = Notification::create([
+                        'is_sponsored' => !empty($data['is_sponsored']),
                         'sender_type' => $senderType,
                         'sender_id' => $senderId,
                         'type' => $data['type'],
@@ -2705,7 +3420,7 @@ class AdminRepository
                         'audience_type' => $audienceType,
                         'status' => 'published',
                         'published_at' => now(),
-                    ]);
+                    ] + $campaignFields);
 
                     Log::info(
                         'SunXFinder notification: notification created',
@@ -2832,72 +3547,57 @@ class AdminRepository
 
         $successCount = 0;
         $failureCount = 0;
+        $helper = app(Helper::class);
+        $imageUrl = $notification->imageUrl();
 
-        foreach ($devices as $device) {
-            $lang = strtolower($device->lang ?? 'en') === 'ar'
-                ? 'ar'
-                : 'en';
+        // One multicast per language and per 500 devices (the FCM limit), instead of
+        // one HTTP call per device: a broadcast to thousands of devices stays fast.
+        $devicesByLang = $devices->groupBy(
+            fn($device) => strtolower((string) $device->lang) === 'ar' ? 'ar' : 'en'
+        );
 
+        foreach ($devicesByLang as $lang => $langDevices) {
             $title = $lang === 'ar'
                 ? ($notification->title_ar ?: $notification->title_en)
                 : $notification->title_en;
 
-            $body = $lang === 'ar'
+            $message = $lang === 'ar'
                 ? ($notification->message_ar ?: $notification->message_en)
                 : $notification->message_en;
 
-            // Never log the actual FCM token.
-            $tokenFingerprint = substr(
-                hash('sha256', $device->fcm_token),
-                0,
-                12
-            );
+            // Pushes are plain text: rich (HTML) messages show in full inside the app.
+            $body = Str::limit($helper->plainText($message), 230);
 
-            Log::info('SunXFinder notification: sending push', [
-                'notification_id' => $notification->id,
-                'device_id' => $device->id,
-                'customer_id' => $device->customer_id,
-                'platform' => $device->platform ?? null,
+            $data = array_filter([
+                'notification_id' => (string) $notification->id,
+                'type' => (string) $notification->type,
                 'lang' => $lang,
-                'token_fingerprint' => $tokenFingerprint,
-            ]);
+                'image_url' => (string) $imageUrl,
+                'link_url' => (string) $notification->link_url,
+                'company_id' => $notification->company_id ? (string) $notification->company_id : '',
+            ], fn($value) => $value !== '');
 
-            try {
-                $message = Helper::withNotificationSound(CloudMessage::new())
-                    ->toToken($device->fcm_token)
-                    ->withNotification(
-                        FcmNotification::create($title, $body)
-                    )
-                    ->withData([
-                        'notification_id' => (string) $notification->id,
-                        'type' => (string) $notification->type,
+            $pushMessage = Helper::withNotificationSound(CloudMessage::new())
+                ->withNotification(FcmNotification::create($title, $body, $imageUrl))
+                ->withData($data);
+
+            foreach ($langDevices->pluck('fcm_token')->unique()->chunk(500) as $tokens) {
+                try {
+                    $report = $messaging->sendMulticast($pushMessage, $tokens->values()->all());
+
+                    $successCount += $report->successes()->count();
+                    $failureCount += $report->failures()->count();
+                } catch (Throwable $e) {
+                    $failureCount += $tokens->count();
+
+                    Log::error('SunXFinder notification: push batch failed', [
+                        'notification_id' => $notification->id,
                         'lang' => $lang,
+                        'device_count' => $tokens->count(),
+                        'exception_class' => get_class($e),
+                        'error' => $e->getMessage(),
                     ]);
-
-                $sendResult = $messaging->send($message);
-
-                $successCount++;
-
-                Log::info('SunXFinder notification: Firebase accepted push', [
-                    'notification_id' => $notification->id,
-                    'device_id' => $device->id,
-                    'customer_id' => $device->customer_id,
-                    'token_fingerprint' => $tokenFingerprint,
-                    'firebase_result_type' => get_debug_type($sendResult),
-                ]);
-            } catch (Throwable $e) {
-                $failureCount++;
-
-                Log::error('SunXFinder notification: push failed', [
-                    'notification_id' => $notification->id,
-                    'device_id' => $device->id,
-                    'customer_id' => $device->customer_id,
-                    'token_fingerprint' => $tokenFingerprint,
-                    'exception_class' => get_class($e),
-                    'error' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                ]);
+                }
             }
         }
 
@@ -2917,7 +3617,7 @@ class AdminRepository
     {
         $query = Notification::query()
             ->withCount('recipients')
-            ->with(['senderCompany:id,name', 'senderAdmin:id,username'])
+            ->with(['senderCompany:id,name', 'senderAdmin:id,username', 'company:id,name'])
             ->when(
                 !empty($filters['type']),
                 fn(Builder $q) => $q->where('type', $filters['type'])
@@ -2969,8 +3669,24 @@ class AdminRepository
         }
 
         try {
-            CustomerNotification::query()->where('notification_id', $notification->id)->delete();
-            $notification->delete();
+            DB::transaction(function () use ($notification) {
+                app(Helper::class)->archiveItem($notification, 'notification', null, 'website');
+                $customerNotifications = CustomerNotification::query()
+                    ->where('notification_id', $notification->id)
+                    ->get();
+
+                foreach ($customerNotifications as $customerNotification) {
+                    app(Helper::class)->archiveItem(
+                        $customerNotification,
+                        'customer_notification',
+                        (int) $customerNotification->customer_id,
+                        'website'
+                    );
+                }
+
+                CustomerNotification::query()->where('notification_id', $notification->id)->delete();
+                $notification->delete();
+            });
         } catch (Throwable $e) {
             report($e);
 
@@ -2991,6 +3707,86 @@ class AdminRepository
         return [
             'customers' => $customers,
         ];
+    }
+
+    private const CAMPAIGN_IMAGE_DIR = 'main/images/notifications';
+
+    /** Companies to feature, cities to target and app customers for the campaign composer. */
+    public function getCampaignFormData(): array
+    {
+        $customers = Customer::query()
+            ->whereHas('deviceTokens')
+            ->select('id', 'full_name', 'username', 'phone', 'city')
+            ->orderBy('full_name')
+            ->get();
+
+        $cities = $customers
+            ->filter(fn($customer) => trim((string) $customer->city) !== '')
+            ->groupBy(fn($customer) => trim($customer->city))
+            ->map(fn($group) => $group->count())
+            ->sortKeys();
+
+        $companies = app(Helper::class)->visibleCompanies()
+            ->select('id', 'name', 'city', 'logo_path')
+            ->orderBy('name')
+            ->get();
+
+        return [
+            'customers' => $customers,
+            'cities' => $cities,
+            'companies' => $companies,
+            'appCustomerCount' => $customers->count(),
+        ];
+    }
+
+    /**
+     * Rich campaign: stores the image, sanitizes HTML and sends it through the normal
+     * notification pipeline (inbox rows + push in each device's language).
+     */
+    public function publishCampaign(array $data, ?\Illuminate\Http\UploadedFile $image, ?int $adminId): Notification
+    {
+        $helper = app(Helper::class);
+
+        if (($data['format'] ?? 'text') === 'html') {
+            $data['message_en'] = Helper::sanitizeRichText($data['message_en']);
+            $data['message_ar'] = Helper::sanitizeRichText($data['message_ar'] ?? '') ?: null;
+
+            if ($helper->plainText($data['message_en']) === '') {
+                throw ValidationException::withMessages(['message_en' => 'The English message is empty after removing unsupported HTML.']);
+            }
+        }
+
+        if (empty($data['has_offer'])) {
+            foreach (['offer_title_en', 'offer_title_ar', 'offer_price', 'offer_old_price', 'offer_currency', 'offer_expires_at'] as $field) {
+                $data[$field] = null;
+            }
+        }
+        if (empty($data['has_link'])) {
+            $data['link_url'] = $data['link_label_en'] = $data['link_label_ar'] = null;
+        }
+
+        $stored = null;
+        if ($image) {
+            $stored = Helper::storeOptimizedImage($image, self::CAMPAIGN_IMAGE_DIR, 1200, 88);
+            $data['image_path'] = $stored['path'];
+            $data['image_width'] = $stored['width'];
+            $data['image_height'] = $stored['height'];
+        }
+
+        $data['sender_type'] = 'admin';
+        $data['sender_id'] = $adminId;
+
+        try {
+            return $this->publishNotification($data);
+        } catch (Throwable $e) {
+            // Nothing was published: don't leave the uploaded image behind. (A push
+            // failure after the save keeps it, since the inbox item uses it.)
+            if ($stored && !Notification::withTrashed()->where('image_path', $stored['path'])->exists()) {
+                \Illuminate\Support\Facades\File::delete(public_path($stored['path']));
+            }
+
+            throw $e;
+        }
     }
 
 
@@ -3040,6 +3836,174 @@ class AdminRepository
 
 
     //Notifications End
+
+    //Ad Sales Start
+
+    public function getAdSales(array $filters = []): LengthAwarePaginator
+    {
+        $sales = AdSale::query()
+            ->with(['company:id,name', 'slider', 'carousel'])
+            ->when(!empty($filters['status']), fn($q) => $q->where('status', $filters['status']))
+            ->when(!empty($filters['product']), fn($q) => $q->where('product', $filters['product']))
+            ->when(!empty($filters['company_id']), fn($q) => $q->where('company_id', (int) $filters['company_id']))
+            ->when(!empty($filters['ending']), fn($q) => $q->endingSoon())
+            ->latest('id')
+            ->paginate(20)
+            ->withQueryString();
+
+        $sales->getCollection()->each(function (AdSale $sale) {
+            $sale->setAttribute('results', AdTracker::saleTotals($sale));
+        });
+
+        return $sales;
+    }
+
+    public function getAdSaleMetrics(): array
+    {
+        $paid = AdSale::query()->where('status', 'paid')->where('paid_at', '>=', now()->startOfMonth());
+
+        return [
+            'requested' => AdSale::query()->where('status', 'requested')->count(),
+            'awaiting_payment' => AdSale::query()->where('status', 'awaiting_payment')->count(),
+            'ending_soon' => AdSale::query()->endingSoon()->count(),
+            'paid_this_month' => (clone $paid)->groupBy('currency')->selectRaw('currency, SUM(amount) as total')->pluck('total', 'currency')->all(),
+        ];
+    }
+
+    public function getAdSaleFormData(): array
+    {
+        return [
+            'companies' => SolarCompany::query()->orderBy('name')->get(['id', 'name']),
+            'sliders' => AppSlider::query()->orderBy('name')->get(['id', 'name', 'company_id']),
+            'carousels' => CompanyCarousel::query()->with('company:id,name')->get(['id', 'company_id', 'platform']),
+        ];
+    }
+
+    public function findAdSale(int $id): ?AdSale
+    {
+        return AdSale::find($id);
+    }
+
+    public function saveAdSale(array $data, ?int $id, ?int $adminId): array
+    {
+        try {
+            $sale = $id ? AdSale::find($id) : new AdSale(['created_by' => $adminId]);
+
+            if (!$sale) {
+                return ['success' => false, 'message' => 'Ad sale not found.'];
+            }
+
+            // Results follow the links, so a sale must not count another company's ad.
+            if ($mismatch = $this->adSaleCompanyMismatch($data)) {
+                return ['success' => false, 'message' => $mismatch];
+            }
+
+            // The date money arrived stays fixed once set.
+            $data['paid_at'] = $data['status'] === 'paid' ? ($sale->paid_at ?? now()) : null;
+            $sale->created_by ??= $adminId;
+            $sale->fill($data)->save();
+
+            return ['success' => true, 'message' => 'Ad sale saved.'];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to save the ad sale. Please try again.'];
+        }
+    }
+
+    private function adSaleCompanyMismatch(array $data): ?string
+    {
+        $companyId = (int) ($data['company_id'] ?? 0);
+
+        if (!$companyId) {
+            return null;
+        }
+
+        $sliderCompany = !empty($data['app_slider_id']) ? AppSlider::query()->whereKey($data['app_slider_id'])->value('company_id') : null;
+        $carouselCompany = !empty($data['company_carousel_id']) ? CompanyCarousel::query()->whereKey($data['company_carousel_id'])->value('company_id') : null;
+
+        return match (true) {
+            $sliderCompany !== null && (int) $sliderCompany !== $companyId => 'This slide belongs to a different company.',
+            $carouselCompany !== null && (int) $carouselCompany !== $companyId => 'This carousel entry belongs to a different company.',
+            default => null,
+        };
+    }
+
+    public function deleteAdSale(int $id): array
+    {
+        try {
+            $sale = AdSale::find($id);
+
+            if (!$sale) {
+                return ['success' => false, 'message' => 'Ad sale not found.'];
+            }
+
+            app(Helper::class)->archiveItem($sale, 'ad_sale', null, 'website');
+            $sale->delete();
+
+            return ['success' => true, 'message' => 'Ad sale deleted. A copy is kept in Archives.'];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to delete the ad sale. Please try again.'];
+        }
+    }
+
+    public function getAdReport(string $month): array
+    {
+        $from = Carbon::createFromFormat('!Y-m', $month)->startOfMonth();
+        $to = $from->copy()->endOfMonth();
+        $totals = AdTracker::totals($from, $to);
+
+        $sliders = AppSlider::withTrashed()->with('company:id,name')
+            ->whereIn('id', $this->adIdsOfType($totals, 'slider'))->get()->keyBy('id');
+        $carousels = CompanyCarousel::withTrashed()->with('company:id,name')
+            ->whereIn('id', $this->adIdsOfType($totals, 'carousel'))->get()->keyBy('id');
+
+        $rows = collect($totals)->map(function (array $stats, string $key) use ($sliders, $carousels) {
+            [$type, $id] = explode(':', $key);
+            $ad = $type === 'slider' ? $sliders->get((int) $id) : $carousels->get((int) $id);
+
+            return $stats + [
+                'type' => $type === 'slider' ? 'Slider' : 'Carousel',
+                'name' => $type === 'slider' ? ($ad?->name ?? "Slide #{$id}") : ($ad?->company?->name ?? "Carousel #{$id}"),
+                'company' => $ad?->company?->name ?? '—',
+                'rate' => AdTracker::rate($stats['views'], $stats['clicks']),
+            ];
+        })->sortByDesc('views')->values();
+
+        return [
+            'month' => $month,
+            'from' => $from,
+            'rows' => $rows,
+            'totalViews' => $rows->sum('views'),
+            'totalClicks' => $rows->sum('clicks'),
+            'appViews' => $rows->sum('app_views'),
+            'websiteViews' => $rows->sum('website_views'),
+            'revenue' => AdSale::query()
+                ->where('status', 'paid')
+                ->whereBetween('paid_at', [$from, $to])
+                ->groupBy('currency')
+                ->selectRaw('currency, SUM(amount) as total')
+                ->pluck('total', 'currency')
+                ->all(),
+        ];
+    }
+
+    private function adIdsOfType(array $totals, string $type): array
+    {
+        $ids = [];
+
+        foreach (array_keys($totals) as $key) {
+            if (str_starts_with($key, $type . ':')) {
+                $ids[] = (int) substr($key, strlen($type) + 1);
+            }
+        }
+
+        return $ids;
+    }
+
+    //Ad Sales End
 
     //Ratings Start
 
@@ -3154,6 +4118,10 @@ class AdminRepository
             }
 
             DB::transaction(function () use ($rating) {
+                foreach ($rating->answers as $answer) {
+                    app(Helper::class)->archiveItem($answer, 'rating_answer', null, 'website');
+                }
+                app(Helper::class)->archiveItem($rating, 'rating', (int) $rating->customer_id, 'website');
                 $rating->answers()->delete();
                 $rating->delete();
             });
@@ -3237,6 +4205,7 @@ class AdminRepository
                 return ['success' => false, 'message' => 'Question not found.'];
             }
 
+            app(Helper::class)->archiveItem($question, 'rating_question', null, 'website');
             $question->delete();
 
             return ['success' => true, 'message' => 'Question deleted. Past answers to it are kept.'];
@@ -3294,13 +4263,48 @@ class AdminRepository
     public function getSettings(): array
     {
         cache()->forget(Setting::MAINTENANCE_CACHE_KEY);
+        cache()->forget(Setting::APP_OFFLINE_CACHE_KEY);
 
         return [
             'max_open_quotes' => Setting::maxOpenQuotes(),
             'maintenance' => Setting::maintenance(),
+            'app_offline' => Setting::appOffline(),
+            'company_ads' => Setting::companyAdsAccess(),
             'quote_limit_customers' => $this->getQuoteLimitCustomers(),
+            'notification_access_companies' => $this->getNotificationAccessCompanies(),
             'api_endpoints' => ApiEndpoint::query()->orderByDesc('is_active')->orderBy('name')->get(),
+            'home_sections' => HomeSection::allForAdmin(),
+            // Live app slides per placement, for the hints on the App Home card.
+            'live_slides_by_placement' => AppSlider::currentlyVisible()
+                ->whereIn('platform', ['app', 'both'])
+                ->selectRaw('placement, COUNT(*) as total')
+                ->groupBy('placement')
+                ->pluck('total', 'placement'),
         ];
+    }
+
+    public function updateHomeSection(string $key, array $data): array
+    {
+        try {
+            HomeSection::query()->updateOrCreate(['key' => $key], [
+                'is_visible' => (bool) $data['is_visible'],
+                'show_companies' => (bool) $data['show_companies'],
+                'title_en' => filled($data['title_en'] ?? null) ? trim($data['title_en']) : null,
+                'title_ar' => filled($data['title_ar'] ?? null) ? trim($data['title_ar']) : null,
+            ]);
+            HomeSection::clearCache();
+
+            $label = HomeSection::SECTIONS[$key] ?? $key;
+
+            return [
+                'success' => true,
+                'message' => "{$label} saved. The app shows the change on its next refresh.",
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to save the Home section. Please try again.'];
+        }
     }
 
     //Send Email Start
@@ -3318,28 +4322,61 @@ class AdminRepository
     /** Sends the admin's email from info@ (bcc to the owner) and logs it. */
     public function sendCompanyEmail(array $data): array
     {
-        $companyName = SolarCompany::query()->where('email', $data['email'])->value('name');
+        $sent = [];
+        $failed = [];
 
-        try {
-            Mail::to($data['email'])->send(new CompanyJoinRequestMail(
-                $data['subject'],
-                $data['message'],
-                $data['lang'],
-                $companyName
-            ));
-        } catch (Throwable $e) {
-            report($e);
+        foreach ($data['emails'] as $email) {
+            try {
+                $companyName = $data['company_name'] ?? SolarCompany::query()->where('email', $email)->value('name');
 
-            return ['success' => false, 'message' => 'The email could not be sent: ' . $e->getMessage()];
+                Mail::to($email)->send(new CompanyJoinRequestMail(
+                    $data['subject'],
+                    $data['message'],
+                    $data['lang'],
+                    $companyName
+                ));
+                SentEmail::query()->create([
+                    'recipient_email' => $email,
+                    'recipient_name' => $companyName,
+                    'subject' => $data['subject'],
+                    'message' => $data['message'],
+                    'lang' => $data['lang'],
+                    'sent_at' => now(),
+                ]);
+                $sent[] = $email;
+            } catch (Throwable $e) {
+                report($e);
+                $failed[] = $email;
+            }
         }
 
-        ActivityLogger::log('email_sent', "Admin emailed {$data['email']}: {$data['subject']}", null, [
-            'to' => $data['email'],
-            'subject' => $data['subject'],
-            'lang' => $data['lang'],
-        ], null, 'notifications');
+        if ($sent) {
+            ActivityLogger::log('email_sent', 'Admin emailed ' . count($sent) . ' recipient(s): ' . $data['subject'], null, [
+                'to' => $sent,
+                'subject' => $data['subject'],
+                'lang' => $data['lang'],
+            ], null, 'notifications');
+        }
 
-        return ['success' => true, 'message' => "Email sent to {$data['email']}."];
+        if (! $sent) {
+            return [
+                'success' => false,
+                'message' => 'The email could not be sent to any of the selected recipients.',
+            ];
+        }
+
+        if ($failed) {
+            return [
+                'success' => false,
+                'message' => 'Sent to ' . count($sent) . ' recipient(s). Failed: ' . implode(', ', $failed)
+                    . '. Retry only the failed addresses.',
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Email sent separately to ' . count($sent) . ' recipient(s).',
+        ];
     }
 
     //Send Email End
@@ -3447,6 +4484,7 @@ class AdminRepository
                 return ['success' => false, 'message' => 'The active API cannot be deleted. Make another API active first.'];
             }
 
+            app(Helper::class)->archiveItem($endpoint, 'api_endpoint', null, 'website');
             $endpoint->delete();
             cache()->forget(ApiEndpoint::CONFIG_CACHE_KEY);
 
@@ -3531,12 +4569,80 @@ class AdminRepository
         }
     }
 
+    public function getNotificationAccessCompanies()
+    {
+        return SolarCompany::query()
+            ->where('status', '!=', 'deleted')
+            ->orderBy('name')
+            ->get(['id', 'name', 'city', 'can_notify_all_customers', 'all_customers_monthly_limit']);
+    }
+
+    /** Lets a company notify all customers, or puts it back to only its own. */
+    public function setCompanyNotificationLimit(int $companyId, ?int $limit): array
+    {
+        try {
+            $company = $this->getNotificationAccessCompanies()->firstWhere('id', $companyId);
+
+            if (!$company) {
+                return ['success' => false, 'message' => 'Company not found.'];
+            }
+
+            $company->all_customers_monthly_limit = $limit;
+            $company->save();
+
+            return [
+                'success' => true,
+                'message' => $limit === null
+                    ? "{$company->name} now has no monthly limit."
+                    : "{$company->name} can now make {$limit} sends to all customers each month.",
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to update the company. Please try again.'];
+        }
+    }
+
+    public function setCompanyNotificationAccess(int $companyId, bool $canNotifyAll): array
+    {
+        try {
+            $company = $this->getNotificationAccessCompanies()->firstWhere('id', $companyId);
+
+            if (!$company) {
+                return ['success' => false, 'message' => 'Company not found.'];
+            }
+
+            $company->can_notify_all_customers = $canNotifyAll;
+            $company->save();
+
+            return [
+                'success' => true,
+                'message' => $canNotifyAll
+                    ? "{$company->name} can now notify all customers."
+                    : "{$company->name} can now notify only its own customers.",
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to update the company. Please try again.'];
+        }
+    }
+
     public function updateSettings(array $data): array
     {
         try {
             $wasInMaintenance = Setting::maintenance()['enabled'];
+            $wasOffline = Setting::appOffline()['enabled'];
 
             Setting::set('max_open_quotes', (int) $data['max_open_quotes']);
+
+            Setting::set('company_ads_audience', $data['company_ads_audience']);
+            Setting::set('company_ads_company_ids', json_encode(array_values(array_map('intval', $data['company_ads_company_ids'] ?? []))));
+            cache()->forget(Setting::COMPANY_ADS_CACHE_KEY);
+            Setting::set('app_offline_enabled', !empty($data['app_offline_enabled']) ? '1' : '0');
+            foreach (['message_en', 'message_ar'] as $field) {
+                Setting::set("app_offline_{$field}", $data["app_offline_{$field}"] ?? null);
+            }
 
             Setting::set('maintenance_enabled', !empty($data['maintenance_enabled']) ? '1' : '0');
             foreach (['title_en', 'title_ar', 'message_en', 'message_ar', 'until'] as $field) {
@@ -3544,14 +4650,20 @@ class AdminRepository
             }
 
             cache()->forget(Setting::MAINTENANCE_CACHE_KEY);
+            cache()->forget(Setting::APP_OFFLINE_CACHE_KEY);
 
             $nowInMaintenance = !empty($data['maintenance_enabled']);
+            $nowOffline = !empty($data['app_offline_enabled']);
 
             return [
                 'success' => true,
                 'message' => 'Settings saved successfully.' . match (true) {
                     $nowInMaintenance && !$wasInMaintenance => ' Maintenance mode is ON: visitors now see the maintenance page.',
                     !$nowInMaintenance && $wasInMaintenance => ' Maintenance mode is OFF: the website is live again.',
+                    default => '',
+                } . match (true) {
+                    $nowOffline && !$wasOffline => ' The app is now OFFLINE for all customers.',
+                    !$nowOffline && $wasOffline => ' The app is back ONLINE for all customers.',
                     default => '',
                 },
             ];
@@ -3692,4 +4804,36 @@ class AdminRepository
     }
 
     //Activity Logs End
+
+    public function getArchivedItems(array $filters = []): LengthAwarePaginator
+    {
+        return ArchivedItem::query()
+            ->with('customer')
+            ->when(!empty($filters['type']), fn($q) => $q->where('type', $filters['type']))
+            ->when(!empty($filters['source']), fn($q) => $q->where('source', $filters['source']))
+            ->when(!empty($filters['customer_id']), fn($q) => $q->where('customer_id', (int) $filters['customer_id']))
+            ->when(!empty($filters['from']), fn($q) => $q->where('created_at', '>=', Carbon::parse($filters['from'])->startOfDay()))
+            ->when(!empty($filters['to']), fn($q) => $q->where('created_at', '<=', Carbon::parse($filters['to'])->endOfDay()))
+            ->when(!empty($filters['search']), function ($query) use ($filters) {
+                $search = trim($filters['search']);
+                $query->where(function ($q) use ($search) {
+                    $q->where('type', 'like', "%{$search}%")
+                        ->orWhere('source', 'like', "%{$search}%");
+
+                    if (ctype_digit($search)) {
+                        $q->orWhere('item_id', (int) $search)
+                            ->orWhere('customer_id', (int) $search);
+                    }
+                });
+            })
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(25)
+            ->withQueryString();
+    }
+
+    public function deleteArchivedItem(ArchivedItem $item): void
+    {
+        $item->delete();
+    }
 }

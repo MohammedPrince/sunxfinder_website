@@ -77,7 +77,6 @@
 
         {{-- Print document header --}}
         <header class="quote-document-header print-only">
-            <div class="quote-document-brand">SunXFinder</div>
             <div class="quote-document-subtitle">Solar Energy Quote Request</div>
             <div class="quote-document-reference">
                 Reference: <strong>{{ $reference }}</strong>
@@ -159,7 +158,7 @@
                                 <td>
                                     <div class="company-cell">
                                         <span
-                                            class="company-avatar solar">{{ strtoupper(mb_substr($offer->company?->name ?? '?', 0, 1)) }}</span>
+                                            class="company-avatar solar">{{ name_initials($offer->company?->name) }}</span>
                                         <span>
                                             <strong>
                                                 @if ($offer->company)
@@ -485,6 +484,30 @@
                 */
                 if (
                     preg_match(
+                        '/Suggested system:.*?([\d.]+)\s*kWh\s*batter(?:y|ies)/i',
+                        $loadSummary,
+                        $matches
+                    )
+                ) {
+                    $batteryCount = $matches[1] . ' kWh';
+                } elseif (
+                    preg_match(
+                        '/\p{Arabic}+\s*([\d.]+)\s*kWh/u',
+                        $loadSummary,
+                        $matches
+                    )
+                ) {
+                    $batteryCount = $matches[1] . ' kWh';
+                } elseif (
+                    preg_match(
+                        '/([\d.]+)\s*kWh\s*\p{Arabic}+/u',
+                        $loadSummary,
+                        $matches
+                    )
+                ) {
+                    $batteryCount = $matches[1] . ' kWh';
+                } elseif (
+                    preg_match(
                         '/Suggested system:.*?(\d+)\s*batter(?:y|ies)/i',
                         $loadSummary,
                         $matches
@@ -657,7 +680,7 @@
                 @if ($company)
                     <div class="quote-company-card">
                         <div class="quote-company-mark" aria-hidden="true">
-                            {{ strtoupper(substr($company->name, 0, 1)) }}
+                            {{ name_initials($company->name) }}
                         </div>
 
                         <div class="quote-company-details">

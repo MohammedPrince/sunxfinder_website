@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Company;
 use App\Http\Controllers\Controller;
 use App\Models\RatingValue;
 use App\Services\Company\CompanyService;
+use App\Support\InvoicePdf;
 use App\Support\ReportPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -79,7 +80,7 @@ class MainController extends Controller
         if (!$companyId) {
             return redirect()
                 ->route('company.login')
-                ->with('error', 'Please log in to continue.');
+                ->with('error', __('company/messages.profile.login_required'));
         }
 
         $result = $this->companyService->getCompany($companyId);
@@ -161,7 +162,7 @@ class MainController extends Controller
             'year_of_exp' => ['required', 'integer', 'min:1'],
             'number_of_projects' => ['required', 'integer', 'min:1'],
         ], [
-            'name.regex' => "The company name may only contain English or Arabic letters, numbers, spaces and . , & ' ( ) -",
+            'name.regex' => __('company/messages.profile.name_regex'),
         ]);
 
         /*
@@ -226,7 +227,7 @@ class MainController extends Controller
 
         return redirect()
             ->route('company.profile')
-            ->with('success', 'Company profile updated successfully.');
+            ->with('success', __('company/messages.profile.updated'));
     }
 
     private function companyId(): int
@@ -266,7 +267,7 @@ class MainController extends Controller
 
         return redirect()
             ->route('company.products.index')
-            ->with('success', 'Product added successfully.');
+            ->with('success', __('company/messages.products.added'));
     }
 
     public function edit(int $product)
@@ -294,7 +295,7 @@ class MainController extends Controller
 
         return redirect()
             ->route('company.products.index')
-            ->with('success', 'Product updated successfully.');
+            ->with('success', __('company/messages.products.updated'));
     }
 
     public function destroy(int $product)
@@ -303,7 +304,7 @@ class MainController extends Controller
 
         return redirect()
             ->route('company.products.index')
-            ->with('success', 'Product deleted successfully.');
+            ->with('success', __('company/messages.products.deleted'));
     }
 
     private function validatedData(Request $request): array
@@ -325,7 +326,11 @@ class MainController extends Controller
             'specs' => ['nullable', 'array', 'max:20'],
             'specs.*.name' => ['nullable', 'string', 'max:100'],
             'specs.*.value' => ['nullable', 'string', 'max:255'],
-        ]);
+        ], [], app()->isLocale('ar') ? [
+            // ar/validation.php names these fields for the company form.
+            'name' => __('company/messages.products.name'),
+            'description' => __('company/messages.products.description'),
+        ] : []);
     }
 
     //Quote Requests Start
@@ -351,39 +356,63 @@ class MainController extends Controller
         ));
     }
 
+    public function companyInvoices(Request $request)
+    {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $invoices = $this->companyService->getCompanyInvoices($filters);
+
+        return view('company.invoices.index', compact('invoices', 'filters'));
+    }
+
+    public function deleteCompanyInvoice(int $id)
+    {
+        $result = $this->companyService->deleteCompanyInvoice($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
     public function quoteRequestDetails(int $id)
     {
         $project = null;
 
         $quote = $this->companyService->getQuoteRequestById($id);
 
-        abort_if(!$quote, 404);
+        if (!$quote) {
+            return redirect()
+                ->route('company.quote-requests.index')
+                ->with('error', __('company/messages.quote_requests.not_available'));
+        }
 
         $companyQuotation = $this->companyService->getCompanyQuotationForQuote($id);
 
         $competitorPrices = $this->companyService->getCompetitorOfferPrices($id);
 
         if ($companyQuotation && $companyQuotation->status === 'selected') {
-            $companyId = auth()->guard('company')->id();
-
-            $project = \App\Models\Project::query()
-                ->where('quote_id', $quote->id)
-                ->where('company_id', $companyId)
-                ->first();
+            $project = $this->companyService->getProjectForQuote($quote->id);
         }
+
+        $invoiceNumber = 'INV-' . now()->format('Ymd') . '-Q'
+            . str_pad((string) $quote->id, 5, '0', STR_PAD_LEFT)
+            . '-C' . auth()->guard('company')->id();
 
         return view('company.quote-requests.form', compact(
             'quote',
             'companyQuotation',
             'competitorPrices',
-            'project'
+            'project',
+            'invoiceNumber'
         ));
     }
 
     public function submitQuoteOffer(Request $request, int $id)
     {
         $validated = $request->validate([
+            // With an invoice, the price comes from the invoice balance.
             'price' => [
+                'exclude_if:include_invoice,1',
                 'required',
                 'numeric',
                 'min:1000',
@@ -404,17 +433,62 @@ class MainController extends Controller
                 'string',
                 'max:2000',
             ],
+            'include_invoice' => ['nullable', 'boolean'],
+            'invoice_number' => ['exclude_unless:include_invoice,1', 'required', 'string', 'max:60'],
+            'invoice_date' => ['exclude_unless:include_invoice,1', 'required', 'date_format:Y-m-d'],
+            'invoice_notes' => ['exclude_unless:include_invoice,1', 'nullable', 'string', 'max:2000'],
+            'invoice_discount' => ['exclude_unless:include_invoice,1', 'nullable', 'numeric', 'min:0', 'max:9999999999999'],
+            'invoice_tax_rate' => ['exclude_unless:include_invoice,1', 'nullable', 'numeric', 'min:0', 'max:100'],
+            'invoice_shipping' => ['exclude_unless:include_invoice,1', 'nullable', 'numeric', 'min:0', 'max:9999999999999'],
+            'invoice_items' => ['exclude_unless:include_invoice,1', 'required', 'array', 'min:1', 'max:25'],
+            'invoice_items.*.description' => ['exclude_unless:include_invoice,1', 'required', 'string', 'min:2', 'max:255'],
+            'invoice_items.*.quantity' => ['exclude_unless:include_invoice,1', 'required', 'numeric', 'gt:0', 'max:10000'],
+            'invoice_items.*.unit_price' => ['exclude_unless:include_invoice,1', 'required', 'numeric', 'min:0', 'max:9999999999999'],
         ], [
-            'price.required' => 'Please enter your total offer price.',
-            'price.numeric' => 'Please enter a valid total price.',
-            'price.min' => 'The total offer price must be at least 1,000.',
+            'price.required' => __('company/messages.quote.price_required'),
+            'price.numeric' => __('company/messages.quote.price_numeric'),
+            'price.min' => __('company/messages.quote.price_min'),
         ]);
 
         $this->companyService->submitQuoteOffer($id, $validated);
 
         return redirect()
             ->route('company.quote-requests.show', $id)
-            ->with('success', 'Your offer has been saved successfully.');
+            ->with('success', __('company/messages.quote.offer_saved'));
+    }
+
+    public function showQuoteInvoice(int $id)
+    {
+        $invoice = $this->companyService->getQuoteInvoice($id);
+        if (!$invoice) {
+            return redirect()->route('company.quote-requests.show', $id)
+                ->with('error', __('company/messages.quote.no_invoice'));
+        }
+
+        return view('company.quote-requests.invoice', compact('invoice'));
+    }
+
+    public function downloadQuoteInvoice(int $id)
+    {
+        $invoice = $this->companyService->getQuoteInvoice($id);
+        if (!$invoice) {
+            return redirect()->route('company.quote-requests.show', $id)
+                ->with('error', __('company/messages.quote.no_invoice'));
+        }
+
+        // The PDF library comes from Composer; if the server has not installed it, offer printing instead.
+        if (!class_exists(\Mpdf\Mpdf::class)) {
+            report(new \RuntimeException('mpdf/mpdf is missing: run composer install on this server.'));
+
+            return redirect()->route('company.quote-requests.invoice', $id)
+                ->with('error', __('company/messages.invoices.pdf_unavailable'));
+        }
+
+        $pdf = InvoicePdf::render($invoice);
+
+        return response()->streamDownload(function () use ($pdf) {
+            echo $pdf;
+        }, InvoicePdf::filename($invoice), ['Content-Type' => 'application/pdf']);
     }
 
     //Quote Requests End
@@ -460,6 +534,8 @@ class MainController extends Controller
 
         return view('company.notifications.create', [
             'customers' => $result['customers'],
+            'canNotifyAll' => $result['canNotifyAll'],
+            'sendLimit' => $result['sendLimit'],
             'preselected' => $preselected,
         ]);
     }
@@ -478,9 +554,9 @@ class MainController extends Controller
                     'maintenance',
                 ]),
             ],
-            'audience_type' => ['required', Rule::in(['all', 'selected'])],
+            'audience_type' => ['required', Rule::in(['selected'])],
             'customer_ids' => [
-                'required_if:audience_type,selected',
+                'required',
                 'array',
                 'min:1',
             ],
@@ -531,6 +607,54 @@ class MainController extends Controller
 
     //Notifications Managment Start
 
+    //Advertising Start
+
+    public function companyAds()
+    {
+        return view('company.ads.index', $this->companyService->getCompanyAds());
+    }
+
+    public function createAdRequest()
+    {
+        return view('company.ads.create');
+    }
+
+    public function storeAdRequest(Request $request)
+    {
+        $validated = $request->validate([
+            'product' => ['required', Rule::in(\App\Models\AdSale::REQUESTABLE_PRODUCTS)],
+            'platform' => ['required', Rule::in(['app'])],
+            // 'platform' => ['required', Rule::in(['app', 'website', 'both'])],
+            'starts_on' => ['required', 'date', 'after_or_equal:today'],
+            'weeks' => ['required', 'integer', 'between:1,52'],
+            'link_url' => ['nullable', 'url:http,https', 'max:500'],
+            // 'artwork' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'request_note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        // Only admin adds ad images for now.
+        $this->companyService->requestAd($validated, null);
+        // $this->companyService->requestAd($validated, $request->file('artwork'));
+
+        return redirect()->route('company.ads.index')->with('success', __('company/messages.ads.requested'));
+    }
+
+    public function cancelAdRequest(int $id)
+    {
+        $result = $this->companyService->cancelAdRequest($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function companyAdReport(Request $request)
+    {
+        $data = $request->validate(['month' => ['nullable', 'date_format:Y-m']]);
+
+        return view('company.ads.report', $this->companyService->getCompanyAdReport($data['month'] ?? now()->format('Y-m')));
+    }
+
+    //Advertising End
+
     //Ratings Start
 
     /** Customers who accepted this company's offers (Customers → Company Customers). */
@@ -554,7 +678,7 @@ class MainController extends Controller
 
         $ratings = $this->companyService->getCompanyRatings($filters);
         $summary = $this->companyService->getCompanyRatingSummary();
-        $valueLabels = RatingValue::labels();
+        $valueLabels = RatingValue::labels(app()->getLocale());
 
         return view('company.ratings.index', compact('ratings', 'summary', 'valueLabels'));
     }

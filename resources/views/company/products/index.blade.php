@@ -1,14 +1,14 @@
 @extends('company.layouts.app')
 
-@section('title', 'My Products')
-@section('breadcrumb', 'My Products')
-@section('eyebrow', 'COMPANY CATALOG')
-@section('page-title', 'My Products')
-@section('page-description', 'Manage the solar products displayed on your SunXFinder company profile.')
+@section('title', __('company/messages.products.title'))
+@section('breadcrumb', __('company/messages.products.title'))
+@section('eyebrow', __('company/messages.products.eyebrow'))
+@section('page-title', __('company/messages.products.title'))
+@section('page-description', __('company/messages.products.page_description'))
 
 @section('page-actions')
     <a href="{{ route('company.products.create') }}" class="btn btn-primary">
-        + Add Product
+        {{ __('company/messages.products.add_button') }}
     </a>
 @endsection
 
@@ -24,8 +24,8 @@
     <section class="panel table-panel">
         <div class="panel-heading table-toolbar">
             <div>
-                <h2>My Products</h2>
-                <p>{{ $products->total() }} products</p>
+                <h2>{{ __('company/messages.products.title') }}</h2>
+                <p>{{ __('company/messages.products.count', ['count' => $products->total()]) }}</p>
             </div>
         </div>
 
@@ -33,13 +33,13 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Product</th>
-                        <th>Model</th>
-                        <th>Supplier</th>
-                        <th>Type</th>
-                        <th>Specifications</th>
-                        <th>Status</th>
-                        <th>Actions</th>
+                        <th>{{ __('company/messages.products.product') }}</th>
+                        <th>{{ __('company/messages.products.model') }}</th>
+                        <th>{{ __('company/messages.products.supplier') }}</th>
+                        <th>{{ __('company/messages.products.type') }}</th>
+                        <th>{{ __('company/messages.products.specifications') }}</th>
+                        <th>{{ __('company/messages.common.status') }}</th>
+                        <th>{{ __('company/messages.common.actions') }}</th>
                     </tr>
                 </thead>
 
@@ -54,7 +54,7 @@
 
                             <td>{{ $product->supplier?->name ?? '—' }}</td>
 
-                            <td>{{ $product->typeLabel() }}</td>
+                            <td>{{ __('company/messages.common.product_type_' . $product->type) }}</td>
 
                             <td>
                                 @forelse ($product->specs as $spec)
@@ -71,7 +71,7 @@
 
                             <td>
                                 <span class="pill {{ $product->is_active ? 'pill-green' : 'pill-red' }}">
-                                    {{ $product->is_active ? 'Active' : 'Inactive' }}
+                                    {{ $product->is_active ? __('company/messages.common.active') : __('company/messages.common.inactive') }}
                                 </span>
                             </td>
 
@@ -80,8 +80,8 @@
                                     <a
                                         href="{{ route('company.products.edit', $product->id) }}"
                                         class="row-action row-action-icon"
-                                        aria-label="Edit product"
-                                        title="Edit product"
+                                        aria-label="{{ __('company/messages.products.edit') }}"
+                                        title="{{ __('company/messages.products.edit') }}"
                                     >
                                         <svg viewBox="0 0 24 24" width="18" height="18"
                                             fill="none" stroke="currentColor" stroke-width="1.8"
@@ -96,7 +96,7 @@
                                         action="{{ route('company.products.destroy', $product->id) }}"
                                         method="POST"
                                         class="company-delete-form"
-                                        onsubmit="return confirm('Remove this product from your company profile?');"
+                                        onsubmit="return confirm(@js(__('company/messages.products.delete_confirm')));"
                                     >
                                         @csrf
                                         @method('DELETE')
@@ -104,8 +104,8 @@
                                         <button
                                             type="submit"
                                             class="row-action row-action-icon row-action-delete"
-                                            aria-label="Delete product"
-                                            title="Delete product"
+                                            aria-label="{{ __('company/messages.products.delete') }}"
+                                            title="{{ __('company/messages.products.delete') }}"
                                         >
                                             <svg viewBox="0 0 24 24" width="18" height="18"
                                                 fill="none" stroke="currentColor" stroke-width="1.8"
@@ -124,8 +124,8 @@
                     @empty
                         <tr>
                             <td colspan="7" class="text-center">
-                                You haven't added any products yet.
-                                <a href="{{ route('company.products.create') }}">Add your first product</a>.
+                                {{ __('company/messages.products.empty') }}
+                                <a href="{{ route('company.products.create') }}">{{ __('company/messages.products.add_first') }}</a>.
                             </td>
                         </tr>
                     @endforelse

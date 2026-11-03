@@ -38,11 +38,11 @@ class AuthController extends Controller
         }
 
         return view('admin.auth.login', array_merge($this->portalViewData(), [
-            'loginFieldLabel' => 'Company Username',
-            'loginPlaceholder' => 'Enter your company username',
+            'loginFieldLabel' => __('company/messages.auth.username_label'),
+            'loginPlaceholder' => __('company/messages.auth.username_placeholder'),
             'loginAction' => route('company.login.submit'),
             'forgotPasswordAction' => route('company.password.email'),
-            'accountLabel' => 'company',
+            'accountLabel' => __('company/messages.auth.account_label'),
         ]));
     }
 
@@ -77,7 +77,7 @@ class AuthController extends Controller
 
                 return back()
                     ->withErrors([
-                        'login' => 'Your company account is not eligible to log in.',
+                        'login' => __('company/messages.auth.not_eligible'),
                     ])
                     ->onlyInput('username');
             }
@@ -102,7 +102,7 @@ class AuthController extends Controller
 
         return back()
             ->withErrors([
-                'login' => 'Invalid username or password, or your company account is inactive.',
+                'login' => __('company/messages.auth.invalid_login'),
             ])
             ->onlyInput('username');
     }
@@ -163,13 +163,11 @@ class AuthController extends Controller
     private function portalViewData(): array
     {
         return [
-            'loginTitle' => 'Company Sign In',
-            'portalLabel' => 'SUNXFINDER COMPANY PORTAL',
-            'portalDescription' =>
-                'Manage your solar company profile and reach customers looking for solar solutions.',
-            'securityTitle' => 'Secure company access',
-            'securityMessage' =>
-                'Only approved and active company accounts can access this workspace.',
+            'loginTitle' => __('company/messages.auth.company_sign_in'),
+            'portalLabel' => __('company/messages.auth.portal_label'),
+            'portalDescription' => __('company/messages.auth.portal_description'),
+            'securityTitle' => __('company/messages.auth.security_title'),
+            'securityMessage' => __('company/messages.auth.security_message'),
         ];
     }
 

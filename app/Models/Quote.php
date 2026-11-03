@@ -167,6 +167,14 @@ class Quote extends Model
     }
 
     /**
+     * A company sees only the customer's name until the customer accepts that company's offer.
+     */
+    public function hidesCustomerContactFrom(int $companyId, ?CompanyQuotation $offer = null): bool
+    {
+        return !($offer?->status === 'selected' && (int) $offer->company_id === $companyId);
+    }
+
+    /**
      * Requests a company can see: assigned to it, open to all companies,
      * or requests it has already submitted an offer on.
      */

@@ -98,4 +98,48 @@ class Setting extends Model
             ];
         });
     }
+
+    /** Cache key for who sees Advertising in the company portal; cleared when settings are saved. */
+    public const COMPANY_ADS_CACHE_KEY = 'company-ads-access';
+
+    /** Who sees Advertising in the company portal: all companies (the default) or a chosen list. */
+    public static function companyAdsAccess(): array
+    {
+        return cache()->remember(self::COMPANY_ADS_CACHE_KEY, 60, function () {
+            $rows = static::query()->whereIn('key', ['company_ads_audience', 'company_ads_company_ids'])->pluck('value', 'key');
+
+            return [
+                'audience' => $rows['company_ads_audience'] ?? 'all',
+                'company_ids' => array_map('intval', json_decode($rows['company_ads_company_ids'] ?? '[]', true) ?: []),
+            ];
+        });
+    }
+
+    public static function companyAdsEnabled(int $companyId): bool
+    {
+        $access = self::companyAdsAccess();
+
+        return $access['audience'] === 'all' || in_array($companyId, $access['company_ids'], true);
+    }
+
+    /** Cache key for the app offline settings (read on every /main-data). */
+    public const APP_OFFLINE_CACHE_KEY = 'app-offline';
+
+    /**
+     * App offline for all customers: enabled flag and EN/AR message, read by the app from
+     * /main-data. Cached for a minute; cleared whenever an admin saves the settings.
+     */
+    public static function appOffline(): array
+    {
+        return cache()->remember(self::APP_OFFLINE_CACHE_KEY, 60, function () {
+            $rows = static::query()->where('key', 'like', 'app_offline_%')->get()->keyBy('key');
+
+            return [
+                'enabled' => (bool) ($rows['app_offline_enabled']->value ?? false),
+                'message_en' => $rows['app_offline_message_en']->value ?? null,
+                'message_ar' => $rows['app_offline_message_ar']->value ?? null,
+                'changed_at' => isset($rows['app_offline_enabled']) ? $rows['app_offline_enabled']->updated_at?->toISOString() : null,
+            ];
+        });
+    }
 }

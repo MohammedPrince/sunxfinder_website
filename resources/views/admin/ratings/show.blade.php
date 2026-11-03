@@ -119,7 +119,7 @@
         </div>
         <div class="panel-body">
             <div class="person-cell">
-                <span class="person-avatar">{{ strtoupper(mb_substr($customerName, 0, 1)) }}</span>
+                <span class="person-avatar">{{ name_initials($customerName) }}</span>
                 <span>
                     <strong>{{ $customerName }}</strong>
                     <small>{{ collect([$customer?->city, $customer?->phone, $customer?->email])->filter()->implode(' · ') ?: '—' }}</small>

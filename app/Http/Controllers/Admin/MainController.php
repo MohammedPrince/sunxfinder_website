@@ -4,20 +4,25 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Models\ArchivedItem;
 use App\Models\AppVersion;
 use App\Repositories\Admin\AdminRepository;
 use App\Models\Customer;
+use App\Models\CustomerComplaint;
 use App\Models\CompanyQuotation;
+use App\Models\LegalSection;
 use App\Models\Product;
 use App\Models\Project;
 use App\Models\Quote;
 use App\Models\Rating;
 use App\Models\RatingValue;
 use App\Models\SolarCompany;
+use App\Models\SentEmail;
 use App\Services\Admin\AdminService;
 use App\Support\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
@@ -867,12 +872,16 @@ class MainController extends Controller
             'is_active' => ['nullable', 'boolean'],
             'starts_at' => ['nullable', 'date'],
             'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
+            'is_sponsored' => ['nullable', 'boolean'],
+            'order_moves' => ['nullable', 'array'],
+            'order_moves.*' => ['nullable', 'integer', 'min:0', 'max:65535'],
         ]);
         $data['is_active'] = $request->boolean('is_active');
+        $data['is_sponsored'] = $request->boolean('is_sponsored');
         $result = $this->adminService->createCompanyCarouselEntry($data);
         return $result['success']
             ? redirect()->route('admin.company-carousel.index')->with('success', $result['message'])
-            : back()->withInput()->with('error', $result['message']);
+            : back()->withInput()->with('error', $result['message'])->with('orderClash', $result['order_clash'] ?? null);
     }
 
     public function companyCarouselEdit(int $id)
@@ -892,12 +901,23 @@ class MainController extends Controller
             'is_active' => ['nullable', 'boolean'],
             'starts_at' => ['nullable', 'date'],
             'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
+            'is_sponsored' => ['nullable', 'boolean'],
+            'order_moves' => ['nullable', 'array'],
+            'order_moves.*' => ['nullable', 'integer', 'min:0', 'max:65535'],
         ]);
         $data['is_active'] = $request->boolean('is_active');
+        $data['is_sponsored'] = $request->boolean('is_sponsored');
         $result = $this->adminService->updateCompanyCarouselEntry($id, $data);
         return $result['success']
             ? redirect()->route('admin.company-carousel.index')->with('success', $result['message'])
-            : back()->withInput()->with('error', $result['message']);
+            : back()->withInput()->with('error', $result['message'])->with('orderClash', $result['order_clash'] ?? null);
+    }
+
+    public function companyCarouselToggle(int $id)
+    {
+        $result = $this->adminService->toggleCompanyCarouselEntry($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
     public function companyCarouselDestroy(int $id)
@@ -907,6 +927,328 @@ class MainController extends Controller
             ->with($result['success'] ? 'success' : 'error', $result['message']);
     }
     //Company Carousel End
+
+    //App Slider Start
+
+    public function appSliders(Request $request)
+    {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'state' => ['nullable', Rule::in(['live', 'scheduled', 'expired', 'inactive'])],
+        ]);
+        $result = $this->adminService->getAppSliderPageData($filters);
+
+        return view('admin.app-sliders.index', [
+            'sliders' => $result['sliders'],
+            'metrics' => $result['metrics'],
+            'filters' => $filters,
+        ]);
+    }
+
+    public function createAppSlider()
+    {
+        return view('admin.app-sliders.form', [
+            'companies' => $this->adminService->getAdSaleFormData()['companies'],
+            'slider' => null,
+            'nextSortOrder' => $this->adminService->getNextAppSliderSortOrder(),
+            'maxUploadKb' => $this->appSliderMaxUploadKb(),
+        ]);
+    }
+
+    public function storeAppSlider(Request $request)
+    {
+        $data = $this->validateAppSlider($request, true);
+        $result = $this->adminService->createAppSlider($data, $request->file('image'), Auth::guard('admin')->id());
+
+        return $result['success']
+            ? redirect()->route('admin.app-sliders.index')->with('success', $result['message'])
+            : back()->withInput()->with('error', $result['message']);
+    }
+
+    public function editAppSlider(int $id)
+    {
+        $slider = $this->adminService->findAppSlider($id);
+        abort_unless($slider !== null, 404);
+
+        return view('admin.app-sliders.form', [
+            'companies' => $this->adminService->getAdSaleFormData()['companies'],
+            'slider' => $slider,
+            'nextSortOrder' => $slider->sort_order,
+            'maxUploadKb' => $this->appSliderMaxUploadKb(),
+        ]);
+    }
+
+    public function updateAppSlider(Request $request, int $id)
+    {
+        $data = $this->validateAppSlider($request, false);
+        $result = $this->adminService->updateAppSlider($id, $data, $request->file('image'));
+
+        return $result['success']
+            ? redirect()->route('admin.app-sliders.index')->with('success', $result['message'])
+            : back()->withInput()->with('error', $result['message']);
+    }
+
+    public function toggleAppSlider(int $id)
+    {
+        $result = $this->adminService->toggleAppSlider($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function destroyAppSlider(int $id)
+    {
+        $result = $this->adminService->deleteAppSlider($id);
+
+        return redirect()->route('admin.app-sliders.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    /** 4 MB, or less when the server's PHP upload limit is lower. */
+    private function appSliderMaxUploadKb(): int
+    {
+        return min(4096, \App\Helpers\Helper::serverUploadLimitKb());
+    }
+
+    private function validateAppSlider(Request $request, bool $creating): array
+    {
+        $maxKb = $this->appSliderMaxUploadKb();
+        $maxLabel = round($maxKb / 1024, 1) . ' MB';
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'description_ar' => ['nullable', 'string', 'max:255'],
+            'description_en' => ['nullable', 'string', 'max:255'],
+            // The browser shrinks large images first; the stored copy is converted to a light WebP.
+            'image' => [$creating ? 'required' : 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:' . $maxKb, 'dimensions:min_width=600,min_height=200'],
+            'has_link' => ['nullable', 'boolean'],
+            // Web links, or in-app links such as sunxfinder://company/{slug}.
+            'link_url' => ['nullable', 'required_if:has_link,1', 'string', 'max:500', 'regex:#^(https?|sunxfinder)://[^\s]+$#i'],
+            'company_id' => ['nullable', 'integer', 'min:1'],
+            'platform' => ['required', 'in:app,website,both'],
+            'placement' => ['required', Rule::in(array_keys(\App\Models\AppSlider::PLACEMENTS))],
+            'is_sponsored' => ['nullable', 'boolean'],
+            'interval_seconds' => ['required', 'integer', 'min:2', 'max:60'],
+            'sort_order' => ['required', 'integer', 'min:0', 'max:65535'],
+            'is_active' => ['nullable', 'boolean'],
+            'starts_at' => ['nullable', 'date'],
+            'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
+        ], [
+            'image.dimensions' => 'The slide image must be at least 600 px wide and 200 px tall.',
+            'image.uploaded' => "The server rejected the image, usually because it is larger than {$maxLabel}. Choose a smaller image or compress it and try again.",
+            'image.max' => "The slide image may not be larger than {$maxLabel}.",
+            'link_url.required_if' => 'Enter the link the slide opens, or turn off "Slide opens a link".',
+            'link_url.regex' => 'The link must start with https://, http:// or sunxfinder://',
+        ]);
+
+        $data['has_link'] = $request->boolean('has_link');
+        $data['is_active'] = $request->boolean('is_active');
+        $data['is_sponsored'] = $request->boolean('is_sponsored');
+        unset($data['image']);
+
+        return $data;
+    }
+
+    //App Slider End
+
+    //Ad Sales Start
+
+    public function adSales(Request $request)
+    {
+        $filters = $request->validate([
+            'status' => ['nullable', Rule::in(array_keys(\App\Models\AdSale::STATUSES))],
+            'product' => ['nullable', Rule::in(array_keys(\App\Models\AdSale::PRODUCTS))],
+            'company_id' => ['nullable', 'integer'],
+            'ending' => ['nullable', 'boolean'],
+        ]);
+
+        return view('admin.ad-sales.index', [
+            'sales' => $this->adminService->getAdSales($filters),
+            'metrics' => $this->adminService->getAdSaleMetrics(),
+            'companies' => $this->adminService->getAdSaleFormData()['companies'],
+        ]);
+    }
+
+    public function createAdSale()
+    {
+        return view('admin.ad-sales.form', $this->adminService->getAdSaleFormData() + ['sale' => null]);
+    }
+
+    public function storeAdSale(Request $request)
+    {
+        $result = $this->adminService->saveAdSale($this->validateAdSale($request), null, Auth::guard('admin')->id());
+
+        return $result['success']
+            ? redirect()->route('admin.ad-sales.index')->with('success', $result['message'])
+            : back()->withInput()->with('error', $result['message']);
+    }
+
+    public function editAdSale(int $id)
+    {
+        $sale = $this->adminService->findAdSale($id);
+        abort_if(!$sale, 404);
+
+        return view('admin.ad-sales.form', $this->adminService->getAdSaleFormData() + ['sale' => $sale]);
+    }
+
+    public function updateAdSale(Request $request, int $id)
+    {
+        $result = $this->adminService->saveAdSale($this->validateAdSale($request), $id, Auth::guard('admin')->id());
+
+        return $result['success']
+            ? redirect()->route('admin.ad-sales.index')->with('success', $result['message'])
+            : back()->withInput()->with('error', $result['message']);
+    }
+
+    public function destroyAdSale(int $id)
+    {
+        $result = $this->adminService->deleteAdSale($id);
+
+        return redirect()->route('admin.ad-sales.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function adReport(Request $request)
+    {
+        $data = $request->validate(['month' => ['nullable', 'date_format:Y-m']]);
+
+        return view('admin.ad-sales.report', $this->adminService->getAdReport($data['month'] ?? now()->format('Y-m')));
+    }
+
+    private function validateAdSale(Request $request): array
+    {
+        return $request->validate([
+            'company_id' => ['nullable', 'required_without:client_name', 'integer', 'exists:tbl_solar_companies,id'],
+            'client_name' => ['nullable', 'string', 'max:150'],
+            'product' => ['required', Rule::in(array_keys(\App\Models\AdSale::PRODUCTS))],
+            'platform' => ['required', 'in:app,website,both'],
+            'app_slider_id' => ['nullable', 'integer', 'exists:tbl_app_sliders,id'],
+            'company_carousel_id' => ['nullable', 'integer', 'exists:tbl_company_carousels,id'],
+            'amount' => ['nullable', 'numeric', 'min:0', 'max:9999999999999'],
+            'currency' => ['required', 'in:SDG,USD'],
+            'starts_on' => ['nullable', 'date'],
+            'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
+            'status' => ['required', Rule::in(array_keys(\App\Models\AdSale::STATUSES))],
+            'payment_reference' => ['nullable', 'string', 'max:150'],
+            'admin_notes' => ['nullable', 'string', 'max:2000'],
+        ], [
+            'company_id.required_without' => 'Choose a company, or type a client name for a supplier or other advertiser.',
+        ]);
+    }
+
+    //Ad Sales End
+
+    //Privacy & Terms Start
+
+    public function legalPages(Request $request)
+    {
+        $filters = $request->validate(['tab' => ['nullable', Rule::in(array_keys(LegalSection::PAGES))]]);
+        $page = $filters['tab'] ?? 'privacy';
+        $sections = $this->adminService->getLegalSections($page);
+
+        return view('admin.legal.index', [
+            'page' => $page,
+            'sections' => $sections,
+            'header' => $sections->firstWhere('type', 'header'),
+            // Without its own sections the website shows the built-in page.
+            'usesSavedText' => $sections->where('type', 'section')->where('is_active', true)->isNotEmpty(),
+        ]);
+    }
+
+    public function createLegalSection(string $page)
+    {
+        return view('admin.legal.form', ['page' => $page, 'section' => null]);
+    }
+
+    public function storeLegalSection(Request $request, string $page)
+    {
+        $data = $this->validateLegalSection($request, null);
+        $result = $this->adminService->createLegalSection($page, $data, Auth::guard('admin')->id());
+
+        return $result['success']
+            ? redirect()->route('admin.legal.index', ['tab' => $page])->with('success', $result['message'])
+            : back()->withInput()->with('error', $result['message']);
+    }
+
+    public function editLegalSection(int $id)
+    {
+        $section = $this->adminService->findLegalSection($id);
+        abort_unless($section !== null, 404);
+
+        return view('admin.legal.form', ['page' => $section->page, 'section' => $section]);
+    }
+
+    public function updateLegalSection(Request $request, int $id)
+    {
+        $section = $this->adminService->findLegalSection($id);
+        abort_unless($section !== null, 404);
+
+        $data = $this->validateLegalSection($request, $section);
+        $result = $this->adminService->updateLegalSection($id, $data);
+
+        return $result['success']
+            ? redirect()->route('admin.legal.index', ['tab' => $section->page])->with('success', $result['message'])
+            : back()->withInput()->with('error', $result['message']);
+    }
+
+    public function toggleLegalSection(int $id)
+    {
+        $result = $this->adminService->toggleLegalSection($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function moveLegalSection(Request $request, int $id)
+    {
+        $data = $request->validate(['direction' => ['required', Rule::in(['up', 'down'])]]);
+        $result = $this->adminService->moveLegalSection($id, $data['direction']);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function destroyLegalSection(int $id)
+    {
+        $result = $this->adminService->deleteLegalSection($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function loadLegalDefaults(string $page)
+    {
+        $result = $this->adminService->loadLegalDefaults($page);
+
+        return redirect()->route('admin.legal.index', ['tab' => $page])
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    private function validateLegalSection(Request $request, ?LegalSection $section): array
+    {
+        $isHeader = $section?->isHeader() ?? false;
+
+        $data = $request->validate([
+            'title_en' => ['required', 'string', 'max:255'],
+            'title_ar' => ['required', 'string', 'max:255'],
+            'body_en' => ['required', 'string', 'max:' . ($isHeader ? 1000 : 60000)],
+            'body_ar' => ['required', 'string', 'max:' . ($isHeader ? 1000 : 60000)],
+            'type' => [$isHeader ? 'prohibited' : 'required', Rule::in(['section', 'contact'])],
+            'eyebrow_en' => ['nullable', 'string', 'max:150'],
+            'eyebrow_ar' => ['nullable', 'string', 'max:150'],
+            'last_updated' => [$isHeader ? 'required' : 'nullable', 'date'],
+            'is_active' => ['nullable', 'boolean'],
+            'bump_date' => ['nullable', 'boolean'],
+        ], [
+            'body_en.required' => 'Enter the English text.',
+            'body_ar.required' => 'Enter the Arabic text.',
+            'title_en.required' => 'Enter the English title.',
+            'title_ar.required' => 'Enter the Arabic title.',
+        ]);
+
+        $data['is_active'] = $request->boolean('is_active');
+        $data['bump_date'] = !$isHeader && $request->boolean('bump_date');
+
+        return $data;
+    }
+
+    //Privacy & Terms End
 
     //App Versions Start
 
@@ -1096,6 +1438,130 @@ class MainController extends Controller
         $nudgedAt = $this->adminService->getQuoteNudgedAt($id);
 
         return view('admin.quote-requests.form', compact('quote', 'assignableCompanies', 'nudgedAt'));
+    }
+
+    public function projects(Request $request)
+    {
+        $filters = $request->validate([
+            'status' => ['nullable', Rule::in(['accepted', 'in_progress', 'completed'])],
+            'company_id' => ['nullable', 'integer', 'min:1'],
+            'customer' => ['nullable', 'string', 'max:100'],
+            'search' => ['nullable', 'string', 'max:100'],
+            'last_activity_from' => ['nullable', 'date'],
+            'last_activity_to' => ['nullable', 'date', 'after_or_equal:last_activity_from'],
+            'stalled' => ['nullable', 'boolean'],
+        ]);
+
+        $projects = $this->adminService->getAdminProjects($filters);
+        $metrics = $this->adminService->getAdminProjectMetrics();
+        $companies = $this->adminService->getAdminProjectCompanies();
+        $stalledDays = \App\Support\ReportPeriod::STALLED_DAYS;
+
+        return view('admin.projects.index', compact('projects', 'metrics', 'companies', 'filters', 'stalledDays'));
+    }
+
+    public function projectDetails(int $id)
+    {
+        $project = $this->adminService->getAdminProjectById($id);
+
+        abort_if(!$project, 404);
+
+        $stalledDays = \App\Support\ReportPeriod::STALLED_DAYS;
+        $lastActivity = $project->updates->first()?->created_at ?? $project->updated_at;
+        $isStalled = in_array($project->status, ['accepted', 'in_progress'], true)
+            && $lastActivity?->lt(now()->subDays($stalledDays));
+
+        return view('admin.projects.show', compact('project', 'stalledDays', 'lastActivity', 'isStalled'));
+    }
+
+    public function complaints(Request $request)
+    {
+        $filters = $request->validate([
+            'status' => ['nullable', Rule::in(['pending', 'in_progress', 'resolved', 'rejected'])],
+            'category' => ['nullable', Rule::in(['product_issue', 'service_issue', 'pricing_issue', 'delivery_issue', 'customer_service', 'other'])],
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+        $query = CustomerComplaint::query()->with(['company:id,name', 'customer:id,full_name,username,email,phone']);
+        if (!empty($filters['status'])) $query->where('status', $filters['status']);
+        if (!empty($filters['category'])) $query->where('category', $filters['category']);
+        if (!empty($filters['search'])) {
+            $term = '%' . $filters['search'] . '%';
+            $query->where(fn ($q) => $q->where('description', 'like', $term)
+                ->orWhere('id', is_numeric($filters['search']) ? (int) $filters['search'] : -1)
+                ->orWhereHas('company', fn ($company) => $company->where('name', 'like', $term))
+                ->orWhereHas('customer', fn ($customer) => $customer->where('email', 'like', $term)->orWhere('username', 'like', $term)));
+        }
+        $complaints = $query->latest()->paginate(20)->withQueryString();
+        return view('admin.complaints.index', compact('complaints', 'filters'));
+    }
+
+    public function complaintDetails(int $id)
+    {
+        $complaint = CustomerComplaint::with(['company', 'customer'])->findOrFail($id);
+        return view('admin.complaints.show', compact('complaint'));
+    }
+
+    public function updateComplaint(Request $request, int $id)
+    {
+        $data = $request->validate([
+            'status' => ['required', Rule::in(['pending', 'in_progress', 'resolved', 'rejected'])],
+            'reply' => ['nullable', 'string', 'max:5000'],
+            'reply_channel' => ['nullable', Rule::in(['notification', 'email'])],
+        ]);
+        $complaint = CustomerComplaint::with(['company', 'customer'])->findOrFail($id);
+        $complaint->status = $data['status'];
+        if (array_key_exists('reply', $data) && $data['reply'] !== null && trim($data['reply']) !== '') {
+            $complaint->admin_reply = trim($data['reply']);
+        }
+        $complaint->save();
+
+        if (!empty($data['reply'])) {
+            $channel = $data['reply_channel'] ?? 'notification';
+            if ($channel === 'email') {
+                abort_unless(filter_var($complaint->customer?->email, FILTER_VALIDATE_EMAIL), 422, 'The customer has no valid email address.');
+                Mail::raw($data['reply'], function ($mail) use ($complaint) {
+                    $mail->to($complaint->customer->email)->subject('SunXFinder complaint update #' . $complaint->id);
+                });
+            } else {
+                $this->adminService->publishNotification([
+                    'sender_type' => 'admin',
+                    'sender_id' => Auth::id(),
+                    'audience_type' => 'selected',
+                    'customer_ids' => [$complaint->customer_id],
+                    'type' => 'support',
+                    'title_en' => 'Complaint update',
+                    'title_ar' => 'تحديث بشأن الشكوى',
+                    'message_en' => 'Complaint #' . $complaint->id . ': ' . $data['reply'],
+                    'message_ar' => 'الشكوى رقم ' . $complaint->id . ': ' . $data['reply'],
+                ]);
+            }
+            $complaint->forceFill(['customer_replied_at' => now()])->save();
+        }
+        return back()->with('success', 'Complaint updated successfully.');
+    }
+
+    public function emailComplaintToCompany(int $id)
+    {
+        $complaint = CustomerComplaint::with('company')->findOrFail($id);
+        abort_unless(filter_var($complaint->company?->email, FILTER_VALIDATE_EMAIL), 422, 'The company has no valid email address.');
+        $categories = [
+            'product_issue' => 'Product issue', 'service_issue' => 'Service issue', 'pricing_issue' => 'Pricing issue',
+            'delivery_issue' => 'Delivery issue', 'customer_service' => 'Customer service', 'other' => 'Other',
+        ];
+        $description = $complaint->description;
+        $customerName = trim((string) ($complaint->customer?->full_name ?? ''));
+        if ($customerName !== '') {
+            $description = str_ireplace($customerName, '[customer]', $description);
+        }
+        $body = "A customer submitted a complaint related to your company. The customer's name and contact details are intentionally omitted.\n\n"
+            . 'Complaint reference: #' . $complaint->id . "\n"
+            . 'Category: ' . ($categories[$complaint->category] ?? $complaint->category) . "\n\n"
+            . "Complaint details:\n" . $description . "\n\nPlease review this issue and follow up through your SunXFinder company account.";
+        Mail::raw($body, function ($mail) use ($complaint) {
+            $mail->to($complaint->company->email)->subject('Customer complaint #' . $complaint->id . ' - SunXFinder');
+        });
+        $complaint->forceFill(['company_notified_at' => now()])->save();
+        return back()->with('success', 'The company was emailed without customer identifying details.');
     }
 
     public function cancelQuoteRequest(Request $request, int $id)
@@ -1349,13 +1815,21 @@ class MainController extends Controller
     {
         $data = $request->validate([
             'max_open_quotes' => ['required', 'integer', 'min:1', 'max:50'],
+            'app_offline_enabled' => ['nullable', 'boolean'],
+            'app_offline_message_en' => ['nullable', 'required_if:app_offline_enabled,1', 'string', 'max:1000'],
+            'app_offline_message_ar' => ['nullable', 'required_if:app_offline_enabled,1', 'string', 'max:1000'],
             'maintenance_enabled' => ['nullable', 'boolean'],
             'maintenance_title_en' => ['nullable', 'required_if:maintenance_enabled,1', 'string', 'max:150'],
             'maintenance_title_ar' => ['nullable', 'required_if:maintenance_enabled,1', 'string', 'max:150'],
             'maintenance_message_en' => ['nullable', 'required_if:maintenance_enabled,1', 'string', 'max:2000'],
             'maintenance_message_ar' => ['nullable', 'required_if:maintenance_enabled,1', 'string', 'max:2000'],
             'maintenance_until' => ['nullable', 'date'],
+            'company_ads_audience' => ['required', 'in:all,selected'],
+            'company_ads_company_ids' => ['nullable', 'array'],
+            'company_ads_company_ids.*' => ['integer', 'exists:tbl_solar_companies,id'],
         ], [
+            'app_offline_message_en.required_if' => 'Write the English message customers see while the app is offline.',
+            'app_offline_message_ar.required_if' => 'Write the Arabic message customers see while the app is offline.',
             'maintenance_title_en.required_if' => 'Write the English maintenance title.',
             'maintenance_title_ar.required_if' => 'Write the Arabic maintenance title.',
             'maintenance_message_en.required_if' => 'Write the English maintenance message.',
@@ -1363,6 +1837,7 @@ class MainController extends Controller
         ]);
 
         $data['maintenance_enabled'] = $request->boolean('maintenance_enabled');
+        $data['app_offline_enabled'] = $request->boolean('app_offline_enabled');
 
         $result = $this->adminService->updateSettings($data);
 
@@ -1388,6 +1863,59 @@ class MainController extends Controller
             ->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
+    /** Open all customers to one company's notifications, or set it back to its own. */
+    public function updateCompanyNotificationLimit(Request $request)
+    {
+        $data = $request->validate([
+            'company_id' => ['required', 'integer'],
+            'monthly_limit' => ['nullable', 'integer', 'min:0', 'max:100000'],
+        ]);
+
+        $result = $this->adminService->setCompanyNotificationLimit(
+            (int) $data['company_id'],
+            $data['monthly_limit'] ?? null
+        );
+
+        return redirect()->route('admin.settings.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function updateHomeSection(Request $request, string $key)
+    {
+        $data = $request->validate([
+            'is_visible' => ['nullable', 'boolean'],
+            'show_companies' => ['nullable', 'boolean'],
+            'title_en' => ['nullable', 'string', 'max:60'],
+            'title_ar' => ['nullable', 'string', 'max:60'],
+        ]);
+
+        $data['is_visible'] = $request->boolean('is_visible');
+        $data['show_companies'] = $request->boolean('show_companies');
+
+        $result = $this->adminService->updateHomeSection($key, $data);
+
+        return redirect()->to(route('admin.settings.index') . '#app-home')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function updateCompanyNotificationAccess(Request $request)
+    {
+        $data = $request->validate([
+            'company_id' => ['required', 'integer'],
+            'can_notify_all' => ['required', 'boolean'],
+        ], [
+            'company_id.required' => 'Choose a company.',
+        ]);
+
+        $result = $this->adminService->setCompanyNotificationAccess(
+            (int) $data['company_id'],
+            $request->boolean('can_notify_all')
+        );
+
+        return redirect()->route('admin.settings.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
     // Send Email (System → Send Email): admin writes to a solar company from info@
 
     public function sendEmail(Request $request)
@@ -1397,25 +1925,71 @@ class MainController extends Controller
         $prefillEmail = is_string($prefillEmail) && filter_var($prefillEmail, FILTER_VALIDATE_EMAIL)
             ? $prefillEmail
             : '';
-        $prefillSubject = $prefillEmail;
+        $sentEmails = SentEmail::query()->latest('sent_at')->paginate(15);
 
-        return view('admin.send-email.index', compact('companies', 'prefillEmail', 'prefillSubject'));
+        return view('admin.send-email.index', compact('companies', 'prefillEmail', 'sentEmails'));
     }
 
     public function sendEmailSubmit(Request $request)
     {
+        $rawEmails = $request->input('email', '');
+        $parsedEmails = is_string($rawEmails)
+            ? preg_split('/[,\s]+/', trim($rawEmails), -1, PREG_SPLIT_NO_EMPTY)
+            : [];
+
+        $emails = [];
+        $seenEmails = [];
+        foreach ($parsedEmails as $email) {
+            $email = trim($email);
+            $normalizedEmail = strtolower($email);
+            if ($email !== '' && ! isset($seenEmails[$normalizedEmail])) {
+                $emails[] = $email;
+                $seenEmails[$normalizedEmail] = true;
+            }
+        }
+
+        $request->merge(['recipient_emails' => $emails]);
+
         $data = $request->validate([
             'subject' => ['required', 'string', 'max:150'],
-            'email' => ['required', 'email', 'max:191'],
+            'email' => ['required', 'string', 'max:5000'],
+            'recipient_emails' => ['required', 'array', 'min:1', 'max:50'],
+            'recipient_emails.*' => ['required', 'email', 'max:191'],
             'lang' => ['required', 'in:en,ar'],
             'message' => ['required', 'string', 'max:5000'],
+        ], [
+            'recipient_emails.max' => 'You can send to up to 50 email addresses at a time.',
+            'recipient_emails.*.email' => 'Enter valid email addresses separated by commas or spaces.',
         ]);
+        $data['emails'] = $data['recipient_emails'];
 
         $result = $this->adminService->sendCompanyEmail($data);
 
         return $result['success']
             ? redirect()->route('admin.send-email.index')->with('success', $result['message'])
             : back()->withInput()->with('error', $result['message']);
+    }
+
+    public function resendSentEmail(SentEmail $sentEmail)
+    {
+        $result = $this->adminService->sendCompanyEmail([
+            'emails' => [$sentEmail->recipient_email],
+            'subject' => $sentEmail->subject,
+            'message' => $sentEmail->message,
+            'lang' => $sentEmail->lang,
+            'company_name' => $sentEmail->recipient_name,
+        ]);
+
+        return redirect()->route('admin.send-email.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function deleteSentEmail(SentEmail $sentEmail)
+    {
+        app(\App\Helpers\Helper::class)->archiveItem($sentEmail, 'sent_email', null, 'website');
+        $sentEmail->delete();
+
+        return redirect()->route('admin.send-email.index')->with('success', 'Sent email removed from history.');
     }
 
     // API endpoints (Settings → API selector / accessibility)
@@ -1515,6 +2089,48 @@ class MainController extends Controller
 
     //Database Backups End
 
+    //Archives Start
+
+    public function archives(Request $request)
+    {
+        $filters = $request->validate([
+            'type' => ['nullable', 'string', Rule::in([
+                'customer', 'product', 'prodcut', 'product_spec', 'offer', 'requestd_quote', 'requested_quote',
+                'notification', 'customer_notification', 'company', 'project', 'project_milestone', 'project_update',
+                'rating', 'rating_answer', 'supplier', 'appliance', 'appliance_group', 'company_carousel', 'app_slider', 'app_version',
+                'rating_question', 'customer_device_token', 'api_endpoint', 'sent_email', 'legal_section', 'ad_sale', 'other',
+            ])],
+            'source' => ['nullable', Rule::in(['website', 'app'])],
+            'customer_id' => ['nullable', 'integer', 'min:1'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $archives = $this->adminService->getArchivedItems($filters);
+        $types = [
+            'customer' => 'Customer', 'product' => 'Product', 'prodcut' => 'Product (legacy)', 'product_spec' => 'Product spec',
+            'offer' => 'Offer', 'requestd_quote' => 'Quote request (app)', 'requested_quote' => 'Quote request',
+            'notification' => 'Notification', 'customer_notification' => 'Customer notification', 'company' => 'Company',
+            'project' => 'Project', 'project_milestone' => 'Project milestone', 'project_update' => 'Project update',
+            'rating' => 'Rating', 'rating_answer' => 'Rating answer', 'supplier' => 'Supplier', 'appliance' => 'Appliance',
+            'appliance_group' => 'Appliance group', 'company_carousel' => 'Company carousel', 'app_slider' => 'App slide', 'app_version' => 'App version',
+            'rating_question' => 'Rating question', 'customer_device_token' => 'Device token', 'api_endpoint' => 'API endpoint',
+            'sent_email' => 'Sent email', 'legal_section' => 'Privacy & Terms section', 'ad_sale' => 'Ad sale', 'other' => 'Other',
+        ];
+
+        return view('admin.archives.index', compact('archives', 'filters', 'types'));
+    }
+
+    public function deleteArchivedItem(ArchivedItem $archivedItem)
+    {
+        $this->adminService->deleteArchivedItem($archivedItem);
+
+        return redirect()->route('admin.archives.index', request()->query())->with('success', 'Archive entry moved to trash.');
+    }
+
+    //Archives End
+
     //Activity Logs Start
 
     public function activityLogs(Request $request)
@@ -1599,6 +2215,8 @@ class MainController extends Controller
                     'account',
                     'support',
                     'maintenance',
+                    'offer',
+                    'new_company',
                 ]),
             ],
             'status' => ['nullable', Rule::in(['published', 'draft'])],
@@ -1688,6 +2306,68 @@ class MainController extends Controller
 
         return redirect()->route('admin.notifications.index')
             ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    // Customer campaigns: rich notifications (offer, new company, news) with image and link.
+    public function createCampaign(Request $request)
+    {
+        $data = $this->adminService->getCampaignFormData();
+
+        return view('admin.notifications.campaign', $data + [
+            'maxUploadKb' => $this->appSliderMaxUploadKb(),
+            // Prefill from Customers ("send to this customer") or a company link.
+            'presetCustomerId' => $request->integer('customer_id') ?: null,
+            'presetCompanyId' => $request->integer('company_id') ?: null,
+        ]);
+    }
+
+    public function storeCampaign(Request $request)
+    {
+        $maxKb = $this->appSliderMaxUploadKb();
+
+        $data = $request->validate([
+            'type' => ['required', Rule::in(array_keys(\App\Models\Notification::CAMPAIGN_TYPES))],
+            'audience_type' => ['required', Rule::in(['all', 'city', 'selected'])],
+            'audience_city' => ['nullable', 'required_if:audience_type,city', 'string', 'max:100'],
+            'customer_ids' => ['nullable', 'required_if:audience_type,selected', 'array', 'min:1'],
+            'customer_ids.*' => ['integer', 'min:1'],
+            'title_en' => ['required', 'string', 'max:180'],
+            'title_ar' => ['nullable', 'string', 'max:180'],
+            'format' => ['required', Rule::in(['text', 'html'])],
+            'message_en' => ['required', 'string', 'max:5000'],
+            'message_ar' => ['nullable', 'string', 'max:5000'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:' . $maxKb, 'dimensions:min_width=300,min_height=150'],
+            'has_link' => ['nullable', 'boolean'],
+            'link_url' => ['nullable', 'required_if:has_link,1', 'string', 'max:500', 'regex:#^(https?|sunxfinder)://[^\s]+$#i'],
+            'link_label_en' => ['nullable', 'string', 'max:60'],
+            'link_label_ar' => ['nullable', 'string', 'max:60'],
+            'company_id' => ['nullable', Rule::requiredIf(in_array($request->input('type'), ['offer', 'new_company'], true)), 'integer', Rule::exists('tbl_solar_companies', 'id')->whereNull('deleted_at')],
+            'has_offer' => ['nullable', 'boolean'],
+            'offer_title_en' => ['nullable', 'required_if:has_offer,1', 'string', 'max:150'],
+            'offer_title_ar' => ['nullable', 'string', 'max:150'],
+            'offer_price' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+            'offer_old_price' => ['nullable', 'numeric', 'min:0', 'max:999999999', 'gt:offer_price'],
+            'offer_currency' => ['nullable', Rule::in(['SDG', 'USD'])],
+            'offer_expires_at' => ['nullable', 'date', 'after:now'],
+            'is_sponsored' => ['nullable', 'boolean'],
+        ], [
+            'image.uploaded' => 'The image could not be uploaded. The server accepts files up to ' . round($maxKb / 1024, 1) . ' MB.',
+            'image.max' => 'The image must be ' . round($maxKb / 1024, 1) . ' MB or smaller.',
+            'link_url.regex' => 'The link must start with https:// (or sunxfinder:// for a screen in the app).',
+            'company_id.required' => 'Choose the company this campaign is about.',
+            'offer_title_en.required_if' => 'Give the offer a short title, e.g. "20% off 5 kW systems".',
+            'offer_old_price.gt' => 'The old price must be higher than the offer price.',
+            'audience_city.required_if' => 'Choose the city to send to.',
+            'customer_ids.required_if' => 'Select at least one customer.',
+        ]);
+
+        $data['is_sponsored'] = $request->boolean('is_sponsored');
+
+        $result = $this->adminService->publishCampaign($data, $request->file('image'), Auth::guard('admin')->id());
+
+        return redirect()
+            ->route('admin.notifications.show', $result['notification_id'])
+            ->with('success', $result['message']);
     }
 
     // Notifications Management End

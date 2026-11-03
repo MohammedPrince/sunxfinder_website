@@ -1,5 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
 
+    // Company pages set window.sxfLang (company.partials.js-lang); admin uses the English here.
+    const lang = (key, fallback) => window.sxfLang?.[key] ?? fallback;
+    const clockLocale = window.sxfLang?.locale;
+
     // ==========================================
     // 1. Display today's date
     // ==========================================
@@ -11,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const now = new Date();
 
         if (date) {
-            date.textContent = new Intl.DateTimeFormat(undefined, {
+            date.textContent = new Intl.DateTimeFormat(clockLocale, {
                 weekday: 'short',
                 month: 'short',
                 day: 'numeric',
@@ -20,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (time) {
-            time.textContent = new Intl.DateTimeFormat(undefined, {
+            time.textContent = new Intl.DateTimeFormat(clockLocale, {
                 hour: '2-digit',
                 minute: '2-digit'
             }).format(now);
@@ -28,7 +32,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (greeting) {
             const hour = now.getHours();
-            const part = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+            const part = hour < 12
+                ? lang('good_morning', 'Good morning')
+                : hour < 18 ? lang('good_afternoon', 'Good afternoon') : lang('good_evening', 'Good evening');
 
             greeting.textContent = `${part}, ${greeting.dataset.name}`;
         }
@@ -126,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     input.type === 'password' ? 'text' : 'password';
 
                 button.textContent =
-                    input.type === 'password' ? 'Show' : 'Hide';
+                    input.type === 'password' ? lang('show', 'Show') : lang('hide', 'Hide');
             }
         });
     });
@@ -220,13 +226,13 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
 
             if (!email.checkValidity()) {
-                showResult('Please enter a valid email address.', 'error');
+                showResult(lang('invalid_email', 'Please enter a valid email address.'), 'error');
                 email.focus();
                 return;
             }
 
             submit.disabled = true;
-            submit.textContent = 'Sending code…';
+            submit.textContent = lang('sending_code', 'Sending code…');
 
             try {
                 const response = await fetch(form.action, {
@@ -241,12 +247,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json().catch(() => ({}));
 
                 if (response.status === 429) {
-                    showResult('Too many attempts. Please wait a minute and try again.', 'error');
+                    showResult(lang('too_many', 'Too many attempts. Please wait a minute and try again.'), 'error');
                 } else if (response.status === 419) {
-                    showResult('Your session expired. Please refresh the page and try again.', 'error');
+                    showResult(lang('session_expired', 'Your session expired. Please refresh the page and try again.'), 'error');
                 } else if (!response.ok) {
                     const firstError = data.errors ? Object.values(data.errors)[0]?.[0] : null;
-                    showResult(firstError || data.message || 'Something went wrong. Please try again.', 'error');
+                    showResult(firstError || data.message || lang('generic_error', 'Something went wrong. Please try again.'), 'error');
                 } else {
                     showResult(data.message, data.exists ? 'success' : 'error');
 
@@ -260,12 +266,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             } catch {
-                showResult('Unable to reach the server. Check your connection and try again.', 'error');
+                showResult(lang('unreachable', 'Unable to reach the server. Check your connection and try again.'), 'error');
             } finally {
                 // After a successful send the page redirects; keep the button locked.
                 if (!result.classList.contains('is-success')) {
                     submit.disabled = false;
-                    submit.textContent = 'Send code';
+                    submit.textContent = lang('send_code', 'Send code');
                 }
             }
         });
@@ -284,12 +290,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const seconds = Math.max(0, Math.round((expiresAt - Date.now()) / 1000));
 
             if (seconds > 0) {
-                el.textContent = `Code expires in 0:${String(seconds).padStart(2, '0')}`;
+                el.textContent = lang('code_expires', 'Code expires in :time').replace(':time', `0:${String(seconds).padStart(2, '0')}`);
                 el.classList.remove('is-expired');
                 return true;
             }
 
-            el.textContent = 'This code has expired. Send a new code below.';
+            el.textContent = lang('code_expired', 'This code has expired. Send a new code below.');
             el.classList.add('is-expired');
             return false;
         };

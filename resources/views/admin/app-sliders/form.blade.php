@@ -1,0 +1,294 @@
+@extends('admin.layouts.app')
+
+@section('title', $slider ? 'Edit slide' : 'Add slide')
+@section('breadcrumb', 'App Slider / ' . ($slider ? 'Edit' : 'Add'))
+@section('eyebrow', 'APP MANAGEMENT')
+@section('page-title', $slider ? 'Edit slide' : 'Add slide')
+@section('page-description', 'Configure an ad or announcement for the slider on the app Home screen.')
+
+@section('page-actions')
+    <a href="{{ route('admin.app-sliders.index') }}" class="btn btn-light">← All slides</a>
+@endsection
+
+@section('content')
+    @php
+        $hasLink = (bool) old('has_link', $slider ? (int) filled($slider->link_url) : 0);
+        $isActive = (bool) old('is_active', $slider ? (int) $slider->is_active : 1);
+        $interval = old('interval_seconds', $slider?->interval_seconds ?? 5);
+    @endphp
+
+    @if (session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif
+    @if ($errors->any())
+        <div class="alert alert-danger">
+            <strong>Please correct the following:</strong>
+            <ul>@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
+        </div>
+    @endif
+
+    <form method="POST" enctype="multipart/form-data" id="sliderForm"
+        action="{{ $slider ? route('admin.app-sliders.update', $slider->id) : route('admin.app-sliders.store') }}">
+        @csrf
+        @if ($slider) @method('PUT') @endif
+
+        <div class="slider-form-layout">
+            <div class="slider-form-main">
+                <section class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <h2>Slide content</h2>
+                            <p>The image is required. Descriptions are optional captions shown over the image.</p>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label for="name">Slide name *</label>
+                            <input type="text" id="name" name="name" maxlength="120" required
+                                value="{{ old('name', $slider?->name) }}" placeholder="e.g. Summer panel offer">
+                            <span class="form-hint">For admins, and used as the image description for screen readers in the app.</span>
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label for="image">Slide image {{ $slider ? '' : '*' }}</label>
+                            <label class="slider-dropzone" for="image">
+                                <input type="file" id="image" name="image" accept="image/jpeg,image/png,image/webp" @required(!$slider)>
+                                <strong>{{ $slider ? 'Choose a new image to replace the current one' : 'Choose an image' }}</strong>
+                                <small>JPG, PNG or WebP, at least 600 × 200 px. Recommended 1280 × 640 px (2:1).
+                                    Bigger images are resized here to 1280 px wide in high quality, so any photo fits the
+                                    server limit of {{ round($maxUploadKb / 1024, 1) }} MB.</small>
+                            </label>
+                            <div class="image-resize-info" id="sliderImageInfo" aria-live="polite" hidden></div>
+                            @if ($slider)
+                                <span class="form-hint">Current image: {{ $slider->image_width ?? '?' }} × {{ $slider->image_height ?? '?' }} px.</span>
+                            @endif
+                        </div>
+
+                        <div class="form-group">
+                            <label for="description_en">Description (English)</label>
+                            <textarea id="description_en" name="description_en" rows="3" maxlength="255"
+                                placeholder="e.g. Save 15% on solar panels this month">{{ old('description_en', $slider?->description_en) }}</textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="description_ar">Description (Arabic)</label>
+                            <textarea id="description_ar" name="description_ar" rows="3" maxlength="255" dir="rtl"
+                                placeholder="مثال: وفّر 15٪ على الألواح الشمسية هذا الشهر">{{ old('description_ar', $slider?->description_ar) }}</textarea>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <h2>Behaviour</h2>
+                            <p>What happens when the customer taps the slide, and how long it stays.</p>
+                        </div>
+                    </div>
+
+                    <label class="toggle-card" for="has_link">
+                        <span class="toggle-card-copy">
+                            <strong>Slide opens a link</strong>
+                            <small>When off, the slide is only an image and tapping it does nothing.</small>
+                        </span>
+                        <input type="hidden" name="has_link" value="0">
+                        <input class="toggle-input" type="checkbox" id="has_link" name="has_link" value="1" @checked($hasLink)>
+                        <span class="toggle-switch" aria-hidden="true"></span>
+                    </label>
+
+                    <div class="form-group slider-link-field" id="sliderLinkField" @if (!$hasLink) hidden @endif>
+                        <label for="link_url">Link *</label>
+                        <input type="text" id="link_url" name="link_url" maxlength="500" inputmode="url"
+                            value="{{ old('link_url', $slider?->link_url) }}" placeholder="https://… or sunxfinder://company/company-slug">
+                        <span class="form-hint">Use https:// for a website, or sunxfinder://company/{slug} to open a company inside the app.</span>
+                    </div>
+
+                    <div class="form-grid slider-behaviour-grid">
+                        <div class="form-group">
+                            <label for="interval_seconds">Display time (seconds) *</label>
+                            <input type="number" id="interval_seconds" name="interval_seconds" min="2" max="60" required value="{{ $interval }}">
+                            <span class="form-hint">How long the slide stays before the next one. 4–6 seconds reads well.</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="sort_order">Display order *</label>
+                            <input type="number" id="sort_order" name="sort_order" min="0" max="65535" required
+                                value="{{ old('sort_order', $slider?->sort_order ?? $nextSortOrder) }}">
+                            <span class="form-hint">Lower numbers appear first.</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <h2>Status and schedule</h2>
+                            <p>Leave the dates empty to show the slide right away with no end date.</p>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="company_id">Advertiser company</label>
+                            <select class="form-control" id="company_id" name="company_id">
+                                <option value="">None (SunXFinder or other advertiser)</option>
+                                @foreach ($companies as $company)
+                                    <option value="{{ $company->id }}" @selected((string) old('company_id', $slider?->company_id) === (string) $company->id)>{{ $company->name }}</option>
+                                @endforeach
+                            </select>
+                            <small class="form-hint">The company sees this slide's views and clicks in its portal.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="platform">Show on *</label>
+                            <select class="form-control" id="platform" name="platform" required>
+                                @foreach (\App\Models\AdSale::PLATFORMS as $value => $label)
+                                    <option value="{{ $value }}" @selected(old('platform', $slider?->platform ?? 'app') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="placement">Placement in the app *</label>
+                            <select class="form-control" id="placement" name="placement" required>
+                                @foreach (\App\Models\AppSlider::PLACEMENTS as $value => $label)
+                                    <option value="{{ $value }}" @selected(old('placement', $slider?->placement ?? 'home_top') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            <small class="form-hint">Top: under "Calculate my load". Featured section: inside Featured Solar Companies (Settings → App Home). Bottom: at the end of Home.</small>
+                        </div>
+                    </div>
+
+                    <label class="toggle-card" for="is_sponsored">
+                        <span class="toggle-card-copy">
+                            <strong>Sponsored</strong>
+                            <small>Shows a "Sponsored" label. Turn on for every paid ad.</small>
+                        </span>
+                        <input type="hidden" name="is_sponsored" value="0">
+                        <input class="toggle-input" type="checkbox" id="is_sponsored" name="is_sponsored" value="1" @checked((bool) old('is_sponsored', $slider ? (int) $slider->is_sponsored : 1))>
+                        <span class="toggle-switch" aria-hidden="true"></span>
+                    </label>
+
+                    <label class="toggle-card" for="is_active">
+                        <span class="toggle-card-copy">
+                            <strong>Active</strong>
+                            <small>Inactive slides are never shown in the app, whatever the schedule says.</small>
+                        </span>
+                        <input type="hidden" name="is_active" value="0">
+                        <input class="toggle-input" type="checkbox" id="is_active" name="is_active" value="1" @checked($isActive)>
+                        <span class="toggle-switch" aria-hidden="true"></span>
+                    </label>
+
+                    <div class="form-grid slider-behaviour-grid">
+                        <div class="form-group">
+                            <label for="starts_at">Start date and time</label>
+                            <input type="datetime-local" id="starts_at" name="starts_at"
+                                value="{{ old('starts_at', $slider?->starts_at?->format('Y-m-d\TH:i')) }}">
+                        </div>
+                        <div class="form-group">
+                            <label for="ends_at">End date and time</label>
+                            <input type="datetime-local" id="ends_at" name="ends_at"
+                                value="{{ old('ends_at', $slider?->ends_at?->format('Y-m-d\TH:i')) }}">
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <a href="{{ route('admin.app-sliders.index') }}" class="btn btn-light">Cancel</a>
+                        <button type="submit" class="btn btn-primary">{{ $slider ? 'Save changes' : 'Add slide' }}</button>
+                    </div>
+                </section>
+            </div>
+
+            <aside class="slider-form-side">
+                <section class="panel slider-preview-panel">
+                    <div class="panel-heading">
+                        <div>
+                            <h2>App preview</h2>
+                            <p>Approximately how the slide looks on the Home screen.</p>
+                        </div>
+                    </div>
+
+                    <div class="slider-preview-phone">
+                        <div class="slider-preview" id="sliderPreview">
+                            <img id="sliderPreviewImage" src="{{ $slider?->imageUrl() }}" alt="" @if (!$slider) hidden @endif>
+                            <span class="slider-preview-empty" id="sliderPreviewEmpty" @if ($slider) hidden @endif>Your image appears here</span>
+                            <div class="slider-preview-caption" id="sliderPreviewCaption">
+                                <span id="sliderPreviewText"></span>
+                                <span class="slider-preview-link" id="sliderPreviewLink" @if (!$hasLink) hidden @endif>Tap to open ›</span>
+                            </div>
+                            <div class="slider-preview-progress"><span id="sliderPreviewBar"></span></div>
+                        </div>
+                        <div class="slider-preview-dots" aria-hidden="true"><i class="is-active"></i><i></i><i></i></div>
+                    </div>
+
+                    <div class="slider-preview-lang" role="group" aria-label="Preview language">
+                        <button type="button" class="is-active" data-lang="en">English</button>
+                        <button type="button" data-lang="ar">العربية</button>
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </form>
+@endsection
+
+@section('scripts')
+    <script src="{{ asset_v('admin/js/image-resizer.js') }}"></script>
+    <script>
+        (function () {
+            const $ = (id) => document.getElementById(id);
+            const previewImage = $('sliderPreviewImage'), empty = $('sliderPreviewEmpty');
+            const hasLink = $('has_link'), linkField = $('sliderLinkField');
+            const text = $('sliderPreviewText'), caption = $('sliderPreviewCaption'), bar = $('sliderPreviewBar');
+            const descEn = $('description_en'), descAr = $('description_ar'), interval = $('interval_seconds');
+            const form = $('sliderForm');
+            let lang = 'en';
+
+            // Resized in the browser to the 1280 px the server stores.
+            window.AdminImageResizer.attach({
+                input: $('image'),
+                info: $('sliderImageInfo'),
+                submit: form.querySelector('button[type="submit"]'),
+                maxBytes: {{ (int) $maxUploadKb }} * 1024,
+                targetWidth: 1280,
+                ratio: 2,
+                onReady: (file, url) => {
+                    previewImage.src = url;
+                    previewImage.hidden = false;
+                    empty.hidden = true;
+                },
+            });
+
+            const syncLink = () => {
+                linkField.hidden = !hasLink.checked;
+                $('sliderPreviewLink').hidden = !hasLink.checked;
+            };
+            hasLink.addEventListener('change', syncLink);
+
+            const syncText = () => {
+                const value = (lang === 'ar' ? descAr.value : descEn.value).trim();
+                text.textContent = value;
+                caption.dir = lang === 'ar' ? 'rtl' : 'ltr';
+                caption.hidden = !value && !hasLink.checked;
+            };
+            [descEn, descAr].forEach((el) => el.addEventListener('input', syncText));
+            hasLink.addEventListener('change', syncText);
+
+            document.querySelectorAll('.slider-preview-lang button').forEach((button) => {
+                button.addEventListener('click', () => {
+                    lang = button.dataset.lang;
+                    document.querySelectorAll('.slider-preview-lang button')
+                        .forEach((b) => b.classList.toggle('is-active', b === button));
+                    syncText();
+                });
+            });
+
+            // The progress line runs for the display time, like the slide timer in the app.
+            const syncTimer = () => {
+                const seconds = Math.min(60, Math.max(2, parseInt(interval.value, 10) || 5));
+                bar.style.animationDuration = seconds + 's';
+            };
+            interval.addEventListener('input', syncTimer);
+
+            syncLink();
+            syncText();
+            syncTimer();
+        })();
+    </script>
+@endsection

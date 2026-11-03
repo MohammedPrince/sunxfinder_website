@@ -127,7 +127,7 @@ class ProjectRepository
             if ($oldStatus === 'completed') {
                 $fail(
                     'status',
-                    'This project is completed and locked. No further changes are allowed.'
+                    __('company/messages.projects.err_locked')
                 );
             }
 
@@ -135,14 +135,14 @@ class ProjectRepository
             if ($oldStatus === 'in_progress' && $requestedStatus === 'accepted') {
                 $fail(
                     'status',
-                    'Installation has already started. The project cannot return to Accepted.'
+                    __('company/messages.projects.err_started')
                 );
             }
 
             if ($oldStatus === 'accepted' && $requestedStatus === 'completed') {
                 $fail(
                     'status',
-                    'Start the installation and complete all required phases before closing the project.'
+                    __('company/messages.projects.err_close_early')
                 );
             }
 
@@ -172,7 +172,7 @@ class ProjectRepository
             if ($handover && $handover->status === 'completed') {
                 $fail(
                     'status',
-                    'Customer handover has been confirmed. This is irreversible, and the project is locked.'
+                    __('company/messages.projects.err_handover_done')
                 );
             }
 
@@ -184,7 +184,7 @@ class ProjectRepository
                 if (!empty($data['milestones'])) {
                     $fail(
                         'milestones',
-                        'Start the installation before updating milestones.'
+                        __('company/messages.projects.err_start_first')
                     );
                 }
 
@@ -202,7 +202,7 @@ class ProjectRepository
                     if (!in_array((string) $milestoneId, $allowedIds, true)) {
                         $fail(
                             'milestones',
-                            'One or more milestones do not belong to this project.'
+                            __('company/messages.projects.err_foreign_milestone')
                         );
                     }
                 }
@@ -234,7 +234,7 @@ class ProjectRepository
                 ) {
                     $fail(
                         'milestones',
-                        'Complete every installation phase before confirming customer handover.'
+                        __('company/messages.projects.handover_locked')
                     );
                 }
 
@@ -242,14 +242,14 @@ class ProjectRepository
                     if (!$handover) {
                         $fail(
                             'milestones',
-                            'The customer handover milestone is missing. Add it before completing the project.'
+                            __('company/messages.projects.err_handover_missing')
                         );
                     }
 
                     if ($handoverSubmittedStatus !== 'completed') {
                         $fail(
                             'milestones',
-                            'Confirm customer handover before completing the project.'
+                            __('company/messages.projects.err_confirm_handover')
                         );
                     }
                 }
@@ -276,7 +276,7 @@ class ProjectRepository
                     ) {
                         $fail(
                             'milestones',
-                            'Complete all installation phases before confirming customer handover.'
+                            __('company/messages.projects.err_all_phases')
                         );
                     }
 
@@ -332,7 +332,7 @@ class ProjectRepository
                     if (!$installationComplete) {
                         $fail(
                             'milestones',
-                            'All installation milestones must be completed before handover.'
+                            __('company/messages.projects.err_milestones_handover')
                         );
                     }
 
@@ -341,7 +341,7 @@ class ProjectRepository
                 } elseif ($requestedStatus === 'completed') {
                     $fail(
                         'milestones',
-                        'Complete customer handover before closing the project.'
+                        __('company/messages.projects.err_complete_handover')
                     );
                 } else {
                     $newStatus = $requestedStatus;

@@ -15,6 +15,7 @@
     <div class="admin-shell">
         @include('admin.partials.header')
         <main class="admin-main">
+            @include('partials.print-brand')
             <div class="page-topline">
                 <div>
                     <p class="eyebrow">@yield('eyebrow', 'SUNXFINDER CONTROL CENTER')</p>

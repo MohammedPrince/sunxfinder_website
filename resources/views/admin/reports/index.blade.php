@@ -260,7 +260,7 @@
                         <tr>
                             <td>
                                 <div class="company-cell">
-                                    <span class="company-avatar solar">{{ strtoupper(mb_substr($company['name'], 0, 1)) }}</span>
+                                    <span class="company-avatar solar">{{ name_initials($company['name']) }}</span>
                                     <span>
                                         <strong>{{ $company['name'] }}</strong>
                                         <small>
@@ -328,6 +328,7 @@
         <div class="report-subheading" id="stalled-projects">
             <h3>Stalled projects <span class="pill {{ count($projects['stalled']) ? 'pill-red' : 'pill-green' }}">{{ count($projects['stalled']) }}</span></h3>
             <p>Active projects with no progress update for {{ $stalledDays }} days or more.</p>
+            <a class="btn btn-light no-print" href="{{ route('admin.projects.index', ['stalled' => 1]) }}">Open full stalled queue</a>
         </div>
         <div class="table-responsive">
             <table class="data-table">
@@ -339,21 +340,32 @@
                         <th>Status</th>
                         <th>Progress</th>
                         <th>No update for</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($projects['stalled'] as $row)
                         <tr>
-                            <td><strong>Project #{{ $row['id'] }}</strong><small style="display:block">{{ $quoteRef($row['quote_id']) }}</small></td>
+                            <td><a href="{{ route('admin.projects.show', ['id' => $row['id']]) }}"><strong>Project #{{ $row['id'] }}</strong></a><small style="display:block">{{ $quoteRef($row['quote_id']) }}</small></td>
                             <td>{{ $row['company'] }}</td>
                             <td>{{ $row['customer'] }}</td>
                             <td><span class="pill pill-yellow">{{ \Illuminate\Support\Str::headline($row['status']) }}</span></td>
                             <td>{{ $row['progress'] }}%</td>
                             <td><span class="pill pill-red">{{ $row['idle_days'] }} days</span></td>
+                            <td>
+                                <a href="{{ route('admin.projects.show', ['id' => $row['id']]) }}" class="row-action row-action-icon"
+                                    title="Review project" aria-label="Review project #{{ $row['id'] }}">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                                        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+                                        <circle cx="12" cy="12" r="2.5" />
+                                    </svg>
+                                </a>
+                            </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="dashboard-empty"><strong>No stalled projects.</strong> Every active project was updated recently.</td>
+                            <td colspan="7" class="dashboard-empty"><strong>No stalled projects.</strong> Every active project was updated recently.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -476,6 +488,65 @@
             </div>
             @include('partials.report-breakdown', ['title' => 'By sender', 'items' => $notifications['by_sender']])
             @include('partials.report-breakdown', ['title' => 'By type', 'items' => $notifications['by_type']])
+        </section>
+    </div>
+
+    {{-- Advertising, ratings, complaints --}}
+    <div class="report-columns">
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Advertising</h2>
+                    <p>Sales, money received and ad results in this period</p>
+                </div>
+                <a class="text-link no-print" href="{{ route('admin.ad-sales.report') }}">Monthly ad report ↗</a>
+            </div>
+            <div class="report-metrics report-metrics-compact">
+                <div><small>Sales recorded</small><strong>{{ number_format($advertising['sales']) }}</strong></div>
+                @forelse ($advertising['paid'] as $paid)
+                    <div><small>Paid ({{ $paid['currency'] }})</small><strong>{{ number_format($paid['total']) }}</strong>
+                        <span>{{ number_format($paid['count']) }} {{ \Illuminate\Support\Str::plural('sale', $paid['count']) }}</span></div>
+                @empty
+                    <div><small>Paid</small><strong>0</strong></div>
+                @endforelse
+                <div><small>Running now</small><strong>{{ number_format($advertising['active']) }}</strong>
+                    <span>{{ number_format($advertising['requested']) }} requested · {{ number_format($advertising['awaiting_payment']) }} awaiting payment</span></div>
+                <div><small>Views</small><strong>{{ number_format($advertising['views']) }}</strong></div>
+                <div><small>Clicks</small><strong>{{ number_format($advertising['clicks']) }}</strong>
+                    <span>{{ $advertising['click_rate'] !== null ? $advertising['click_rate'] . '% of views' : 'No views yet' }}</span></div>
+            </div>
+            @include('partials.report-breakdown', ['title' => 'Sales by product', 'items' => $advertising['by_product'], 'labels' => \App\Models\AdSale::PRODUCTS])
+            @include('partials.report-breakdown', ['title' => 'Sales by status', 'items' => $advertising['by_status'], 'labels' => \App\Models\AdSale::STATUSES])
+        </section>
+
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Ratings</h2>
+                    <p>Ratings customers left in this period</p>
+                </div>
+            </div>
+            <div class="report-metrics report-metrics-compact">
+                <div><small>Ratings</small><strong>{{ number_format($ratings['count']) }}</strong></div>
+                <div><small>Average</small><strong>{{ $ratings['average'] !== null ? $ratings['average'] . ' ★' : '—' }}</strong></div>
+                <div><small>Hidden</small><strong>{{ number_format($ratings['hidden']) }}</strong><span>not shown to customers</span></div>
+            </div>
+            @include('partials.report-breakdown', ['title' => 'By stars', 'items' => $ratings['count'] ? $ratings['by_stars'] : []])
+        </section>
+
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Complaints</h2>
+                    <p>Complaints opened in this period</p>
+                </div>
+            </div>
+            <div class="report-metrics report-metrics-compact">
+                <div><small>Opened</small><strong>{{ number_format($complaints['opened']) }}</strong></div>
+                <div><small>Open now</small><strong>{{ number_format($complaints['open_now']) }}</strong><span>waiting for a reply</span></div>
+            </div>
+            @include('partials.report-breakdown', ['title' => 'By status', 'items' => $complaints['by_status']])
+            @include('partials.report-breakdown', ['title' => 'By category', 'items' => $complaints['by_category']])
         </section>
     </div>
 

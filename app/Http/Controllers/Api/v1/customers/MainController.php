@@ -3,10 +3,14 @@
 namespace App\Http\Controllers\Api\v1\customers;
 
 use App\Http\Controllers\Controller;
+use App\Models\AppSlider;
+use App\Models\CustomerDeviceToken;
+use App\Models\CustomerComplaint;
 use App\Services\API\CustomerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Validation\Rule;
 use Throwable;
 
 
@@ -220,6 +224,10 @@ class MainController extends Controller
                     'services' => $result['services'],
                     'services_ar' => $result['services_ar'],
                     'carousels' => $result['carousels'],
+                    // Admin switches per Home section: key, is_visible, show_companies, title_en, title_ar.
+                    'home_sections' => $result['home_sections'],
+                    // Home slider ads, in display order. Each: image_url, placement, interval_seconds, has_link, link_url, descriptions.
+                    'sliders' => $result['sliders'],
                     'companies' => $result['companies'],
                     'calculator' => $result['calculator'],
                     'my_quotes' => $result['my_quotes'],
@@ -227,6 +235,8 @@ class MainController extends Controller
                     'app_version' => $result['app_version'],
                     // {"status":"active"|"stopped","message":"...in app language", ...}. Set by admin per customer.
                     'app_status' => $result['app_status'],
+                    // {"status":"online"|"offline","is_online":true,"message":"...in app language", ...}. Set by admin for all customers.
+                    'app_availability' => $result['app_availability'],
                     // e.g. {"max_open_quotes": 2}: this customer's limit (admin Settings default, or up to 5 if raised for them).
                     'settings' => $result['settings'],
                     // Rating questions and the 1-4 answer labels.
@@ -333,6 +343,111 @@ class MainController extends Controller
             'code' => $result['code'],
             'error' => $result['message'],
         ], $result['code']);
+    }
+
+    public function storeComplaint(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'company_id' => ['required', 'integer', 'min:1', 'exists:tbl_solar_companies,id'],
+            'category' => ['required', 'in:product_issue,service_issue,pricing_issue,delivery_issue,customer_service,other'],
+            'description' => ['required', 'string', 'min:1', 'max:1000'],
+            'photos' => ['nullable', 'array', 'max:5'],
+            'photos.*' => ['file', 'mimes:jpg,jpeg,png', 'max:5120'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => 'Please check the complaint details.', 'errors' => $validator->errors()], 422);
+        }
+
+        if ($request->hasFile('photos')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Photo uploads are temporarily unavailable. Please submit the complaint without photos.',
+                'errors' => ['photos' => ['Photo storage is not configured yet.']],
+            ], 422);
+        }
+
+        $customer = $request->user();
+        abort_unless($customer instanceof \App\Models\Customer, 401);
+
+        $complaint = CustomerComplaint::create([
+            'customer_id' => $customer->id,
+            'company_id' => (int) $request->input('company_id'),
+            'category' => $request->input('category'),
+            'description' => $request->input('description'),
+            'status' => 'pending',
+            'photos' => null,
+        ])->load('company:id,name');
+
+        return response()->json([
+            'status' => 'success',
+            'code' => 201,
+            'message' => 'Complaint submitted successfully.',
+            'data' => ['complaint' => $this->complaintPayload($complaint)],
+        ], 201);
+    }
+
+    public function myComplaints(Request $request)
+    {
+        $data = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+        $customer = $request->user();
+        abort_unless($customer instanceof \App\Models\Customer, 401);
+
+        /** @var \Illuminate\Pagination\LengthAwarePaginator<int, CustomerComplaint> $complaints */
+        $complaints = CustomerComplaint::query()
+            ->with('company:id,name')
+            ->where('customer_id', $customer->id)
+            ->latest()
+            ->paginate((int) ($data['per_page'] ?? 20));
+
+        $response = [
+            'status' => 'success',
+            'code' => 200,
+            'message' => 'Complaints retrieved successfully.',
+            'data' => [
+                'complaints' => $complaints->getCollection()
+                    ->map(fn (CustomerComplaint $complaint) => $this->complaintPayload($complaint))
+                    ->values(),
+            ],
+        ];
+
+        if ($complaints->hasMorePages()) {
+            $response['meta'] = [
+                'current_page' => $complaints->currentPage(),
+                'per_page' => $complaints->perPage(),
+                'total' => $complaints->total(),
+                'last_page' => $complaints->lastPage(),
+            ];
+        }
+
+        return response()->json($response);
+    }
+
+    private function complaintPayload(CustomerComplaint $complaint): array
+    {
+        $helper = app(\App\Helpers\Helper::class);
+        return [
+            'id' => $complaint->id,
+            'company' => $complaint->company ? ['id' => $complaint->company->id, 'name' => $complaint->company->name] : null,
+            'category' => $complaint->category,
+            'description' => $complaint->description,
+            'status' => $complaint->status,
+            'created_at' => $complaint->created_at?->toISOString(),
+            'photos' => collect($complaint->photos ?? [])->map(function ($photo, $index) use ($helper) {
+                $path = is_array($photo) ? ($photo['path'] ?? $photo['url'] ?? null) : $photo;
+                $url = $path ? $helper->publicUrl($path) : null;
+
+                return $url ? [
+                    'id' => is_array($photo) ? ($photo['id'] ?? $index + 1) : $index + 1,
+                    'url' => $url,
+                ] : null;
+            })->filter()->values(),
+            'admin_reply' => $complaint->admin_reply,
+            'customer_replied_at' => $complaint->customer_replied_at?->toISOString(),
+        ];
     }
 
     public function getCompanies(Request $request)
@@ -461,6 +576,131 @@ class MainController extends Controller
             ],
         ], $result['code']);
     }
+    public function recordAdClick(Request $request)
+    {
+        $validated = $request->validate([
+            'ad_type' => ['required', 'in:slider,carousel'],
+            'ad_id' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $result = $this->customerService->recordAdClick($validated['ad_type'], (int) $validated['ad_id']);
+
+        return response()->json([
+            'status' => $result['success'] ? 'success' : 'error',
+            'code' => $result['code'],
+            'message' => $result['message'],
+        ], $result['code']);
+    }
+
+    public function getNotificationPreferences()
+    {
+        return response()->json([
+            'status' => 'success',
+            'code' => 200,
+            'data' => $this->customerService->getNotificationPreferences(),
+        ], 200);
+    }
+
+    public function updateNotificationPreferences(Request $request)
+    {
+        $validated = $request->validate([
+            'sponsored_push_enabled' => ['required', 'boolean'],
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'code' => 200,
+            'message' => 'Preferences saved.',
+            'data' => $this->customerService->updateNotificationPreferences($request->boolean('sponsored_push_enabled')),
+        ], 200);
+    }
+
+    public function getAppSliders(Request $request)
+    {
+        $validated = $request->validate([
+            'placement' => ['nullable', Rule::in(array_keys(AppSlider::PLACEMENTS))],
+        ]);
+
+        $result = $this->customerService->getAppSliders($validated['placement'] ?? null);
+
+        if ($result['success']) {
+            return response()->json([
+                'status' => 'success',
+                'code' => $result['code'],
+                'message' => $result['message'],
+                'data' => [
+                    'sliders' => $result['sliders'],
+                ],
+            ], $result['code']);
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'code' => $result['code'],
+            'error' => $result['message'],
+            'data' => [
+                'sliders' => [],
+            ],
+        ], $result['code']);
+    }
+
+    public function getHomeSections()
+    {
+        $result = $this->customerService->getHomeSections();
+
+        if ($result['success']) {
+            return response()->json([
+                'status' => 'success',
+                'code' => $result['code'],
+                'message' => $result['message'],
+                'data' => [
+                    'home_sections' => $result['home_sections'],
+                ],
+            ], $result['code']);
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'code' => $result['code'],
+            'error' => $result['message'],
+            'data' => [
+                'home_sections' => [],
+            ],
+        ], $result['code']);
+    }
+
+    public function privacyPolicy(Request $request)
+    {
+        return $this->legalPage($request, 'privacy');
+    }
+
+    public function terms(Request $request)
+    {
+        return $this->legalPage($request, 'terms');
+    }
+
+    private function legalPage(Request $request, string $page)
+    {
+        $result = $this->customerService->getLegalPage($page, $request->query('lang'));
+
+        if ($result['success']) {
+            return response()->json([
+                'status' => 'success',
+                'code' => $result['code'],
+                'message' => $result['message'],
+                'data' => [
+                    'page' => $result['page'],
+                ],
+            ], $result['code']);
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'code' => $result['code'],
+            'error' => $result['message'],
+        ], $result['code']);
+    }
+
     public function appliancesCalculator()
     {
         $result = $this->customerService->appliancesCalculator();
@@ -579,6 +819,23 @@ class MainController extends Controller
                 'quotes' => [],
             ],
         ], $result['code']);
+    }
+
+    public function archiveQuote(Request $request)
+    {
+        $data = $request->validate([
+            'quote_id' => ['required', 'integer', 'min:1'],
+            'type' => ['required', 'in:requestd_quote'],
+        ]);
+
+        $result = $this->customerService->archiveQuote($data);
+        $httpCode = $result['code'] ?? 500;
+
+        return response()->json([
+            'status' => ($result['success'] ?? false) ? 'success' : 'error',
+            'code' => $httpCode,
+            'message' => $result['message'] ?? 'Unable to archive this item.',
+        ], $httpCode);
     }
 
     public function acceptOffer(Request $request)
@@ -702,6 +959,94 @@ class MainController extends Controller
         ], $httpCode);
     }
 
+    public function updateRating(Request $request, int $id)
+    {
+        $lang = $this->customerApiLanguage();
+        $validator = Validator::make($request->all(), [
+            'stars' => ['required', 'integer', 'min:1', 'max:5'],
+            'comment' => ['sometimes', 'nullable', 'string', 'max:500'],
+        ], $this->ratingValidationMessages($lang));
+
+        if ($validator->fails()) {
+            $messageEn = 'Validation failed.';
+            $messageAr = 'فشل التحقق من البيانات.';
+            return response()->json([
+                'status' => 'error',
+                'code' => 422,
+                'message' => $lang === 'ar' ? $messageAr : $messageEn,
+                'message_en' => $messageEn,
+                'message_ar' => $messageAr,
+                'errors' => $validator->errors(),
+                'data' => null,
+            ], 422);
+        }
+
+        $result = $this->customerService->updateRating($id, $validator->validated());
+        $httpCode = $result['code'] ?? 500;
+
+        return response()->json([
+            'status' => ($result['success'] ?? false) ? 'success' : 'error',
+            'code' => $httpCode,
+            'message' => $result['message'] ?? 'Unable to update your rating.',
+            'message_en' => $result['message_en'] ?? $result['message'] ?? 'Unable to update your rating.',
+            'message_ar' => $result['message_ar'] ?? $result['message'] ?? 'تعذر تحديث تقييمك. يُرجى المحاولة مرة أخرى.',
+            'data' => $result['data'] ?? null,
+        ], $httpCode);
+    }
+
+    public function deleteRating(int $id)
+    {
+        $result = $this->customerService->deleteRating($id);
+        $httpCode = $result['code'] ?? 500;
+
+        return response()->json([
+            'status' => ($result['success'] ?? false) ? 'success' : 'error',
+            'code' => $httpCode,
+            'message' => $result['message'] ?? 'Unable to delete your rating.',
+            'message_en' => $result['message_en'] ?? $result['message'] ?? 'Unable to delete your rating.',
+            'message_ar' => $result['message_ar'] ?? $result['message'] ?? 'تعذر حذف تقييمك. يُرجى المحاولة مرة أخرى.',
+            'data' => $result['data'] ?? null,
+        ], $httpCode);
+    }
+
+    private function customerApiLanguage(): string
+    {
+        $customerId = auth('sanctum')->id();
+        if (!$customerId) {
+            return 'en';
+        }
+
+        $lang = CustomerDeviceToken::query()
+            ->where('customer_id', $customerId)
+            ->orderByDesc('last_used_at')
+            ->value('lang');
+
+        return strtolower((string) $lang) === 'ar' ? 'ar' : 'en';
+    }
+
+    private function ratingValidationMessages(string $lang): array
+    {
+        if ($lang === 'ar') {
+            return [
+                'stars.required' => 'حقل التقييم مطلوب.',
+                'stars.integer' => 'يجب أن يكون التقييم رقمًا صحيحًا.',
+                'stars.min' => 'يجب ألا يقل التقييم عن نجمة واحدة.',
+                'stars.max' => 'يجب ألا يزيد التقييم عن 5 نجوم.',
+                'comment.string' => 'يجب أن يكون التعليق نصًا.',
+                'comment.max' => 'يجب ألا يتجاوز التعليق 500 حرف.',
+            ];
+        }
+
+        return [
+            'stars.required' => 'The stars field is required.',
+            'stars.integer' => 'Stars must be a whole number.',
+            'stars.min' => 'Stars must be at least 1.',
+            'stars.max' => 'Stars may not be greater than 5.',
+            'comment.string' => 'The comment must be text.',
+            'comment.max' => 'The comment may not be greater than 500 characters.',
+        ];
+    }
+
     public function getProjectProgress(int $projectId)
     {
 
@@ -776,6 +1121,26 @@ class MainController extends Controller
             'code' => 200,
             'data' => $result,
         ], 200);
+    }
+
+    // One notification with its full campaign content (image, company, offer, button).
+    public function getNotification(int $notificationId)
+    {
+        $result = $this->customerService->getCustomerNotification($notificationId);
+
+        if ($result['success']) {
+            return response()->json([
+                'status' => 'success',
+                'code' => 200,
+                'data' => ['notification' => $result['notification']],
+            ], 200);
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'code' => $result['code'],
+            'error' => $result['message'],
+        ], $result['code']);
     }
 
     //Read One

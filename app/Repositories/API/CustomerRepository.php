@@ -3,18 +3,27 @@
 namespace App\Repositories\API;
 
 use App\Helpers\Helper;
+use Illuminate\Support\Str;
 use App\Models\ApiEndpoint;
 use App\Jobs\SendCompanyOfferDecisionEmail;
 use App\Jobs\SendCustomerWelcomeEmail;
+use App\Jobs\SendNewCustomerRegistrationAdminEmail;
 use App\Mail\CompanyOfferDecisionMail;
 use App\Models\ApplianceGroup;
 use App\Models\AppVersion;
+use App\Models\AppSlider;
 use App\Models\CompanyCarousel;
+use App\Support\AdTracker;
 use App\Models\CompanyQuotation;
 use App\Models\Customer;
 use App\Models\CustomerDeviceToken;
+use App\Models\HomeSection;
+use App\Repositories\MainRepository;
 use App\Repositories\OtpRepository;
 use App\Models\CustomerNotification;
+use App\Models\ArchivedItem;
+use App\Models\Invoice;
+use App\Models\LegalSection;
 use App\Models\Project;
 use App\Models\ProjectMilestone;
 use App\Models\ProjectUpdate;
@@ -25,8 +34,10 @@ use App\Models\RatingValue;
 use App\Models\Setting;
 use App\Models\SolarCompany;
 use App\Support\ActivityLogger;
+use App\Support\LegalDefaults;
 use Carbon\Carbon;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
@@ -251,6 +262,12 @@ class CustomerRepository
 
             $carousels = $carouselsResult['carousels'] ?? [];
 
+            // Home slider: a failure here never blocks the rest of the home screen.
+            $sliders = $this->getAppSliders()['sliders'] ?? [];
+
+            // Same for the Home section switches: the app falls back to today's Home without them.
+            $homeSections = $this->getHomeSections()['home_sections'] ?? [];
+
             // Companies: method requires filters and returns a paginated result.
             $companiesResult = $this->getCompanies([
                 'per_page' => 50,
@@ -294,11 +311,12 @@ class CustomerRepository
                 ->orderByDesc('last_used_at')
                 ->value('is_active');
 
-            // TODO: Replace with your actual customer notification query.
+            $inbox = $this->getCustomerNotifications();
+
             $notifications = [
                 'enabled' => $notificationsEnabled,
-                'unread_count' => 0,
-                'items' => [],
+                'unread_count' => $inbox['unread_count'] ?? 0,
+                'items' => $inbox['notifications'] ?? [],
             ];
 
             return [
@@ -310,6 +328,8 @@ class CustomerRepository
                 'services' => $services,
                 'services_ar' => $servicesAr,
                 'carousels' => $carousels,
+                'home_sections' => $homeSections,
+                'sliders' => $sliders,
                 'companies' => $companies,
                 'calculator' => $calculator,
                 'my_quotes' => [
@@ -318,6 +338,7 @@ class CustomerRepository
                 'notifications' => $notifications,
                 'app_version' => $this->getAppVersions($customerId),
                 'app_status' => $this->getCustomerAppStatus($customerId),
+                'app_availability' => $this->getAppAvailability($customerId),
                 'settings' => $settings,
                 'rating_form' => $this->getRatingForm()['data'],
                 'meta' => [
@@ -364,6 +385,28 @@ class CustomerRepository
             'message_ar' => $messageAr,
             'lang' => $lang,
             'changed_at' => $customer?->app_status_changed_at?->toISOString(),
+        ];
+    }
+
+    /**
+     * Whether admin took the app offline for all customers (Settings), with the message
+     * in the app's language plus both languages. Messages are null while online.
+     */
+    private function getAppAvailability(int $customerId): array
+    {
+        $offline = Setting::appOffline();
+        $lang = $this->customerPreferredLanguage($customerId);
+        $messageEn = $offline['enabled'] ? $offline['message_en'] : null;
+        $messageAr = $offline['enabled'] ? $offline['message_ar'] : null;
+
+        return [
+            'status' => $offline['enabled'] ? 'offline' : 'online',
+            'is_online' => !$offline['enabled'],
+            'message' => $lang === 'ar' ? ($messageAr ?: $messageEn) : ($messageEn ?: $messageAr),
+            'message_en' => $messageEn,
+            'message_ar' => $messageAr,
+            'lang' => $lang,
+            'changed_at' => $offline['changed_at'],
         ];
     }
 
@@ -509,6 +552,8 @@ class CustomerRepository
                     'full_name' => $fullName !== '' ? $fullName : null,
                     'phone' => $data['phone'],
                     'email' => $data['email'] ?? null,
+                    'registration_source' => 'app',
+                    'preferred_language' => strtolower((string) ($data['lang'] ?? 'en')) === 'ar' ? 'ar' : 'en',
                     'gender' => $data['gender'] ?? null,
                     'city' => $data['city'] ?? null,
                     'address' => $data['address'] ?? null,
@@ -529,6 +574,13 @@ class CustomerRepository
                 'code' => 500,
                 'message' => 'Account not created.',
             ];
+        }
+
+        try {
+            SendNewCustomerRegistrationAdminEmail::dispatch((int) $customer->id, 'app')->afterCommit();
+        } catch (Throwable $e) {
+            // Admin notification failure must never invalidate a completed sign-up.
+            report($e);
         }
 
         // Save the phone's FCM token with the new customer_id, so pushes
@@ -1078,19 +1130,28 @@ class CustomerRepository
                 ->whereHas('company', function ($query) {
                     $query->where('status', 'approved')
                         ->where('is_verified', true)
-                        ->where('is_active', true);
+                        ->where('is_active', true)
+                        ->where('on_app', true);
                 })
 
                 ->with('company')
+                ->orderByDesc('is_sponsored')
                 ->orderBy('sort_order')
                 ->orderBy('id')
                 ->limit(3)
                 ->get();
 
+            $customer = $this->helper->isCustomerAuthenticated();
+            $sponsoredLabel = $this->sponsoredLabel((int) $customer->id);
+
+            AdTracker::views('carousel', $carouselRows->pluck('id')->all(), 'app', 'customer-' . $customer->id);
+
             $carousels = $carouselRows
-                ->map(function (CompanyCarousel $carousel): array {
+                ->map(function (CompanyCarousel $carousel) use ($sponsoredLabel): array {
                     return [
                         'id' => (int) $carousel->id,
+                        'is_sponsored' => (bool) $carousel->is_sponsored,
+                        'sponsored_label' => $carousel->is_sponsored ? $sponsoredLabel : null,
                         'sort_order' => (int) $carousel->sort_order,
                         'interval_seconds' => (int) $carousel->interval_seconds,
                         'platform' => $carousel->platform,
@@ -1120,6 +1181,241 @@ class CustomerRepository
         }
     }
 
+
+    /**
+     * Home screen slider (admin ads). Cached for a minute and cleared whenever an admin
+     * changes a slide, so the frequent main-data call stays cheap. Schedules are
+     * respected to within that minute.
+     */
+    /**
+     * A legal page in one language: ?lang=en|ar when the app sends it, otherwise the
+     * language saved with the customer's device. Empty table: the built-in text.
+     */
+    public function getLegalPage(string $page, ?string $lang = null): array
+    {
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        if (!$customer) {
+            return [
+                'success' => false,
+                'code' => 401,
+                'message' => 'Unauthenticated.',
+            ];
+        }
+
+        try {
+            $lang = in_array($lang, ['en', 'ar'], true) ? $lang : $this->customerPreferredLanguage($customer->id);
+            $legal = app(MainRepository::class)->getLegalPage($page) ?? LegalDefaults::page($page);
+            $header = $legal['header'];
+
+            // Site paths such as /terms?lang=en cannot be opened from inside the app.
+            $body = fn(LegalSection $block): string => preg_replace(
+                '#href="/(?!/)#',
+                'href="' . url('/') . '/',
+                (string) $block->text('body', $lang)
+            );
+
+            return [
+                'success' => true,
+                'code' => 200,
+                'message' => $lang === 'ar' ? 'تم جلب الصفحة بنجاح.' : 'Page retrieved successfully.',
+                'page' => [
+                    'key' => $page,
+                    'lang' => $lang,
+                    'label' => $header->text('eyebrow', $lang),
+                    'title' => $header->text('title', $lang),
+                    'intro' => $header->text('body', $lang),
+                    'last_updated' => $header->last_updated?->toDateString(),
+                    'url' => route(LegalSection::ROUTES[$page], ['lang' => $lang]),
+                    'sections' => $legal['sections']->values()->map(fn(LegalSection $section, int $index): array => [
+                        'number' => $index + 1,
+                        'title' => $section->text('title', $lang),
+                        'body' => $body($section),
+                    ])->all(),
+                    'contacts' => $legal['contacts']->values()->map(fn(LegalSection $contact): array => [
+                        'title' => $contact->text('title', $lang),
+                        'body' => $body($contact),
+                    ])->all(),
+                ],
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+                'message' => 'Unable to load the page. Please try again later.',
+            ];
+        }
+    }
+
+    private function sponsoredLabel(int $customerId): string
+    {
+        return $this->customerPreferredLanguage($customerId) === 'ar' ? 'ممول' : 'Sponsored';
+    }
+
+    /** A tap on a carousel entry, or on a slider whose link opens a screen in the app. */
+    public function recordAdClick(string $type, int $id): array
+    {
+        $exists = $type === 'slider'
+            ? AppSlider::query()->whereKey($id)->exists()
+            : CompanyCarousel::query()->whereKey($id)->exists();
+
+        if (!$exists) {
+            return ['success' => false, 'code' => 404, 'message' => 'Ad not found.'];
+        }
+
+        AdTracker::click($type, $id, 'app');
+
+        return ['success' => true, 'code' => 200, 'message' => 'Click recorded.'];
+    }
+
+    public function getNotificationPreferences(): array
+    {
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        return [
+            'sponsored_push_enabled' => (bool) ($customer->sponsored_push_enabled ?? true),
+        ];
+    }
+
+    public function updateNotificationPreferences(bool $sponsoredPushEnabled): array
+    {
+        $customer = $this->helper->isCustomerAuthenticated();
+        $customer->sponsored_push_enabled = $sponsoredPushEnabled;
+        $customer->save();
+
+        return $this->getNotificationPreferences();
+    }
+
+    /** @param string|null $placement Only slides for this Home placement; null = all placements. */
+    public function getAppSliders(?string $placement = null): array
+    {
+        if (!$this->helper->isCustomerAuthenticated()) {
+            return [
+                'success' => false,
+                'code' => 401,
+                'message' => 'Unauthenticated.',
+            ];
+        }
+
+        try {
+            $rows = Cache::remember(AppSlider::CACHE_KEY, 60, fn() => AppSlider::currentlyVisible()
+                ->whereIn('platform', ['app', 'both'])
+                ->whereIn('placement', array_keys(AppSlider::PLACEMENTS))
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->limit(AppSlider::MAX_PER_PLACEMENT * count(AppSlider::PLACEMENTS))
+                ->get([
+                    'id',
+                    'name',
+                    'description_ar',
+                    'description_en',
+                    'image_path',
+                    'image_width',
+                    'image_height',
+                    'link_url',
+                    'placement',
+                    'is_sponsored',
+                    'interval_seconds',
+                    'sort_order'
+                ])
+                ->toArray());
+
+            // Up to 10 per placement, in display order.
+            /** @var array<int, array<string, mixed>> $rows */
+            $rows = collect($rows)
+                ->when($placement !== null, fn($all) => $all->where('placement', $placement))
+                ->groupBy('placement')
+                ->flatMap(fn($group) => $group->take(AppSlider::MAX_PER_PLACEMENT))
+                ->sortBy([['sort_order', 'asc'], ['id', 'asc']])
+                ->values()
+                ->all();
+
+            $customer = $this->helper->isCustomerAuthenticated();
+            $sponsoredLabel = $this->sponsoredLabel((int) $customer->id);
+
+            AdTracker::views('slider', array_column($rows, 'id'), 'app', 'customer-' . $customer->id);
+
+            // URLs are built per request so the cached rows don't pin one host name.
+            $sliders = array_map(fn(array $row): array => [
+                'id' => (int) $row['id'],
+                'name' => $row['name'],
+                'description_ar' => $row['description_ar'],
+                'description_en' => $row['description_en'],
+                'image_url' => asset($row['image_path']),
+                'image_width' => $row['image_width'],
+                'image_height' => $row['image_height'],
+                'interval_seconds' => (int) $row['interval_seconds'],
+                'placement' => $row['placement'],
+                'has_link' => filled($row['link_url']),
+                // Web links pass through the click counter; sunxfinder:// links are reported with POST /ad-click.
+                'link_url' => filled($row['link_url']) && preg_match('#^https?://#i', $row['link_url'])
+                    ? route('ad.click', ['type' => 'slider', 'id' => $row['id'], 'platform' => 'app'])
+                    : $row['link_url'],
+                'target_url' => $row['link_url'],
+                'is_sponsored' => (bool) $row['is_sponsored'],
+                'sponsored_label' => $row['is_sponsored'] ? $sponsoredLabel : null,
+                'sort_order' => (int) $row['sort_order'],
+            ], $rows);
+
+            return [
+                'success' => true,
+                'code' => 200,
+                'message' => 'Sliders retrieved successfully.',
+                'sliders' => $sliders,
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+                'message' => 'Unable to retrieve sliders.',
+                'sliders' => [],
+            ];
+        }
+    }
+
+    /**
+     * Admin show/hide switches for Home sections (Admin → Settings → App Home). All rows,
+     * hidden ones included: the app needs is_visible false to hide a section.
+     */
+    public function getHomeSections(): array
+    {
+        if (!$this->helper->isCustomerAuthenticated()) {
+            return [
+                'success' => false,
+                'code' => 401,
+                'message' => 'Unauthenticated.',
+            ];
+        }
+
+        try {
+            $sections = Cache::remember(HomeSection::CACHE_KEY, 300, function (): array {
+                /** @var \Illuminate\Database\Eloquent\Collection<int, HomeSection> $rows */
+                $rows = HomeSection::query()->orderBy('sort_order')->orderBy('id')->get();
+
+                return $rows->map(fn(HomeSection $section) => $section->toApiArray())->all();
+            });
+
+            return [
+                'success' => true,
+                'code' => 200,
+                'message' => 'Home sections loaded.',
+                'home_sections' => $sections,
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+                'message' => 'Unable to retrieve home sections.',
+                'home_sections' => [],
+            ];
+        }
+    }
 
     public function storeQuote(array $data): array
     {
@@ -1298,10 +1594,14 @@ class CustomerRepository
             // Build the query for this customer only.
             $query = Quote::query()
                 ->where('customer_id', $customerId)
+                ->whereNotIn('id', ArchivedItem::query()
+                    ->where('customer_id', $customerId)
+                    ->where('type', 'requestd_quote')
+                    ->select('item_id'))
                 ->with([
                     'companyQuotations' => function ($offerQuery) {
                         $offerQuery
-                            ->with('company')
+                            ->with(['company', 'invoice'])
                             ->where('status', '!=', 'withdrawn');
                     },
 
@@ -1401,6 +1701,8 @@ class CustomerRepository
 
                         // Overall customer quote-request status.
                         'status' => $quote->status,
+                        // The app uses this to allow deletion only when no project exists or it is complete.
+                        'offer_status' => $quote->project?->status,
 
                         'created_at' => $quote->created_at?->toISOString(),
                         'updated_at' => $quote->updated_at?->toISOString(),
@@ -1435,6 +1737,10 @@ class CustomerRepository
                                     'ar_message' => $offer->ar_message,
                                     'status' => $offer->status,
                                     'created_at' => $offer->created_at?->toISOString(),
+                                    // Line items and totals for the offer details screen.
+                                    ...$this->formatOfferBreakdown($offer),
+                                    // Null when the company did not attach an invoice.
+                                    'invoice' => $this->formatOfferInvoice($offer->invoice),
                                 ];
                             })
                             ->values(),
@@ -1467,7 +1773,127 @@ class CustomerRepository
         }
     }
 
+    /**
+     * An offer without an invoice has no line items, so its subtotal
+     * and total are the offer price and the other amounts are null.
+     */
+    private function formatOfferBreakdown(CompanyQuotation $offer): array
+    {
+        $invoice = $offer->invoice;
 
+        return [
+            'items' => collect($invoice?->items ?? [])
+                ->map(fn(array $item) => [
+                    'description' => $item['description'] ?? '',
+                    'ar_description' => $item['ar_description'] ?? null,
+                    'quantity' => (float) ($item['quantity'] ?? 0),
+                    'unit_price' => number_format((float) ($item['unit_price'] ?? 0), 2, '.', ''),
+                    'line_total' => number_format((float) ($item['total'] ?? 0), 2, '.', ''),
+                ])
+                ->values(),
+            'subtotal' => $invoice?->subtotal ?? $offer->price,
+            'discount' => $invoice?->discount,
+            'tax_percent' => $invoice ? rtrim(rtrim($invoice->tax_rate, '0'), '.') : null,
+            'tax' => $invoice?->tax,
+            'shipping' => $invoice?->shipping,
+            'total' => $offer->price,
+        ];
+    }
+
+    private function formatOfferInvoice(?Invoice $invoice): ?array
+    {
+        if (!$invoice) {
+            return null;
+        }
+
+        return [
+            'id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'invoice_date' => $invoice->invoice_date
+                ? Carbon::parse($invoice->invoice_date)->toDateString()
+                : null,
+            'payment_terms' => $invoice->payment_terms,
+            'payment_instructions' => $invoice->payment_instructions,
+            'currency' => $invoice->currency,
+            'company' => $invoice->company_details,
+            'customer' => $invoice->customer_details,
+            'items' => $invoice->items,
+            'subtotal' => (float) $invoice->subtotal,
+            'discount' => (float) $invoice->discount,
+            'subtotal_less_discount' => $invoice->subtotal_less_discount,
+            'tax_rate' => (float) $invoice->tax_rate,
+            'tax' => (float) $invoice->tax,
+            'shipping' => (float) $invoice->shipping,
+            'balance_due' => (float) $invoice->balance_due,
+            'created_at' => $invoice->created_at?->toISOString(),
+            'updated_at' => $invoice->updated_at?->toISOString(),
+        ];
+    }
+
+    public function archiveQuote(array $data): array
+    {
+        $lang = 'en';
+
+        try {
+            $customer = $this->helper->isCustomerAuthenticated();
+
+            if (!$customer) {
+                return [
+                    'success' => false,
+                    'code' => 401,
+                    'message' => 'Unauthenticated.',
+                ];
+            }
+
+            $lang = $this->customerPreferredLanguage($customer->id);
+
+            $quote = Quote::query()
+                ->with('project')
+                ->where('customer_id', $customer->id)
+                ->whereKey($data['quote_id'])
+                ->first();
+
+            if (!$quote) {
+                return [
+                    'success' => false,
+                    'code' => 404,
+                    'message' => $lang === 'ar'
+                        ? 'طلب عرض السعر غير موجود.'
+                        : 'Quote request not found.',
+                ];
+            }
+
+            if ($quote->project && $quote->project->status !== 'completed') {
+                return [
+                    'success' => false,
+                    'code' => 409,
+                    'message' => $lang === 'ar'
+                        ? 'لا يمكن أرشفة طلب عرض السعر أثناء وجود مشروع نشط مرتبط به.'
+                        : 'This quote cannot be archived while its project is active.',
+                ];
+            }
+
+            $this->helper->archiveQuoteAndRelated($quote, $customer->id, 'app');
+
+            return [
+                'success' => true,
+                'code' => 200,
+                'message' => $lang === 'ar'
+                    ? 'تمت أرشفة طلب عرض السعر بنجاح.'
+                    : 'Quote request archived successfully.',
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+                'message' => $lang === 'ar'
+                    ? 'تعذر أرشفة طلب عرض السعر. يرجى المحاولة مرة أخرى.'
+                    : 'Unable to archive this quote request. Please try again.',
+            ];
+        }
+    }
 
     public function acceptOffer(array $data): array
     {
@@ -1869,6 +2295,156 @@ class CustomerRepository
         }
     }
 
+    public function updateRating(int $ratingId, array $data): array
+    {
+        $lang = 'en';
+
+        try {
+            $customer = $this->helper->isCustomerAuthenticated();
+
+            if (!$customer) {
+                return [
+                    'success' => false,
+                    'code' => 401,
+                ] + $this->helper->ratingResponseMessages('unauthenticated', $lang) + [
+                    'data' => null,
+                ];
+            }
+
+            $lang = $this->customerApiLanguage((int) $customer->id);
+
+            // Scope by the token owner so a caller cannot confirm another customer's rating exists.
+            $rating = Rating::query()
+                ->where('customer_id', $customer->id)
+                ->find($ratingId);
+
+            if (!$rating) {
+                return [
+                    'success' => false,
+                    'code' => 404,
+                ] + $this->helper->ratingResponseMessages('not_found', $lang) + [
+                    'data' => null,
+                ];
+            }
+
+            $rating->stars = (int) $data['stars'];
+            if (array_key_exists('comment', $data)) {
+                // ConvertEmptyStringsToNull turns an explicitly cleared comment into null.
+                $rating->comment = $data['comment'];
+            }
+            $rating->save();
+
+            $summary = $this->companyRatingSummaries([(int) $rating->company_id])[(int) $rating->company_id]
+                ?? ['rating' => null, 'reviews' => 0];
+
+            return [
+                'success' => true,
+                'code' => 200,
+            ] + $this->helper->ratingResponseMessages('update_success', $lang) + [
+                'data' => [
+                    'ratingDetails' => [
+                        'id' => (int) $rating->id,
+                        'quote_id' => (int) $rating->quote_id,
+                        'company_id' => (int) $rating->company_id,
+                        'stars' => (int) $rating->stars,
+                        'rating' => (int) $rating->stars,
+                        'comment' => $rating->comment,
+                        'is_mine' => true,
+                        'company_rating' => $summary['rating'],
+                        'company_reviews' => $summary['reviews'],
+                    ],
+                ],
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+            ] + $this->helper->ratingResponseMessages('update_failed', $lang) + [
+                'data' => null,
+            ];
+        }
+    }
+
+    public function deleteRating(int $ratingId): array
+    {
+        $lang = 'en';
+
+        try {
+            $customer = $this->helper->isCustomerAuthenticated();
+
+            if (!$customer) {
+                return [
+                    'success' => false,
+                    'code' => 401,
+                ] + $this->helper->ratingResponseMessages('unauthenticated', $lang) + [
+                    'data' => null,
+                ];
+            }
+
+            $lang = $this->customerApiLanguage((int) $customer->id);
+
+            // Ownership is checked on the server for every delete request.
+            $rating = Rating::query()
+                ->where('customer_id', $customer->id)
+                ->find($ratingId);
+
+            if (!$rating) {
+                return [
+                    'success' => false,
+                    'code' => 404,
+                ] + $this->helper->ratingResponseMessages('not_found', $lang) + [
+                    'data' => null,
+                ];
+            }
+
+            $companyId = (int) $rating->company_id;
+
+            DB::transaction(function () use ($rating, $customer) {
+                foreach ($rating->answers()->get() as $answer) {
+                    $this->helper->archiveItem($answer, 'rating_answer', (int) $customer->id, 'app');
+                    $answer->delete();
+                }
+
+                $this->helper->archiveItem($rating, 'rating', (int) $customer->id, 'app');
+                $rating->delete();
+            });
+
+            $summary = $this->companyRatingSummaries([$companyId])[$companyId]
+                ?? ['rating' => null, 'reviews' => 0];
+
+            return [
+                'success' => true,
+                'code' => 200,
+            ] + $this->helper->ratingResponseMessages('delete_success', $lang) + [
+                'data' => [
+                    'company_rating' => $summary['rating'],
+                    'company_reviews' => $summary['reviews'],
+                ],
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+            ] + $this->helper->ratingResponseMessages('delete_failed', $lang) + [
+                'data' => null,
+            ];
+        }
+    }
+
+    private function customerApiLanguage(int $customerId): string
+    {
+        $lang = CustomerDeviceToken::query()
+            ->where('customer_id', $customerId)
+            ->orderByDesc('last_used_at')
+            ->value('lang');
+
+        return strtolower((string) $lang) === 'ar' ? 'ar' : 'en';
+    }
+
     /** Active questions and the 1-4 answer labels, for the app's rating screen. */
     public function getRatingForm(): array
     {
@@ -2057,7 +2633,7 @@ class CustomerRepository
         $customerId = $customer->id;
 
         $query = CustomerNotification::query()
-            ->with('notification')
+            ->with('notification.company')
             ->where('customer_id', $customerId)
             ->whereHas('notification', function ($query) {
                 $query->where('status', 'published');
@@ -2080,29 +2656,7 @@ class CustomerRepository
         $recipientRows = $recipients->getCollection();
 
         $notifications = $recipientRows
-            ->map(function (CustomerNotification $recipient) {
-                $notification = $recipient->notification;
-
-                if (!$notification) {
-                    return null;
-                }
-
-                return [
-                    'id' => $notification->id,
-                    'type' => $notification->type,
-                    'title' => $notification->title_en,
-                    'ar_title' => $notification->title_ar,
-                    'body' => $notification->message_en,
-                    'ar_body' => $notification->message_ar,
-
-                    'read' => $recipient->read_at !== null,
-                    'created_at' => $recipient->created_at
-                        ? $recipient->created_at->utc()->format(
-                            'Y-m-d\TH:i:s\Z'
-                        )
-                        : null,
-                ];
-            })
+            ->map(fn(CustomerNotification $recipient) => $this->formatCustomerNotification($recipient))
             ->filter()
             ->values();
 
@@ -2135,7 +2689,12 @@ class CustomerRepository
 
         $customerID = $customer->id;
 
-        $notification = CustomerNotification::query()->where('id', $notificationId)->where('customer_id', $customerID)->first();
+        // The list returns the notification id (tbl_notifications.id) as "id", so look it up
+        // by notification_id; previously this matched the recipient row id by mistake.
+        $notification = CustomerNotification::query()
+            ->where('notification_id', (int) $notificationId)
+            ->where('customer_id', $customerID)
+            ->first();
 
         if (!$notification) {
             return [
@@ -2160,11 +2719,117 @@ class CustomerRepository
             'code' => 200,
             'message' => 'Notification marked as read successfully',
             'notificationDetails' => [
-                'id' => $notification->id,
+                'id' => (int) $notification->notification_id,
                 'is_read' => true,
                 'read_at' => $notification->fresh()->read_at?->toISOString(),
             ],
             'unread_count' => $unreadCount,
+        ];
+    }
+
+    /** One inbox item with its full campaign content (image, company, offer, button). */
+    public function getCustomerNotification(int $notificationId): array
+    {
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        if (!$customer) {
+            return ['success' => false, 'code' => 401, 'message' => 'Unauthenticated.'];
+        }
+
+        $recipient = CustomerNotification::query()
+            ->with('notification.company')
+            ->where('notification_id', $notificationId)
+            ->where('customer_id', $customer->id)
+            ->whereHas('notification', fn($query) => $query->where('status', 'published'))
+            ->first();
+
+        $data = $recipient ? $this->formatCustomerNotification($recipient) : null;
+
+        if (!$data) {
+            return ['success' => false, 'code' => 404, 'message' => 'Notification not found'];
+        }
+
+        return ['success' => true, 'code' => 200, 'notification' => $data];
+    }
+
+    /**
+     * App shape of an inbox item. "body"/"ar_body" are always plain text (safe for any
+     * app version); rich campaigns add "body_html"/"ar_body_html" (sanitized HTML).
+     */
+    private function formatCustomerNotification(CustomerNotification $recipient): ?array
+    {
+        $notification = $recipient->notification;
+
+        if (!$notification) {
+            return null;
+        }
+
+        $isHtml = $notification->format === 'html';
+        $plain = fn(?string $text) => $text === null ? null : ($isHtml ? $this->helper->plainText($text) : $text);
+        $iso = fn($date) => $date ? $date->copy()->utc()->format('Y-m-d\TH:i:s\Z') : null;
+
+        // A company hidden since the campaign was sent loses its card and "View company" link.
+        $company = $this->helper->isCompanyVisible($notification->company) ? $notification->company : null;
+        $hasOffer = $notification->offer_title_en !== null;
+        $currency = $notification->offer_currency ?: 'SDG';
+
+        $action = null;
+        if ($notification->link_url) {
+            $action = [
+                'type' => Str::startsWith(strtolower($notification->link_url), 'sunxfinder://') ? 'deep_link' : 'url',
+                'url' => $notification->link_url,
+                'label' => $notification->link_label_en ?: 'View',
+                'ar_label' => $notification->link_label_ar ?: 'عرض',
+            ];
+        } elseif ($company) {
+            $action = [
+                'type' => 'company',
+                'url' => 'sunxfinder://company/' . $company->slug,
+                'label' => 'View company',
+                'ar_label' => 'عرض الشركة',
+            ];
+        }
+
+        return [
+            'id' => $notification->id,
+            'type' => $notification->type,
+            'is_sponsored' => (bool) $notification->is_sponsored,
+            // The customer's request this is about: the same id as in /my-quotes.
+            'quote_id' => $notification->quote_id !== null ? (int) $notification->quote_id : null,
+            'title' => $notification->title_en,
+            'ar_title' => $notification->title_ar,
+            'body' => $plain($notification->message_en),
+            'ar_body' => $plain($notification->message_ar),
+            'format' => $isHtml ? 'html' : 'text',
+            'body_html' => $isHtml ? $notification->message_en : null,
+            'ar_body_html' => $isHtml ? $notification->message_ar : null,
+            'image' => $notification->image_path ? [
+                'url' => $notification->imageUrl(),
+                'width' => $notification->image_width,
+                'height' => $notification->image_height,
+            ] : null,
+            'company' => $company ? [
+                'id' => (int) $company->id,
+                'name' => $company->name,
+                'slug' => $company->slug,
+                'city' => $company->city,
+                'logo_url' => $this->helper->publicUrl($company->logo_path),
+                'is_verified' => (bool) $company->is_verified,
+            ] : null,
+            'offer' => $hasOffer ? [
+                'title' => $notification->offer_title_en,
+                'ar_title' => $notification->offer_title_ar,
+                'price' => $notification->offer_price !== null ? (float) $notification->offer_price : null,
+                'old_price' => $notification->offer_old_price !== null ? (float) $notification->offer_old_price : null,
+                'currency' => $currency,
+                'discount_percent' => $notification->offerDiscountPercent(),
+                'expires_at' => $iso($notification->offer_expires_at),
+                'is_expired' => $notification->offer_expires_at?->isPast() ?? false,
+            ] : null,
+            'action' => $action,
+            'read' => $recipient->read_at !== null,
+            'read_at' => $iso($recipient->read_at),
+            'created_at' => $iso($recipient->created_at),
         ];
     }
 
@@ -2203,6 +2868,8 @@ class CustomerRepository
 
     public function deleteAccount(): array
     {
+        $lang = 'en';
+
         try {
             $customer = $this->helper->isCustomerAuthenticated();
 
@@ -2214,16 +2881,43 @@ class CustomerRepository
                 ];
             }
 
+            $lang = $this->customerPreferredLanguage($customer->id);
+
+            $hasUnfinishedProject = Project::query()
+                ->where('customer_id', $customer->id)
+                ->where(function ($query) {
+                    $query->whereNull('status')
+                        ->orWhere('status', '!=', 'completed')
+                        ->orWhereHas('milestones', function ($milestoneQuery) {
+                            $milestoneQuery
+                                ->whereNull('status')
+                                ->orWhere('status', '!=', 'completed');
+                        });
+                })
+                ->exists();
+
+            if ($hasUnfinishedProject) {
+                return [
+                    'success' => false,
+                    'code' => 409,
+                    'message' => $lang === 'ar'
+                        ? 'لا يمكن حذف حسابك لوجود مشروع نشط. يُرجى الانتظار حتى اكتمال المشروع.'
+                        : 'Your account cannot be deleted while you have an active project. Please wait until the project is completed.',
+                ];
+            }
+
             // Soft deletes the account with all its quotes, offers, projects,
             // notifications and ratings, and signs out every device.
-            $counts = $this->helper->softDeleteCustomerData($customer);
+            $counts = $this->helper->softDeleteCustomerData($customer, 'app');
 
             ActivityLogger::log('account_deleted', 'Customer deleted their own account from the app', $customer, $counts, ActivityLogger::actorFor($customer), 'customers');
 
             return [
                 'success' => true,
                 'code' => 200,
-                'message' => 'Your account has been deleted successfully.',
+                'message' => $lang === 'ar'
+                    ? 'تم حذف حسابك بنجاح.'
+                    : 'Your account has been deleted successfully.',
             ];
         } catch (Throwable $e) {
             report($e);
@@ -2231,9 +2925,19 @@ class CustomerRepository
             return [
                 'success' => false,
                 'code' => 500,
-                'message' => 'Unable to delete your account. Please try again.',
+                'message' => $lang === 'ar'
+                    ? 'تعذر حذف حسابك. يرجى المحاولة مرة أخرى.'
+                    : 'Unable to delete your account. Please try again.',
             ];
         }
+    }
+
+    private function customerPreferredLanguage(int $customerId): string
+    {
+        return strtolower((string) CustomerDeviceToken::query()
+            ->where('customer_id', $customerId)
+            ->orderByDesc('last_used_at')
+            ->value('lang')) === 'ar' ? 'ar' : 'en';
     }
 
     public function logout(): array
@@ -2406,7 +3110,7 @@ class CustomerRepository
             return $this->passwordResetError(404, 'account_not_found', $lang);
         }
 
-        if (!$customer->is_active) {
+        if ($customer->status !== 'active' || !$customer->is_active) {
             return $this->passwordResetError(403, 'account_inactive', $lang);
         }
 

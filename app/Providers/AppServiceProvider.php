@@ -10,6 +10,7 @@ use App\Models\ApplianceGroup;
 use App\Models\AppVersion;
 use App\Models\CompanyCarousel;
 use App\Models\Customer;
+use App\Models\Invoice;
 use App\Models\Notification;
 use App\Models\Product;
 use App\Models\Project;
@@ -81,6 +82,8 @@ class AppServiceProvider extends ServiceProvider
                 'suppliersCount' => Supplier::count(),
                 'productsCount' => Product::count(),
                 'carouselCount' => CompanyCarousel::count(),
+                'appSliderCount' => \App\Models\AppSlider::count(),
+                'adSaleCount' => \App\Models\AdSale::query()->count(),
                 'quoteCount' => Quote::count(),
                 'appVersionCount' => AppVersion::count(),
                 'notificationsCount' => Notification::count(),
@@ -110,6 +113,7 @@ class AppServiceProvider extends ServiceProvider
             $myCompanyQuoteCount = 0;
             $productsCount = 0;
             $myActiveProjectCount = 0;
+            $companyInvoicesCount = 0;
             $notificationsCount = 0;
             $ratingsCount = 0;
             $companyCustomersCount = 0;
@@ -123,7 +127,11 @@ class AppServiceProvider extends ServiceProvider
                     ->count();
 
                 $productsCount = Product::query()->where('company_id', $companyId)->count();
-                $myActiveProjectCount = Project::query()->where('company_id', $companyId)->count();
+                $myActiveProjectCount = Project::query()
+                    ->where('company_id', $companyId)
+                    ->where('status', '!=', 'completed')
+                    ->count();
+                $companyInvoicesCount = Invoice::query()->where('company_id', $companyId)->count();
                 $notificationsCount = Notification::query()->where('sender_id', $companyId)->count();
                 $ratingsCount = Rating::query()->visible()->where('company_id', $companyId)->count();
                 $companyCustomersCount = Project::query()->where('company_id', $companyId)->distinct()->count('customer_id');
@@ -135,6 +143,7 @@ class AppServiceProvider extends ServiceProvider
                 'myCompanyQuoteCount' => $myCompanyQuoteCount,
                 'productsCount' => $productsCount,
                 'myActiveProjectCount' => $myActiveProjectCount,
+                'companyInvoicesCount' => $companyInvoicesCount,
                 'notificationsCount' => $notificationsCount,
                 'ratingsCount' => $ratingsCount,
             ]);

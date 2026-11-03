@@ -105,6 +105,8 @@
         @endif
     </section>
 
+    @include('visitors.partials.ad-banner', ['banners' => $adBanners ?? []])
+
     {{-- ============ How it works: one card per word ============ --}}
     <section class="hx-section" id="how">
         <div class="container">
@@ -403,9 +405,9 @@
                                 @if ($logoUrl)
                                     <img src="{{ $logoUrl }}" alt="{{ $company->name }}" width="56" height="56" loading="lazy"
                                         decoding="async"
-                                        onerror="this.parentElement.classList.remove('has-logo');this.replaceWith(document.createTextNode({{ json_encode(mb_strtoupper(mb_substr($company->name, 0, 1))) }}))">
+                                        onerror="this.parentElement.classList.remove('has-logo');this.replaceWith(document.createTextNode({{ json_encode(name_initials($company->name)) }}))">
                                 @else
-                                    {{ mb_strtoupper(mb_substr($company->name, 0, 1)) }}
+                                    {{ name_initials($company->name) }}
                                 @endif
                             </div>
 
@@ -462,7 +464,10 @@
                         @endif
 
                         <div class="company-card-footer">
-                            <a href="{{ route('company-profile.show', ['slug' => $company->slug, 'lang' => $locale]) }}"
+                            @if ($carouselEntry->is_sponsored)
+                                <span class="ad-sponsored-label">{{ __('messages.Sponsored') }}</span>
+                            @endif
+                            <a href="{{ route('ad.click', ['type' => 'carousel', 'id' => $carouselEntry->id, 'platform' => 'website']) }}"
                                 class="hx-btn hx-btn-outline hx-btn-sm">
                                 {{ __('messages.View company') }}
                             </a>

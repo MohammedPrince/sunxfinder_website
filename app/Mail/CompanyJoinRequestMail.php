@@ -43,6 +43,8 @@ class CompanyJoinRequestMail extends Mailable
                 'joinUrl' => route('company.register', ['lang' => $this->lang]),
                 'websiteUrl' => url('/') . '?lang=' . $this->lang,
                 'supportEmail' => self::FROM_ADDRESS,
+                'whatsappPhone' => '+249919046917',
+                'whatsappUrl' => 'https://wa.me/249919046917',
             ]);
     }
 }

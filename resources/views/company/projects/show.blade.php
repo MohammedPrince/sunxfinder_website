@@ -1,16 +1,16 @@
 
 @extends('company.layouts.app')
 
-@section('title', 'Project Progress')
-@section('breadcrumb', 'Active Projects')
-@section('eyebrow', 'PROJECT MANAGEMENT')
-@section('page-title', 'Project Progress')
-@section('page-description', 'Run this installation step by step. Every update you save is shown to the customer.')
+@section('title', __('company/messages.projects.page_title'))
+@section('breadcrumb', __('company/messages.projects.title'))
+@section('eyebrow', __('company/messages.projects.eyebrow'))
+@section('page-title', __('company/messages.projects.page_title'))
+@section('page-description', __('company/messages.projects.show_description'))
 
 @section('page-actions')
     <div class="quote-page-actions">
         <a href="{{ route('company.projects.index') }}" class="btn btn-light">
-            &larr; Back to Projects
+            {{ __('company/messages.projects.back') }}
         </a>
     </div>
 @endsection
@@ -22,7 +22,7 @@
         $offer = $project->companyQuotation;
 
         $customerName = $customer?->full_name
-            ?: ($customer?->username ?: 'Customer #' . $project->customer_id);
+            ?: ($customer?->username ?: __('company/messages.common.customer_number', ['id' => $project->customer_id]));
 
         $reference = '#Q-' . str_pad(
             (string) $project->quote_id,
@@ -32,9 +32,9 @@
         );
 
         $statusLabels = [
-            'accepted' => 'Accepted',
-            'in_progress' => 'In progress',
-            'completed' => 'Completed',
+            'accepted' => __('company/messages.common.accepted'),
+            'in_progress' => __('company/messages.common.in_progress'),
+            'completed' => __('company/messages.common.completed'),
         ];
 
         $statusClasses = [
@@ -102,30 +102,30 @@
          */
         if ($isCompleted) {
             $progress = 100;
-            $progressLabel = 'Project completed';
+            $progressLabel = __('company/messages.projects.project_completed');
         } elseif ($isAccepted) {
             $progress = 0;
-            $progressLabel = 'Waiting to start';
+            $progressLabel = __('company/messages.projects.waiting_to_start');
         } elseif ($installationComplete) {
             $progress = 99;
             $progressLabel = $handoverComplete
-                ? 'Handover recorded'
-                : 'Installation complete — handover pending';
+                ? __('company/messages.projects.handover_recorded')
+                : __('company/messages.projects.installation_complete_pending');
         } elseif ($installationTotal > 0) {
             $progress = (int) floor(
                 ($completedInstallationMilestones / $installationTotal) * 99
             );
 
-            $progressLabel = 'Installation phases';
+            $progressLabel = __('company/messages.projects.installation_phases');
         } else {
             $progress = 0;
-            $progressLabel = 'Installation phases pending';
+            $progressLabel = __('company/messages.projects.phases_pending');
         }
 
         $milestoneLabels = [
-            'pending' => 'Not started',
-            'in_progress' => 'In progress',
-            'completed' => 'Completed',
+            'pending' => __('company/messages.common.not_started'),
+            'in_progress' => __('company/messages.common.in_progress'),
+            'completed' => __('company/messages.common.completed'),
         ];
 
         $milestoneClasses = [
@@ -150,7 +150,7 @@
 
     @if ($errors->any())
         <div class="alert alert-danger" role="alert">
-            <strong>Unable to update the project.</strong>
+            <strong>{{ __('company/messages.projects.unable_update') }}</strong>
             <ul style="margin:8px 0 0;padding-left:20px">
                 @foreach ($errors->all() as $error)
                     <li>{{ $error }}</li>
@@ -161,40 +161,40 @@
 
     @include('partials.page-guide', [
         'key' => 'company-project-details',
-        'title' => 'How to run this project',
-        'intro' => 'The customer accepted your offer. Follow the three stages below; the right-hand panel always shows your next action.',
+        'title' => __('company/messages.projects.guide_title'),
+        'intro' => __('company/messages.projects.guide_intro'),
         'steps' => [
-            '<strong>Start installation</strong> when your team is ready to begin work.',
-            '<strong>Complete each milestone</strong> in order, adding a short message for the customer. Progress is calculated automatically.',
-            '<strong>Confirm customer handover</strong> once the system is installed and explained. This closes the project at 100% and cannot be undone.',
+            __('company/messages.projects.guide_1'),
+            __('company/messages.projects.guide_2'),
+            __('company/messages.projects.guide_3'),
         ],
-        'note' => 'Use the customer contact details below to arrange site visits and installation dates.',
+        'note' => __('company/messages.projects.guide_note'),
     ])
 
     {{-- Project summary --}}
     <section class="panel">
         <div class="quote-detail-grid">
             <div class="quote-detail">
-                <span>Request reference</span>
+                <span>{{ __('company/messages.common.reference') }}</span>
                 <strong>
                     <a href="{{ route('company.quote-requests.show', $project->quote_id) }}">{{ $reference }}</a>
                 </strong>
-                <small>Project #{{ $project->id }}</small>
+                <small>{{ __('company/messages.common.project_number', ['id' => $project->id]) }}</small>
             </div>
 
             <div class="quote-detail">
-                <span>Customer</span>
+                <span>{{ __('company/messages.common.customer') }}</span>
                 <strong>{{ $customerName }}</strong>
-                <small>{{ $customer?->city ?: 'City not set' }}</small>
+                <small>{{ $customer?->city ?: __('company/messages.common.city_not_set') }}</small>
             </div>
 
             <div class="quote-detail">
-                <span>Quote name</span>
-                <strong>{{ $quote?->quote_name ?? 'Solar installation' }}</strong>
+                <span>{{ __('company/messages.common.quote_name') }}</span>
+                <strong>{{ $quote?->quote_name ?? __('company/messages.common.solar_installation') }}</strong>
             </div>
 
             <div class="quote-detail">
-                <span>Selected offer</span>
+                <span>{{ __('company/messages.common.selected_offer') }}</span>
                 <strong>
                     @if ($offer)
                         {{ $offer->currency }}
@@ -206,7 +206,7 @@
             </div>
 
             <div class="quote-detail">
-                <span>Project status</span>
+                <span>{{ __('company/messages.projects.project_status') }}</span>
                 <strong>
                     <span class="pill {{ $statusClasses[$project->status] ?? 'pill-blue' }}">
                         {{ $statusLabels[$project->status] ?? ucfirst($project->status) }}
@@ -215,9 +215,9 @@
             </div>
 
             <div class="quote-detail">
-                <span>Last update</span>
+                <span>{{ __('company/messages.common.last_update') }}</span>
                 <strong>
-                    {{ $project->updated_at?->format('d M Y, H:i') ?? '—' }}
+                    {{ $project->updated_at?->translatedFormat('d M Y, H:i') ?? '—' }}
                 </strong>
                 <small>{{ $project->updated_at?->diffForHumans() }}</small>
             </div>
@@ -225,7 +225,7 @@
 
         {{-- Contact details for arranging site visits and installation --}}
         <div class="project-contact">
-            <span class="project-contact-title">Customer contact</span>
+            <span class="project-contact-title">{{ __('company/messages.projects.customer_contact') }}</span>
             <div class="project-contact-items">
                 @if ($customer?->phone)
                     <a href="tel:{{ preg_replace('/[^\d+]/', '', $customer->phone) }}">📞 {{ $customer->phone }}</a>
@@ -233,7 +233,7 @@
                 @if ($customer?->email)
                     <a href="mailto:{{ $customer->email }}">✉ {{ $customer->email }}</a>
                 @endif
-                <span>📍 {{ collect([$customer?->address, $customer?->city])->filter()->implode(', ') ?: 'Address not provided' }}</span>
+                <span>📍 {{ collect([$customer?->address, $customer?->city])->filter()->implode(', ') ?: __('company/messages.projects.address_missing') }}</span>
             </div>
         </div>
     </section>
@@ -266,21 +266,21 @@
 
                         <small>
                             @if ($stage === 'accepted')
-                                Offer accepted by customer
+                                {{ __('company/messages.projects.stage_accepted') }}
                             @elseif ($stage === 'in_progress')
-                                Installation and handover process
+                                {{ __('company/messages.projects.stage_progress') }}
                             @else
-                                Installation completed and customer handover confirmed
+                                {{ __('company/messages.projects.stage_completed') }}
                             @endif
                         </small>
 
                         <small>
                             @if ($stage === 'accepted')
-                                {{ $project->accepted_at?->format('d M Y, H:i') ?? '—' }}
+                                {{ $project->accepted_at?->translatedFormat('d M Y, H:i') ?? '—' }}
                             @elseif ($stage === 'in_progress')
-                                {{ $project->started_at?->format('d M Y, H:i') ?? '—' }}
+                                {{ $project->started_at?->translatedFormat('d M Y, H:i') ?? '—' }}
                             @else
-                                {{ $project->completed_at?->format('d M Y, H:i') ?? '—' }}
+                                {{ $project->completed_at?->translatedFormat('d M Y, H:i') ?? '—' }}
                             @endif
                         </small>
                     </div>
@@ -303,17 +303,17 @@
             {{-- Installation checklist --}}
             <section class="panel table-panel">
                 <div class="panel-heading">
-                    <h2>Installation checklist</h2>
+                    <h2>{{ __('company/messages.projects.checklist') }}</h2>
 
                     <p>
                         @if ($isAccepted)
-                            Review the required phases. Start installation to enable updates.
+                            {{ __('company/messages.projects.checklist_accepted') }}
                         @elseif ($isCompleted)
-                            All project phases have been completed and locked.
+                            {{ __('company/messages.projects.checklist_completed') }}
                         @elseif ($canUpdateHandover)
-                            Installation is finished. Customer handover is the final step.
+                            {{ __('company/messages.projects.checklist_handover') }}
                         @else
-                            Complete the current installation phase before moving forward.
+                            {{ __('company/messages.projects.checklist_current') }}
                         @endif
                     </p>
                 </div>
@@ -323,10 +323,10 @@
                         <thead>
                             <tr>
                                 <th>#</th>
-                                <th>Milestone</th>
-                                <th>Description</th>
-                                <th>Status</th>
-                                <th>Completed</th>
+                                <th>{{ __('company/messages.projects.milestone') }}</th>
+                                <th>{{ __('company/messages.projects.description') }}</th>
+                                <th>{{ __('company/messages.common.status') }}</th>
+                                <th>{{ __('company/messages.common.completed') }}</th>
                             </tr>
                         </thead>
 
@@ -345,7 +345,7 @@
 
                                         @if ($isHandoverMilestone && !$installationComplete)
                                             <small style="display:block;margin-top:4px">
-                                                Available after installation is complete
+                                                {{ __('company/messages.projects.available_after') }}
                                             </small>
                                         @endif
                                     </td>
@@ -359,13 +359,13 @@
                                     </td>
 
                                     <td>
-                                        {{ $milestone->completed_at?->format('d M Y') ?? '—' }}
+                                        {{ $milestone->completed_at?->translatedFormat('d M Y') ?? '—' }}
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
                                     <td colspan="5" style="text-align:center;padding:28px">
-                                        No milestones have been created for this project.
+                                        {{ __('company/messages.projects.no_milestones') }}
                                     </td>
                                 </tr>
                             @endforelse
@@ -377,8 +377,8 @@
             {{-- Activity history --}}
             <section class="panel" style="margin-top:16px;padding:24px">
                 <div class="panel-heading">
-                    <h2>Activity history</h2>
-                    <p>Timeline of project updates and important milestones.</p>
+                    <h2>{{ __('company/messages.projects.activity_history') }}</h2>
+                    <p>{{ __('company/messages.projects.activity_sub') }}</p>
                 </div>
 
                 <div class="project-activity-list">
@@ -390,20 +390,19 @@
                                 <div class="project-activity-meta">
                                     <strong>
                                         @if ($update->old_status !== $update->new_status && $update->new_status)
-                                            Project status changed to
-                                            {{ $statusLabels[$update->new_status] ?? ucfirst(str_replace('_', ' ', $update->new_status)) }}
+                                            {{ __('company/messages.projects.status_changed', ['status' => $statusLabels[$update->new_status] ?? ucfirst(str_replace('_', ' ', $update->new_status))]) }}
                                         @else
-                                            Project update
+                                            {{ __('company/messages.projects.project_update') }}
                                         @endif
                                     </strong>
 
                                     <small>
-                                        {{ $update->created_at?->format('d M Y, H:i') }}
+                                        {{ $update->created_at?->translatedFormat('d M Y, H:i') }}
                                     </small>
                                 </div>
 
                                 @if ($update->progress_percent !== null)
-                                    <small>Progress: {{ $update->progress_percent }}%</small>
+                                    <small>{{ __('company/messages.projects.progress_line', ['percent' => $update->progress_percent]) }}</small>
                                 @endif
 
                                 @if ($update->message)
@@ -411,12 +410,12 @@
                                 @endif
 
                                 @if (!$update->visible_to_customer)
-                                    <span class="pill pill-purple">Internal note</span>
+                                    <span class="pill pill-purple">{{ __('company/messages.projects.internal_note') }}</span>
                                 @endif
                             </div>
                         </article>
                     @empty
-                        <p>No project updates have been recorded yet.</p>
+                        <p>{{ __('company/messages.projects.no_updates') }}</p>
                     @endforelse
                 </div>
             </section>
@@ -429,25 +428,25 @@
                 <div class="panel-heading">
                     <h2>
                         @if ($isAccepted)
-                            Prepare project
+                            {{ __('company/messages.projects.prepare_project') }}
                         @elseif ($isCompleted)
-                            Project completed
+                            {{ __('company/messages.projects.project_completed') }}
                         @elseif ($canUpdateHandover)
-                            Customer handover
+                            {{ __('company/messages.projects.customer_handover') }}
                         @else
-                            Current phase
+                            {{ __('company/messages.projects.current_phase') }}
                         @endif
                     </h2>
 
                     <p>
                         @if ($isAccepted)
-                            The installation checklist is read-only until work starts.
+                            {{ __('company/messages.projects.side_accepted') }}
                         @elseif ($isCompleted)
-                            This project is closed and can no longer be edited.
+                            {{ __('company/messages.projects.side_completed') }}
                         @elseif ($canUpdateHandover)
-                            Confirm the final handover to complete the project.
+                            {{ __('company/messages.projects.side_handover') }}
                         @else
-                            Update the current installation milestone below.
+                            {{ __('company/messages.projects.side_current') }}
                         @endif
                     </p>
                 </div>
@@ -455,10 +454,9 @@
                 {{-- ACCEPTED: read-only until the company starts installation --}}
                 @if ($isAccepted)
                     <div class="project-next-action">
-                        <strong>Next action: Start installation</strong>
+                        <strong>{{ __('company/messages.projects.next_start') }}</strong>
                         <p>
-                            Confirm that your company is ready to begin work.
-                            After starting, you can update installation milestones.
+                            {{ __('company/messages.projects.next_start_body') }}
                         </p>
                     </div>
 
@@ -470,21 +468,20 @@
                             <input type="hidden" name="progress_percent" value="0">
 
                             <button type="submit" class="btn btn-primary">
-                                Start Installation
+                                {{ __('company/messages.projects.start_button') }}
                             </button>
                         </form>
 
                 {{-- COMPLETED: permanently read-only --}}
                 @elseif ($isCompleted)
                     <div class="project-next-action project-next-action-success">
-                        <strong>Project successfully completed</strong>
+                        <strong>{{ __('company/messages.projects.success_title') }}</strong>
 
                         <p>
-                            Installation and customer handover have been recorded.
-                            All project controls are permanently locked.
+                            {{ __('company/messages.projects.success_body') }}
                         </p>
 
-                        <span class="pill pill-green">100% Complete</span>
+                        <span class="pill pill-green">{{ __('company/messages.projects.complete_100') }}</span>
                     </div>
 
                 {{-- IN PROGRESS: installation or handover --}}
@@ -492,33 +489,28 @@
 
                     @if ($canUpdateHandover)
                         <div class="project-next-action project-next-action-success">
-                            <strong>Final step: Customer handover</strong>
+                            <strong>{{ __('company/messages.projects.final_step') }}</strong>
 
                             <p>
-                                Confirm that the solar system has been handed over
-                                to the customer and that the customer understands
-                                how to operate it.
+                                {{ __('company/messages.projects.final_body') }}
                             </p>
                         </div>
 
                         <div class="alert alert-danger" role="alert" style="margin-bottom:18px">
-                            <strong>Important — irreversible action</strong>
+                            <strong>{{ __('company/messages.projects.important') }}</strong>
                             <p style="margin:6px 0 0">
-                                Confirming customer handover will mark this project
-                                as Completed, set progress to 100%, and permanently
-                                lock all project updates. Verify the installation
-                                and handover before confirming.
+                                {{ __('company/messages.projects.important_body') }}
                             </p>
                         </div>
 
                     @elseif ($currentMilestone)
                         <div class="project-next-action">
-                            <small>CURRENT PHASE</small>
+                            <small>{{ __('company/messages.projects.current_phase_caps') }}</small>
                             <strong>{{ $currentMilestone->title }}</strong>
 
                             <p>
                                 {{ $currentMilestone->description
-                                    ?: 'Update this milestone when the work is complete.' }}
+                                    ?: __('company/messages.projects.milestone_default') }}
                             </p>
                         </div>
                     @endif
@@ -533,7 +525,7 @@
 
                         {{-- Dynamic progress: calculated from installation milestones. --}}
                         <div class="form-group" style="margin-bottom:22px">
-                            <label>Project completion</label>
+                            <label>{{ __('company/messages.projects.project_completion') }}</label>
 
                             <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin:8px 0 12px">
                                 <span>{{ $progressLabel }}</span>
@@ -545,27 +537,26 @@
                                  aria-valuenow="{{ $progress }}"
                                  aria-valuemin="0"
                                  aria-valuemax="100"
-                                 aria-label="Project completion">
+                                 aria-label="{{ __('company/messages.projects.project_completion') }}">
                                 <div class="project-progress-fill"
                                      style="width:{{ $progress }}%">
                                 </div>
                             </div>
 
                             <small style="display:block;margin-top:10px">
-                                {{ $completedInstallationMilestones }}
-                                of {{ $installationTotal }} installation phases completed.
+                                {{ __('company/messages.projects.phases_of', ['done' => $completedInstallationMilestones, 'total' => $installationTotal]) }}
 
                                 @if ($installationComplete)
-                                    Customer handover is required to reach 100%.
+                                    {{ __('company/messages.projects.handover_required') }}
                                 @else
-                                    Progress updates automatically when milestones change.
+                                    {{ __('company/messages.projects.auto_progress') }}
                                 @endif
                             </small>
                         </div>
 
                         {{-- Milestone controls --}}
                         <div class="form-group" style="margin-top:20px">
-                            <label>Update milestone status</label>
+                            <label>{{ __('company/messages.projects.update_milestones') }}</label>
 
                             @foreach ($milestones as $milestone)
                                 @php
@@ -591,8 +582,7 @@
 
                                     @if ($isHandoverLocked)
                                         <p class="project-field-hint">
-                                            Complete every installation phase before
-                                            confirming customer handover.
+                                            {{ __('company/messages.projects.handover_locked') }}
                                         </p>
 
                                         <input
@@ -608,17 +598,17 @@
                                         >
                                             <option value="pending"
                                                 @selected(old("milestones.{$milestone->id}.status", $milestone->status) === 'pending')>
-                                                Not started
+                                                {{ __('company/messages.common.not_started') }}
                                             </option>
 
                                             <option value="in_progress"
                                                 @selected(old("milestones.{$milestone->id}.status", $milestone->status) === 'in_progress')>
-                                                In progress
+                                                {{ __('company/messages.common.in_progress') }}
                                             </option>
 
                                             <option value="completed"
                                                 @selected(old("milestones.{$milestone->id}.status", $milestone->status) === 'completed')>
-                                                Completed
+                                                {{ __('company/messages.common.completed') }}
                                             </option>
                                         </select>
 
@@ -634,8 +624,7 @@
 
                                     @if ($isHandoverMilestone && !$handoverComplete && $installationComplete)
                                         <small class="project-field-hint">
-                                            Selecting Completed confirms the final handover
-                                            and closes the project permanently.
+                                            {{ __('company/messages.projects.handover_warning') }}
                                         </small>
                                     @endif
                                 </div>
@@ -644,7 +633,7 @@
 
                         {{-- Update message --}}
                         <div class="form-group" style="margin-top:20px">
-                            <label for="message">Update message</label>
+                            <label for="message">{{ __('company/messages.projects.update_message') }}</label>
 
                             <textarea
                                 name="message"
@@ -653,11 +642,11 @@
                                 rows="4"
                                 maxlength="500"
                                 placeholder="{{ $canUpdateHandover
-                                    ? 'Confirm the handover details for the customer...'
-                                    : 'Describe the work completed or the next step...' }}"
+                                    ? __('company/messages.projects.placeholder_handover')
+                                    : __('company/messages.projects.placeholder_update') }}"
                             >{{ old('message') }}</textarea>
 
-                            <small>Maximum 500 characters. The customer sees this message in the app.</small>
+                            <small>{{ __('company/messages.projects.message_hint') }}</small>
                         </div>
 
                         {{-- Customer visibility --}}
@@ -677,11 +666,11 @@
                                 class="btn btn-primary"
                                 style="width:100%;margin-top:16px"
                                 @if ($canUpdateHandover)
-                                    onclick="return confirm('FINAL CONFIRMATION: Customer handover cannot be reversed. Confirming it will complete and permanently lock this project. Have you verified the installation and handed the system over to the customer?');"
+                                    onclick="return confirm(@js(__('company/messages.projects.final_confirm')));"
                                 @endif>
                             {{ $canUpdateHandover
-                                ? 'Confirm Customer Handover'
-                                : 'Save Progress' }}
+                                ? __('company/messages.projects.confirm_handover_button')
+                                : __('company/messages.projects.save_progress') }}
                         </button>
                     </form>
                 @endif

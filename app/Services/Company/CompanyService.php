@@ -2,8 +2,11 @@
 
 namespace App\Services\Company;
 
+use App\Helpers\Helper;
 use App\Models\CompanyQuotation;
+use App\Models\Invoice;
 use App\Models\Product;
+use App\Models\Project;
 use App\Models\Quote;
 use App\Models\Supplier;
 use App\Repositories\Company\CompanyRepository;
@@ -117,6 +120,9 @@ class CompanyService
                 );
 
             // Reconcile the product's name/value specifications.
+            foreach ($product->specs as $spec) {
+                app(Helper::class)->archiveItem($spec, 'product_spec', null, 'website');
+            }
             $product->specs()->delete();
 
             foreach ($specs as $spec) {
@@ -178,6 +184,26 @@ class CompanyService
         return $this->companyRepository->getCompanyQuotationForQuote($quoteId);
     }
 
+    public function getQuoteInvoice(int $quoteId): ?Invoice
+    {
+        return $this->companyRepository->getQuoteInvoice($quoteId);
+    }
+
+    public function getCompanyInvoices(array $filters = []): LengthAwarePaginator
+    {
+        return $this->companyRepository->getCompanyInvoices($filters);
+    }
+
+    public function deleteCompanyInvoice(int $invoiceId): array
+    {
+        return $this->companyRepository->deleteCompanyInvoice($invoiceId);
+    }
+
+    public function getProjectForQuote(int $quoteId): ?Project
+    {
+        return $this->companyRepository->getProjectForQuote($quoteId);
+    }
+
     public function getCompetitorOfferPrices(int $quoteId)
     {
         return $this->companyRepository->getCompetitorOfferPrices($quoteId);
@@ -202,6 +228,26 @@ class CompanyService
     public function getNotifications(array $filters = []): array
     {
         return $this->companyRepository->getNotifications($filters);
+    }
+
+    public function getCompanyAds(): array
+    {
+        return $this->companyRepository->getCompanyAds();
+    }
+
+    public function requestAd(array $data, ?\Illuminate\Http\UploadedFile $artwork): \App\Models\AdSale
+    {
+        return $this->companyRepository->requestAd($data, $artwork);
+    }
+
+    public function cancelAdRequest(int $id): array
+    {
+        return $this->companyRepository->cancelAdRequest($id);
+    }
+
+    public function getCompanyAdReport(string $month): array
+    {
+        return $this->companyRepository->getCompanyAdReport($month);
     }
 
     public function getNotificationFormData(): array

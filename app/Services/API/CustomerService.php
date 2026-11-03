@@ -79,6 +79,36 @@ class CustomerService
         return $this->customerRepository->getCarousels();
     }
 
+    public function getLegalPage(string $page, ?string $lang = null): array
+    {
+        return $this->customerRepository->getLegalPage($page, $lang);
+    }
+
+    public function getAppSliders(?string $placement = null): array
+    {
+        return $this->customerRepository->getAppSliders($placement);
+    }
+
+    public function getHomeSections(): array
+    {
+        return $this->customerRepository->getHomeSections();
+    }
+
+    public function recordAdClick(string $type, int $id): array
+    {
+        return $this->customerRepository->recordAdClick($type, $id);
+    }
+
+    public function getNotificationPreferences(): array
+    {
+        return $this->customerRepository->getNotificationPreferences();
+    }
+
+    public function updateNotificationPreferences(bool $sponsoredPushEnabled): array
+    {
+        return $this->customerRepository->updateNotificationPreferences($sponsoredPushEnabled);
+    }
+
     public function storeQuote(array $data): array
     {
         return $this->customerRepository->storeQuote($data);
@@ -87,6 +117,11 @@ class CustomerService
     public function getMyQuotes($filters): array
     {
         return $this->customerRepository->getMyQuotes($filters);
+    }
+
+    public function archiveQuote(array $data): array
+    {
+        return $this->customerRepository->archiveQuote($data);
     }
 
     public function acceptOffer(array $data)
@@ -102,6 +137,16 @@ class CustomerService
     public function submitRating(array $data): array
     {
         return $this->customerRepository->submitRating($data);
+    }
+
+    public function updateRating(int $ratingId, array $data): array
+    {
+        return $this->customerRepository->updateRating($ratingId, $data);
+    }
+
+    public function deleteRating(int $ratingId): array
+    {
+        return $this->customerRepository->deleteRating($ratingId);
     }
 
     public function getRatingForm(): array
@@ -140,6 +185,11 @@ class CustomerService
     public function markNotificationAsRead($notificationId): array
     {
         return $this->customerRepository->markNotificationAsRead($notificationId);
+    }
+
+    public function getCustomerNotification(int $notificationId): array
+    {
+        return $this->customerRepository->getCustomerNotification($notificationId);
     }
 
     public function markAllNotificationsAsRead(): array

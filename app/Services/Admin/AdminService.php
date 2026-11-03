@@ -3,7 +3,9 @@
 namespace App\Services\Admin;
 
 use App\Models\ActivityLog;
+use App\Models\ArchivedItem;
 use App\Models\AppVersion;
+use App\Models\Project;
 use App\Models\Quote;
 use App\Models\Rating;
 use App\Models\RatingQuestion;
@@ -284,12 +286,99 @@ class AdminService
         return $this->adminRepository->updateCompanyCarouselEntry($id, $data);
     }
 
+    public function toggleCompanyCarouselEntry(int $id): array
+    {
+        return $this->adminRepository->toggleCompanyCarouselEntry($id);
+    }
+
     public function deleteCompanyCarouselEntry(int $id): array
     {
         return $this->adminRepository->deleteCompanyCarouselEntry($id);
     }
 
     //Company Carousel End
+
+    //App Slider Start
+
+    public function getAppSliderPageData(array $filters = []): array
+    {
+        return [
+            'sliders' => $this->adminRepository->getAppSliders($filters),
+            'metrics' => $this->adminRepository->getAppSliderMetrics(),
+        ];
+    }
+
+    public function getLegalSections(string $page)
+    {
+        return $this->adminRepository->getLegalSections($page);
+    }
+
+    public function findLegalSection(int $id)
+    {
+        return $this->adminRepository->findLegalSection($id);
+    }
+
+    public function createLegalSection(string $page, array $data, ?int $adminId): array
+    {
+        return $this->adminRepository->createLegalSection($page, $data, $adminId);
+    }
+
+    public function updateLegalSection(int $id, array $data): array
+    {
+        return $this->adminRepository->updateLegalSection($id, $data);
+    }
+
+    public function toggleLegalSection(int $id): array
+    {
+        return $this->adminRepository->toggleLegalSection($id);
+    }
+
+    public function moveLegalSection(int $id, string $direction): array
+    {
+        return $this->adminRepository->moveLegalSection($id, $direction);
+    }
+
+    public function deleteLegalSection(int $id): array
+    {
+        return $this->adminRepository->deleteLegalSection($id);
+    }
+
+    public function loadLegalDefaults(string $page): array
+    {
+        return $this->adminRepository->loadLegalDefaults($page);
+    }
+
+    public function findAppSlider(int $id)
+    {
+        return $this->adminRepository->findAppSlider($id);
+    }
+
+    public function getNextAppSliderSortOrder(): int
+    {
+        return $this->adminRepository->getNextAppSliderSortOrder();
+    }
+
+    public function createAppSlider(array $data, $image, ?int $adminId): array
+    {
+        return $this->adminRepository->createAppSlider($data, $image, $adminId);
+    }
+
+    public function updateAppSlider(int $id, array $data, $image): array
+    {
+        return $this->adminRepository->updateAppSlider($id, $data, $image);
+    }
+
+    public function toggleAppSlider(int $id): array
+    {
+        return $this->adminRepository->toggleAppSlider($id);
+    }
+
+    public function deleteAppSlider(int $id): array
+    {
+        return $this->adminRepository->deleteAppSlider($id);
+    }
+
+    //App Slider End
 
     //App Versions Start
 
@@ -365,6 +454,26 @@ class AdminService
         return $this->adminRepository->getQuoteRequestById($id);
     }
 
+    public function getAdminProjects(array $filters = []): LengthAwarePaginator
+    {
+        return $this->adminRepository->getAdminProjects($filters);
+    }
+
+    public function getAdminProjectById(int $id): ?Project
+    {
+        return $this->adminRepository->getAdminProjectById($id);
+    }
+
+    public function getAdminProjectMetrics(): array
+    {
+        return $this->adminRepository->getAdminProjectMetrics();
+    }
+
+    public function getAdminProjectCompanies()
+    {
+        return $this->adminRepository->getAdminProjectCompanies();
+    }
+
     public function getAssignableCompanies()
     {
         return $this->adminRepository->getAssignableCompanies();
@@ -424,6 +533,22 @@ class AdminService
     public function deleteNotification(int $id): array
     {
         return $this->adminRepository->deleteNotification($id);
+    }
+
+    public function getCampaignFormData(): array
+    {
+        return $this->adminRepository->getCampaignFormData();
+    }
+
+    public function publishCampaign(array $data, ?\Illuminate\Http\UploadedFile $image, ?int $adminId): array
+    {
+        $notification = $this->adminRepository->publishCampaign($data, $image, $adminId);
+
+        return [
+            'success' => true,
+            'message' => 'Campaign sent to ' . number_format($notification->recipients()->count()) . ' customers.',
+            'notification_id' => $notification->id,
+        ];
     }
     //Notifications End
 
@@ -512,6 +637,56 @@ class AdminService
     public function setCustomerQuoteLimit(int $customerId, ?int $limit): array
     {
         return $this->adminRepository->setCustomerQuoteLimit($customerId, $limit);
+    }
+
+    public function setCompanyNotificationLimit(int $companyId, ?int $limit): array
+    {
+        return $this->adminRepository->setCompanyNotificationLimit($companyId, $limit);
+    }
+
+    public function updateHomeSection(string $key, array $data): array
+    {
+        return $this->adminRepository->updateHomeSection($key, $data);
+    }
+
+    public function getAdSales(array $filters = [])
+    {
+        return $this->adminRepository->getAdSales($filters);
+    }
+
+    public function getAdSaleMetrics(): array
+    {
+        return $this->adminRepository->getAdSaleMetrics();
+    }
+
+    public function getAdSaleFormData(): array
+    {
+        return $this->adminRepository->getAdSaleFormData();
+    }
+
+    public function findAdSale(int $id): ?\App\Models\AdSale
+    {
+        return $this->adminRepository->findAdSale($id);
+    }
+
+    public function saveAdSale(array $data, ?int $id, ?int $adminId): array
+    {
+        return $this->adminRepository->saveAdSale($data, $id, $adminId);
+    }
+
+    public function deleteAdSale(int $id): array
+    {
+        return $this->adminRepository->deleteAdSale($id);
+    }
+
+    public function getAdReport(string $month): array
+    {
+        return $this->adminRepository->getAdReport($month);
+    }
+
+    public function setCompanyNotificationAccess(int $companyId, bool $canNotifyAll): array
+    {
+        return $this->adminRepository->setCompanyNotificationAccess($companyId, $canNotifyAll);
     }
 
     public function getCompanyEmailOptions()
@@ -615,6 +790,16 @@ class AdminService
         return $this->adminRepository->getActivityLogMetrics();
     }
     //Activity Logs End
+
+    public function getArchivedItems(array $filters = []): LengthAwarePaginator
+    {
+        return $this->adminRepository->getArchivedItems($filters);
+    }
+
+    public function deleteArchivedItem(ArchivedItem $item): void
+    {
+        $this->adminRepository->deleteArchivedItem($item);
+    }
 
 
 

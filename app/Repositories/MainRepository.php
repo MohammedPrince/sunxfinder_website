@@ -4,17 +4,21 @@ namespace App\Repositories;
 
 use App\Helpers\Helper;
 use App\Jobs\SendCustomerWelcomeEmail;
+use App\Jobs\SendNewCustomerRegistrationAdminEmail;
 use App\Mail\ContactMessageMail;
 use App\Mail\NewCompanyRegisteredMail;
 use Illuminate\Support\Facades\Mail;
 use App\Models\AppVersion;
 use App\Models\CompanyCarousel;
 use App\Models\Customer;
+use App\Models\LegalSection;
 use App\Models\SolarCompany;
 use App\Models\Visitor;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
@@ -188,8 +192,17 @@ class MainRepository
 
             $customer->status = 'pending';
             $customer->is_active = false;
+            $customer->registration_source = 'website';
+            $customer->preferred_language = app()->getLocale() === 'ar' ? 'ar' : 'en';
 
             if ($customer->save()) {
+                try {
+                    SendNewCustomerRegistrationAdminEmail::dispatch((int) $customer->id, 'website')->afterCommit();
+                } catch (Throwable $e) {
+                    // Admin notification failure must not invalidate a completed sign-up.
+                    report($e);
+                }
+
                 Log::info('Customer registered; dispatching welcome email.', [
                     'customer_id' => $customer->id,
                     'locale' => app()->getLocale(),
@@ -270,6 +283,38 @@ class MainRepository
             ->all();
     }
 
+    /** Home banner: slides set to show on the website. Cached for a minute like the app list. */
+    public function getWebsiteBanners(): array
+    {
+        try {
+            return \Illuminate\Support\Facades\Cache::remember(\App\Models\AppSlider::WEBSITE_CACHE_KEY, 60, fn() => \App\Models\AppSlider::currentlyVisible()
+                ->whereIn('platform', ['website', 'both'])
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->limit(10)
+                ->get(['id', 'name', 'description_ar', 'description_en', 'image_path', 'image_width', 'image_height', 'link_url', 'is_sponsored', 'interval_seconds'])
+                ->toArray());
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
+    }
+
+    /** Where a tracked ad leads. Sliders only go to their stored web link. */
+    public function getAdTarget(string $type, int $id): ?string
+    {
+        if ($type === 'slider') {
+            $link = \App\Models\AppSlider::query()->whereKey($id)->value('link_url');
+
+            return $link && preg_match('#^https?://#i', $link) ? $link : null;
+        }
+
+        $slug = CompanyCarousel::query()->whereKey($id)->first()?->company?->slug;
+
+        return $slug ? route('company-profile.show', ['slug' => $slug]) : null;
+    }
+
     public function getWebsiteCompanyCarousel(): Collection
     {
         $now = now();
@@ -301,14 +346,145 @@ class MainRepository
 
     public function recordVisitor(string $sessionId): void
     {
-        Visitor::firstOrCreate([
-            'session_id' => $sessionId,
-        ]);
+        // Use country codes supplied by the hosting proxy/CDN. Check each header
+        // separately: a blank or placeholder Cloudflare value must not mask a
+        // usable country code provided by another trusted proxy header.
+        $country = null;
+        foreach ([
+            'CF-IPCountry',
+            'CloudFront-Viewer-Country',
+            'X-Vercel-IP-Country',
+            'X-AppEngine-Country',
+            'X-Country-Code',
+            'X-Geo-Country',
+            'X-GeoIP-Country-Code',
+        ] as $header) {
+            $candidate = strtoupper(trim((string) request()->header($header, '')));
+            // Some proxy stacks append values; only the first value is authoritative.
+            $candidate = trim(explode(',', $candidate, 2)[0]);
+
+            if (preg_match('/^[A-Z]{2}$/', $candidate) && !in_array($candidate, ['XX', 'T1'], true)) {
+                $country = $candidate;
+                break;
+            }
+        }
+
+        $visitor = Visitor::firstOrCreate(
+            ['session_id' => $sessionId],
+            ['country' => $country]
+        );
+
+        // Existing sessions may have been recorded before country lookup was enabled.
+        if (!$visitor->country && $country) {
+            $visitor->country = $country;
+            $visitor->save();
+        }
+
+        // No CDN header (the usual case on shared hosting): look the IP up instead.
+        // Runs after the response is sent so the home page never waits on it.
+        if (!$visitor->country) {
+            $ip = $this->visitorIp();
+            if ($ip) {
+                app()->terminating(function () use ($visitor, $ip) {
+                    $country = $this->countryFromIp($ip);
+                    if ($country) {
+                        $visitor->forceFill(['country' => $country])->save();
+                    }
+                });
+            }
+        }
+    }
+
+    /**
+     * Public IP of the visitor, or null for local/private addresses.
+     */
+    private function visitorIp(): ?string
+    {
+        $public = fn($ip) => filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) ?: null;
+
+        $ip = request()->ip();
+        if ($public($ip)) {
+            return $ip;
+        }
+
+        // A private REMOTE_ADDR means a local reverse proxy (nginx/LiteSpeed) sits in
+        // front of PHP; the real client is the first address it forwarded.
+        $forwarded = trim(explode(',', (string) request()->header('X-Forwarded-For', ''), 2)[0]);
+        if ($forwarded === '') {
+            $forwarded = trim((string) request()->header('X-Real-IP', ''));
+        }
+
+        return $public($forwarded);
+    }
+
+    /**
+     * ISO country code for an IP, cached so each IP is looked up at most once a month.
+     * Failures are cached briefly so a provider outage doesn't add a request per visit.
+     */
+    private function countryFromIp(string $ip): ?string
+    {
+        $cacheKey = 'visitor-country:' . $ip;
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            return $cached ?: null;
+        }
+
+        $providers = [
+            'https://api.country.is/' . $ip => 'country',
+            'https://ipwho.is/' . $ip . '?fields=country_code' => 'country_code',
+        ];
+
+        foreach ($providers as $url => $field) {
+            try {
+                $response = Http::timeout(3)->connectTimeout(2)->acceptJson()->get($url);
+                $code = strtoupper(trim((string) $response->json($field)));
+
+                if ($response->successful() && preg_match('/^[A-Z]{2}$/', $code)) {
+                    Cache::put($cacheKey, $code, now()->addDays(30));
+                    return $code;
+                }
+            } catch (Throwable $e) {
+                // Try the next provider.
+            }
+        }
+
+        Cache::put($cacheKey, '', now()->addHour());
+        Log::info('Visitor country lookup failed', ['ip' => $ip]);
+
+        return null;
     }
 
     public function getVisitorCount(): int
     {
         return Visitor::count();
+    }
+
+    /**
+     * The admin's text for a legal page, or null to show the built-in page
+     * (nothing saved, or the table does not exist yet during a deploy).
+     */
+    public function getLegalPage(string $page): ?array
+    {
+        try {
+            $rows = LegalSection::query()->forPage($page)->where('is_active', true)->get();
+        } catch (Throwable $e) {
+            report($e);
+
+            return null;
+        }
+
+        $header = $rows->firstWhere('type', 'header');
+        $sections = $rows->where('type', 'section')->values();
+
+        if (!$header || $sections->isEmpty()) {
+            return null;
+        }
+
+        return [
+            'header' => $header,
+            'sections' => $sections,
+            'contacts' => $rows->where('type', 'contact')->values(),
+        ];
     }
 
 }
