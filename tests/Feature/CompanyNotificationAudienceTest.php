@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CompanyQuotation;
 use App\Models\Customer;
 use App\Models\CustomerDeviceToken;
 use App\Models\Quote;
@@ -51,7 +52,7 @@ class CompanyNotificationAudienceTest extends TestCase
         $this->ownCustomer = $this->makeCustomer('own');
         $this->otherCustomer = $this->makeCustomer('other');
 
-        $this->dealWith($this->ownCustomer);
+        $this->acceptOfferFrom($this->ownCustomer);
 
         $this->actingAs($this->company, 'company');
     }
@@ -81,36 +82,58 @@ class CompanyNotificationAudienceTest extends TestCase
         return $customer;
     }
 
-    private function dealWith(Customer $customer): void
+    private function acceptOfferFrom(Customer $customer, string $status = 'selected'): void
     {
-        Quote::query()->forceCreate([
+        $quote = Quote::query()->forceCreate([
             'customer_id' => $customer->id,
-            'company_id' => $this->company->id,
             'quote_name' => 'Home system',
-            'status' => 'accepted',
+            'status' => $status === 'selected' ? 'accepted' : 'pending',
+        ]);
+
+        CompanyQuotation::query()->forceCreate([
+            'quote_id' => $quote->id,
+            'company_id' => $this->company->id,
+            'customer_id' => $customer->id,
+            'price' => 1000,
+            'status' => $status,
         ]);
     }
 
-    public function test_by_default_only_reachable_customers_of_the_company_are_listed(): void
+    public function test_only_reachable_customers_who_accepted_an_offer_are_listed(): void
     {
         $suspended = $this->makeCustomer('suspended', ['status' => 'suspended']);
         $switchedOff = $this->makeCustomer('switched-off', [], false);
+        $pending = $this->makeCustomer('pending');
+        $lost = $this->makeCustomer('lost');
 
-        $this->dealWith($suspended);
-        $this->dealWith($switchedOff);
+        $this->acceptOfferFrom($suspended);
+        $this->acceptOfferFrom($switchedOff);
+        $this->acceptOfferFrom($pending, 'submitted');
+        $this->acceptOfferFrom($lost, 'not_selected');
 
         $this->get(route('company.notifications.create'))
             ->assertOk()
-            ->assertViewHas('canNotifyAll', false)
             ->assertSee('own customer')
             ->assertDontSee('other customer')
             ->assertDontSee('suspended customer')
             ->assertDontSee('switched-off customer')
-            ->assertDontSee('Select all customers');
+            ->assertDontSee('pending customer')
+            ->assertDontSee('lost customer');
     }
 
-    public function test_by_default_a_company_cannot_notify_a_customer_it_has_not_dealt_with(): void
+    public function test_notify_all_my_customers_preselects_only_customers_who_accepted(): void
     {
+        $this->acceptOfferFrom($this->makeCustomer('pending'), 'submitted');
+
+        $this->get(route('company.notifications.create', ['to' => 'company-customers']))
+            ->assertOk()
+            ->assertViewHas('preselected', [$this->ownCustomer->id]);
+    }
+
+    public function test_a_company_cannot_notify_a_customer_who_did_not_accept_its_offer(): void
+    {
+        $this->acceptOfferFrom($this->otherCustomer, 'submitted');
+
         $this->post(route('company.notifications.store'), [
             'type' => 'general',
             'audience_type' => 'selected',
@@ -163,6 +186,7 @@ class CompanyNotificationAudienceTest extends TestCase
 
         $this->get(route('company.notifications.create'))
             ->assertOk()
+            ->assertViewHas('canNotifyAll', false)
             ->assertDontSee('other customer');
     }
 }

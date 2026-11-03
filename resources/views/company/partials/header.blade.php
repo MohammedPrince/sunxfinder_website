@@ -123,6 +123,7 @@
                 </svg>
             </span>
             <span>{{ __('company/messages.navigation.invoices') }}</span>
+            <span class="nav-count warm">{{ $companyInvoicesCount ?? 0 }}</span>
         </a>
         @endcomponent
 

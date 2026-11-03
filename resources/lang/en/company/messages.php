@@ -968,7 +968,7 @@ return [
         'unreachable' => ':count of your selected customers are not signed in to the app, so cannot receive push notifications and are not listed.',
         'unreachable_choice' => '{1} :count of your selected customer is not signed in to the app, so cannot receive push notifications and is not listed.|[2,*] :count of your selected customers are not signed in to the app, so cannot receive push notifications and are not listed.',
         'hint_all' => 'The admin has opened all customers for your company. Contact details are shown only for your own customers. Select one or more.',
-        'hint_own' => 'Only customers who have dealt with your company are listed. Select one or more.',
+        'hint_own' => 'Only customers who accepted your offer are listed. Select one or more.',
         'no_eligible' => 'No eligible customers with app notifications are available yet.',
         'multi_hint' => 'Hold Ctrl (Windows) or Command (Mac) to select multiple customers.',
         'select_all' => 'Select all customers',

@@ -256,8 +256,7 @@
                 <div style="margin-top:22px;padding-top:18px;border-top:1px solid #e6edf5">
                     <h3 style="margin:0 0 4px;font-size:16px">Company notifications</h3>
                     <p class="form-hint" style="margin:0 0 14px">
-                        By default a company can notify only its own customers: those with a quote request or project
-                        with it. Open all customers for a specific company to let it notify every active customer with a
+                        By default a company can notify only its own customers: those who accepted its offer. Open all customers for a specific company to let it notify every active customer with a
                         registered device. It still sees phone numbers and emails only for its own customers.
                         Set a monthly limit for each opened company; leave it empty for no limit. Only sends that reach
                         beyond its own customers count, and they skip customers who switched off sponsored notifications.

@@ -2066,9 +2066,9 @@ class CompanyRepository
     }
 
     /**
-     * Customers this company may notify: its own that the app can reach, or every
-     * active customer with a registered device once an admin has opened all customers
-     * for it. Devices with notifications switched off are never pushed to.
+     * Customers this company may notify: its own (those who accepted its offer) that the
+     * app can reach, or every active customer with a registered device once an admin has
+     * opened all customers for it. Devices with notifications switched off are never pushed to.
      */
     private function notifiableCustomers(int $companyId): Builder
     {
@@ -2084,12 +2084,13 @@ class CompanyRepository
             ->whereHas('deviceTokens', fn($tokens) => $tokens->active());
     }
 
-    /** A customer belongs to a company once a quote request or project links them. */
+    /** A customer belongs to a company once they accept its offer (which also opens a project). */
     private function onlyCompanyCustomers(Builder $customers, int $companyId): Builder
     {
         return $customers->where(fn($query) => $query
-            ->whereIn('id', Quote::query()
+            ->whereIn('id', CompanyQuotation::query()
                 ->where('company_id', $companyId)
+                ->where('status', 'selected')
                 ->whereNotNull('customer_id')
                 ->select('customer_id'))
             ->orWhereIn('id', Project::query()

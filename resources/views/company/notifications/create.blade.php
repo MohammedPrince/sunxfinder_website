@@ -81,9 +81,6 @@
                             @foreach (($customers ?? collect()) as $customer)
                                 <option value="{{ $customer->id }}" @selected(in_array((string) $customer->id, $selectedIds, true))>
                                     {{ $customer->full_name ?? $customer->name ?? $customer->username ?? (__('company/messages.common.customer_number', ['id' => $customer->id])) }}
-                                    @if ($customer->email ?? $customer->phone)
-                                        — {{ $customer->email ?? $customer->phone }}
-                                    @endif
                                 </option>
                             @endforeach
                         </select>
