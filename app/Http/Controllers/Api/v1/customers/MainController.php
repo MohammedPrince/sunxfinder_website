@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\v1\customers;
 
+use App\Helpers\Helper;
 use App\Http\Controllers\Controller;
 use App\Models\AppSlider;
 use App\Models\CustomerDeviceToken;
@@ -82,18 +83,24 @@ class MainController extends Controller
 
     public function createAccount(Request $request)
     {
+        // ٠٩١٢٣٤٥٦٧٨ is accepted and saved as 0912345678.
+        if (is_string($request->input('phone'))) {
+            $request->merge(['phone' => app(Helper::class)->westernDigits($request->input('phone'))]);
+        }
+
         $validator = Validator::make($request->all(), [
             'username' => [
                 'required',
                 'string',
                 'max:15',
                 'min:6',
-                'regex:/^[a-zA-Z0-9_]+$/',
+                // English letters, numbers and _ only (no Arabic).
+                'regex:/\A[a-zA-Z0-9_]+\z/',
             ],
             'first_name' => ['required', 'string', 'max:15', 'min:3'],
             'second_name' => ['nullable', 'string', 'max:15', 'min:3'],
             'third_name' => ['nullable', 'string', 'max:15'],
-            'phone' => ['required', 'string', 'max:10', 'min:10'],
+            'phone' => ['required', 'string', 'min:9', 'max:10', 'regex:/\A[0-9]+\z/'],
             'email' => ['required', 'email', 'max:50'],
             'gender' => ['nullable', 'in:male,female'],
             'city' => ['nullable', 'string', 'max:15', 'min:3'],
@@ -279,12 +286,18 @@ class MainController extends Controller
 
     public function updateProfile(Request $request)
     {
+        // ٠٩١٢٣٤٥٦٧٨ is accepted and saved as 0912345678.
+        if (is_string($request->input('phone'))) {
+            $request->merge(['phone' => app(Helper::class)->westernDigits($request->input('phone'))]);
+        }
+
         $validator = Validator::make($request->all(), [
             // 'username' => ['required', 'string', 'max:100'],
             'first_name' => ['required', 'string', 'max:15', 'min:3'],
             'second_name' => ['required', 'string', 'max:15', 'min:3'],
             'third_name' => ['nullable', 'string', 'max:15', 'min:3'],
-            'phone' => ['required', 'string', 'max:10', 'min:10'],
+            // Same as create account, so a 9-digit number can still save the profile.
+            'phone' => ['required', 'string', 'min:9', 'max:10', 'regex:/\A[0-9]+\z/'],
             'email' => ['required', 'email', 'max:50'],
             'gender' => ['nullable', 'in:male,female'],
             'city' => ['nullable', 'string', 'max:15', 'min:3'],

@@ -454,6 +454,7 @@ return [
     'We will email you when it is approved. Then log in to the SunXFinder app with your username and password.' => 'سنراسلك عبر البريد الإلكتروني عند اعتماد حسابك، ثم سجّل الدخول إلى تطبيق SunXFinder باسم المستخدم وكلمة المرور.',
     'Please check the highlighted fields.' => 'يرجى مراجعة الحقول المحددة باللون الأحمر.',
     '10 digits, for example 0912345678.' => '10 أرقام، مثال: 0912345678.',
+    '9 or 10 digits, for example 0912345678.' => '9 أو 10 أرقام، مثال: 0912345678.',
     'We send your account updates here.' => 'نرسل إليك تحديثات حسابك على هذا البريد.',
     'Companies use it to plan the site visit and the installation.' => 'تستخدمه الشركات لترتيب زيارة الموقع والتركيب.',
     'Login details' => 'بيانات الدخول',

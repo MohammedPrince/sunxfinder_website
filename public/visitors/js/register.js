@@ -72,10 +72,14 @@
         });
     });
 
-    // Phone numbers: digits only.
+    // Phone numbers: digits only. Arabic/Persian digits (٠٩١… / ۰۹۱…) become 0-9 instead of being dropped.
     document.querySelectorAll('[data-digits-only]').forEach(input => {
         input.addEventListener('input', () => {
-            input.value = input.value.replace(/\D/g, '').slice(0, Number(input.maxLength) || 10);
+            input.value = input.value
+                .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))
+                .replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06F0))
+                .replace(/\D/g, '')
+                .slice(0, Number(input.maxLength) || 10);
         });
     });
 
