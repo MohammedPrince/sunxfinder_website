@@ -286,6 +286,11 @@ class AdminService
         return $this->adminRepository->updateCompanyCarouselEntry($id, $data);
     }
 
+    public function toggleCompanyCarouselEntry(int $id): array
+    {
+        return $this->adminRepository->toggleCompanyCarouselEntry($id);
+    }
+
     public function deleteCompanyCarouselEntry(int $id): array
     {
         return $this->adminRepository->deleteCompanyCarouselEntry($id);

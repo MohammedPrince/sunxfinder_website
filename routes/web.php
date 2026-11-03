@@ -162,6 +162,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::post('/', 'companyCarouselStore')->name('store');
                 Route::get('/{id}/edit', 'companyCarouselEdit')->whereNumber('id')->name('edit');
                 Route::put('/{id}', 'companyCarouselUpdate')->whereNumber('id')->name('update');
+                Route::patch('/{id}/toggle', 'companyCarouselToggle')->whereNumber('id')->name('toggle');
                 Route::delete('/{id}', 'companyCarouselDestroy')->whereNumber('id')->name('destroy');
             });
 

@@ -2042,6 +2042,19 @@ class AdminRepository
         }
     }
 
+    public function toggleCompanyCarouselEntry(int $id): array
+    {
+        $entry = CompanyCarousel::find($id);
+        if (!$entry) {
+            return ['success' => false, 'message' => 'Carousel entry not found.'];
+        }
+
+        $entry->is_active = !$entry->is_active;
+        $entry->save();
+
+        return ['success' => true, 'message' => $entry->is_active ? 'Carousel entry activated.' : 'Carousel entry hidden from the app and website.'];
+    }
+
     public function deleteCompanyCarouselEntry(int $id): array
     {
         try {

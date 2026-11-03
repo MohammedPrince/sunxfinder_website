@@ -913,6 +913,13 @@ class MainController extends Controller
             : back()->withInput()->with('error', $result['message'])->with('orderClash', $result['order_clash'] ?? null);
     }
 
+    public function companyCarouselToggle(int $id)
+    {
+        $result = $this->adminService->toggleCompanyCarouselEntry($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
     public function companyCarouselDestroy(int $id)
     {
         $result = $this->adminService->deleteCompanyCarouselEntry($id);

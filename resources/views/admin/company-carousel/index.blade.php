@@ -70,6 +70,25 @@
                                             <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z" />
                                         </svg>
                                     </a>
+                                    <form action="{{ route('admin.company-carousel.toggle', $entry->id) }}" method="POST" class="company-delete-form">
+                                        @csrf
+                                        @method('PATCH')
+                                        <button type="submit" class="row-action row-action-icon"
+                                            title="{{ $entry->is_active ? 'Hide from the carousel' : 'Show in the carousel' }}"
+                                            aria-label="{{ $entry->is_active ? 'Hide' : 'Show' }} {{ $entry->company?->name ?? 'carousel entry' }}">
+                                            @if ($entry->is_active)
+                                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                    <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+                                                    <circle cx="12" cy="12" r="2.5" />
+                                                </svg>
+                                            @else
+                                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                    <path d="M10.6 6.1A10 10 0 0 1 12 6c6 0 9.5 6 9.5 6a17 17 0 0 1-2.4 3.1M6.6 6.6C3.9 8.3 2.5 12 2.5 12s3.5 6 9.5 6a9.7 9.7 0 0 0 5.4-1.6" />
+                                                    <path d="m3 3 18 18" />
+                                                </svg>
+                                            @endif
+                                        </button>
+                                    </form>
                                     <form action="{{ route('admin.company-carousel.destroy', $entry->id) }}" method="POST"
                                           class="company-delete-form" onsubmit="return confirm('Delete this carousel entry?');">
                                         @csrf
