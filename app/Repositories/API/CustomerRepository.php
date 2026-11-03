@@ -1322,6 +1322,7 @@ class CustomerRepository
                 ->toArray());
 
             // Up to 10 per placement, in display order.
+            /** @var array<int, array<string, mixed>> $rows */
             $rows = collect($rows)
                 ->when($placement !== null, fn($all) => $all->where('placement', $placement))
                 ->groupBy('placement')
@@ -1390,12 +1391,12 @@ class CustomerRepository
         }
 
         try {
-            $sections = Cache::remember(HomeSection::CACHE_KEY, 300, fn() => HomeSection::query()
-                ->orderBy('sort_order')
-                ->orderBy('id')
-                ->get()
-                ->map(fn(HomeSection $section) => $section->toApiArray())
-                ->all());
+            $sections = Cache::remember(HomeSection::CACHE_KEY, 300, function (): array {
+                /** @var \Illuminate\Database\Eloquent\Collection<int, HomeSection> $rows */
+                $rows = HomeSection::query()->orderBy('sort_order')->orderBy('id')->get();
+
+                return $rows->map(fn(HomeSection $section) => $section->toApiArray())->all();
+            });
 
             return [
                 'success' => true,
@@ -2766,7 +2767,8 @@ class CustomerRepository
         $plain = fn(?string $text) => $text === null ? null : ($isHtml ? $this->helper->plainText($text) : $text);
         $iso = fn($date) => $date ? $date->copy()->utc()->format('Y-m-d\TH:i:s\Z') : null;
 
-        $company = $notification->company;
+        // A company hidden since the campaign was sent loses its card and "View company" link.
+        $company = $this->helper->isCompanyVisible($notification->company) ? $notification->company : null;
         $hasOffer = $notification->offer_title_en !== null;
         $currency = $notification->offer_currency ?: 'SDG';
 

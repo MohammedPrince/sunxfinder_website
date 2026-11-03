@@ -563,12 +563,22 @@ class Helper
         return $links;
     }
 
+    /** Companies the app may show: active, verified and approved. Anything else is hidden (404 on detail). */
     public function visibleCompanies()
     {
         return SolarCompany::query()
-            ->whereIn('status', ['approved', 'pending'])
+            ->where('status', 'approved')
             ->where('is_active', true)
             ->where('is_verified', true);
+    }
+
+    /** Same rule as visibleCompanies(), for a company already loaded. */
+    public function isCompanyVisible(?SolarCompany $company): bool
+    {
+        return $company !== null
+            && $company->status === 'approved'
+            && (bool) $company->is_active
+            && (bool) $company->is_verified;
     }
 
     /**
