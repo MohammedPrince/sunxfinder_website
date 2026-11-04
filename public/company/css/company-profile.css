@@ -1465,6 +1465,26 @@
     text-align: right;
 }
 
+.offer-customer-message {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #e2e8f0;
+    font-size: 12px;
+}
+
+.offer-customer-message span {
+    color: #64748b;
+}
+
+.offer-customer-message p {
+    margin: 4px 0 0;
+    max-height: 140px;
+    overflow-y: auto;
+    color: #172b4d;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
 .offer-summary-total {
     display: grid;
     gap: 4px;
