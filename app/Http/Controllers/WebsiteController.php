@@ -82,9 +82,7 @@ class WebsiteController extends Controller
         // a COUNT(*) on the ever-growing visitors table for every home page view.
         $verifiedCount = Cache::remember('home:verified-count', 300, fn() => $this->mainService->verifiedCount());
 
-        $sessionId = session()->getId();
-        $this->mainService->recordVisitor($sessionId);
-        $visitorCount = Cache::remember('home:visitor-count', 300, fn() => $this->mainService->getVisitorCount());
+        // The visitor counter is recorded by the site.visitors middleware.
         $appLinks = $this->mainService->getAppDownloadLinks();
 
         // Admin → App Versions can hide the Google Play button (both places on the home page).
@@ -103,7 +101,6 @@ class WebsiteController extends Controller
             'companies',
             'adBanners',
             'verifiedCount',
-            'visitorCount',
             'appLinks',
             'apkDownloadUrl',
             'playStoreUrl'

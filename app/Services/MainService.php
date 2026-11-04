@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\SolarCompany;
 use App\Repositories\MainRepository;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Cache;
 
 class MainService
 {
@@ -100,6 +101,17 @@ class MainService
         return $this->mainRepository->getVisitorCount();
     }
 
+    /**
+     * Records this browser session as a visitor and returns the total for the footer.
+     * The total is a display number: up to 5 minutes old is fine, and it saves a
+     * COUNT(*) on the ever-growing visitors table for every page view.
+     */
+    public function countVisit(): int
+    {
+        $this->recordVisitor(session()->getId());
+
+        return Cache::remember('home:visitor-count', 300, fn() => $this->getVisitorCount());
+    }
 
 
 }

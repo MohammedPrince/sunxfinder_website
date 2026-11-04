@@ -17,15 +17,15 @@
         @if ($applianceItems->isNotEmpty())
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                 <span class="pill pill-blue">{{ company_portal() ? trans_choice('company/messages.shared.appliances.device_count', $totalDevices) : $totalDevices . ' ' . \Illuminate\Support\Str::plural('device', $totalDevices) }} · {{ number_format($totalWatts) }} W</span>
-                <button type="button" class="btn btn-light no-print" data-appliances-toggle aria-expanded="false" aria-controls="{{ $appliancesId }}-body"
+                <button type="button" class="btn btn-light no-print" data-appliances-toggle aria-expanded="true" aria-controls="{{ $appliancesId }}-body"
                     data-show="{{ company_text('shared.appliances.show', 'Show devices') }}"
-                    data-hide="{{ company_text('shared.appliances.hide', 'Hide devices') }}">{{ company_text('shared.appliances.show', 'Show devices') }}</button>
+                    data-hide="{{ company_text('shared.appliances.hide', 'Hide devices') }}">{{ company_text('shared.appliances.hide', 'Hide devices') }}</button>
             </div>
         @endif
     </div>
 
     @if ($applianceItems->isNotEmpty())
-        <div class="quote-appliances-body" id="{{ $appliancesId }}-body" hidden>
+        <div class="quote-appliances-body" id="{{ $appliancesId }}-body">
             <div class="table-responsive">
                 <table class="data-table">
                     <thead>

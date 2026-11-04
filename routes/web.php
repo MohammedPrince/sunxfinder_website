@@ -17,8 +17,9 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-// site.maintenance: shows the maintenance page when it is on (Admin → Settings).
-Route::controller(WebsiteController::class)->middleware('site.maintenance')->group(function () {
+// site.maintenance: shows the maintenance page on every page below when it is on (Admin → Settings).
+// site.visitors: counts the visit for the footer "Total visitors" counter.
+Route::controller(WebsiteController::class)->middleware(['site.maintenance', 'site.visitors'])->group(function () {
     Route::get('/', 'index')->name('home');
 
     // Counts an ad click, then sends the visitor on to the ad's own link.
@@ -53,13 +54,13 @@ Route::controller(WebsiteController::class)->middleware('site.maintenance')->gro
         Route::get('/create-company-account', 'registerCompany')->name('company.register');
         Route::post('/create-company-account', 'storeCompany')->name('company.register.store');
     });
-});
 
-// Legal pages: ?lang=ar shows the Arabic version (text from Admin → System → Privacy & Terms)
-Route::get('/terms', [WebsiteController::class, 'terms'])->name('terms');
-Route::get('/privacy-policy', [WebsiteController::class, 'privacyPolicy'])->name('privacy-policy');
-// How customers delete their account (store listing link); ?lang=ar for Arabic
-Route::get('/delete-account', [WebsiteController::class, 'deleteAccount'])->name('delete-account');
+    // Legal pages: ?lang=ar shows the Arabic version (text from Admin → System → Privacy & Terms)
+    Route::get('/terms', 'terms')->name('terms');
+    Route::get('/privacy-policy', 'privacyPolicy')->name('privacy-policy');
+    // How customers delete their account (store listing link); ?lang=ar for Arabic
+    Route::get('/delete-account', 'deleteAccount')->name('delete-account');
+});
 
 /*
 |--------------------------------------------------------------------------

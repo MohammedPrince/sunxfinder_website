@@ -49,15 +49,203 @@
 
         $companyQuotation = $companyQuotation ?? null;
         $invoice = $companyQuotation?->invoice;
+        // Equipment parsed from the calculator text: used by the offer form and the load summary.
+        $loadSummary = $quote->estimated_load ?? '';
+
+        $dailyEnergy = '—';
+        $peakLoad = '—';
+        $panelCount = '—';
+        $inverterSize = '—';
+        $batteryCount = '—';
+        $systemType = '—';
+
+        /*
+        |--------------------------------------------------------------------------
+        | Daily energy
+        |--------------------------------------------------------------------------
+        | English: Estimated load: 22.4 kWh/day
+        | Arabic:  الحمل التقديري: 22.4 كيلوواط ساعة/يوم
+        */
+        if (
+            preg_match(
+                '/Estimated load:\s*([\d.]+)\s*kWh\/day/i',
+                $loadSummary,
+                $matches
+            )
+        ) {
+            $dailyEnergy = $matches[1] . ' kWh/day';
+        } elseif (
+            preg_match(
+                '/الحمل التقديري:\s*([\d.]+)\s*كيلوواط\s*ساعة\/يوم/u',
+                $loadSummary,
+                $matches
+            )
+        ) {
+            $dailyEnergy = $matches[1] . ' كيلوواط ساعة/يوم';
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Peak load
+        |--------------------------------------------------------------------------
+        */
+        if (
+            preg_match(
+                '/peak\s*([\d.]+)\s*kW/i',
+                $loadSummary,
+                $matches
+            )
+        ) {
+            $peakLoad = $matches[1] . ' kW';
+        } elseif (
+            preg_match(
+                '/الحمل الأقصى\s*([\d.]+)\s*كيلوواط/u',
+                $loadSummary,
+                $matches
+            )
+        ) {
+            $peakLoad = $matches[1] . ' كيلوواط';
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Solar panels
+        |--------------------------------------------------------------------------
+        */
+        if (
+            preg_match(
+                '/Suggested system:\s*(\d+)\s*panels?/i',
+                $loadSummary,
+                $matches
+            )
+        ) {
+            $panelCount = $matches[1];
+        } elseif (
+            preg_match(
+                '/المنظومة المقترحة:\s*(\d+)\s*ألواح/u',
+                $loadSummary,
+                $matches
+            )
+        ) {
+            $panelCount = $matches[1];
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Inverter size
+        |--------------------------------------------------------------------------
+        */
+        if (
+            preg_match(
+                '/Suggested system:.*?([\d.]+)\s*kW\s*inverter/i',
+                $loadSummary,
+                $matches
+            )
+        ) {
+            $inverterSize = $matches[1] . ' kW';
+        } elseif (
+            preg_match(
+                '/المنظومة المقترحة:.*?محوّل\s*([\d.]+)\s*كيلوواط/u',
+                $loadSummary,
+                $matches
+            )
+        ) {
+            $inverterSize = $matches[1] . ' كيلوواط';
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Batteries
+        |--------------------------------------------------------------------------
+        */
+        if (
+            preg_match(
+                '/Suggested system:.*?([\d.]+)\s*kWh\s*batter(?:y|ies)/i',
+                $loadSummary,
+                $matches
+            )
+        ) {
+            $batteryCount = $matches[1] . ' kWh';
+        } elseif (
+            preg_match(
+                '/\p{Arabic}+\s*([\d.]+)\s*kWh/u',
+                $loadSummary,
+                $matches
+            )
+        ) {
+            $batteryCount = $matches[1] . ' kWh';
+        } elseif (
+            preg_match(
+                '/([\d.]+)\s*kWh\s*\p{Arabic}+/u',
+                $loadSummary,
+                $matches
+            )
+        ) {
+            $batteryCount = $matches[1] . ' kWh';
+        } elseif (
+            preg_match(
+                '/Suggested system:.*?(\d+)\s*batter(?:y|ies)/i',
+                $loadSummary,
+                $matches
+            )
+        ) {
+            $batteryCount = $matches[1];
+        } elseif (
+            preg_match(
+                '/المنظومة المقترحة:.*?(\d+)\s*بطاريات/u',
+                $loadSummary,
+                $matches
+            )
+        ) {
+            $batteryCount = $matches[1];
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | System type
+        |--------------------------------------------------------------------------
+        */
+        if (
+            preg_match(
+                '/System type:\s*([^\r\n]+)/i',
+                $loadSummary,
+                $matches
+            )
+        ) {
+            $systemType = trim($matches[1]);
+        } elseif (
+            preg_match(
+                '/نوع المنظومة:\s*([^\r\n،,.]+)/u',
+                $loadSummary,
+                $matches
+            )
+        ) {
+            $systemType = trim($matches[1]);
+        }
+
         // Renumbered so new rows never reuse an index after a validation error.
         $invoiceItems = array_values(old('invoice_items', $invoice?->items ?? []));
-        if (!$invoiceItems) {
+        if (!$invoiceItems && $companyQuotation?->price) {
+            // An offer saved without an invoice: start from its price.
             $invoiceItems = [[
                 'description' => __('company/messages.quote.default_item'),
                 'quantity' => 1,
-                'unit_price' => old('price', $companyQuotation?->price ?? ''),
+                'unit_price' => old('price', $companyQuotation->price),
             ]];
+        } elseif (!$invoiceItems) {
+            // New offer: the three main parts, with the calculator's counts when it sent them.
+            $invoiceItems = [
+                ['description' => __('company/messages.quote.sug_panels'), 'quantity' => is_numeric($panelCount) ? (int) $panelCount : 1, 'unit_price' => ''],
+                ['description' => __('company/messages.quote.sug_inverter'), 'quantity' => 1, 'unit_price' => ''],
+                ['description' => __('company/messages.quote.sug_batteries'), 'quantity' => is_numeric($batteryCount) ? (int) $batteryCount : 1, 'unit_price' => ''],
+            ];
         }
+        $panelText = is_numeric($panelCount)
+            ? $panelCount . ' ' . ((int) $panelCount === 1 ? __('company/messages.quote.panel_unit') : __('company/messages.quote.panels_unit'))
+            : $panelCount;
+        $batteryText = is_numeric($batteryCount)
+            ? $batteryCount . ' ' . ((int) $batteryCount === 1 ? __('company/messages.quote.battery_unit') : __('company/messages.quote.sug_batteries'))
+            : $batteryCount;
         $authenticatedCompanyId = auth()->guard('company')->id();
 
         $statusLabels = [
@@ -612,6 +800,9 @@
                                         <div><dt>{{ __('company/messages.common.customer') }}</dt><dd>{{ $customerName }}</dd></div>
                                         <div><dt>{{ __('company/messages.quote.daily_energy') }}</dt><dd>{{ $quote->daily_load ?: '—' }}</dd></div>
                                         <div><dt>{{ __('company/messages.quote.peak_load') }}</dt><dd>{{ $quote->peak_load ?: '—' }}</dd></div>
+                                        <div><dt>{{ __('company/messages.quote.sug_panels') }}</dt><dd>{{ $panelText }}</dd></div>
+                                        <div><dt>{{ __('company/messages.quote.sug_inverter') }}</dt><dd>{{ $inverterSize }}</dd></div>
+                                        <div><dt>{{ __('company/messages.quote.sug_batteries') }}</dt><dd>{{ $batteryText }}</dd></div>
                                         @foreach (($competitorPrices ?? collect())->groupBy('currency') as $competitorCurrency => $competitorOffers)
                                             <div data-competitor-currency="{{ $competitorCurrency }}">
                                                 <dt>{{ __('company/messages.quote.lowest_other') }}</dt>
@@ -619,6 +810,12 @@
                                             </div>
                                         @endforeach
                                     </dl>
+                                    @if (filled($quote->message))
+                                        <div class="offer-customer-message">
+                                            <span>{{ __('company/messages.quote.customer_message') }}</span>
+                                            <p>{{ $quote->message }}</p>
+                                        </div>
+                                    @endif
                                 </div>
 
                                 <div class="offer-summary-card">
@@ -726,181 +923,6 @@
 
             <div class="quote-subsection">
                 {{-- Estimated load summary --}}
-                @php
-                    $loadSummary = $quote->estimated_load ?? '';
-
-                    $dailyEnergy = '—';
-                    $peakLoad = '—';
-                    $panelCount = '—';
-                    $inverterSize = '—';
-                    $batteryCount = '—';
-                    $systemType = '—';
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Daily energy
-                    |--------------------------------------------------------------------------
-                    | English: Estimated load: 22.4 kWh/day
-                    | Arabic:  الحمل التقديري: 22.4 كيلوواط ساعة/يوم
-                    */
-                    if (
-                        preg_match(
-                            '/Estimated load:\s*([\d.]+)\s*kWh\/day/i',
-                            $loadSummary,
-                            $matches
-                        )
-                    ) {
-                        $dailyEnergy = $matches[1] . ' kWh/day';
-                    } elseif (
-                        preg_match(
-                            '/الحمل التقديري:\s*([\d.]+)\s*كيلوواط\s*ساعة\/يوم/u',
-                            $loadSummary,
-                            $matches
-                        )
-                    ) {
-                        $dailyEnergy = $matches[1] . ' كيلوواط ساعة/يوم';
-                    }
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Peak load
-                    |--------------------------------------------------------------------------
-                    */
-                    if (
-                        preg_match(
-                            '/peak\s*([\d.]+)\s*kW/i',
-                            $loadSummary,
-                            $matches
-                        )
-                    ) {
-                        $peakLoad = $matches[1] . ' kW';
-                    } elseif (
-                        preg_match(
-                            '/الحمل الأقصى\s*([\d.]+)\s*كيلوواط/u',
-                            $loadSummary,
-                            $matches
-                        )
-                    ) {
-                        $peakLoad = $matches[1] . ' كيلوواط';
-                    }
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Solar panels
-                    |--------------------------------------------------------------------------
-                    */
-                    if (
-                        preg_match(
-                            '/Suggested system:\s*(\d+)\s*panels?/i',
-                            $loadSummary,
-                            $matches
-                        )
-                    ) {
-                        $panelCount = $matches[1];
-                    } elseif (
-                        preg_match(
-                            '/المنظومة المقترحة:\s*(\d+)\s*ألواح/u',
-                            $loadSummary,
-                            $matches
-                        )
-                    ) {
-                        $panelCount = $matches[1];
-                    }
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Inverter size
-                    |--------------------------------------------------------------------------
-                    */
-                    if (
-                        preg_match(
-                            '/Suggested system:.*?([\d.]+)\s*kW\s*inverter/i',
-                            $loadSummary,
-                            $matches
-                        )
-                    ) {
-                        $inverterSize = $matches[1] . ' kW';
-                    } elseif (
-                        preg_match(
-                            '/المنظومة المقترحة:.*?محوّل\s*([\d.]+)\s*كيلوواط/u',
-                            $loadSummary,
-                            $matches
-                        )
-                    ) {
-                        $inverterSize = $matches[1] . ' كيلوواط';
-                    }
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Batteries
-                    |--------------------------------------------------------------------------
-                    */
-                    if (
-                        preg_match(
-                            '/Suggested system:.*?([\d.]+)\s*kWh\s*batter(?:y|ies)/i',
-                            $loadSummary,
-                            $matches
-                        )
-                    ) {
-                        $batteryCount = $matches[1] . ' kWh';
-                    } elseif (
-                        preg_match(
-                            '/\p{Arabic}+\s*([\d.]+)\s*kWh/u',
-                            $loadSummary,
-                            $matches
-                        )
-                    ) {
-                        $batteryCount = $matches[1] . ' kWh';
-                    } elseif (
-                        preg_match(
-                            '/([\d.]+)\s*kWh\s*\p{Arabic}+/u',
-                            $loadSummary,
-                            $matches
-                        )
-                    ) {
-                        $batteryCount = $matches[1] . ' kWh';
-                    } elseif (
-                        preg_match(
-                            '/Suggested system:.*?(\d+)\s*batter(?:y|ies)/i',
-                            $loadSummary,
-                            $matches
-                        )
-                    ) {
-                        $batteryCount = $matches[1];
-                    } elseif (
-                        preg_match(
-                            '/المنظومة المقترحة:.*?(\d+)\s*بطاريات/u',
-                            $loadSummary,
-                            $matches
-                        )
-                    ) {
-                        $batteryCount = $matches[1];
-                    }
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | System type
-                    |--------------------------------------------------------------------------
-                    */
-                    if (
-                        preg_match(
-                            '/System type:\s*([^\r\n]+)/i',
-                            $loadSummary,
-                            $matches
-                        )
-                    ) {
-                        $systemType = trim($matches[1]);
-                    } elseif (
-                        preg_match(
-                            '/نوع المنظومة:\s*([^\r\n،,.]+)/u',
-                            $loadSummary,
-                            $matches
-                        )
-                    ) {
-                        $systemType = trim($matches[1]);
-                    }
-                @endphp
-               
                 <div class="quote-subsection">
                     <div class="quote-subsection-heading">
                         <h3>{{ __('company/messages.quote.load_summary') }}</h3>
