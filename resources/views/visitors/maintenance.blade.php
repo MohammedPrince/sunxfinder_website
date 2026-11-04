@@ -180,9 +180,9 @@
         <img class="logo" src="{{ asset_v('visitors/images/logo-128.webp') }}" alt="SunXFinder" width="72" height="72">
         <div><span class="sun" aria-hidden="true">☀️</span></div>
 
-        <span class="kicker">{{ $isArabic ? 'صيانة مجدولة' : 'Scheduled maintenance' }}</span>
+        <span class="kicker">{{ $isArabic ? 'نجهّز لك تجربة أكثر إشراقاً' : 'Something brighter is coming' }}</span>
 
-        <h1>{{ $title ?: ($isArabic ? 'الموقع تحت الصيانة' : 'We will be back soon') }}</h1>
+        {{-- <h1>{{ $title ?: ($isArabic ? 'الموقع تحت الصيانة' : 'We will be back soon') }}</h1> --}}
 
         <p class="message">
             {{ $message ?: ($isArabic ? 'نعمل على تحسين الموقع. شكراً لصبرك.' : 'We are improving the website. Thank you for your patience.') }}
