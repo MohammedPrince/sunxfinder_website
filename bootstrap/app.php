@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureAdminAuthenticated;
 use App\Http\Middleware\EnsureCompanyAuthenticated;
 use App\Http\Middleware\JsonRes;
+use App\Http\Middleware\RecordVisitor;
 use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\SiteMaintenance;
 use Illuminate\Foundation\Application;
@@ -23,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'company.auth' => EnsureCompanyAuthenticated::class,
             'json.res' => JsonRes::class,
             'site.maintenance' => SiteMaintenance::class,
+            'site.visitors' => RecordVisitor::class,
         ]);
 
         // A logged-in company opening a guest-only page (e.g. company sign-up) goes to
