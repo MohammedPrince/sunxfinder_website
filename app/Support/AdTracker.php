@@ -5,7 +5,7 @@ namespace App\Support;
 use App\Models\AdSale;
 use App\Models\AppSlider;
 use App\Models\CompanyCarousel;
-use Illuminate\Support\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -57,7 +57,7 @@ class AdTracker
     }
 
     /** Totals per ad between two dates, keyed "type:id". */
-    public static function totals(Carbon $from, Carbon $to, ?int $companyId = null): array
+    public static function totals(CarbonInterface $from, CarbonInterface $to, ?int $companyId = null): array
     {
         $rows = DB::table(self::TABLE)
             ->whereBetween('stat_date', [$from->toDateString(), $to->toDateString()])
@@ -81,7 +81,7 @@ class AdTracker
     }
 
     /** Totals for one ad, over its whole life when no dates are given. */
-    public static function adTotals(string $type, int $id, ?Carbon $from = null, ?Carbon $to = null): array
+    public static function adTotals(string $type, int $id, ?CarbonInterface $from = null, ?CarbonInterface $to = null): array
     {
         $row = DB::table(self::TABLE)
             ->where('ad_type', $type)
