@@ -2753,6 +2753,8 @@ class AdminRepository
                 'customer',
                 'company',
                 'project:id,quote_id,company_id,status,progress_percent',
+                // SunXFinder commission column: admin only.
+                'acceptedOffer:id,quote_id,company_id,price,currency,commission_type,commission_rate,commission_amount,status',
             ])
             ->withCount('companyQuotations')
             ->when(!empty($filters['status']), function ($query) use ($filters) {

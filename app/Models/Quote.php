@@ -48,6 +48,12 @@ class Quote extends Model
         return $this->hasMany(CompanyQuotation::class, 'quote_id');
     }
 
+    /** The offer the customer accepted, if any. */
+    public function acceptedOffer(): HasOne
+    {
+        return $this->hasOne(CompanyQuotation::class, 'quote_id')->where('status', 'selected');
+    }
+
     public function project(): HasOne
     {
         return $this->hasOne(Project::class, 'quote_id', 'id');
