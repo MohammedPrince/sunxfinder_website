@@ -1151,6 +1151,11 @@ class CompanyRepository
                 ? $invoiceData['balance_due']
                 : $data['price'];
 
+            // SunXFinder commission at the company's rate now, read fresh so an admin change
+            // applies right away. Kept on the offer, so later rate changes do not rewrite it.
+            // A commission the admin set for this offer (percent or fixed) is kept instead.
+            $companyRate = round((float) SolarCompany::query()->whereKey($companyId)->value('commission_rate'), 2);
+
             // Find this company's existing offer for the request.
             $quotation = CompanyQuotation::query()
                 ->where('quote_id', $quote->id)
@@ -1187,6 +1192,7 @@ class CompanyRepository
                 $quotation->customer_id = $quote->customer_id;
                 $quotation->price = $offerPrice;
                 $quotation->currency = $data['currency'];
+                $quotation->applyCommission($companyRate);
                 $quotation->message = $data['message'] ?? null;
                 $quotation->ar_message = $data['ar_message'] ?? null;
                 $quotation->save();
@@ -1203,6 +1209,8 @@ class CompanyRepository
             $quotation->company_id = $companyId;
             $quotation->price = $offerPrice;
             $quotation->currency = $data['currency'];
+            $quotation->commission_type = CompanyQuotation::COMMISSION_COMPANY;
+            $quotation->applyCommission($companyRate);
             $quotation->message = $data['message'] ?? null;
             $quotation->ar_message = $data['ar_message'] ?? null;
             $quotation->status = 'submitted';

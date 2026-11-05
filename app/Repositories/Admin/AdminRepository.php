@@ -975,7 +975,7 @@ class AdminRepository
                     'is_active' => (int) $data['is_active'],
                     'year_of_exp' => (int) $data['year_of_exp'],
                     'number_of_projects' => (int) $data['number_of_projects'],
-
+                    'commission_rate' => round((float) ($data['commission_rate'] ?? 0), 2),
                 ]);
 
                 return [
@@ -1007,6 +1007,21 @@ class AdminRepository
             'success' => true,
             'company' => $company,
         ];
+    }
+
+    /**
+     * SunXFinder commission from this company's accepted offers, one row per currency:
+     * currency, accepted (count), offer_value and commission.
+     */
+    public function getCompanyCommissionSummary(int $companyId): \Illuminate\Support\Collection
+    {
+        return CompanyQuotation::query()
+            ->where('company_id', $companyId)
+            ->where('status', 'selected')
+            ->selectRaw('currency, COUNT(*) as accepted, SUM(price) as offer_value, SUM(commission_amount) as commission')
+            ->groupBy('currency')
+            ->orderBy('currency')
+            ->get();
     }
 
     public function updateCompany(int $id, array $data): array
@@ -1062,6 +1077,8 @@ class AdminRepository
                 $company->is_active = (int) $data['is_active'];
                 $company->year_of_exp = $data['year_of_exp'] ?? null;
                 $company->number_of_projects = $data['number_of_projects'] ?? null;
+                // Offers already sent keep the rate they were sent with.
+                $company->commission_rate = round((float) ($data['commission_rate'] ?? 0), 2);
 
                 // Only change the password when a new one is supplied.
                 if (!empty($data['password'])) {
@@ -2935,6 +2952,61 @@ class AdminRepository
      * Close a spam or dead request. Only open (pending) requests can be cancelled;
      * waiting offers are withdrawn so companies stop seeing it as active.
      */
+    /**
+     * Sets one offer's SunXFinder commission: back to the company's rate, a custom percentage,
+     * or a fixed amount. Works on accepted offers too, for deals agreed separately.
+     */
+    public function updateOfferCommission(int $quoteId, int $offerId, array $data): array
+    {
+        try {
+            $offer = CompanyQuotation::query()
+                ->with('company:id,name,commission_rate')
+                ->where('quote_id', $quoteId)
+                ->find($offerId);
+
+            if (!$offer) {
+                return ['success' => false, 'message' => 'Offer not found on this request.'];
+            }
+
+            $type = $data['commission_type'];
+            $price = (float) $offer->price;
+
+            if ($type === CompanyQuotation::COMMISSION_FIXED && (float) $data['commission_fixed'] > $price) {
+                return ['success' => false, 'message' => 'The commission cannot be more than the offer price ('
+                    . $offer->currency . ' ' . number_format($price, 2) . ').'];
+            }
+
+            $before = $offer->currency . ' ' . number_format((float) $offer->commission_amount, 2)
+                . ' (' . $offer->commissionRateLabel() . '%, ' . ($offer->commission_type ?: 'company') . ')';
+
+            $offer->commission_type = $type;
+            if ($type === CompanyQuotation::COMMISSION_PERCENT) {
+                $offer->commission_rate = round((float) $data['commission_percent'], 2);
+            } elseif ($type === CompanyQuotation::COMMISSION_FIXED) {
+                $offer->commission_amount = round((float) $data['commission_fixed'], 2);
+            }
+
+            $offer->applyCommission((float) ($offer->company?->commission_rate ?? 0));
+            $offer->save();
+
+            $after = $offer->currency . ' ' . number_format((float) $offer->commission_amount, 2)
+                . ' (' . $offer->commissionRateLabel() . '%, ' . $type . ')';
+            $reference = '#Q-' . str_pad((string) $quoteId, 5, '0', STR_PAD_LEFT);
+
+            ActivityLogger::log('updated', "Admin changed the SunXFinder commission on {$reference} for "
+                . ($offer->company?->name ?? "company #{$offer->company_id}") . ": {$before} → {$after}", $offer);
+
+            return [
+                'success' => true,
+                'message' => 'Commission saved: ' . $after . '.',
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to save the commission. Please try again.'];
+        }
+    }
+
     public function cancelQuoteRequest(int $id, string $reason, bool $notifyCustomer): array
     {
         try {

@@ -294,6 +294,18 @@
 
         $reference = '#Q-' . str_pad($quote->id, 5, '0', STR_PAD_LEFT);
 
+        // SunXFinder commission: admin and company only. Never printed, shared or on the invoice.
+        // The admin can set this offer's commission as its own % or a fixed amount instead of the company rate.
+        $commissionType = $companyQuotation?->commission_type ?: 'company';
+        $commissionRate = $commissionType === 'percent'
+            ? (float) $companyQuotation->commission_rate
+            : (float) ($authenticatedCompany?->commission_rate ?? 0);
+        $commissionFixed = $commissionType === 'fixed' ? (float) $companyQuotation->commission_amount : null;
+        $commissionRateLabel = rtrim(rtrim(number_format($commissionRate, 2, '.', ''), '0'), '.');
+        $commissionHeading = $commissionType === 'fixed'
+            ? __('company/messages.quote.commission_fixed_label')
+            : __('company/messages.quote.commission_label', ['rate' => $commissionRateLabel]);
+
         // New offers can be submitted only while the request is pending.
         // Existing offers can be edited only while this company's offer is submitted.
         $canEditOffer = $quote->status === 'pending'
@@ -513,6 +525,16 @@
                             {{ number_format((float) $companyQuotation->price, 2) }}
                             <span>{{ $companyQuotation->currency }}</span>
                         </div>
+
+                        <p class="offer-commission-note">
+                            {{ $companyQuotation->commission_type === 'fixed'
+                                ? __('company/messages.quote.commission_fixed_label')
+                                : __('company/messages.quote.commission_label', ['rate' => $companyQuotation->commissionRateLabel()]) }}:
+                            <strong>{{ number_format((float) $companyQuotation->commission_amount, 2) }} {{ $companyQuotation->currency }}</strong>
+                            @if ($companyQuotation->status !== 'selected')
+                                <small>{{ __('company/messages.quote.commission_when_accepted') }}</small>
+                            @endif
+                        </p>
 
                         @if ($companyQuotation->message)
                             <p class="offer-current-message">
@@ -833,6 +855,21 @@
                                     <small class="offer-summary-minimum" id="offerMinimumWarning" hidden>
                                         {{ __('company/messages.quote.minimum_warning') }}
                                     </small>
+                                </div>
+
+                                {{-- SunXFinder commission: shown to the company only, not to the customer --}}
+                                <div class="offer-summary-card offer-commission-card" id="offerCommission"
+                                    data-commission-rate="{{ $commissionRate }}"
+                                    @if ($commissionFixed !== null) data-commission-fixed="{{ $commissionFixed }}" @endif>
+                                    <h3>{{ $commissionHeading }}</h3>
+                                    @if ($commissionType !== 'company')
+                                        <small>{{ __('company/messages.quote.commission_set_for_offer') }}</small>
+                                    @endif
+                                    <div class="offer-summary-total">
+                                        <span>{{ __('company/messages.quote.commission_of_price') }}</span>
+                                        <strong><span id="summaryCommission">0.00</span> <small data-offer-currency>{{ old('currency', $companyQuotation?->currency ?? 'SDG') }}</small></strong>
+                                    </div>
+                                    <small>{{ __('company/messages.quote.commission_hint') }}</small>
                                 </div>
 
                                 <div class="offer-notice">
@@ -1198,6 +1235,12 @@
                 setText('summaryShipping', formatMoney(shipping));
                 setText('summaryTotal', formatMoney(total));
                 setText('footerTotal', formatMoney(total));
+                // Mirrors CompanyRepository::submitQuoteOffer(), which saves the commission.
+                const commissionData = document.getElementById('offerCommission')?.dataset || {};
+                const commission = commissionData.commissionFixed !== undefined
+                    ? Math.min(Number(commissionData.commissionFixed), total)
+                    : roundMoney(total * Number(commissionData.commissionRate || 0) / 100);
+                setText('summaryCommission', formatMoney(commission));
                 document.getElementById('offerMinimumWarning').hidden = !belowMinimum;
                 submitButton.disabled = belowMinimum;
 

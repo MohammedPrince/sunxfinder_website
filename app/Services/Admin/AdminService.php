@@ -93,6 +93,11 @@ class AdminService
         return $this->adminRepository->updateCompany($id, $data);
     }
 
+    public function getCompanyCommissionSummary(int $companyId): \Illuminate\Support\Collection
+    {
+        return $this->adminRepository->getCompanyCommissionSummary($companyId);
+    }
+
     public function deleteCompany($id)
     {
         return $this->adminRepository->deleteCompany($id);
@@ -487,6 +492,11 @@ class AdminService
     public function cancelQuoteRequest(int $id, string $reason, bool $notifyCustomer): array
     {
         return $this->adminRepository->cancelQuoteRequest($id, $reason, $notifyCustomer);
+    }
+
+    public function updateOfferCommission(int $quoteId, int $offerId, array $data): array
+    {
+        return $this->adminRepository->updateOfferCommission($quoteId, $offerId, $data);
     }
 
     public function reassignQuoteRequest(int $id, ?int $companyId): array

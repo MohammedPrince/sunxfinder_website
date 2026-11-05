@@ -143,6 +143,7 @@
                         <tr>
                             <th>Company</th>
                             <th>Total price</th>
+                            <th class="no-print">SunXFinder commission</th>
                             <th>Offer status</th>
                             <th>Sent</th>
                             <th>Message to customer</th>
@@ -181,6 +182,50 @@
                                         <small class="cell-note positive">Lowest price</small>
                                     @endif
                                 </td>
+                                @php
+                                    $commissionType = $offer->commission_type ?: 'company';
+                                    $commissionModeLabel = match ($commissionType) {
+                                        'percent' => 'custom %',
+                                        'fixed' => 'fixed amount',
+                                        default => 'company rate',
+                                    };
+                                    $commissionFormId = 'commissionForm' . $offer->id;
+                                @endphp
+                                <td class="no-print" style="min-width:210px">
+                                    <strong>{{ $offer->currency }} {{ number_format((float) $offer->commission_amount, 2) }}</strong>
+                                    <small class="cell-note {{ $offer->status === 'selected' ? 'positive' : '' }}">
+                                        {{ $offer->commissionRateLabel() }}% · {{ $commissionModeLabel }}{{ $offer->status === 'selected' ? ' · due (accepted)' : ' · if accepted' }}
+                                    </small>
+
+                                    <details style="margin-top:6px" @if (old('offer_id') == $offer->id) open @endif>
+                                        <summary style="cursor:pointer;font-size:12px">Change commission</summary>
+                                        <form id="{{ $commissionFormId }}" method="POST" style="display:grid;gap:6px;margin-top:6px"
+                                            action="{{ route('admin.quote-requests.offers.commission', [$quote->id, $offer->id]) }}">
+                                            @csrf
+                                            @method('PUT')
+                                            <input type="hidden" name="offer_id" value="{{ $offer->id }}">
+
+                                            <select class="select-control" name="commission_type" data-commission-type>
+                                                <option value="company" @selected($commissionType === 'company')>
+                                                    Company rate ({{ rtrim(rtrim(number_format((float) ($offer->company?->commission_rate ?? 0), 2, '.', ''), '0'), '.') }}%)
+                                                </option>
+                                                <option value="percent" @selected($commissionType === 'percent')>Custom % for this offer</option>
+                                                <option value="fixed" @selected($commissionType === 'fixed')>Fixed amount for this offer</option>
+                                            </select>
+
+                                            <input class="form-control" type="number" name="commission_percent" min="0" max="100" step="0.01"
+                                                placeholder="e.g. 1.5" aria-label="Commission percentage" data-commission-field="percent"
+                                                value="{{ $commissionType === 'percent' ? $offer->commissionRateLabel() : '' }}">
+
+                                            <input class="form-control" type="number" name="commission_fixed" min="0" step="0.01"
+                                                max="{{ (float) $offer->price }}" placeholder="Amount in {{ $offer->currency }}"
+                                                aria-label="Commission amount in {{ $offer->currency }}" data-commission-field="fixed"
+                                                value="{{ $commissionType === 'fixed' ? number_format((float) $offer->commission_amount, 2, '.', '') : '' }}">
+
+                                            <button type="submit" class="btn btn-light">Save commission</button>
+                                        </form>
+                                    </details>
+                                </td>
                                 <td>
                                     <span class="pill {{ $offerStatusClasses[$offer->status] ?? 'pill-blue' }}">
                                         {{ $offerStatusLabels[$offer->status] ?? ucfirst($offer->status) }}
@@ -195,7 +240,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="dashboard-empty">
+                                <td colspan="6" class="dashboard-empty">
                                     <strong>No offers yet.</strong>
                                     @if ($status === 'pending')
                                         No company has answered this customer
@@ -726,6 +771,23 @@
     <script>
         window.addEventListener('beforeprint', function () {
             document.title = @json('Quote Details-' . $reference . ' · SunXFinder');
+        });
+    </script>
+
+    <script>
+        // Commission editor: show only the field the chosen mode needs.
+        document.querySelectorAll('[data-commission-type]').forEach(function (select) {
+            const form = select.closest('form');
+            const sync = function () {
+                form.querySelectorAll('[data-commission-field]').forEach(function (field) {
+                    const active = field.dataset.commissionField === select.value;
+                    field.hidden = !active;
+                    field.disabled = !active;
+                    field.required = active;
+                });
+            };
+            select.addEventListener('change', sync);
+            sync();
         });
     </script>
 

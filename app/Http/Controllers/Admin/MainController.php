@@ -219,8 +219,10 @@ class MainController extends Controller
         $projectCount = (clone $projectBase)->count();
         $ratingCount = (clone $ratingBase)->count();
         $customerCount = (clone $customersBase)->distinct()->count('id');
+        $commissionSummary = $this->adminService->getCompanyCommissionSummary($companyId);
 
         return view('admin.companies.company-details', compact(
+            'commissionSummary',
             'company',
             'quotes',
             'customers',
@@ -272,6 +274,7 @@ class MainController extends Controller
             'is_active' => ['required', 'boolean'],
             'year_of_exp' => ['required', 'integer', 'min:1'],
             'number_of_projects' => ['required', 'integer', 'min:1'],
+            'commission_rate' => ['required', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
         ]);
 
         if ($validator->fails()) {
@@ -329,6 +332,7 @@ class MainController extends Controller
             'is_active' => ['required', 'boolean'],
             'year_of_exp' => ['required', 'integer', 'min:1'],
             'number_of_projects' => ['required', 'integer', 'min:1'],
+            'commission_rate' => ['required', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
         ]);
 
         $result = $this->adminService->updateCompany($id, $validated);
@@ -1574,6 +1578,22 @@ class MainController extends Controller
         ]);
 
         $result = $this->adminService->cancelQuoteRequest($id, $data['reason'], $request->boolean('notify_customer'));
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function updateOfferCommission(Request $request, int $id, int $offer)
+    {
+        $data = $request->validate([
+            'commission_type' => ['required', Rule::in(CompanyQuotation::COMMISSION_TYPES)],
+            'commission_percent' => ['exclude_unless:commission_type,percent', 'required', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
+            'commission_fixed' => ['exclude_unless:commission_type,fixed', 'required', 'numeric', 'min:0', 'max:9999999999999', 'decimal:0,2'],
+        ], [
+            'commission_percent.required' => 'Enter the commission percentage for this offer.',
+            'commission_fixed.required' => 'Enter the commission amount for this offer.',
+        ]);
+
+        $result = $this->adminService->updateOfferCommission($id, $offer, $data);
 
         return back()->with($result['success'] ? 'success' : 'error', $result['message']);
     }

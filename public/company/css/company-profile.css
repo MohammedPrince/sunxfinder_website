@@ -730,6 +730,50 @@
     overflow-wrap: anywhere;
 }
 
+/* SunXFinder commission: company panel only, never printed */
+.offer-commission-note {
+    margin: 6px 0 10px;
+    color: #475569;
+    font-size: 13px;
+}
+
+.offer-commission-note strong {
+    color: #172b45;
+}
+
+.offer-commission-note small {
+    display: block;
+    color: #64748b;
+    font-size: 11px;
+}
+
+.offer-commission-card {
+    background: #f8fafc;
+}
+
+.offer-commission-card .offer-summary-total {
+    border-top-color: #172b45;
+}
+
+.offer-commission-card .offer-summary-total strong {
+    color: #172b45;
+}
+
+.offer-commission-card > small {
+    display: block;
+    margin-top: 8px;
+    color: #64748b;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+@media print {
+    .offer-commission-note,
+    .offer-commission-card {
+        display: none !important;
+    }
+}
+
 .offer-panel-action {
     flex-shrink: 0;
 }

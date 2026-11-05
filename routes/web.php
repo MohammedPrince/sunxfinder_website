@@ -217,6 +217,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::post('/{id}/cancel', 'cancelQuoteRequest')->whereNumber('id')->name('cancel');
                 Route::post('/{id}/reassign', 'reassignQuoteRequest')->whereNumber('id')->name('reassign');
                 Route::post('/{id}/nudge', 'nudgeCompaniesForQuote')->whereNumber('id')->middleware('throttle:10,1')->name('nudge');
+                // SunXFinder commission for one offer: company rate, custom % or fixed amount
+                Route::put('/{id}/offers/{offer}/commission', 'updateOfferCommission')->whereNumber(['id', 'offer'])->name('offers.commission');
             });
 
             // Platform-wide project oversight and stalled-project follow-up.

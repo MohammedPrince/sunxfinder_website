@@ -157,6 +157,39 @@
         @endforeach
     </section>
 
+    {{-- SunXFinder commission: admin and company only --}}
+    @php
+        $commissionRateLabel = rtrim(rtrim(number_format((float) $company->commission_rate, 2, '.', ''), '0'), '.');
+    @endphp
+    <section class="panel table-panel">
+        <div class="panel-heading">
+            <div>
+                <h2>SunXFinder commission <span class="pill pill-blue">{{ $commissionRateLabel }}%</span></h2>
+                <p>
+                    Commission from offers customers accepted, at the rate each offer was sent with.
+                    <a href="{{ route('admin.companies.edit', $company->id) }}">Change the rate</a> for future offers.
+                </p>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead><tr><th>Currency</th><th>Accepted offers</th><th>Accepted offers value</th><th>Commission due</th></tr></thead>
+                <tbody>
+                    @forelse ($commissionSummary as $row)
+                        <tr>
+                            <td><strong>{{ $row->currency }}</strong></td>
+                            <td>{{ number_format((int) $row->accepted) }}</td>
+                            <td>{{ $row->currency }} {{ number_format((float) $row->offer_value, 2) }}</td>
+                            <td><strong>{{ $row->currency }} {{ number_format((float) $row->commission, 2) }}</strong></td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="4" class="dashboard-empty">No accepted offers yet.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
+
     {{-- Profile --}}
     <div class="cd-profile">
         <section class="panel">

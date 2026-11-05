@@ -306,6 +306,21 @@
                         @enderror
                     </div>
 
+                    <div class="form-group">
+                        <label for="commission_rate">SunXFinder Commission (%) <b style="color: red">*</b></label>
+                        <input class="form-control" type="number" id="commission_rate" name="commission_rate"
+                            min="0" max="100" step="0.01" required
+                            value="{{ old('commission_rate', isset($company) ? rtrim(rtrim(number_format((float) $company->commission_rate, 2, '.', ''), '0'), '.') : 0) }}">
+                        <small class="form-hint">
+                            Percentage of each offer price, due when the customer accepts the offer. Use 0 for no
+                            commission. The company sees it in its offer form; customers never see it. A change
+                            applies to offers the company sends or edits from now on.
+                        </small>
+                        @error('commission_rate')
+                            <small class="field-error">{{ $message }}</small>
+                        @enderror
+                    </div>
+
                 </div>
 
                 <div class="form-actions">
