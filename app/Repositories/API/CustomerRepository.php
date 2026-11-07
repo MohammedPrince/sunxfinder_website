@@ -16,6 +16,7 @@ use App\Models\CompanyCarousel;
 use App\Support\AdTracker;
 use App\Models\CompanyQuotation;
 use App\Models\Customer;
+use App\Models\CustomerTermsAcceptance;
 use App\Models\CustomerDeviceToken;
 use App\Models\HomeSection;
 use App\Repositories\MainRepository;
@@ -162,6 +163,11 @@ class CustomerRepository
 
         ActivityLogger::log('login', 'Signed in to the mobile app', $customer, [], ActivityLogger::actorFor($customer), 'auth');
 
+        // The Terms the customer accepted on the sign-in screen (older apps send none).
+        if (!empty($data['terms'])) {
+            $this->recordTermsAcceptance($customer, $data['terms'], 'login');
+        }
+
         $customerDetails = [
             'id' => $customer->id,
             'username' => $customer->username,
@@ -174,6 +180,7 @@ class CustomerRepository
             'access_token' => $token->plainTextToken,
             'token_type' => 'Bearer',
             'expires_at' => $expiresAt->toISOString(),
+            'terms_accepted_version' => $customer->terms_accepted_version,
         ];
 
         return [
@@ -1097,6 +1104,95 @@ class CustomerRepository
         }
     }
 
+    /**
+     * Adds one row to the Terms acceptance log and keeps the latest on the customer.
+     * Time, IP and device come from the server, not the phone. A failure is logged and
+     * never stops the sign-in. $source: login | register.
+     *
+     * @param array{terms_version: string, lang: string, platform: ?string, app_version: ?string} $terms
+     */
+    private function recordTermsAcceptance(Customer $customer, array $terms, string $source): void
+    {
+        try {
+            $acceptedAt = now();
+
+            CustomerTermsAcceptance::create([
+                'customer_id' => $customer->id,
+                'terms_version' => $terms['terms_version'],
+                'lang' => $terms['lang'] === 'ar' ? 'ar' : 'en',
+                'source' => $source,
+                'platform' => $terms['platform'] ?? null,
+                'app_version' => $terms['app_version'] ?? null,
+                'ip_address' => request()->ip(),
+                'user_agent' => mb_substr((string) request()->userAgent(), 0, 255),
+                'accepted_at' => $acceptedAt,
+            ]);
+
+            $customer->forceFill([
+                'terms_accepted_version' => $terms['terms_version'],
+                'terms_accepted_at' => $acceptedAt,
+            ])->saveQuietly();
+        } catch (Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * The load the customer calculated on the website before signing up, or null.
+     * The app offers to open the calculator with it. See App\Support\CalculatorLoad.
+     */
+    public function getPendingLoad(): array
+    {
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        if (!$customer) {
+            return ['success' => false, 'code' => 401, 'message' => 'Unauthenticated.', 'pending_load' => null];
+        }
+
+        $load = $customer->pending_load;
+
+        return [
+            'success' => true,
+            'code' => 200,
+            'message' => $load ? 'Pending load retrieved successfully.' : 'No pending load.',
+            'pending_load' => is_array($load) && !empty($load['items']) ? $load : null,
+        ];
+    }
+
+    /**
+     * Clears the pending load. With an id, only when it is still that load, so a newer
+     * one saved from the website in the meantime is kept. Nothing waiting is still success.
+     */
+    public function clearPendingLoad(?string $loadId = null): array
+    {
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        if (!$customer) {
+            return ['success' => false, 'code' => 401, 'message' => 'Unauthenticated.'];
+        }
+
+        try {
+            $current = $customer->pending_load;
+            $matches = $loadId === null || ($current['id'] ?? null) === $loadId;
+
+            if ($current !== null && $matches) {
+                $customer->forceFill(['pending_load' => null])->save();
+            }
+
+            return [
+                'success' => true,
+                'code' => 200,
+                'message' => $current !== null && !$matches
+                    ? 'A newer load is waiting; it was kept.'
+                    : 'Pending load cleared.',
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'code' => 500, 'message' => 'Unable to clear the pending load.'];
+        }
+    }
+
 
     public function getCarousels(): array
     {
@@ -1191,20 +1287,14 @@ class CustomerRepository
      * A legal page in one language: ?lang=en|ar when the app sends it, otherwise the
      * language saved with the customer's device. Empty table: the built-in text.
      */
+    /** Public: the app shows the Terms before sign-in. A token, when sent, only picks the language. */
     public function getLegalPage(string $page, ?string $lang = null): array
     {
-        $customer = $this->helper->isCustomerAuthenticated();
-
-        if (!$customer) {
-            return [
-                'success' => false,
-                'code' => 401,
-                'message' => 'Unauthenticated.',
-            ];
-        }
-
         try {
-            $lang = in_array($lang, ['en', 'ar'], true) ? $lang : $this->customerPreferredLanguage($customer->id);
+            if (!in_array($lang, ['en', 'ar'], true)) {
+                $customer = $this->helper->isCustomerAuthenticated();
+                $lang = $customer ? $this->customerPreferredLanguage($customer->id) : 'en';
+            }
             $legal = app(MainRepository::class)->getLegalPage($page) ?? LegalDefaults::page($page);
             $header = $legal['header'];
 

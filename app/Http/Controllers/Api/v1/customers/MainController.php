@@ -30,9 +30,26 @@ class MainController extends Controller
         $validated = $request->validate([
             'username' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string'],
+            // Terms acceptance (the app asks on every sign-in). "sometimes" so older app
+            // builds that do not send it can still sign in; make it required later.
+            'terms_accepted' => ['sometimes', 'accepted'],
+            'terms_version' => ['required_with:terms_accepted', 'date_format:Y-m-d'],
+            'terms_lang' => ['required_with:terms_accepted', 'in:en,ar'],
+            'platform' => ['nullable', 'in:android,ios,web'],
+            'app_version' => ['nullable', 'string', 'max:20'],
         ]);
 
-        $data = ['username' => trim($validated['username']), 'password' => $validated['password'],];
+        $data = [
+            'username' => trim($validated['username']),
+            'password' => $validated['password'],
+            // Saved only after the password check succeeds (CustomerRepository::login).
+            'terms' => $request->boolean('terms_accepted') ? [
+                'terms_version' => $validated['terms_version'],
+                'lang' => $validated['terms_lang'],
+                'platform' => $validated['platform'] ?? null,
+                'app_version' => $validated['app_version'] ?? null,
+            ] : null,
+        ];
 
         $result = $this->customerService->login($data);
 
@@ -736,6 +753,53 @@ class MainController extends Controller
             'data' => [
                 'groups' => [],
             ],
+        ], $result['code']);
+    }
+
+    /** GET /pending-load: the load calculated on the website before sign-up, or null. */
+    public function getPendingLoad()
+    {
+        $result = $this->customerService->getPendingLoad();
+
+        if ($result['success']) {
+            return response()->json([
+                'status' => 'success',
+                'code' => $result['code'],
+                'message' => $result['message'],
+                'data' => [
+                    'pending_load' => $result['pending_load'],
+                ],
+            ], $result['code']);
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'code' => $result['code'],
+            'error' => $result['message'],
+        ], $result['code']);
+    }
+
+    /** DELETE /pending-load?id=…: the app used or discarded it. */
+    public function clearPendingLoad(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => ['nullable', 'string', 'max:64'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'code' => 422,
+                'error' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $result = $this->customerService->clearPendingLoad($request->input('id'));
+
+        return response()->json([
+            'status' => $result['success'] ? 'success' : 'error',
+            'code' => $result['code'],
+            $result['success'] ? 'message' : 'error' => $result['message'],
         ], $result['code']);
     }
 

@@ -74,6 +74,16 @@ class CustomerService
         return $this->customerRepository->appliancesCalculator();
     }
 
+    public function getPendingLoad(): array
+    {
+        return $this->customerRepository->getPendingLoad();
+    }
+
+    public function clearPendingLoad(?string $loadId = null): array
+    {
+        return $this->customerRepository->clearPendingLoad($loadId);
+    }
+
     public function getCarousels(): array
     {
         return $this->customerRepository->getCarousels();

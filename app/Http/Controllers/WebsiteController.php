@@ -16,6 +16,7 @@ use Kreait\Firebase\Messaging\CloudMessage;
 use Kreait\Firebase\Messaging\Notification as FcmNotification;
 use Kreait\Firebase\Contract\Messaging;
 use App\Support\AdTracker;
+use App\Support\CalculatorLoad;
 
 class WebsiteController extends Controller
 {
@@ -97,7 +98,11 @@ class WebsiteController extends Controller
             ? $appLinks['android']
             : null;
 
+        // Appliance catalogue for the load calculator (same one the app uses).
+        $calculatorGroups = $this->mainService->getCalculatorCatalogue();
+
         return view('visitors.home', compact(
+            'calculatorGroups',
             'companies',
             'adBanners',
             'verifiedCount',
@@ -152,6 +157,48 @@ class WebsiteController extends Controller
 
         return view('visitors.open-in-app', compact(
             'company',
+            'platform',
+            'schemeUrl',
+            'intentUrl',
+            'storeUrl',
+            'profileUrl'
+        ));
+    }
+
+    /**
+     * "Open in App" for the load calculator: sunxfinder://calculator, with the load in
+     * ?load= when the website sent one. The app opens its calculator and offers the
+     * load (or the one saved on the account at sign-up).
+     */
+    public function openCalculatorInApp(Request $request)
+    {
+        $app = config('services.mobile_app');
+        $storeLinks = $this->mainService->getAppDownloadLinks();
+        $userAgent = (string) $request->userAgent();
+
+        $platform = match (true) {
+            (bool) preg_match('/android/i', $userAgent) => 'android',
+            (bool) preg_match('/iphone|ipad|ipod/i', $userAgent) => 'ios',
+            default => 'other',
+        };
+
+        // Re-encoded from the cleaned load, so the app never receives raw input.
+        $load = CalculatorLoad::fromLinkParam($request->query('load'));
+        $query = $load ? '?load=' . CalculatorLoad::toLinkParam($load) : '';
+
+        $profileUrl = route('home', ['lang' => app()->getLocale()]) . '#calculator';
+        $storeUrl = $storeLinks[$platform] ?? null;
+        $fallbackUrl = $storeUrl ?: $profileUrl;
+
+        $schemeUrl = $app['scheme'] . '://calculator' . $query;
+        $intentUrl = 'intent://calculator' . $query . '#Intent;scheme=' . $app['scheme']
+            . ($app['android_package'] ? ';package=' . $app['android_package'] : '')
+            . ';S.browser_fallback_url=' . rawurlencode($fallbackUrl) . ';end';
+
+        $pageName = app()->getLocale() === 'ar' ? 'حاسبة الأحمال' : 'Load calculator';
+
+        return view('visitors.open-in-app', compact(
+            'pageName',
             'platform',
             'schemeUrl',
             'intentUrl',
@@ -490,6 +537,8 @@ class WebsiteController extends Controller
                 ]),
             ],
             'address_details' => ['required', 'string', 'max:1000'],
+            // The home page calculator's load (JSON). Checked by CalculatorLoad; a bad one is just dropped.
+            'calculator_load' => ['nullable', 'string', 'max:' . CalculatorLoad::MAX_INPUT_BYTES],
             'password' => [
                 'required',
                 'string',
@@ -555,11 +604,15 @@ class WebsiteController extends Controller
         $validated['address'] = $validated['city'] . ', ' .
             trim($validated['address_details']);
 
+        // Saved on the account so the app can open the calculator with it after login.
+        $validated['pending_load'] = CalculatorLoad::fromInput($validated['calculator_load'] ?? null);
+
         unset(
             $validated['first_name'],
             $validated['second_name'],
             $validated['third_name'],
-            $validated['address_details']
+            $validated['address_details'],
+            $validated['calculator_load']
         );
 
         $result = $this->mainService->storeCustomer($validated);
@@ -567,7 +620,8 @@ class WebsiteController extends Controller
         if ($result['success']) {
             return redirect()
                 ->route('customer.register')
-                ->with('success', $result['message']);
+                ->with('success', $result['message'])
+                ->with('load_saved', $validated['pending_load'] !== null);
         }
 
         return back()

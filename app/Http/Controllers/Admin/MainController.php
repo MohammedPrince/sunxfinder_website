@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Models\CustomerTermsAcceptance;
 use App\Models\ArchivedItem;
 use App\Models\AppVersion;
 use App\Repositories\Admin\AdminRepository;
@@ -20,6 +21,7 @@ use App\Models\SolarCompany;
 use App\Models\SentEmail;
 use App\Services\Admin\AdminService;
 use App\Support\ActivityLogger;
+use App\Support\TermsVersion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
@@ -2150,6 +2152,74 @@ class MainController extends Controller
     }
 
     //Archives End
+
+    //Terms Acceptance Start
+
+    /** Which customers accepted the Terms, and which version (System → Terms Acceptance). */
+    public function termsAcceptances(Request $request)
+    {
+        $filters = $request->validate([
+            'status' => ['nullable', Rule::in(['current', 'outdated', 'never'])],
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $currentVersion = TermsVersion::current();
+        $customers = $this->adminService->getTermsAcceptanceCustomers($filters, $currentVersion);
+        $metrics = $this->adminService->getTermsAcceptanceMetrics($currentVersion);
+
+        return view('admin.terms-acceptances.index', compact('customers', 'metrics', 'currentVersion'));
+    }
+
+    /** Every acceptance by one customer. */
+    public function customerTermsHistory(int $id)
+    {
+        $history = $this->adminService->getCustomerTermsHistory($id);
+
+        abort_if(!$history, 404);
+
+        return view('admin.terms-acceptances.show', [
+            ...$history,
+            'currentVersion' => TermsVersion::current(),
+        ]);
+    }
+
+    /** The full acceptance log (or one customer's) as CSV: the legal record. */
+    public function exportTermsAcceptances(Request $request)
+    {
+        $filters = $request->validate(['customer_id' => ['nullable', 'integer', 'min:1']]);
+        $rows = $this->adminService->termsAcceptancesForExport($filters);
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+
+            // UTF-8 BOM so Excel shows Arabic names correctly.
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['ID', 'Accepted at (server time)', 'Customer ID', 'Username', 'Full name', 'Phone', 'Email', 'Terms version', 'Language', 'Where', 'Platform', 'App version', 'IP address', 'User agent']);
+
+            foreach ($rows as $row) {
+                fputcsv($out, [
+                    $row->id,
+                    $row->accepted_at?->format('Y-m-d H:i:s'),
+                    $row->customer_id,
+                    $row->customer?->username,
+                    $row->customer?->full_name,
+                    $row->customer?->phone,
+                    $row->customer?->email,
+                    $row->terms_version,
+                    $row->lang,
+                    CustomerTermsAcceptance::SOURCES[$row->source] ?? $row->source,
+                    CustomerTermsAcceptance::PLATFORMS[$row->platform] ?? $row->platform,
+                    $row->app_version,
+                    $row->ip_address,
+                    $row->user_agent,
+                ]);
+            }
+
+            fclose($out);
+        }, 'terms-acceptances-' . now()->format('Y-m-d') . '.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    //Terms Acceptance End
 
     //Activity Logs Start
 

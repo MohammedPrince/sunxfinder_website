@@ -978,6 +978,38 @@
     border: 1px solid #f4d1cf;
 }
 
+/* The home page calculator's load, saved to the new account. */
+.provider-calc-note {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 16px;
+    color: #0b2d5c;
+    background: #e8f1fc;
+    border: 1px solid #c9dcf3;
+    text-align: start;
+}
+
+.provider-calc-note[hidden] {
+    display: none;
+}
+
+.provider-calc-note span {
+    flex: 1 1 260px;
+}
+
+.provider-calc-note-remove {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: #1565c0;
+    font: inherit;
+    font-weight: 700;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
 .provider-alert ul {
     margin: 8px 0 0;
     padding-inline-start: 22px;

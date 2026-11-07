@@ -34,6 +34,8 @@ Route::controller(WebsiteController::class)->middleware(['site.maintenance', 'si
     // "Open in App": opens the company in the mobile app, or falls back to the store/website.
     // Also the App Link / Universal Link path the app registers for.
     Route::get('/open/companies/{slug}', 'openCompanyInApp')->name('app.company');
+    // The same for the load calculator, optionally with the load (?load=base64url JSON).
+    Route::get('/open/calculator', 'openCalculatorInApp')->middleware('throttle:60,1')->name('app.calculator');
 
     // Domain verification files for Android App Links and iOS Universal Links
     Route::get('/.well-known/assetlinks.json', 'androidAssetLinks')->name('app.assetlinks');
@@ -323,6 +325,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::patch('/sections/{id}/toggle', 'toggleLegalSection')->whereNumber('id')->name('toggle');
                 Route::patch('/sections/{id}/move', 'moveLegalSection')->whereNumber('id')->name('move');
                 Route::delete('/sections/{id}', 'destroyLegalSection')->whereNumber('id')->name('destroy');
+            });
+
+            // Customers who accepted the Terms in the app, and which version (legal record)
+            Route::prefix('terms-acceptances')->name('terms-acceptances.')->group(function () {
+                Route::get('/', 'termsAcceptances')->name('index');
+                Route::get('/export', 'exportTermsAcceptances')->name('export');
+                Route::get('/customers/{id}', 'customerTermsHistory')->whereNumber('id')->name('show');
             });
 
             // Archived website and app records. Removing an archive entry is a soft delete.

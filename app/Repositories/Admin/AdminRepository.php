@@ -27,6 +27,7 @@ use App\Models\CompanyQuotation;
 use App\Models\CustomerComplaint;
 use App\Models\ApiEndpoint;
 use App\Models\Customer;
+use App\Models\CustomerTermsAcceptance;
 use App\Models\Project;
 use App\Models\CustomerNotification;
 use App\Models\Notification;
@@ -2818,6 +2819,85 @@ class AdminRepository
             ])
             ->withCount('companyQuotations')
             ->find($id);
+    }
+
+    /**
+     * Customers with their latest Terms acceptance, newest acceptance first.
+     * status: current (accepted $currentVersion) | outdated (an older version) | never.
+     */
+    public function getTermsAcceptanceCustomers(array $filters, ?string $currentVersion): LengthAwarePaginator
+    {
+        $query = Customer::query()
+            ->with('latestTermsAcceptance')
+            ->withCount('termsAcceptances');
+
+        match ($filters['status'] ?? null) {
+            'current' => $query->where('terms_accepted_version', $currentVersion),
+            'outdated' => $query->whereNotNull('terms_accepted_version')
+                ->where('terms_accepted_version', '!=', (string) $currentVersion),
+            'never' => $query->whereNull('terms_accepted_version'),
+            default => null,
+        };
+
+        if (!empty($filters['search'])) {
+            $search = '%' . addcslashes($filters['search'], '%_\\') . '%';
+            $query->where(fn($q) => $q
+                ->where('full_name', 'like', $search)
+                ->orWhere('username', 'like', $search)
+                ->orWhere('phone', 'like', $search)
+                ->orWhere('email', 'like', $search));
+        }
+
+        return $query
+            ->orderByRaw('terms_accepted_at IS NULL')
+            ->orderByDesc('terms_accepted_at')
+            ->orderByDesc('id')
+            ->paginate(25)
+            ->withQueryString();
+    }
+
+    public function getTermsAcceptanceMetrics(?string $currentVersion): array
+    {
+        $customers = Customer::query();
+
+        return [
+            'customers' => (clone $customers)->count(),
+            'current' => $currentVersion ? (clone $customers)->where('terms_accepted_version', $currentVersion)->count() : 0,
+            'outdated' => (clone $customers)->whereNotNull('terms_accepted_version')
+                ->where('terms_accepted_version', '!=', (string) $currentVersion)->count(),
+            'never' => (clone $customers)->whereNull('terms_accepted_version')->count(),
+            'today' => CustomerTermsAcceptance::query()->where('accepted_at', '>=', today())->count(),
+        ];
+    }
+
+    /** One customer (deleted ones too) and every acceptance, newest first. */
+    public function getCustomerTermsHistory(int $customerId): ?array
+    {
+        $customer = Customer::withTrashed()->find($customerId);
+
+        if (!$customer) {
+            return null;
+        }
+
+        return [
+            'customer' => $customer,
+            'acceptances' => CustomerTermsAcceptance::query()
+                ->where('customer_id', $customerId)
+                ->orderByDesc('accepted_at')
+                ->orderByDesc('id')
+                ->get(),
+        ];
+    }
+
+    /** Every acceptance row (the legal record) for the CSV export, oldest first. */
+    public function termsAcceptancesForExport(array $filters)
+    {
+        return CustomerTermsAcceptance::query()
+            ->with(['customer:id,username,full_name,phone,email'])
+            ->when(!empty($filters['customer_id']), fn($q) => $q->where('customer_id', $filters['customer_id']))
+            ->orderBy('accepted_at')
+            ->orderBy('id')
+            ->lazy(500);
     }
 
     public function getAdminProjects(array $filters = []): LengthAwarePaginator

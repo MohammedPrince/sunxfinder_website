@@ -26,6 +26,11 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
         Route::post('/reset', [MainController::class, 'resetPassword'])->middleware('throttle:customer-password-reset');
     });
 
+    // Legal pages (Admin → System → Privacy & Terms). No token: the app shows the Terms
+    // before sign-in. ?lang=en|ar, else the signed-in customer's language, else English.
+    Route::get('/privacy-policy', [MainController::class, 'privacyPolicy'])->middleware('throttle:60,1');
+    Route::get('/terms', [MainController::class, 'terms'])->middleware('throttle:60,1');
+
     // Protected routes: valid Sanctum token required
     Route::middleware('auth:sanctum')->group(function () {
 
@@ -46,6 +51,9 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
         Route::get('/sliders', [MainController::class, 'getAppSliders'])->middleware('throttle:60,1');
         Route::get('/home-sections', [MainController::class, 'getHomeSections'])->middleware('throttle:60,1');
         Route::get('/calculator-items', [MainController::class, 'appliancesCalculator'])->middleware('throttle:60,1');
+        // A load calculated on the website before sign-up (docs: sunxfinder_app/docs/website-load-handoff.md).
+        Route::get('/pending-load', [MainController::class, 'getPendingLoad'])->middleware('throttle:60,1');
+        Route::delete('/pending-load', [MainController::class, 'clearPendingLoad'])->middleware('throttle:60,1');
 
         Route::post('/my-quotes', [MainController::class, 'getMyQuotes'])->middleware('throttle:60,1')->name('my-quotes');
         Route::post('/archive', [MainController::class, 'archiveQuote'])->middleware('throttle:60,1')->name('archive');
@@ -73,10 +81,6 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
         Route::get('/notifications/{id}', [MainController::class, 'getNotification'])->whereNumber('id')->middleware('throttle:60,1');
         Route::post('/notifications/{id}/read', [MainController::class, 'markNotificationAsRead']);
         Route::post('/notifications/read-all', [MainController::class, 'markAllNotificationsAsRead']);
-
-        // Legal pages (Admin → System → Privacy & Terms), in the customer's app language
-        Route::get('/privacy-policy', [MainController::class, 'privacyPolicy'])->middleware('throttle:60,1');
-        Route::get('/terms', [MainController::class, 'terms'])->middleware('throttle:60,1');
 
         Route::post('/delete-account', [MainController::class, 'deleteAccount']);
         Route::post('/logout', [MainController::class, 'logout']);

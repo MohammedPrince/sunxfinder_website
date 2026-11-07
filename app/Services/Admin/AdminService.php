@@ -779,6 +779,28 @@ class AdminService
     }
     //Background Jobs End
 
+    //Terms Acceptance Start
+    public function getTermsAcceptanceCustomers(array $filters, ?string $currentVersion): LengthAwarePaginator
+    {
+        return $this->adminRepository->getTermsAcceptanceCustomers($filters, $currentVersion);
+    }
+
+    public function getTermsAcceptanceMetrics(?string $currentVersion): array
+    {
+        return $this->adminRepository->getTermsAcceptanceMetrics($currentVersion);
+    }
+
+    public function getCustomerTermsHistory(int $customerId): ?array
+    {
+        return $this->adminRepository->getCustomerTermsHistory($customerId);
+    }
+
+    public function termsAcceptancesForExport(array $filters)
+    {
+        return $this->adminRepository->termsAcceptancesForExport($filters);
+    }
+    //Terms Acceptance End
+
     //Activity Logs Start
     public function getActivityLogs(array $filters = []): LengthAwarePaginator
     {
