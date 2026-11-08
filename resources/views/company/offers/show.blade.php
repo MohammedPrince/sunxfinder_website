@@ -13,6 +13,10 @@
 @section('page-title', $offer->title($lang))
 @section('page-description', __('company/messages.package_offers.show_description'))
 
+@push('styles')
+    <link rel="stylesheet" href="{{ asset_v('css/package-offer-builder.css') }}">
+@endpush
+
 @section('page-actions')
     <a href="{{ route('company.offers.index') }}" class="btn btn-light">{{ __('company/messages.package_offers.back') }}</a>
     @unless ($offer->isLocked())
@@ -63,7 +67,7 @@
                                 <th>{{ __('company/messages.common.customer') }}</th>
                                 <th>{{ __('company/messages.package_offers.answer') }}</th>
                                 <th>{{ __('company/messages.quote.peak_load') }}</th>
-                                <th>{{ __('company/messages.package_offers.request') }}</th>
+                                <th>{{ __('company/messages.package_offers.project') }}</th>
                                 <th>{{ __('company/messages.common.actions') }}</th>
                             </tr>
                         </thead>
@@ -72,7 +76,7 @@
                                 @php
                                     $quote = $response->quote;
                                     $stage = $quote?->stage();
-                                    $ownOffer = $quote?->companyQuotations->first();
+                                    $project = $quote?->project;
                                 @endphp
                                 <tr>
                                     <td>
@@ -88,16 +92,18 @@
                                     <td>{{ $quote?->peak_load ?: '—' }}</td>
                                     <td>
                                         @if ($quote)
-                                            <span class="pill {{ $stage['class'] }}">{{ $ownOffer ? __('company/messages.package_offers.offer_sent') : __('company/messages.package_offers.needs_review') }}</span>
+                                            <span class="pill {{ $stage['class'] }}">{{ __('company/messages.package_offers.project_' . ($project?->status ?? 'none')) }}</span>
                                         @else
                                             —
                                         @endif
                                     </td>
                                     <td>
-                                        @if ($quote)
-                                            <a href="{{ route('company.quote-requests.show', $quote->id) }}" class="btn {{ $ownOffer ? 'btn-light' : 'btn-primary' }}">
-                                                {{ $ownOffer ? __('company/messages.package_offers.open_request') : __('company/messages.package_offers.review') }}
+                                        @if ($project)
+                                            <a href="{{ route('company.projects.show', $project->id) }}" class="btn {{ $project->status === 'accepted' ? 'btn-primary' : 'btn-light' }}">
+                                                {{ $project->status === 'accepted' ? __('company/messages.package_offers.start_project') : __('company/messages.package_offers.open_project') }}
                                             </a>
+                                        @elseif ($quote)
+                                            <a href="{{ route('company.quote-requests.show', $quote->id) }}" class="btn btn-light">{{ __('company/messages.package_offers.open_request') }}</a>
                                         @endif
                                     </td>
                                 </tr>
@@ -127,11 +133,8 @@
                             @csrf
                             <div class="form-grid">
                                 <div class="form-group full-width">
-                                    <label for="customer_ids">{{ $canNotifyAll ? __('company/messages.common.customers') : __('company/messages.notifications.your_customers') }} <b style="color:red">*</b></label>
-                                    @if (!empty($sendLimit) && $sendLimit['limit'] !== null)
-                                        <small class="form-hint">{{ __('company/messages.ads.limit_hint', ['used' => $sendLimit['used'], 'limit' => $sendLimit['limit']]) }}</small>
-                                    @endif
-                                    <small class="form-hint">{{ $canNotifyAll ? __('company/messages.notifications.hint_all') : __('company/messages.notifications.hint_own') }}</small>
+                                    <label for="customer_ids">{{ __('company/messages.notifications.your_customers') }} <b style="color:red">*</b></label>
+                                    <small class="form-hint">{{ __('company/messages.package_offers.own_customers_only') }}</small>
                                     <select class="select-control" id="customer_ids" name="customer_ids[]" multiple size="8" @required($hasCustomers)>
                                         @foreach ($customers as $customer)
                                             <option value="{{ $customer->id }}" @selected(in_array((string) $customer->id, $selectedIds, true))>
@@ -172,6 +175,12 @@
         <aside class="package-offer-aside">
             <div class="offer-summary-card">
                 <h3>{{ __('company/messages.package_offers.what_customers_see') }}</h3>
+                @if ($offer->image_path)
+                    <img class="pkg-offer-image" src="{{ $offer->imageUrl() }}" alt="" width="{{ $offer->image_width }}" height="{{ $offer->image_height }}">
+                @endif
+                @if ($offer->created_by_type === 'admin')
+                    <p class="form-hint">{{ __('company/messages.package_offers.made_by_admin') }}</p>
+                @endif
                 <dl>
                     <div><dt>{{ __('company/messages.package_offers.max_load') }}</dt><dd>{{ __('company/messages.package_offers.kw_value', ['value' => $offer->maxLoadLabel()]) }}</dd></div>
                     <div><dt>{{ __('company/messages.package_offers.valid_until') }}</dt><dd>{{ $offer->expires_at?->translatedFormat('d M Y, H:i') ?? __('company/messages.package_offers.no_expiry') }}</dd></div>

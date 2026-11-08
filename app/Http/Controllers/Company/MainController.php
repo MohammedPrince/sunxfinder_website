@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Company;
 
 use App\Http\Controllers\Controller;
+use App\Models\PackageOffer;
 use App\Models\Product;
 use App\Models\RatingValue;
 use App\Services\Company\CompanyService;
@@ -533,7 +534,7 @@ class MainController extends Controller
 
     public function storePackageOffer(Request $request)
     {
-        $offer = $this->companyService->savePackageOffer($this->validatedPackageOffer($request));
+        $offer = $this->companyService->savePackageOffer($this->validatedPackageOffer($request), null, $request->file('image'));
 
         return redirect()
             ->route('company.offers.show', $offer->id)
@@ -543,12 +544,10 @@ class MainController extends Controller
     public function showPackageOffer(int $offer)
     {
         $details = $this->companyService->getPackageOfferDetails($offer);
-        $form = $this->companyService->getNotificationFormData();
 
+        // Offers go to the company's own customers only.
         return view('company.offers.show', $details + [
-            'customers' => $form['customers'],
-            'canNotifyAll' => $form['canNotifyAll'],
-            'sendLimit' => $form['sendLimit'],
+            'customers' => $this->companyService->getOfferRecipients(),
         ]);
     }
 
@@ -571,7 +570,7 @@ class MainController extends Controller
 
     public function updatePackageOffer(Request $request, int $offer)
     {
-        $this->companyService->savePackageOffer($this->validatedPackageOffer($request), $offer);
+        $this->companyService->savePackageOffer($this->validatedPackageOffer($request), $offer, $request->file('image'));
 
         return redirect()
             ->route('company.offers.show', $offer)
@@ -610,28 +609,14 @@ class MainController extends Controller
             ->with('success', $result['message']);
     }
 
+    /** The shared offer builder fields (package[...], same as the admin campaign) plus an optional image. */
     private function validatedPackageOffer(Request $request): array
     {
-        return $request->validate([
-            'title_en' => ['required', 'string', 'min:3', 'max:150'],
-            'title_ar' => ['nullable', 'string', 'max:150'],
-            'description_en' => ['nullable', 'string', 'max:2000'],
-            'description_ar' => ['nullable', 'string', 'max:2000'],
-            'max_load_kw' => ['required', 'numeric', 'min:0.1', 'max:1000'],
-            'currency' => ['required', Rule::in(['SDG', 'USD'])],
-            'expires_at' => ['nullable', 'date', 'after:now'],
-            'discount' => ['nullable', 'numeric', 'min:0', 'max:9999999999999'],
-            'items' => ['required', 'array', 'min:1', 'max:25'],
-            'items.*.description' => ['required', 'string', 'min:2', 'max:255'],
-            'items.*.quantity' => ['required', 'numeric', 'gt:0', 'max:10000'],
-            'items.*.unit_price' => ['required', 'numeric', 'min:0', 'max:9999999999999'],
-            'items.*.product_id' => ['nullable', 'integer', 'min:1'],
-            'items.*.type' => ['nullable', Rule::in(array_keys(Product::TYPES))],
-        ], [], app()->isLocale('ar') ? [
-            'title_en' => __('company/messages.package_offers.title_en'),
-            'max_load_kw' => __('company/messages.package_offers.max_load'),
-            'items' => __('company/messages.package_offers.items'),
-        ] : []);
+        $request->validate([
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096', 'dimensions:min_width=300,min_height=150'],
+        ], [], ['image' => __('company/messages.package_offers.image')]);
+
+        return $request->validate(PackageOffer::rules(), [], PackageOffer::attributes())['package'];
     }
 
     //Package Offers End

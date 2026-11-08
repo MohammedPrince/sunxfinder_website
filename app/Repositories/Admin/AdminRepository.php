@@ -32,6 +32,7 @@ use App\Models\Project;
 use App\Models\CustomerNotification;
 use App\Models\Notification;
 use App\Models\PackageOffer;
+use App\Repositories\PackageOfferRepository;
 use App\Models\Product;
 use App\Models\ProductSpec;
 use App\Models\Quote;
@@ -3891,19 +3892,17 @@ class AdminRepository
             ->orderBy('name')
             ->get();
 
-        // Open package offers of those companies, to attach to a "Company offer" campaign.
-        $packageOffers = PackageOffer::query()
-            ->whereIn('company_id', $companies->pluck('id'))
-            ->where('status', PackageOffer::STATUS_ACTIVE)
-            ->where(fn($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
-            ->latest('id')
-            ->get(['id', 'company_id', 'title_en', 'title_ar', 'max_load_kw', 'subtotal', 'discount', 'price', 'currency', 'expires_at']);
+        // "Company offer" campaigns carry a package offer: one of the company's open offers,
+        // or a new one built here from the company's products (same builder as the company panel).
+        $companyIds = $companies->pluck('id')->all();
+        $packageOffers = app(PackageOfferRepository::class);
 
         return [
             'customers' => $customers,
             'cities' => $cities,
             'companies' => $companies,
-            'packageOffers' => $packageOffers,
+            'packageOffers' => $packageOffers->openOffers($companyIds),
+            'products' => $packageOffers->productOptions($companyIds),
             'appCustomerCount' => $customers->count(),
         ];
     }
@@ -3925,46 +3924,43 @@ class AdminRepository
             }
         }
 
-        // A company package offer: its card comes from the offer, and customers can accept it.
-        $packageOffer = null;
-        if (!empty($data['package_offer_id'])) {
-            $packageOffer = PackageOffer::query()->find($data['package_offer_id']);
-
-            if (!$packageOffer || (int) $packageOffer->company_id !== (int) ($data['company_id'] ?? 0)) {
-                throw ValidationException::withMessages(['package_offer_id' => 'Choose a package offer of the selected company.']);
-            }
-
-            if (!$packageOffer->isOpen()) {
-                throw ValidationException::withMessages(['package_offer_id' => 'This package offer is closed or expired.']);
-            }
-
-            $data = array_replace($data, Notification::offerCardFields($packageOffer));
-            $data['has_offer'] = true;
-        } else {
-            $data['package_offer_id'] = null;
-        }
-
-        if (empty($data['has_offer'])) {
-            foreach (['offer_title_en', 'offer_title_ar', 'offer_price', 'offer_old_price', 'offer_currency', 'offer_expires_at'] as $field) {
-                $data[$field] = null;
-            }
-        }
         if (empty($data['has_link'])) {
             $data['link_url'] = $data['link_label_en'] = $data['link_label_ar'] = null;
+        }
+
+        // The offer price card exists only on "Company offer" campaigns, and always comes
+        // from a package offer the customer can accept.
+        foreach (['offer_title_en', 'offer_title_ar', 'offer_price', 'offer_old_price', 'offer_currency', 'offer_expires_at'] as $field) {
+            $data[$field] = null;
+        }
+        if (($data['type'] ?? null) !== 'offer') {
+            $data['package_offer_id'] = null;
         }
 
         $stored = null;
         if ($image) {
             $stored = Helper::storeOptimizedImage($image, self::CAMPAIGN_IMAGE_DIR, 1200, 88);
-            $data['image_path'] = $stored['path'];
-            $data['image_width'] = $stored['width'];
-            $data['image_height'] = $stored['height'];
         }
 
-        $data['sender_type'] = 'admin';
-        $data['sender_id'] = $adminId;
+        $packageOffer = null;
+        $createdOffer = false;
 
         try {
+            if (($data['type'] ?? null) === 'offer') {
+                [$packageOffer, $createdOffer] = $this->campaignPackageOffer($data, $stored, $adminId);
+                $data = array_replace($data, Notification::offerCardFields($packageOffer));
+            }
+
+            // The campaign image wins; without one, the offer's own image is used.
+            if ($stored) {
+                $data['image_path'] = $stored['path'];
+                $data['image_width'] = $stored['width'];
+                $data['image_height'] = $stored['height'];
+            }
+
+            $data['sender_type'] = 'admin';
+            $data['sender_id'] = $adminId;
+
             $notification = $this->publishNotification($data);
 
             // Once customers hold a copy, the company can no longer edit the offer.
@@ -3974,14 +3970,55 @@ class AdminRepository
 
             return $notification;
         } catch (Throwable $e) {
-            // Nothing was published: don't leave the uploaded image behind. (A push
-            // failure after the save keeps it, since the inbox item uses it.)
+            // Nothing was published: don't leave a new offer or the uploaded image behind.
+            // (A push failure after the save keeps them, since the inbox item uses them.)
+            if ($createdOffer && !Notification::withTrashed()->where('package_offer_id', $packageOffer->id)->exists()) {
+                $packageOffer->forceDelete();
+            }
             if ($stored && !Notification::withTrashed()->where('image_path', $stored['path'])->exists()) {
                 \Illuminate\Support\Facades\File::delete(public_path($stored['path']));
             }
 
             throw $e;
         }
+    }
+
+    /**
+     * The package offer behind a "Company offer" campaign: one of the company's open offers
+     * (offer_source = existing), or a new one built from the campaign form (offer_source = new),
+     * saved for the company with the campaign image.
+     *
+     * @return array{0: PackageOffer, 1: bool} the offer, and whether it was created here
+     */
+    private function campaignPackageOffer(array $data, ?array $storedImage, ?int $adminId): array
+    {
+        $companyId = (int) ($data['company_id'] ?? 0);
+
+        if (($data['offer_source'] ?? 'existing') === 'new') {
+            $offer = app(PackageOfferRepository::class)->save(
+                $companyId,
+                $data['package'] ?? [],
+                null,
+                null,
+                'admin',
+                $adminId,
+                $storedImage
+            );
+
+            return [$offer, true];
+        }
+
+        $offer = PackageOffer::query()->find($data['package_offer_id'] ?? 0);
+
+        if (!$offer || (int) $offer->company_id !== $companyId) {
+            throw ValidationException::withMessages(['package_offer_id' => 'Choose an offer of the selected company, or build a new one.']);
+        }
+
+        if (!$offer->isOpen()) {
+            throw ValidationException::withMessages(['package_offer_id' => 'This offer is closed or expired.']);
+        }
+
+        return [$offer, false];
     }
 
 

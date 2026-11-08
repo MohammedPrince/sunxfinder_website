@@ -22,7 +22,7 @@
                     <optgroup label="{{ __('company/messages.common.product_type_' . $type) }}">
                         @foreach ($group as $product)
                             @php $label = $product->name . ($product->model ? ' — ' . $product->model : ''); @endphp
-                            <option value="{{ $product->id }}" data-type="{{ $type }}" data-label="{{ $label }}"
+                            <option value="{{ $product->id }}" data-type="{{ $type }}" data-label="{{ $label }}" data-company="{{ $product->company_id }}"
                                 @selected($productId === (string) $product->id)>{{ $label }}</option>
                         @endforeach
                     </optgroup>

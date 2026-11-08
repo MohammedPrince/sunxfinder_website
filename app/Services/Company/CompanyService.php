@@ -234,9 +234,14 @@ class CompanyService
         return $this->companyRepository->getPackageOfferDetails($id);
     }
 
-    public function savePackageOffer(array $data, ?int $id = null): PackageOffer
+    public function savePackageOffer(array $data, ?int $id = null, ?\Illuminate\Http\UploadedFile $image = null): PackageOffer
     {
-        return $this->companyRepository->savePackageOffer($data, $id);
+        return $this->companyRepository->savePackageOffer($data, $id, $image);
+    }
+
+    public function getOfferRecipients(): \Illuminate\Support\Collection
+    {
+        return $this->companyRepository->getOfferRecipients();
     }
 
     public function closePackageOffer(int $id): PackageOffer

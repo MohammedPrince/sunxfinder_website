@@ -2084,67 +2084,12 @@ class CustomerRepository
                 $quote->status = 'accepted';
                 $quote->save();
 
-                // Create the project for the accepted offer.
-                $project = Project::query()->create([
-                    'quote_id' => $quote->id,
-                    'company_quotation_id' => $offer->id,
-                    'customer_id' => $customer->id,
-                    'company_id' => $offer->company_id,
-                    'status' => 'accepted',
-                    'progress_percent' => 0,
-                    'accepted_at' => now(),
-                ]);
-
-                // Create the default installation checklist.
-                $milestones = [
-                    [
-                        'title' => 'Site inspection',
-                        'description' => 'Visit the customer site and confirm installation details.',
-                        'sort_order' => 1,
-                    ],
-                    [
-                        'title' => 'Equipment procurement',
-                        'description' => 'Order and receive solar panels, inverter, and batteries.',
-                        'sort_order' => 2,
-                    ],
-                    [
-                        'title' => 'Installation & wiring',
-                        'description' => 'Install solar panels, inverter, and complete wiring.',
-                        'sort_order' => 3,
-                    ],
-                    [
-                        'title' => 'System testing',
-                        'description' => 'Test system performance and safety.',
-                        'sort_order' => 4,
-                    ],
-                    [
-                        'title' => 'Customer handover',
-                        'description' => 'Explain system operation and hand over to the customer.',
-                        'sort_order' => 5,
-                    ],
-                ];
-
-                foreach ($milestones as $milestone) {
-                    ProjectMilestone::query()->create([
-                        'project_id' => $project->id,
-                        'title' => $milestone['title'],
-                        'description' => $milestone['description'],
-                        'status' => 'pending',
-                        'sort_order' => $milestone['sort_order'],
-                    ]);
-                }
-
-                // Record the initial project activity.
-                ProjectUpdate::query()->create([
-                    'project_id' => $project->id,
-                    'updated_by_type' => 'customer',
-                    'updated_by_id' => $customer->id,
-                    'old_status' => null,
-                    'new_status' => 'accepted',
-                    'progress_percent' => 0,
-                    'message' => 'The customer accepted the offer. The project is ready for preparation.',
-                    'visible_to_customer' => true,
-                ]);
+                [$project, $milestonesCreated] = $this->createAcceptedProject(
+                    $quote,
+                    $offer,
+                    (int) $customer->id,
+                    'The customer accepted the offer. The project is ready for preparation.'
+                );
 
                 // Email the company that its offer was accepted (queued until commit).
                 SendCompanyOfferDecisionEmail::dispatch($offer->id, CompanyOfferDecisionMail::ACCEPTED);
@@ -2163,7 +2108,7 @@ class CustomerRepository
                         'quote_status' => 'accepted',
                         'project_status' => 'accepted',
                         'progress_percent' => 0,
-                        'milestones_created' => count($milestones),
+                        'milestones_created' => $milestonesCreated,
                     ],
                 ];
             });
@@ -2177,6 +2122,78 @@ class CustomerRepository
                 'data' => null,
             ];
         }
+    }
+
+    /**
+     * Project for an accepted offer, waiting to start: the default installation checklist
+     * and the first update the customer sees. Call inside the acceptance transaction.
+     *
+     * @return array{0: Project, 1: int} the project and how many milestones were created
+     */
+    private function createAcceptedProject(Quote $quote, CompanyQuotation $offer, int $customerId, string $message): array
+    {
+        $project = Project::query()->create([
+            'quote_id' => $quote->id,
+            'company_quotation_id' => $offer->id,
+            'customer_id' => $customerId,
+            'company_id' => $offer->company_id,
+            'status' => 'accepted',
+            'progress_percent' => 0,
+            'accepted_at' => now(),
+        ]);
+
+        // Create the default installation checklist.
+        $milestones = [
+            [
+                'title' => 'Site inspection',
+                'description' => 'Visit the customer site and confirm installation details.',
+                'sort_order' => 1,
+            ],
+            [
+                'title' => 'Equipment procurement',
+                'description' => 'Order and receive solar panels, inverter, and batteries.',
+                'sort_order' => 2,
+            ],
+            [
+                'title' => 'Installation & wiring',
+                'description' => 'Install solar panels, inverter, and complete wiring.',
+                'sort_order' => 3,
+            ],
+            [
+                'title' => 'System testing',
+                'description' => 'Test system performance and safety.',
+                'sort_order' => 4,
+            ],
+            [
+                'title' => 'Customer handover',
+                'description' => 'Explain system operation and hand over to the customer.',
+                'sort_order' => 5,
+            ],
+        ];
+
+        foreach ($milestones as $milestone) {
+            ProjectMilestone::query()->create([
+                'project_id' => $project->id,
+                'title' => $milestone['title'],
+                'description' => $milestone['description'],
+                'status' => 'pending',
+                'sort_order' => $milestone['sort_order'],
+            ]);
+        }
+
+        // Record the initial project activity.
+        ProjectUpdate::query()->create([
+            'project_id' => $project->id,
+            'updated_by_type' => 'customer',
+            'updated_by_id' => $customerId,
+            'old_status' => null,
+            'new_status' => 'accepted',
+            'progress_percent' => 0,
+            'message' => $message,
+            'visible_to_customer' => true,
+        ]);
+
+        return [$project, count($milestones)];
     }
 
     public function rejectOffer(array $data): array
@@ -2309,6 +2326,12 @@ class CustomerRepository
             'ar_title' => $offer->title_ar,
             'description' => $offer->description_en,
             'ar_description' => $offer->description_ar,
+            // Usually 2:1; reserve the space with width/height before it loads.
+            'image' => $offer->image_path ? [
+                'url' => $offer->imageUrl(),
+                'width' => $offer->image_width,
+                'height' => $offer->image_height,
+            ] : null,
             'company' => $company ? [
                 'id' => (int) $company->id,
                 'name' => $company->name,
@@ -2368,8 +2391,9 @@ class CustomerRepository
 
     /**
      * The customer accepts with the devices from the load calculator. The peak load must be
-     * within the offer's limit. Creates a pending quote request for the offer's company only;
-     * the company reviews it and answers with a normal offer, which the customer accepts.
+     * within the offer's limit. Both sides have agreed, so this saves the request as accepted,
+     * the company's offer as selected (price and items from the package, with its invoice),
+     * and opens a project waiting to start, exactly as when a customer accepts an offer.
      */
     public function acceptPackageOffer(int $offerId, array $data): array
     {
@@ -2424,7 +2448,7 @@ class CustomerRepository
         }
 
         try {
-            $result = DB::transaction(function () use ($offer, $customerId, $data, $peakKw) {
+            $result = DB::transaction(function () use ($offer, $customer, $customerId, $data, $peakKw) {
                 // One acceptance at a time per offer, so a double tap cannot open two requests.
                 PackageOffer::withTrashed()->whereKey($offer->id)->lockForUpdate()->first();
 
@@ -2450,8 +2474,32 @@ class CustomerRepository
                 $quote->daily_load = $data['daily_load'];
                 $quote->appliances_ids = $data['appliances_ids'];
                 $quote->message = $data['message'] ?? null;
-                $quote->status = 'pending';
+                $quote->status = 'accepted';
                 $quote->save();
+
+                // The package is the company's offer, already accepted by the customer.
+                $quotation = new CompanyQuotation();
+                $quotation->quote_id = $quote->id;
+                $quotation->customer_id = $customerId;
+                $quotation->company_id = $offer->company_id;
+                $quotation->price = $offer->price;
+                $quotation->currency = $offer->currency;
+                $quotation->message = $offer->description_en ?: $offer->title_en;
+                $quotation->ar_message = $offer->description_ar ?: ($offer->title_ar ?: null);
+                $quotation->commission_type = CompanyQuotation::COMMISSION_COMPANY;
+                // SunXFinder commission at the company's rate now, as for a normal offer.
+                $quotation->applyCommission(round((float) SolarCompany::query()->whereKey($offer->company_id)->value('commission_rate'), 2));
+                $quotation->status = 'selected';
+                $quotation->save();
+
+                $this->createPackageOfferInvoice($offer, $quotation, $quote, $customer);
+
+                [$project] = $this->createAcceptedProject(
+                    $quote,
+                    $quotation,
+                    $customerId,
+                    'The customer accepted the package offer. The project is ready for preparation.'
+                );
 
                 $response ??= new PackageOfferResponse([
                     'package_offer_id' => $offer->id,
@@ -2464,7 +2512,10 @@ class CustomerRepository
                     'responded_at' => now(),
                 ])->save();
 
-                return ['quote' => $quote, 'response' => $response];
+                // Email the company that its offer was accepted (queued until commit).
+                SendCompanyOfferDecisionEmail::dispatch($quotation->id, CompanyOfferDecisionMail::ACCEPTED);
+
+                return ['quote' => $quote, 'quotation' => $quotation, 'project' => $project, 'response' => $response];
             });
         } catch (Throwable $e) {
             report($e);
@@ -2494,8 +2545,16 @@ class CustomerRepository
         return [
             'success' => true,
             'code' => 201,
-            'message' => 'Offer accepted. The company will review your devices and send you its offer.',
+            'message' => 'Offer accepted and project created. The company will contact you to start the installation.',
             'data' => [
+                'quote_id' => (int) $quote->id,
+                'offer_id' => (int) $result['quotation']->id,
+                'company_id' => (int) $quote->company_id,
+                'project_id' => (int) $result['project']->id,
+                'offer_status' => 'selected',
+                'quote_status' => 'accepted',
+                'project_status' => 'accepted',
+                'progress_percent' => 0,
                 'quote' => [
                     'id' => (int) $quote->id,
                     'reference' => '#Q-' . str_pad((string) $quote->id, 5, '0', STR_PAD_LEFT),
@@ -2513,6 +2572,44 @@ class CustomerRepository
                 'package_offer' => $this->formatPackageOffer($offer, $result['response']),
             ],
         ];
+    }
+
+    /** The accepted offer's invoice: the package lines and discount, billed to this customer. */
+    private function createPackageOfferInvoice(PackageOffer $offer, CompanyQuotation $quotation, Quote $quote, Customer $customer): Invoice
+    {
+        $company = $offer->company;
+
+        return Invoice::query()->create([
+            'company_quotation_id' => $quotation->id,
+            'quote_id' => $quote->id,
+            'company_id' => $offer->company_id,
+            'customer_id' => $customer->id,
+            // Unique per company: one package offer accepted once per request.
+            'invoice_number' => 'PKG-' . $offer->id . '-Q' . str_pad((string) $quote->id, 5, '0', STR_PAD_LEFT),
+            'invoice_date' => now()->toDateString(),
+            'payment_terms' => 'Due upon acceptance',
+            'payment_instructions' => null,
+            'currency' => $offer->currency,
+            'company_details' => [
+                'name' => $company?->name,
+                'email' => $company?->email,
+                'phone' => $company?->phone,
+                'address' => $company?->city,
+            ],
+            'customer_details' => [
+                'name' => $customer->full_name ?: $customer->username,
+                'email' => $customer->email,
+                'phone' => $customer->phone,
+                'address' => $customer->address,
+            ],
+            'items' => $offer->items ?? [],
+            'subtotal' => $offer->subtotal,
+            'discount' => $offer->discount,
+            'tax_rate' => 0,
+            'tax' => 0,
+            'shipping' => 0,
+            'balance_due' => $offer->price,
+        ]);
     }
 
     /** "Not interested". Can later change to accepted while the offer is open. */
@@ -2540,7 +2637,7 @@ class CustomerRepository
             return [
                 'success' => false,
                 'code' => 409,
-                'message' => 'You already accepted this offer. Cancel the request from My Quotes instead.',
+                'message' => 'You already accepted this offer, and its project has been created.',
                 'data' => ['reason' => 'already_accepted', 'quote_id' => $response->quote_id !== null ? (int) $response->quote_id : null],
             ];
         }

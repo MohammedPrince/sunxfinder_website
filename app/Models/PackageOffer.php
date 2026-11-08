@@ -29,6 +29,11 @@ class PackageOffer extends Model
         'title_ar',
         'description_en',
         'description_ar',
+        'image_path',
+        'image_width',
+        'image_height',
+        'created_by_type',
+        'created_by_id',
         'max_load_kw',
         'currency',
         'items',
@@ -51,6 +56,60 @@ class PackageOffer extends Model
             'expires_at' => 'datetime',
             'sent_at' => 'datetime',
         ];
+    }
+
+    /** Where uploaded offer images are stored (under public/). */
+    public const IMAGE_DIR = 'main/images/package-offers';
+
+    /**
+     * Validation for the shared offer builder (company Offers page and admin campaign).
+     * Fields are nested under $prefix, e.g. package[title_en], package[items][0][quantity].
+     */
+    public static function rules(string $prefix = 'package'): array
+    {
+        $p = $prefix . '.';
+
+        return [
+            $prefix => ['required', 'array'],
+            $p . 'title_en' => ['required', 'string', 'min:3', 'max:150'],
+            $p . 'title_ar' => ['nullable', 'string', 'max:150'],
+            $p . 'description_en' => ['nullable', 'string', 'max:2000'],
+            $p . 'description_ar' => ['nullable', 'string', 'max:2000'],
+            $p . 'max_load_kw' => ['required', 'numeric', 'min:0.1', 'max:1000'],
+            $p . 'currency' => ['required', 'in:SDG,USD'],
+            $p . 'expires_at' => ['nullable', 'date', 'after:now'],
+            $p . 'discount' => ['nullable', 'numeric', 'min:0', 'max:9999999999999'],
+            $p . 'items' => ['required', 'array', 'min:1', 'max:25'],
+            $p . 'items.*.description' => ['required', 'string', 'min:2', 'max:255'],
+            $p . 'items.*.quantity' => ['required', 'numeric', 'gt:0', 'max:10000'],
+            $p . 'items.*.unit_price' => ['required', 'numeric', 'min:0', 'max:9999999999999'],
+            $p . 'items.*.product_id' => ['nullable', 'integer', 'min:1'],
+            $p . 'items.*.type' => ['nullable', 'in:' . implode(',', array_keys(Product::TYPES))],
+        ];
+    }
+
+    /** Readable field names for the builder's errors, e.g. "package.title_en" -> "offer title". */
+    public static function attributes(string $prefix = 'package'): array
+    {
+        $p = $prefix . '.';
+
+        return [
+            $p . 'title_en' => __('company/messages.package_offers.title_en'),
+            $p . 'title_ar' => __('company/messages.package_offers.title_ar'),
+            $p . 'max_load_kw' => __('company/messages.package_offers.max_load'),
+            $p . 'currency' => __('company/messages.quote.currency'),
+            $p . 'expires_at' => __('company/messages.package_offers.valid_until'),
+            $p . 'discount' => __('company/messages.quote.discount'),
+            $p . 'items' => __('company/messages.package_offers.items'),
+            $p . 'items.*.description' => __('company/messages.quote.item_description'),
+            $p . 'items.*.quantity' => __('company/messages.quote.quantity'),
+            $p . 'items.*.unit_price' => __('company/messages.quote.unit_price'),
+        ];
+    }
+
+    public function imageUrl(): ?string
+    {
+        return $this->image_path ? asset($this->image_path) : null;
     }
 
     public function company(): BelongsTo

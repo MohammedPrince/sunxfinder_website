@@ -106,10 +106,19 @@ class Notification extends Model
         return $this->belongsTo(PackageOffer::class, 'package_offer_id')->withTrashed();
     }
 
-    /** Offer card fields copied from a package offer, so the card matches what was sent. */
+    /**
+     * Offer card fields copied from a package offer, so the card matches what was sent.
+     * The offer's image becomes the notification image (a campaign may upload its own instead).
+     */
     public static function offerCardFields(PackageOffer $offer): array
     {
-        return [
+        $image = $offer->image_path ? [
+            'image_path' => $offer->image_path,
+            'image_width' => $offer->image_width,
+            'image_height' => $offer->image_height,
+        ] : [];
+
+        return $image + [
             'company_id' => $offer->company_id,
             'package_offer_id' => $offer->id,
             'offer_title_en' => $offer->title_en,

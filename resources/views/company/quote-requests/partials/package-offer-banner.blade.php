@@ -18,7 +18,7 @@
             {{ __('company/messages.package_offers.banner_load', ['max' => $packageOffer->maxLoadLabel(), 'peak' => $quote->peak_load ?: '—']) }}
             · {{ number_format((float) $packageOffer->price, 2) }} {{ $packageOffer->currency }}
         </p>
-        <p>{{ $fromPackage ? __('company/messages.package_offers.banner_review') : __('company/messages.package_offers.banner_done') }}</p>
+        <p>{{ __('company/messages.package_offers.banner_done') }}</p>
         @if ($peakKw !== null && $peakKw > (float) $packageOffer->max_load_kw)
             <p class="field-error">{{ __('company/messages.package_offers.banner_over') }}</p>
         @endif

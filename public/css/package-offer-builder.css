@@ -1,0 +1,278 @@
+/*
+ * Package offer builder: the same form in the company panel (Offers) and the admin
+ * customer campaign. Everything is scoped to .pkg-builder so it is safe on both pages.
+ */
+
+.pkg-builder {
+    display: grid;
+    gap: 16px;
+}
+
+.pkg-builder .pkg-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.pkg-builder .pkg-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.pkg-builder .pkg-field {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.pkg-builder .pkg-field > label {
+    color: #25364d;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.pkg-builder .pkg-field > label b {
+    color: #dc2626;
+}
+
+.pkg-builder .pkg-field .form-control,
+.pkg-builder .pkg-field .select-control,
+.pkg-builder .offer-invoice-item .form-control {
+    width: 100%;
+    min-width: 0;
+    min-height: 39px;
+    box-sizing: border-box;
+    padding: 9px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    outline: none;
+    background: #fff;
+    color: #172b4d;
+    font: inherit;
+    font-size: 13px;
+}
+
+.pkg-builder .pkg-field textarea.form-control {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.pkg-builder .form-control:focus,
+.pkg-builder .select-control:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgb(59 130 246 / 12%);
+}
+
+.pkg-builder .pkg-hint {
+    color: #64748b;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.pkg-builder .field-error {
+    color: #dc2626;
+    font-size: 11px;
+}
+
+/* Items */
+.pkg-builder .pkg-items-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.pkg-builder .pkg-items-head strong {
+    display: block;
+    color: #172b4d;
+    font-size: 14px;
+}
+
+.pkg-builder .pkg-items-head span {
+    display: block;
+    margin-top: 3px;
+    color: #64748b;
+    font-size: 11px;
+}
+
+.pkg-builder .offer-invoice-items {
+    display: grid;
+    gap: 8px;
+}
+
+.pkg-builder .offer-invoice-item {
+    display: grid;
+    grid-template-columns: minmax(180px, 2fr) minmax(70px, .55fr) minmax(110px, .8fr) minmax(90px, .7fr) 32px;
+    align-items: end;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid #e5edf7;
+    border-radius: 9px;
+    background: #fff;
+}
+
+.pkg-builder .offer-invoice-item .offer-form-group {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.pkg-builder .offer-invoice-item .offer-form-group label,
+.pkg-builder .offer-invoice-item-total span {
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.pkg-builder .offer-invoice-item .offer-invoice-product {
+    min-height: 34px;
+    padding: 6px 8px;
+    background: #f8fafc;
+    color: #334155;
+}
+
+.pkg-builder .offer-invoice-item-total {
+    display: grid;
+    gap: 6px;
+    min-height: 39px;
+    align-content: center;
+    color: #172b4d;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.pkg-builder .offer-invoice-remove {
+    display: grid;
+    width: 32px;
+    height: 36px;
+    place-items: center;
+    border: 1px solid #fee2e2;
+    border-radius: 8px;
+    background: #fff7f7;
+    color: #dc2626;
+    cursor: pointer;
+}
+
+.pkg-builder .offer-invoice-remove:disabled {
+    opacity: .35;
+    cursor: not-allowed;
+}
+
+.pkg-builder .offer-invoice-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.pkg-builder .offer-invoice-suggestions span {
+    color: #64748b;
+    font-size: 11px;
+}
+
+.pkg-builder .offer-invoice-suggestions button {
+    padding: 5px 10px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 999px;
+    background: #fff;
+    color: #475569;
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.pkg-builder .offer-invoice-suggestions button:hover {
+    border-color: #f4510b;
+    color: #f4510b;
+}
+
+/* Totals */
+.pkg-builder .pkg-totals {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid #e5edf7;
+    border-radius: 10px;
+    background: #f8fafc;
+}
+
+.pkg-builder .pkg-totals div {
+    display: grid;
+    gap: 3px;
+}
+
+.pkg-builder .pkg-totals span {
+    color: #64748b;
+    font-size: 11px;
+}
+
+.pkg-builder .pkg-totals strong {
+    color: #172b4d;
+    font-size: 14px;
+}
+
+.pkg-builder .pkg-totals .pkg-total strong {
+    color: #f4510b;
+    font-size: 16px;
+}
+
+.pkg-builder .pkg-minimum {
+    color: #b45309;
+    font-size: 12px;
+}
+
+/* Image */
+.pkg-image-current {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.pkg-image-current img {
+    width: 160px;
+    max-width: 40%;
+    aspect-ratio: 2 / 1;
+    object-fit: cover;
+    border: 1px solid #e5edf7;
+    border-radius: 8px;
+}
+
+.pkg-offer-image {
+    display: block;
+    width: 100%;
+    aspect-ratio: 2 / 1;
+    object-fit: cover;
+    margin-bottom: 12px;
+    border-radius: 10px;
+}
+
+/* Column labels only above the first row on wide screens. */
+@media (min-width: 701px) {
+    .pkg-builder .offer-invoice-item:not(:first-child) .offer-form-group label,
+    .pkg-builder .offer-invoice-item:not(:first-child) .offer-invoice-item-total span {
+        display: none;
+    }
+}
+
+@media (max-width: 700px) {
+    .pkg-builder .pkg-grid,
+    .pkg-builder .pkg-grid-3,
+    .pkg-builder .pkg-totals {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .pkg-builder .pkg-items-head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .pkg-builder .offer-invoice-item {
+        grid-template-columns: minmax(0, 1fr) minmax(70px, .45fr) 32px;
+    }
+
+    .pkg-builder .offer-invoice-item-description {
+        grid-column: 1 / -1;
+    }
+}

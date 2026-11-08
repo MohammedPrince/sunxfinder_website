@@ -127,7 +127,13 @@ class PackageOfferTest extends TestCase
         ]);
     }
 
+    /** The shared builder posts its fields as package[...]. */
     private function offerPayload(array $overrides = []): array
+    {
+        return ['package' => $this->packageFields($overrides)];
+    }
+
+    private function packageFields(array $overrides = []): array
     {
         return array_merge([
             'title_en' => '5 kW home system',
@@ -185,8 +191,9 @@ class PackageOfferTest extends TestCase
         $this->assertArrayNotHasKey('product_id', $offer->items[2]);
         $this->assertSame('active', $offer->status);
 
-        $this->get(route('company.offers.index'))->assertOk()->assertSee('5 kW home system');
-        $this->get(route('company.offers.show', $offer->id))->assertOk()->assertSee('Tiger Neo 550W');
+        // No untranslated keys (e.g. the pagination label) on the pages.
+        $this->get(route('company.offers.index'))->assertOk()->assertSee('5 kW home system')->assertDontSee('company/messages.');
+        $this->get(route('company.offers.show', $offer->id))->assertOk()->assertSee('Tiger Neo 550W')->assertDontSee('company/messages.');
         $this->get(route('company.offers.create'))->assertOk()->assertSee('Deye 5kW');
     }
 
@@ -197,9 +204,53 @@ class PackageOfferTest extends TestCase
 
         $this->post(route('company.offers.store'), $this->offerPayload([
             'items' => [['product_id' => $foreign->id, 'description' => 'Foreign panel', 'quantity' => '10', 'unit_price' => '500000']],
-        ]))->assertSessionHasErrors('items');
+        ]))->assertSessionHasErrors('package.items');
 
         $this->assertSame(0, PackageOffer::query()->count());
+    }
+
+    public function test_offer_image_is_stored_and_sent_with_the_push(): void
+    {
+        $this->post(route('company.offers.store'), $this->offerPayload() + [
+            'image' => \Illuminate\Http\UploadedFile::fake()->image('offer.jpg', 1600, 800),
+        ])->assertSessionHasNoErrors();
+
+        $offer = PackageOffer::query()->latest('id')->firstOrFail();
+        $this->assertNotNull($offer->image_path);
+        $this->assertStringStartsWith(PackageOffer::IMAGE_DIR . '/', $offer->image_path);
+        $this->assertFileExists(public_path($offer->image_path));
+        $this->assertSame(1200, (int) $offer->image_width);
+
+        $this->sendOffer($offer, [$this->customer->id]);
+        $this->assertSame($offer->image_path, Notification::query()->sole()->image_path);
+
+        Sanctum::actingAs($this->customer);
+        $this->getJson('/api/v1/customer/package-offers/' . $offer->id)
+            ->assertOk()
+            ->assertJsonPath('data.package_offer.image.url', asset($offer->image_path))
+            ->assertJsonPath('data.package_offer.image.width', 1200);
+        $this->getJson('/api/v1/customer/notifications')
+            ->assertOk()
+            ->assertJsonPath('data.notifications.0.image.url', asset($offer->image_path));
+
+        \Illuminate\Support\Facades\File::delete(public_path($offer->image_path));
+    }
+
+    public function test_company_sends_offers_to_its_own_customers_even_when_opened_to_all(): void
+    {
+        // Admin opened all customers for this company's other notifications.
+        $this->company->forceFill(['can_notify_all_customers' => true])->save();
+        $stranger = $this->makeCustomer('stranger');
+        $offer = $this->createOffer();
+
+        $this->get(route('company.offers.show', $offer->id))
+            ->assertOk()
+            ->assertSee('own customer')
+            ->assertDontSee('stranger customer');
+
+        $this->post(route('company.offers.send', $offer->id), ['customer_ids' => [$stranger->id]])
+            ->assertSessionHasErrors('customer_ids');
+        $this->assertSame(0, Notification::query()->count());
     }
 
     public function test_sending_pushes_the_offer_and_locks_it(): void
@@ -217,7 +268,7 @@ class PackageOfferTest extends TestCase
         // Customers hold a copy now: no edits, no delete.
         $this->get(route('company.offers.edit', $offer->id))->assertRedirect(route('company.offers.show', $offer->id));
         $this->put(route('company.offers.update', $offer->id), $this->offerPayload(['title_en' => 'Changed']))
-            ->assertSessionHasErrors('title_en');
+            ->assertSessionHasErrors('package.title_en');
         $this->delete(route('company.offers.destroy', $offer->id));
         $this->assertNotNull($offer->fresh());
 
@@ -294,7 +345,7 @@ class PackageOfferTest extends TestCase
         $this->assertSame(0, Quote::query()->whereNotNull('package_offer_id')->count());
     }
 
-    public function test_accepting_sends_the_devices_to_the_company_only_for_review(): void
+    public function test_accepting_saves_the_offer_as_accepted_and_opens_a_project(): void
     {
         $offer = $this->createOffer();
         $this->sendOffer($offer, [$this->customer->id]);
@@ -303,18 +354,45 @@ class PackageOfferTest extends TestCase
 
         $response = $this->postJson('/api/v1/customer/package-offers/' . $offer->id . '/accept', $this->acceptPayload())
             ->assertCreated()
+            ->assertJsonPath('data.quote_status', 'accepted')
+            ->assertJsonPath('data.offer_status', 'selected')
+            ->assertJsonPath('data.project_status', 'accepted')
             ->assertJsonPath('data.package_offer.my_response.status', 'accepted')
             ->assertJsonPath('data.package_offer.can_respond', false);
 
-        $quote = Quote::query()->findOrFail($response->json('data.quote.id'));
+        $quote = Quote::query()->findOrFail($response->json('data.quote_id'));
 
-        $this->assertSame('pending', $quote->status);
+        $this->assertSame('accepted', $quote->status);
         $this->assertSame($this->company->id, (int) $quote->company_id);
         $this->assertSame($offer->id, (int) $quote->package_offer_id);
         $this->assertSame('5 kW home system', $quote->quote_name);
         $this->assertSame([1 => 2, 4 => 1], $quote->applianceQuantities());
-        // The company reviews first: no offer, no project yet.
-        $this->assertSame(0, CompanyQuotation::query()->where('quote_id', $quote->id)->count());
+
+        // Accepted on both sides: the company's offer is selected, with the package invoice.
+        $quotation = CompanyQuotation::query()->where('quote_id', $quote->id)->sole();
+        $this->assertSame('selected', $quotation->status);
+        $this->assertSame($response->json('data.offer_id'), $quotation->id);
+        $this->assertSame('2300000.00', $quotation->price);
+        $this->assertSame($this->customer->id, (int) $quotation->customer_id);
+
+        $invoice = Invoice::query()->where('company_quotation_id', $quotation->id)->sole();
+        $this->assertSame('2300000.00', $invoice->balance_due);
+        $this->assertSame('100000.00', $invoice->discount);
+        $this->assertCount(3, $invoice->items);
+
+        // The project is waiting to start, with the usual checklist.
+        $project = \App\Models\Project::query()->where('quote_id', $quote->id)->sole();
+        $this->assertSame($response->json('data.project_id'), $project->id);
+        $this->assertSame('accepted', $project->status);
+        $this->assertSame($quotation->id, (int) $project->company_quotation_id);
+        $this->assertSame(5, $project->milestones()->count());
+
+        // The customer sees it in My Quotes as accepted, with the offer and its project.
+        $myQuote = collect($this->postJson(route('my-quotes'))->assertOk()->json('data.quotes'))->firstWhere('id', $quote->id);
+        $this->assertSame('accepted', $myQuote['status']);
+        $this->assertSame($project->id, $myQuote['project_id']);
+        $this->assertSame('selected', $myQuote['offers'][0]['status']);
+        $this->assertSame('PKG-' . $offer->id . '-Q' . str_pad((string) $quote->id, 5, '0', STR_PAD_LEFT), $myQuote['offers'][0]['invoice']['invoice_number']);
 
         // A second tap does not open another request.
         $this->postJson('/api/v1/customer/package-offers/' . $offer->id . '/accept', $this->acceptPayload())
@@ -324,22 +402,23 @@ class PackageOfferTest extends TestCase
 
         $this->postJson('/api/v1/customer/package-offers/' . $offer->id . '/decline')->assertStatus(409);
 
-        $myQuote = collect($this->postJson(route('my-quotes'))->assertOk()->json('data.quotes'))->firstWhere('id', $quote->id);
         $this->assertSame($offer->id, $myQuote['package_offer_id']);
 
-        // The company sees who accepted, and the offer form starts from the package.
+        // The company sees who accepted, with a link straight to the project.
         $this->actingAs($this->company, 'company');
 
         $this->get(route('company.offers.show', $offer->id))
             ->assertOk()
             ->assertSee('own customer')
-            ->assertSee(route('company.quote-requests.show', $quote->id));
+            ->assertSee(route('company.projects.show', $project->id));
+
+        $this->get(route('company.projects.index'))->assertOk();
+        $this->get(route('company.projects.show', $project->id))->assertOk();
 
         $this->get(route('company.quote-requests.show', $quote->id))
             ->assertOk()
             ->assertSee('package-offer-banner', false)
-            ->assertSee('value="' . $this->panel->id . '" data-type="solar_panel"', false)
-            ->assertSee('Installed in 3 days.');
+            ->assertSee(route('company.projects.show', $project->id));
 
         // Another company cannot see this request.
         $this->actingAs($this->makeCompany('Nile Power', 'nile'), 'company');
@@ -418,9 +497,9 @@ class PackageOfferTest extends TestCase
             'format' => 'text',
             'message_en' => 'A ready system from Red Sea Solar.',
             'company_id' => $this->company->id,
+            'offer_source' => 'existing',
             'package_offer_id' => $offer->id,
-            'has_offer' => false,
-            // Hand-typed card values are replaced by the offer's.
+            // Hand-typed card values are ignored: the card comes from the offer.
             'offer_price' => 1,
         ], null, null);
 
@@ -428,8 +507,138 @@ class PackageOfferTest extends TestCase
         $this->assertSame('2300000.00', $notification->offer_price);
         $this->assertNotNull($offer->fresh()->sent_at);
 
+        // Admin may send a company's offer to any customer.
         Sanctum::actingAs($stranger);
         $this->getJson('/api/v1/customer/package-offers/' . $offer->id)->assertOk();
+    }
+
+    public function test_admin_builds_a_new_offer_for_a_company_with_the_campaign_image(): void
+    {
+        $stranger = $this->makeCustomer('stranger');
+
+        $notification = app(AdminRepository::class)->publishCampaign([
+            'type' => 'offer',
+            'audience_type' => 'selected',
+            'customer_ids' => [$stranger->id],
+            'title_en' => 'Big week',
+            'format' => 'text',
+            'message_en' => 'A ready system from Red Sea Solar.',
+            'company_id' => $this->company->id,
+            'offer_source' => 'new',
+            'package' => $this->packageFields(['title_en' => 'Admin 5 kW deal']),
+        ], \Illuminate\Http\UploadedFile::fake()->image('campaign.jpg', 1200, 600), 7);
+
+        $offer = PackageOffer::query()->sole();
+        $this->assertSame('Admin 5 kW deal', $offer->title_en);
+        $this->assertSame($this->company->id, (int) $offer->company_id);
+        $this->assertSame('admin', $offer->created_by_type);
+        $this->assertSame(7, (int) $offer->created_by_id);
+        $this->assertSame('2300000.00', $offer->price);
+        $this->assertNotNull($offer->sent_at);
+        // One stored image, shared by the offer and the notification.
+        $this->assertNotNull($offer->image_path);
+        $this->assertSame($offer->image_path, $notification->image_path);
+        $this->assertSame($offer->id, (int) $notification->package_offer_id);
+
+        // The company sees it with its own offers, and the customer can accept it.
+        $this->get(route('company.offers.index'))->assertOk()->assertSee('Admin 5 kW deal');
+        Sanctum::actingAs($stranger);
+        $this->postJson('/api/v1/customer/package-offers/' . $offer->id . '/accept', $this->acceptPayload())->assertCreated();
+
+        \Illuminate\Support\Facades\File::delete(public_path($offer->image_path));
+    }
+
+    public function test_admin_offer_needs_a_product_of_the_selected_company(): void
+    {
+        $other = $this->makeCompany('Nile Power', 'nile');
+
+        try {
+            app(AdminRepository::class)->publishCampaign([
+                'type' => 'offer',
+                'audience_type' => 'selected',
+                'customer_ids' => [$this->customer->id],
+                'title_en' => 'Big week',
+                'format' => 'text',
+                'message_en' => 'Offer.',
+                'company_id' => $other->id,
+                'offer_source' => 'new',
+                // Red Sea Solar's products, but the campaign is for Nile Power.
+                'package' => $this->packageFields(),
+            ], null, null);
+            $this->fail('A product of another company was accepted.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->assertArrayHasKey('package.items', $e->errors());
+        }
+
+        $this->assertSame(0, PackageOffer::query()->count());
+        $this->assertSame(0, Notification::query()->count());
+    }
+
+    public function test_admin_campaign_page_builds_offers_and_posts_them(): void
+    {
+        $offer = $this->createOffer();
+        $admin = \App\Models\Admin::query()->forceCreate([
+            'username' => 'admin-test',
+            'email' => 'admin-test@example.test',
+            'password' => Hash::make('secret123'),
+            'is_active' => true,
+        ]);
+        $this->actingAs($admin, 'admin');
+
+        // The shared builder with every company's products, and the company's open offers.
+        $this->get(route('admin.notifications.campaign.create', ['company_id' => $this->company->id]))
+            ->assertOk()
+            ->assertSee('data-package-builder', false)
+            ->assertSee('name="package[items][0][description]"', false)
+            ->assertSee('data-company="' . $this->company->id . '"', false)
+            ->assertSee('Tiger Neo 550W')
+            ->assertSee('5 kW home system');
+
+        // A new offer must pass the same builder rules as in the company panel.
+        $this->post(route('admin.notifications.campaign.store'), [
+            'type' => 'offer',
+            'audience_type' => 'selected',
+            'customer_ids' => [$this->customer->id],
+            'title_en' => 'Big week',
+            'format' => 'text',
+            'message_en' => 'Offer.',
+            'company_id' => $this->company->id,
+            'offer_source' => 'new',
+            'package' => $this->packageFields(['max_load_kw' => '', 'items' => []]),
+        ])->assertSessionHasErrors(['package.max_load_kw', 'package.items']);
+
+        $this->post(route('admin.notifications.campaign.store'), [
+            'type' => 'offer',
+            'audience_type' => 'selected',
+            'customer_ids' => [$this->customer->id],
+            'title_en' => 'Big week',
+            'format' => 'text',
+            'message_en' => 'Offer.',
+            'company_id' => $this->company->id,
+            'offer_source' => 'existing',
+            'package_offer_id' => $offer->id,
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame($offer->id, (int) Notification::query()->latest('id')->first()->package_offer_id);
+    }
+
+    public function test_news_campaigns_carry_no_offer(): void
+    {
+        $offer = $this->createOffer();
+
+        $notification = app(AdminRepository::class)->publishCampaign([
+            'type' => 'promotion',
+            'audience_type' => 'selected',
+            'customer_ids' => [$this->customer->id],
+            'title_en' => 'News',
+            'format' => 'text',
+            'message_en' => 'Hello.',
+            'package_offer_id' => $offer->id,
+            'offer_title_en' => 'Hand-typed',
+        ], null, null);
+
+        $this->assertNull($notification->package_offer_id);
+        $this->assertNull($notification->offer_title_en);
     }
 
     public function test_load_text_is_read_in_kw(): void

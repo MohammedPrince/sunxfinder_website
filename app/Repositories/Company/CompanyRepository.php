@@ -15,6 +15,7 @@ use App\Models\Notification;
 use App\Models\PackageOffer;
 use App\Models\PackageOfferResponse;
 use App\Models\Product;
+use App\Repositories\PackageOfferRepository;
 use App\Models\Project;
 use App\Models\Quote;
 use App\Models\Rating;
@@ -1229,50 +1230,10 @@ class CompanyRepository
         return $quotation;
     }
 
-    /**
-     * Invoice-style lines with their totals. A line can name one of this company's products
-     * (product_id); its type then comes from the product. Lines without a product keep an
-     * optional type (solar_panel, inverter, battery, other) and their free-text description.
-     */
+    /** Invoice lines with product picking, the same way package offers build theirs. */
     private function normalizeOfferItems(array $items, int $companyId, string $errorKey = 'invoice_items'): array
     {
-        $productIds = collect($items)
-            ->pluck('product_id')
-            ->filter(fn($id) => is_numeric($id) && (int) $id > 0)
-            ->map(fn($id) => (int) $id)
-            ->unique()
-            ->values();
-
-        $products = $productIds->isEmpty()
-            ? collect()
-            : Product::query()
-                ->where('company_id', $companyId)
-                ->whereIn('id', $productIds)
-                ->get(['id', 'type'])
-                ->keyBy('id');
-
-        if ($products->count() !== $productIds->count()) {
-            throw ValidationException::withMessages([
-                $errorKey => __('company/messages.package_offers.product_invalid'),
-            ]);
-        }
-
-        return collect($items)->map(function (array $item) use ($products) {
-            $quantity = (float) $item['quantity'];
-            $unitPrice = round((float) $item['unit_price'], 2);
-            $product = is_numeric($item['product_id'] ?? null) ? $products->get((int) $item['product_id']) : null;
-            $type = $product?->type
-                ?? (array_key_exists((string) ($item['type'] ?? ''), Product::TYPES) ? $item['type'] : null);
-
-            return array_filter([
-                'type' => $type,
-                'product_id' => $product?->id,
-                'description' => trim($item['description']),
-                'quantity' => $quantity,
-                'unit_price' => $unitPrice,
-                'total' => round($quantity * $unitPrice, 2),
-            ], fn($value) => $value !== null);
-        })->values()->all();
+        return app(PackageOfferRepository::class)->normalizeItems($items, $companyId, $errorKey);
     }
 
     private function makeQuoteInvoiceData(Quote $quote, SolarCompany $company, array $data): array
@@ -1509,12 +1470,28 @@ class CompanyRepository
     /** This company's active products for the item pickers, grouped by type in the views. */
     public function getCompanyProductOptions(): \Illuminate\Support\Collection
     {
-        return Product::query()
-            ->where('company_id', $this->authenticatedCompanyId())
-            ->where('is_active', true)
-            ->orderBy('type')
-            ->orderBy('name')
-            ->get(['id', 'name', 'model', 'type']);
+        return app(PackageOfferRepository::class)->productOptions([$this->authenticatedCompanyId()]);
+    }
+
+    /**
+     * Customers a company may send its package offers to: only its own customers (who
+     * accepted one of its offers) that the app can reach. Unlike other notifications,
+     * admin opening "all customers" does not apply to offers.
+     */
+    public function getOfferRecipients(): \Illuminate\Support\Collection
+    {
+        return $this->ownReachableCustomers($this->authenticatedCompanyId())
+            ->select('id', 'full_name', 'username', 'city')
+            ->orderBy('full_name')
+            ->get();
+    }
+
+    private function ownReachableCustomers(int $companyId): Builder
+    {
+        return $this->onlyCompanyCustomers(
+            Customer::query()->where('status', 'active')->where('is_active', true),
+            $companyId
+        )->whereHas('deviceTokens', fn($tokens) => $tokens->active());
     }
 
     public function getPackageOffers(array $filters = []): LengthAwarePaginator
@@ -1603,45 +1580,18 @@ class CompanyRepository
         ];
     }
 
-    public function savePackageOffer(array $data, ?int $id = null): PackageOffer
+    public function savePackageOffer(array $data, ?int $id = null, ?\Illuminate\Http\UploadedFile $image = null): PackageOffer
     {
         $companyId = $this->authenticatedCompanyId();
-        $offer = $id ? $this->findPackageOffer($id) : new PackageOffer(['company_id' => $companyId]);
 
-        if ($offer->isLocked()) {
-            throw ValidationException::withMessages([
-                'title_en' => __('company/messages.package_offers.locked'),
-            ]);
-        }
-
-        $items = $this->normalizeOfferItems($data['items'], $companyId, 'items');
-        $subtotal = round(array_sum(array_column($items, 'total')), 2);
-        $discount = min($subtotal, round((float) ($data['discount'] ?? 0), 2));
-        $price = round($subtotal - $discount, 2);
-
-        if ($price < 1000 || $subtotal > 9999999999999) {
-            throw ValidationException::withMessages([
-                'items' => __('company/messages.quote.balance_limit'),
-            ]);
-        }
-
-        $offer->fill([
-            'title_en' => trim($data['title_en']),
-            'title_ar' => filled($data['title_ar'] ?? null) ? trim($data['title_ar']) : null,
-            'description_en' => filled($data['description_en'] ?? null) ? trim($data['description_en']) : null,
-            'description_ar' => filled($data['description_ar'] ?? null) ? trim($data['description_ar']) : null,
-            'max_load_kw' => round((float) $data['max_load_kw'], 2),
-            'currency' => $data['currency'],
-            'items' => $items,
-            'subtotal' => $subtotal,
-            'discount' => $discount,
-            'price' => $price,
-            'expires_at' => $data['expires_at'] ?? null,
-        ]);
-        $offer->status ??= PackageOffer::STATUS_ACTIVE;
-        $offer->save();
-
-        return $offer;
+        return app(PackageOfferRepository::class)->save(
+            $companyId,
+            $data,
+            $id ? $this->findPackageOffer($id) : null,
+            $image,
+            'company',
+            $companyId
+        );
     }
 
     /** Stops new acceptances. Requests already sent stay with the company. */
@@ -1667,10 +1617,7 @@ class CompanyRepository
         return ['success' => true, 'message' => __('company/messages.package_offers.deleted')];
     }
 
-    /**
-     * Pushes the offer to the chosen customers through the normal company notification
-     * rules (own customers, or all customers when admin allows it, with the monthly limit).
-     */
+    /** Pushes the offer, with its image, to the chosen customers: the company's own customers only. */
     public function sendPackageOffer(int $id, array $data): Notification
     {
         $offer = $this->findPackageOffer($id);
@@ -1692,10 +1639,11 @@ class CompanyRepository
             'title_ar' => $offer->title_ar,
             'message_en' => filled($data['message_en'] ?? null)
                 ? trim($data['message_en'])
-                : "A ready solar system for loads up to {$load} kW, for {$price}. Open the offer, add your devices and send them to us.",
+                : "A ready solar system for loads up to {$load} kW, for {$price}. Open the offer, add your devices and accept it.",
             'message_ar' => filled($data['message_ar'] ?? null)
                 ? trim($data['message_ar'])
-                : "منظومة طاقة شمسية جاهزة لأحمال حتى {$load} كيلوواط، بسعر {$price}. افتح العرض وأضف أجهزتك وأرسلها إلينا.",
+                : "منظومة طاقة شمسية جاهزة لأحمال حتى {$load} كيلوواط، بسعر {$price}. افتح العرض وأضف أجهزتك واقبله.",
+            'own_customers_only' => true,
         ] + Notification::offerCardFields($offer));
 
         if (!$offer->sent_at) {
@@ -1845,9 +1793,12 @@ class CompanyRepository
                         ]);
                     }
 
-                    $validCustomers = $senderType === 'company' && !$automatic
-                        ? $this->notifiableCustomers((int) $senderId)
-                        : Customer::query();
+                    $validCustomers = match (true) {
+                        $senderType !== 'company' || $automatic => Customer::query(),
+                        // Package offers go to the company's own customers only.
+                        !empty($data['own_customers_only']) => $this->ownReachableCustomers((int) $senderId),
+                        default => $this->notifiableCustomers((int) $senderId),
+                    };
 
                     $existingIds = $validCustomers
                         ->whereIn('id', $customerIds)
@@ -1913,6 +1864,7 @@ class CompanyRepository
                     $offerFields = array_intersect_key($data, array_flip([
                         'company_id', 'package_offer_id', 'offer_title_en', 'offer_title_ar',
                         'offer_price', 'offer_old_price', 'offer_currency', 'offer_expires_at',
+                        'image_path', 'image_width', 'image_height',
                     ]));
 
                     $notification = Notification::create([
@@ -2091,13 +2043,14 @@ class CompanyRepository
                 $message = Helper::withNotificationSound(CloudMessage::new())
                     ->toToken($device->fcm_token)
                     ->withNotification(
-                        FcmNotification::create($title, $body)
+                        FcmNotification::create($title, $body, $notification->imageUrl())
                     )
                     ->withData(array_filter([
                         'notification_id' => (string) $notification->id,
                         'type' => (string) $notification->type,
                         'lang' => $lang,
                         'company_id' => $notification->company_id ? (string) $notification->company_id : '',
+                        'image_url' => (string) $notification->imageUrl(),
                         // Open the package offer screen on tap.
                         'package_offer_id' => $notification->package_offer_id ? (string) $notification->package_offer_id : '',
                     ], fn($value) => $value !== ''));

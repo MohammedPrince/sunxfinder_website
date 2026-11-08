@@ -2415,6 +2415,9 @@ class MainController extends Controller
     {
         $maxKb = $this->appSliderMaxUploadKb();
 
+        $isOffer = $request->input('type') === 'offer';
+        $buildsOffer = $isOffer && $request->input('offer_source') === 'new';
+
         $data = $request->validate([
             'type' => ['required', Rule::in(array_keys(\App\Models\Notification::CAMPAIGN_TYPES))],
             'audience_type' => ['required', Rule::in(['all', 'city', 'selected'])],
@@ -2432,26 +2435,20 @@ class MainController extends Controller
             'link_label_en' => ['nullable', 'string', 'max:60'],
             'link_label_ar' => ['nullable', 'string', 'max:60'],
             'company_id' => ['nullable', Rule::requiredIf(in_array($request->input('type'), ['offer', 'new_company'], true)), 'integer', Rule::exists('tbl_solar_companies', 'id')->whereNull('deleted_at')],
-            'has_offer' => ['nullable', 'boolean'],
-            'offer_title_en' => ['nullable', 'required_if:has_offer,1', 'string', 'max:150'],
-            'offer_title_ar' => ['nullable', 'string', 'max:150'],
-            'offer_price' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
-            'offer_old_price' => ['nullable', 'numeric', 'min:0', 'max:999999999', 'gt:offer_price'],
-            'offer_currency' => ['nullable', Rule::in(['SDG', 'USD'])],
-            'offer_expires_at' => ['nullable', 'date', 'after:now'],
-            // A company package offer customers can accept (checked against company_id in the repository).
-            'package_offer_id' => ['nullable', 'integer', 'min:1'],
+            // "Company offer" carries a package offer customers can accept: one of the company's
+            // open offers, or a new one built here with the same builder as the company panel.
+            'offer_source' => [Rule::requiredIf($isOffer), 'nullable', Rule::in(['existing', 'new'])],
+            'package_offer_id' => [Rule::requiredIf($isOffer && !$buildsOffer), 'nullable', 'integer', 'min:1'],
             'is_sponsored' => ['nullable', 'boolean'],
-        ], [
+        ] + ($buildsOffer ? \App\Models\PackageOffer::rules() : []), [
             'image.uploaded' => 'The image could not be uploaded. The server accepts files up to ' . round($maxKb / 1024, 1) . ' MB.',
             'image.max' => 'The image must be ' . round($maxKb / 1024, 1) . ' MB or smaller.',
             'link_url.regex' => 'The link must start with https:// (or sunxfinder:// for a screen in the app).',
             'company_id.required' => 'Choose the company this campaign is about.',
-            'offer_title_en.required_if' => 'Give the offer a short title, e.g. "20% off 5 kW systems".',
-            'offer_old_price.gt' => 'The old price must be higher than the offer price.',
+            'package_offer_id.required' => 'Choose one of the company’s offers, or build a new one.',
             'audience_city.required_if' => 'Choose the city to send to.',
             'customer_ids.required_if' => 'Select at least one customer.',
-        ]);
+        ], $buildsOffer ? \App\Models\PackageOffer::attributes() : []);
 
         $data['is_sponsored'] = $request->boolean('is_sponsored');
 
