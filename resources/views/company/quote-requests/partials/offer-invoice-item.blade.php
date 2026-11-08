@@ -7,8 +7,9 @@
     $missingProduct = $productId !== '' && !$products->contains(fn($product) => (string) $product->id === $productId);
 @endphp
 <div class="offer-invoice-item" data-invoice-item>
-    <div class="offer-invoice-item-description offer-form-group">
-        <label>{{ __('company/messages.quote.item_description') }}</label>
+    {{-- Own column, so every row's labels and inputs line up. --}}
+    <div class="offer-invoice-item-product offer-form-group">
+        <label>{{ __('company/messages.package_offers.pick_product') }}</label>
         @if ($products->isNotEmpty() || $missingProduct)
             <select class="form-control offer-invoice-product" name="{{ $name }}[{{ $index }}][product_id]" data-product-picker
                 aria-label="{{ __('company/messages.package_offers.pick_product') }}">
@@ -28,7 +29,15 @@
                     </optgroup>
                 @endforeach
             </select>
+        @else
+            {{-- No products yet: every line is typed by hand. --}}
+            <select class="form-control offer-invoice-product" disabled aria-label="{{ __('company/messages.package_offers.pick_product') }}">
+                <option>{{ __('company/messages.package_offers.custom_item') }}</option>
+            </select>
         @endif
+    </div>
+    <div class="offer-invoice-item-description offer-form-group">
+        <label>{{ __('company/messages.quote.item_description') }}</label>
         <input type="hidden" name="{{ $name }}[{{ $index }}][type]" value="{{ $item['type'] ?? '' }}" data-item-type>
         <input class="form-control" name="{{ $name }}[{{ $index }}][description]" type="text" minlength="2" maxlength="255"
             value="{{ $item['description'] ?? '' }}" placeholder="{{ __('company/messages.quote.item_placeholder') }}" aria-label="{{ __('company/messages.quote.item_description_label') }}"

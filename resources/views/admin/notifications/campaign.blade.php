@@ -90,7 +90,7 @@
                             <label for="audience_type">Send to *</label>
                             <select class="select-control" id="audience_type" name="audience_type" required>
                                 <option value="all" @selected($audience === 'all')>All app customers ({{ number_format($appCustomerCount) }})</option>
-                                <option value="city" @selected($audience === 'city') @disabled($cities->isEmpty())>Customers in one city</option>
+                                <option value="city" @selected($audience === 'city') @disabled(count($cities) === 0)>Customers in one city</option>
                                 <option value="selected" @selected($audience === 'selected')>Selected customers</option>
                             </select>
                         </div>

@@ -964,7 +964,8 @@
 
 .offer-invoice-item {
     display: grid;
-    grid-template-columns: minmax(180px, 2fr) minmax(70px, .55fr) minmax(110px, .8fr) minmax(90px, .7fr) 32px;
+    /* product | description | qty | unit price | line total | remove */
+    grid-template-columns: minmax(140px, 1.3fr) minmax(160px, 1.7fr) minmax(70px, .55fr) minmax(110px, .8fr) minmax(90px, .7fr) 32px;
     align-items: end;
     gap: 10px;
     padding: 12px;
@@ -1252,6 +1253,7 @@
         grid-template-columns: minmax(0, 1fr) minmax(70px, .45fr) 32px;
     }
 
+    .offer-invoice-item-product,
     .offer-invoice-item-description {
         grid-column: 1 / -1;
     }
@@ -1262,7 +1264,7 @@
 
     .offer-invoice-remove {
         grid-column: 3;
-        grid-row: 2;
+        grid-row: 3;
     }
 
     .offer-invoice-bottom,
@@ -2571,10 +2573,12 @@
     white-space: pre-line;
 }
 
-/* Product picker above the line description. */
+/* Product picker: its own column, the same height as the other fields in the row. */
 .offer-invoice-item .offer-invoice-product {
-    min-height: 34px;
-    padding: 6px 8px;
+    height: 39px;
+    min-height: 39px;
+    margin: 0;
+    padding-block: 0;
     background: #f8fafc;
     color: #334155;
 }
