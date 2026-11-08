@@ -18,6 +18,8 @@
 
             <a href="{{ $homeUrl }}#solutions">{{ trans('messages.Solutions') }}</a>
 
+            <a href="{{ $homeUrl }}#calculator">{{ trans('messages.Load calculator') }}</a>
+
             <a href="{{ $homeUrl }}#companies">{{ trans('messages.Companies') }}</a>
 
             <a href="{{ $homeUrl }}#for-companies">{{ trans('messages.For companies') }}</a>

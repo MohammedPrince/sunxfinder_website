@@ -10,6 +10,7 @@ return [
     'A smarter way to find your energy partner' => 'طريقة أذكى للعثور على شريكك في مجال الطاقة',
     'How it works' => 'كيف تعمل المنصة',
     'Solutions' => 'الحلول',
+    'Load calculator' => 'حاسبة الأحمال',
     'For companies' => 'للشركات',
     'Why SunXFinder' => 'لماذا نحن؟',
     'FAQ' => 'الأسئلة الشائعة',

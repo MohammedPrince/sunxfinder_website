@@ -10,6 +10,7 @@ return [
     'A smarter way to find your energy partner' => 'A smarter way to find your solar partner',
     'How it works' => 'How it works',
     'Solutions' => 'Solutions',
+    'Load calculator' => 'Load calculator',
     'For companies' => 'For companies',
     'Why SunXFinder' => 'Why Us?',
     'FAQ' => 'FAQ',
