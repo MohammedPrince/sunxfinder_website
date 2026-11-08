@@ -97,6 +97,7 @@
                                 'account' => __('company/messages.notifications.type_account'),
                                 'support' => __('company/messages.notifications.type_support'),
                                 'maintenance' => __('company/messages.notifications.type_maintenance'),
+                                'offer' => __('company/messages.package_offers.notification_type'),
                             ];
                         @endphp
                         <tr>

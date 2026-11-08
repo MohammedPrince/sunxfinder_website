@@ -1,18 +1,47 @@
+@php
+    // Used by the quote offer form (invoice_items) and the package offer form (items).
+    $name = $name ?? 'invoice_items';
+    $products = $products ?? collect();
+    $productId = (string) ($item['product_id'] ?? '');
+    // A product picked earlier and since switched off still shows on this line.
+    $missingProduct = $productId !== '' && !$products->contains(fn($product) => (string) $product->id === $productId);
+@endphp
 <div class="offer-invoice-item" data-invoice-item>
     <div class="offer-invoice-item-description offer-form-group">
         <label>{{ __('company/messages.quote.item_description') }}</label>
-        <input class="form-control" name="invoice_items[{{ $index }}][description]" type="text" minlength="2" maxlength="255"
+        @if ($products->isNotEmpty() || $missingProduct)
+            <select class="form-control offer-invoice-product" name="{{ $name }}[{{ $index }}][product_id]" data-product-picker
+                aria-label="{{ __('company/messages.package_offers.pick_product') }}">
+                <option value="">{{ __('company/messages.package_offers.custom_item') }}</option>
+                @if ($missingProduct)
+                    <option value="{{ $productId }}" data-type="{{ $item['type'] ?? '' }}" data-label="{{ $item['description'] ?? '' }}" selected>
+                        {{ $item['description'] ?? '#' . $productId }}
+                    </option>
+                @endif
+                @foreach ($products->groupBy('type') as $type => $group)
+                    <optgroup label="{{ __('company/messages.common.product_type_' . $type) }}">
+                        @foreach ($group as $product)
+                            @php $label = $product->name . ($product->model ? ' — ' . $product->model : ''); @endphp
+                            <option value="{{ $product->id }}" data-type="{{ $type }}" data-label="{{ $label }}"
+                                @selected($productId === (string) $product->id)>{{ $label }}</option>
+                        @endforeach
+                    </optgroup>
+                @endforeach
+            </select>
+        @endif
+        <input type="hidden" name="{{ $name }}[{{ $index }}][type]" value="{{ $item['type'] ?? '' }}" data-item-type>
+        <input class="form-control" name="{{ $name }}[{{ $index }}][description]" type="text" minlength="2" maxlength="255"
             value="{{ $item['description'] ?? '' }}" placeholder="{{ __('company/messages.quote.item_placeholder') }}" aria-label="{{ __('company/messages.quote.item_description_label') }}"
-            required data-invoice-required>
+            required data-invoice-required data-item-description>
     </div>
     <div class="offer-invoice-item-quantity offer-form-group">
         <label>{{ __('company/messages.quote.qty') }}</label>
-        <input class="form-control" name="invoice_items[{{ $index }}][quantity]" type="number" min="0.01" max="10000" step="0.01"
+        <input class="form-control" name="{{ $name }}[{{ $index }}][quantity]" type="number" min="0.01" max="10000" step="0.01"
             value="{{ $item['quantity'] ?? 1 }}" aria-label="{{ __('company/messages.quote.quantity') }}" required data-invoice-required>
     </div>
     <div class="offer-invoice-item-price offer-form-group">
         <label>{{ __('company/messages.quote.unit_price') }}</label>
-        <input class="form-control" name="invoice_items[{{ $index }}][unit_price]" type="number" min="0" step="0.01"
+        <input class="form-control" name="{{ $name }}[{{ $index }}][unit_price]" type="number" min="0" step="0.01"
             value="{{ $item['unit_price'] ?? '' }}" placeholder="0.00" aria-label="{{ __('company/messages.quote.unit_price') }}" required data-invoice-required
             data-invoice-price>
     </div>

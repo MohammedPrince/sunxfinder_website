@@ -27,6 +27,7 @@ class Quote extends Model
         'appliances_ids',
         'message',
         'status',
+        'package_offer_id',
     ];
 
     public function customer(): BelongsTo
@@ -37,6 +38,12 @@ class Quote extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(SolarCompany::class, 'company_id');
+    }
+
+    /** The company package offer the customer accepted to open this request, if any. */
+    public function packageOffer(): BelongsTo
+    {
+        return $this->belongsTo(PackageOffer::class, 'package_offer_id')->withTrashed();
     }
 
     public function companyQuotations(): HasMany

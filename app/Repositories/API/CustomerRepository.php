@@ -25,6 +25,8 @@ use App\Models\CustomerNotification;
 use App\Models\ArchivedItem;
 use App\Models\Invoice;
 use App\Models\LegalSection;
+use App\Models\PackageOffer;
+use App\Models\PackageOfferResponse;
 use App\Models\Project;
 use App\Models\ProjectMilestone;
 use App\Models\ProjectUpdate;
@@ -1788,6 +1790,8 @@ class CustomerRepository
                         'peak_load' => $quote->peak_load,
                         'appliances_ids' => $quote->appliances_ids,
                         'message' => $quote->message,
+                        // Set when the request came from accepting a company package offer.
+                        'package_offer_id' => $quote->package_offer_id !== null ? (int) $quote->package_offer_id : null,
 
                         // Overall customer quote-request status.
                         'status' => $quote->status,
@@ -2237,6 +2241,326 @@ class CustomerRepository
             ];
         }
     }
+
+    //Package Offers Start
+
+    /**
+     * The offer, only when this customer was sent it in a notification still in their inbox,
+     * so ids cannot be guessed to see other companies' offers.
+     */
+    private function findPackageOfferForCustomer(int $offerId, int $customerId): ?PackageOffer
+    {
+        $received = CustomerNotification::query()
+            ->where('customer_id', $customerId)
+            ->whereHas('notification', fn($query) => $query
+                ->where('package_offer_id', $offerId)
+                ->where('status', 'published'))
+            ->exists();
+
+        return $received
+            ? PackageOffer::withTrashed()->with('company')->find($offerId)
+            : null;
+    }
+
+    /** @return \Illuminate\Support\Collection<int, PackageOfferResponse> keyed by package_offer_id */
+    private function packageOfferResponses(int $customerId, array $offerIds): \Illuminate\Support\Collection
+    {
+        $offerIds = array_values(array_unique(array_filter($offerIds)));
+
+        if (!$offerIds) {
+            return collect();
+        }
+
+        return PackageOfferResponse::query()
+            ->where('customer_id', $customerId)
+            ->whereIn('package_offer_id', $offerIds)
+            ->get()
+            ->keyBy('package_offer_id');
+    }
+
+    /** active | expired | closed. A deleted offer or a company no longer on the app counts as closed. */
+    private function packageOfferStatus(PackageOffer $offer): string
+    {
+        if ($offer->trashed() || !$this->helper->isCompanyVisible($offer->company)) {
+            return 'closed';
+        }
+
+        return $offer->displayStatus();
+    }
+
+    private function formatPackageOfferResponse(?PackageOfferResponse $response): ?array
+    {
+        return $response ? [
+            'status' => $response->status,
+            'quote_id' => $response->quote_id !== null ? (int) $response->quote_id : null,
+            'responded_at' => $response->responded_at?->copy()->utc()->format('Y-m-d\TH:i:s\Z'),
+        ] : null;
+    }
+
+    /** Full offer for the details screen. */
+    private function formatPackageOffer(PackageOffer $offer, ?PackageOfferResponse $response): array
+    {
+        $company = $this->helper->isCompanyVisible($offer->company) ? $offer->company : null;
+        $status = $this->packageOfferStatus($offer);
+
+        return [
+            'id' => (int) $offer->id,
+            'title' => $offer->title_en,
+            'ar_title' => $offer->title_ar,
+            'description' => $offer->description_en,
+            'ar_description' => $offer->description_ar,
+            'company' => $company ? [
+                'id' => (int) $company->id,
+                'name' => $company->name,
+                'slug' => $company->slug,
+                'city' => $company->city,
+                'logo_url' => $this->helper->publicUrl($company->logo_path),
+                'is_verified' => (bool) $company->is_verified,
+            ] : null,
+            'max_load_kw' => (float) $offer->max_load_kw,
+            'items' => collect($offer->items ?? [])
+                ->map(fn(array $item) => [
+                    'type' => $item['type'] ?? null,
+                    'product_id' => isset($item['product_id']) ? (int) $item['product_id'] : null,
+                    'description' => $item['description'] ?? '',
+                    'quantity' => (float) ($item['quantity'] ?? 0),
+                    'unit_price' => (float) ($item['unit_price'] ?? 0),
+                    'line_total' => (float) ($item['total'] ?? 0),
+                ])
+                ->values(),
+            'subtotal' => (float) $offer->subtotal,
+            'discount' => (float) $offer->discount,
+            'price' => (float) $offer->price,
+            'currency' => $offer->currency,
+            'discount_percent' => $offer->discountPercent(),
+            'expires_at' => $offer->expires_at?->copy()->utc()->format('Y-m-d\TH:i:s\Z'),
+            'is_expired' => $offer->isExpired(),
+            'status' => $status,
+            // Accept / Decline buttons: only while open and not accepted yet.
+            'can_respond' => $status === 'active' && $response?->status !== PackageOfferResponse::ACCEPTED,
+            'my_response' => $this->formatPackageOfferResponse($response),
+        ];
+    }
+
+    public function getPackageOffer(int $offerId): array
+    {
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        if (!$customer) {
+            return ['success' => false, 'code' => 401, 'message' => 'Unauthenticated.'];
+        }
+
+        $offer = $this->findPackageOfferForCustomer($offerId, (int) $customer->id);
+
+        if (!$offer) {
+            return ['success' => false, 'code' => 404, 'message' => 'Offer not found.'];
+        }
+
+        $response = $this->packageOfferResponses((int) $customer->id, [$offer->id])->get($offer->id);
+
+        return [
+            'success' => true,
+            'code' => 200,
+            'message' => 'Offer retrieved successfully.',
+            'data' => ['package_offer' => $this->formatPackageOffer($offer, $response)],
+        ];
+    }
+
+    /**
+     * The customer accepts with the devices from the load calculator. The peak load must be
+     * within the offer's limit. Creates a pending quote request for the offer's company only;
+     * the company reviews it and answers with a normal offer, which the customer accepts.
+     */
+    public function acceptPackageOffer(int $offerId, array $data): array
+    {
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        if (!$customer) {
+            return ['success' => false, 'code' => 401, 'message' => 'Unauthenticated.', 'data' => null];
+        }
+
+        $customerId = (int) $customer->id;
+        $offer = $this->findPackageOfferForCustomer($offerId, $customerId);
+
+        if (!$offer) {
+            return ['success' => false, 'code' => 404, 'message' => 'Offer not found.', 'data' => null];
+        }
+
+        if ($this->packageOfferStatus($offer) !== 'active') {
+            return [
+                'success' => false,
+                'code' => 409,
+                'message' => 'This offer has ended and can no longer be accepted.',
+                'data' => ['reason' => 'offer_closed'],
+            ];
+        }
+
+        $peakKw = isset($data['peak_load_kw'])
+            ? (float) $data['peak_load_kw']
+            : PackageOffer::loadToKw($data['peak_load']);
+        $maxKw = (float) $offer->max_load_kw;
+
+        if ($peakKw === null || $peakKw <= 0) {
+            return [
+                'success' => false,
+                'code' => 422,
+                'message' => 'The peak load could not be read. Send peak_load_kw as a number.',
+                'data' => ['reason' => 'invalid_load'],
+            ];
+        }
+
+        // Small tolerance for rounding in the app (4.999 vs 5).
+        if ($peakKw > $maxKw + 0.005) {
+            return [
+                'success' => false,
+                'code' => 422,
+                'message' => "Your peak load is {$peakKw} kW. This offer covers loads up to {$maxKw} kW. Remove some devices and try again.",
+                'data' => [
+                    'reason' => 'load_exceeds_offer',
+                    'max_load_kw' => $maxKw,
+                    'peak_load_kw' => round($peakKw, 2),
+                ],
+            ];
+        }
+
+        try {
+            $result = DB::transaction(function () use ($offer, $customerId, $data, $peakKw) {
+                // One acceptance at a time per offer, so a double tap cannot open two requests.
+                PackageOffer::withTrashed()->whereKey($offer->id)->lockForUpdate()->first();
+
+                $response = PackageOfferResponse::query()
+                    ->where('package_offer_id', $offer->id)
+                    ->where('customer_id', $customerId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($response?->status === PackageOfferResponse::ACCEPTED) {
+                    return ['already' => $response];
+                }
+
+                $lang = $this->customerApiLanguage($customerId);
+
+                $quote = new Quote();
+                $quote->customer_id = $customerId;
+                $quote->company_id = $offer->company_id;
+                $quote->package_offer_id = $offer->id;
+                $quote->quote_name = Str::limit(trim((string) ($data['quote_name'] ?? '')) ?: $offer->title($lang), 100, '');
+                $quote->estimated_load = $data['estimated_load'] ?? '';
+                $quote->peak_load = filled($data['peak_load'] ?? null) ? $data['peak_load'] : round($peakKw, 2) . ' kW';
+                $quote->daily_load = $data['daily_load'];
+                $quote->appliances_ids = $data['appliances_ids'];
+                $quote->message = $data['message'] ?? null;
+                $quote->status = 'pending';
+                $quote->save();
+
+                $response ??= new PackageOfferResponse([
+                    'package_offer_id' => $offer->id,
+                    'customer_id' => $customerId,
+                ]);
+                $response->fill([
+                    'status' => PackageOfferResponse::ACCEPTED,
+                    'quote_id' => $quote->id,
+                    'notification_id' => $data['notification_id'] ?? $response->notification_id,
+                    'responded_at' => now(),
+                ])->save();
+
+                return ['quote' => $quote, 'response' => $response];
+            });
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+                'message' => 'Unable to accept the offer. Please try again.',
+                'data' => null,
+            ];
+        }
+
+        if (isset($result['already'])) {
+            return [
+                'success' => false,
+                'code' => 409,
+                'message' => 'You have already accepted this offer.',
+                'data' => [
+                    'reason' => 'already_accepted',
+                    'quote_id' => $result['already']->quote_id !== null ? (int) $result['already']->quote_id : null,
+                ],
+            ];
+        }
+
+        $quote = $result['quote'];
+
+        return [
+            'success' => true,
+            'code' => 201,
+            'message' => 'Offer accepted. The company will review your devices and send you its offer.',
+            'data' => [
+                'quote' => [
+                    'id' => (int) $quote->id,
+                    'reference' => '#Q-' . str_pad((string) $quote->id, 5, '0', STR_PAD_LEFT),
+                    'company_id' => (int) $quote->company_id,
+                    'package_offer_id' => (int) $offer->id,
+                    'quote_name' => $quote->quote_name,
+                    'estimated_load' => $quote->estimated_load,
+                    'peak_load' => $quote->peak_load,
+                    'daily_load' => $quote->daily_load,
+                    'appliances_ids' => $quote->appliances_ids,
+                    'message' => $quote->message,
+                    'status' => $quote->status,
+                    'created_at' => $quote->created_at?->toISOString(),
+                ],
+                'package_offer' => $this->formatPackageOffer($offer, $result['response']),
+            ],
+        ];
+    }
+
+    /** "Not interested". Can later change to accepted while the offer is open. */
+    public function declinePackageOffer(int $offerId, array $data): array
+    {
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        if (!$customer) {
+            return ['success' => false, 'code' => 401, 'message' => 'Unauthenticated.', 'data' => null];
+        }
+
+        $customerId = (int) $customer->id;
+        $offer = $this->findPackageOfferForCustomer($offerId, $customerId);
+
+        if (!$offer) {
+            return ['success' => false, 'code' => 404, 'message' => 'Offer not found.', 'data' => null];
+        }
+
+        $response = PackageOfferResponse::query()
+            ->where('package_offer_id', $offer->id)
+            ->where('customer_id', $customerId)
+            ->first();
+
+        if ($response?->status === PackageOfferResponse::ACCEPTED) {
+            return [
+                'success' => false,
+                'code' => 409,
+                'message' => 'You already accepted this offer. Cancel the request from My Quotes instead.',
+                'data' => ['reason' => 'already_accepted', 'quote_id' => $response->quote_id !== null ? (int) $response->quote_id : null],
+            ];
+        }
+
+        $response ??= new PackageOfferResponse(['package_offer_id' => $offer->id, 'customer_id' => $customerId]);
+        $response->fill([
+            'status' => PackageOfferResponse::DECLINED,
+            'notification_id' => $data['notification_id'] ?? $response->notification_id,
+            'responded_at' => now(),
+        ])->save();
+
+        return [
+            'success' => true,
+            'code' => 200,
+            'message' => 'Offer declined.',
+            'data' => ['package_offer' => $this->formatPackageOffer($offer, $response)],
+        ];
+    }
+
+    //Package Offers End
 
     //Ratings Start
 
@@ -2723,7 +3047,7 @@ class CustomerRepository
         $customerId = $customer->id;
 
         $query = CustomerNotification::query()
-            ->with('notification.company')
+            ->with(['notification.company', 'notification.packageOffer.company'])
             ->where('customer_id', $customerId)
             ->whereHas('notification', function ($query) {
                 $query->where('status', 'published');
@@ -2745,8 +3069,13 @@ class CustomerRepository
         /** @var \Illuminate\Support\Collection<int, CustomerNotification> $recipientRows */
         $recipientRows = $recipients->getCollection();
 
+        $offerResponses = $this->packageOfferResponses(
+            (int) $customerId,
+            $recipientRows->pluck('notification.package_offer_id')->all()
+        );
+
         $notifications = $recipientRows
-            ->map(fn(CustomerNotification $recipient) => $this->formatCustomerNotification($recipient))
+            ->map(fn(CustomerNotification $recipient) => $this->formatCustomerNotification($recipient, $offerResponses))
             ->filter()
             ->values();
 
@@ -2827,13 +3156,16 @@ class CustomerRepository
         }
 
         $recipient = CustomerNotification::query()
-            ->with('notification.company')
+            ->with(['notification.company', 'notification.packageOffer.company'])
             ->where('notification_id', $notificationId)
             ->where('customer_id', $customer->id)
             ->whereHas('notification', fn($query) => $query->where('status', 'published'))
             ->first();
 
-        $data = $recipient ? $this->formatCustomerNotification($recipient) : null;
+        $offerResponses = $recipient
+            ? $this->packageOfferResponses((int) $customer->id, [$recipient->notification?->package_offer_id])
+            : collect();
+        $data = $recipient ? $this->formatCustomerNotification($recipient, $offerResponses) : null;
 
         if (!$data) {
             return ['success' => false, 'code' => 404, 'message' => 'Notification not found'];
@@ -2846,7 +3178,7 @@ class CustomerRepository
      * App shape of an inbox item. "body"/"ar_body" are always plain text (safe for any
      * app version); rich campaigns add "body_html"/"ar_body_html" (sanitized HTML).
      */
-    private function formatCustomerNotification(CustomerNotification $recipient): ?array
+    private function formatCustomerNotification(CustomerNotification $recipient, ?\Illuminate\Support\Collection $offerResponses = null): ?array
     {
         $notification = $recipient->notification;
 
@@ -2863,8 +3195,20 @@ class CustomerRepository
         $hasOffer = $notification->offer_title_en !== null;
         $currency = $notification->offer_currency ?: 'SDG';
 
+        // A package offer the customer can accept or decline (GET /package-offers/{id}).
+        $packageOffer = $notification->package_offer_id ? $notification->packageOffer : null;
+        $packageOfferResponse = $packageOffer ? $offerResponses?->get($packageOffer->id) : null;
+        $packageOfferStatus = $packageOffer ? $this->packageOfferStatus($packageOffer) : null;
+
         $action = null;
-        if ($notification->link_url) {
+        if ($packageOffer && !$notification->link_url) {
+            $action = [
+                'type' => 'package_offer',
+                'url' => 'sunxfinder://package-offer/' . $packageOffer->id,
+                'label' => 'View offer',
+                'ar_label' => 'تفاصيل العرض',
+            ];
+        } elseif ($notification->link_url) {
             $action = [
                 'type' => Str::startsWith(strtolower($notification->link_url), 'sunxfinder://') ? 'deep_link' : 'url',
                 'url' => $notification->link_url,
@@ -2915,6 +3259,14 @@ class CustomerRepository
                 'discount_percent' => $notification->offerDiscountPercent(),
                 'expires_at' => $iso($notification->offer_expires_at),
                 'is_expired' => $notification->offer_expires_at?->isPast() ?? false,
+            ] : null,
+            'package_offer' => $packageOffer ? [
+                'id' => (int) $packageOffer->id,
+                'max_load_kw' => (float) $packageOffer->max_load_kw,
+                'status' => $packageOfferStatus,
+                'can_respond' => $packageOfferStatus === 'active'
+                    && $packageOfferResponse?->status !== PackageOfferResponse::ACCEPTED,
+                'my_response' => $this->formatPackageOfferResponse($packageOfferResponse),
             ] : null,
             'action' => $action,
             'read' => $recipient->read_at !== null,

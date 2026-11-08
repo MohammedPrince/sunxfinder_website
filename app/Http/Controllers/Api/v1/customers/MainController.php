@@ -947,6 +947,72 @@ class MainController extends Controller
         ], $httpCode);
     }
 
+    /** Package offer details (opened from a notification). */
+    public function getPackageOffer(int $offerId)
+    {
+        return $this->packageOfferResponse($this->customerService->getPackageOffer($offerId));
+    }
+
+    /**
+     * Accept a package offer with the devices from the load calculator. Same load fields as
+     * POST /quote; the peak load must not be above the offer's max_load_kw.
+     */
+    public function acceptPackageOffer(Request $request, int $offerId)
+    {
+        // appliances_ids may arrive as a JSON array; store it as a string, like POST /quote.
+        if (is_array($request->input('appliances_ids'))) {
+            $request->merge(['appliances_ids' => json_encode(array_values($request->input('appliances_ids')))]);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'quote_name' => ['nullable', 'string', 'max:100'],
+            'estimated_load' => ['nullable', 'string', 'max:50000'],
+            'peak_load' => ['required', 'string', 'max:255'],
+            // The calculator's peak in kW as a number. Preferred over parsing peak_load.
+            'peak_load_kw' => ['nullable', 'numeric', 'min:0', 'max:100000'],
+            'daily_load' => ['required', 'string', 'max:255'],
+            'appliances_ids' => ['required', 'string', 'max:1000'],
+            'message' => ['nullable', 'string', 'max:5000'],
+            'notification_id' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'code' => 422,
+                'message' => 'Validation failed.',
+                'errors' => $validator->errors(),
+                'data' => null,
+            ], 422);
+        }
+
+        $validated = $validator->validated();
+        $validated['appliances_ids'] = trim($validated['appliances_ids']);
+
+        return $this->packageOfferResponse($this->customerService->acceptPackageOffer($offerId, $validated));
+    }
+
+    public function declinePackageOffer(Request $request, int $offerId)
+    {
+        $validated = $request->validate([
+            'notification_id' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        return $this->packageOfferResponse($this->customerService->declinePackageOffer($offerId, $validated));
+    }
+
+    private function packageOfferResponse(array $result)
+    {
+        $httpCode = $result['code'] ?? 500;
+
+        return response()->json([
+            'status' => ($result['success'] ?? false) ? 'success' : 'error',
+            'code' => $httpCode,
+            'message' => $result['message'] ?? 'Something went wrong.',
+            'data' => $result['data'] ?? null,
+        ], $httpCode);
+    }
+
     public function rejectOffer(Request $request)
     {
         $validator = Validator::make($request->all(), [

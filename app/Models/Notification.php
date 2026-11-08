@@ -43,6 +43,7 @@ class Notification extends Model
         'offer_old_price',
         'offer_currency',
         'offer_expires_at',
+        'package_offer_id',
         'audience_type',
         'audience_city',
         'is_sponsored',
@@ -97,6 +98,27 @@ class Notification extends Model
             || $this->link_url
             || $this->company_id
             || array_key_exists($this->type, self::CAMPAIGN_TYPES);
+    }
+
+    /** Company package offer the customer can accept or decline from this notification. */
+    public function packageOffer(): BelongsTo
+    {
+        return $this->belongsTo(PackageOffer::class, 'package_offer_id')->withTrashed();
+    }
+
+    /** Offer card fields copied from a package offer, so the card matches what was sent. */
+    public static function offerCardFields(PackageOffer $offer): array
+    {
+        return [
+            'company_id' => $offer->company_id,
+            'package_offer_id' => $offer->id,
+            'offer_title_en' => $offer->title_en,
+            'offer_title_ar' => $offer->title_ar,
+            'offer_price' => $offer->price,
+            'offer_old_price' => (float) $offer->discount > 0 ? $offer->subtotal : null,
+            'offer_currency' => $offer->currency,
+            'offer_expires_at' => $offer->expires_at,
+        ];
     }
 
     public function imageUrl(): ?string

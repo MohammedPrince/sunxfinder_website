@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Company;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use App\Models\RatingValue;
 use App\Services\Company\CompanyService;
 use App\Support\InvoicePdf;
@@ -398,12 +399,18 @@ class MainController extends Controller
             . str_pad((string) $quote->id, 5, '0', STR_PAD_LEFT)
             . '-C' . auth()->guard('company')->id();
 
+        // The customer accepted one of this company's package offers: its items fill a new offer.
+        $packageOffer = $this->companyService->getPackageOfferForQuote($quote);
+        $products = $this->companyService->getCompanyProductOptions();
+
         return view('company.quote-requests.form', compact(
             'quote',
             'companyQuotation',
             'competitorPrices',
             'project',
-            'invoiceNumber'
+            'invoiceNumber',
+            'packageOffer',
+            'products'
         ));
     }
 
@@ -444,6 +451,9 @@ class MainController extends Controller
             'invoice_items.*.description' => ['exclude_unless:include_invoice,1', 'required', 'string', 'min:2', 'max:255'],
             'invoice_items.*.quantity' => ['exclude_unless:include_invoice,1', 'required', 'numeric', 'gt:0', 'max:10000'],
             'invoice_items.*.unit_price' => ['exclude_unless:include_invoice,1', 'required', 'numeric', 'min:0', 'max:9999999999999'],
+            // Picked from the company's products (checked against the company in the repository).
+            'invoice_items.*.product_id' => ['exclude_unless:include_invoice,1', 'nullable', 'integer', 'min:1'],
+            'invoice_items.*.type' => ['exclude_unless:include_invoice,1', 'nullable', Rule::in(array_keys(Product::TYPES))],
         ], [
             'price.required' => __('company/messages.quote.price_required'),
             'price.numeric' => __('company/messages.quote.price_numeric'),
@@ -492,6 +502,139 @@ class MainController extends Controller
     }
 
     //Quote Requests End
+
+    //Package Offers Start
+
+    public function packageOffers(Request $request)
+    {
+        $filters = $request->validate([
+            'status' => ['nullable', Rule::in(['active', 'ended'])],
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $offers = $this->companyService->getPackageOffers($filters);
+
+        return view('company.offers.index', compact('offers', 'filters'));
+    }
+
+    /** ?from={id} starts from a copy of an earlier offer (a sent offer cannot be edited). */
+    public function createPackageOffer(Request $request)
+    {
+        $source = $request->integer('from')
+            ? $this->companyService->findPackageOffer($request->integer('from'))
+            : null;
+
+        return view('company.offers.form', [
+            'offer' => null,
+            'source' => $source,
+            'products' => $this->companyService->getCompanyProductOptions(),
+        ]);
+    }
+
+    public function storePackageOffer(Request $request)
+    {
+        $offer = $this->companyService->savePackageOffer($this->validatedPackageOffer($request));
+
+        return redirect()
+            ->route('company.offers.show', $offer->id)
+            ->with('success', __('company/messages.package_offers.saved'));
+    }
+
+    public function showPackageOffer(int $offer)
+    {
+        $details = $this->companyService->getPackageOfferDetails($offer);
+        $form = $this->companyService->getNotificationFormData();
+
+        return view('company.offers.show', $details + [
+            'customers' => $form['customers'],
+            'canNotifyAll' => $form['canNotifyAll'],
+            'sendLimit' => $form['sendLimit'],
+        ]);
+    }
+
+    public function editPackageOffer(int $offer)
+    {
+        $offer = $this->companyService->findPackageOffer($offer);
+
+        if ($offer->isLocked()) {
+            return redirect()
+                ->route('company.offers.show', $offer->id)
+                ->with('error', __('company/messages.package_offers.locked'));
+        }
+
+        return view('company.offers.form', [
+            'offer' => $offer,
+            'source' => null,
+            'products' => $this->companyService->getCompanyProductOptions(),
+        ]);
+    }
+
+    public function updatePackageOffer(Request $request, int $offer)
+    {
+        $this->companyService->savePackageOffer($this->validatedPackageOffer($request), $offer);
+
+        return redirect()
+            ->route('company.offers.show', $offer)
+            ->with('success', __('company/messages.package_offers.saved'));
+    }
+
+    public function closePackageOffer(int $offer)
+    {
+        $this->companyService->closePackageOffer($offer);
+
+        return back()->with('success', __('company/messages.package_offers.closed'));
+    }
+
+    public function destroyPackageOffer(int $offer)
+    {
+        $result = $this->companyService->deletePackageOffer($offer);
+
+        return $result['success']
+            ? redirect()->route('company.offers.index')->with('success', $result['message'])
+            : back()->with('error', $result['message']);
+    }
+
+    public function sendPackageOffer(Request $request, int $offer)
+    {
+        $validated = $request->validate([
+            'customer_ids' => ['required', 'array', 'min:1'],
+            'customer_ids.*' => ['required', 'integer', 'min:1'],
+            'message_en' => ['nullable', 'string', 'max:1000'],
+            'message_ar' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $result = $this->companyService->sendPackageOffer($offer, $validated);
+
+        return redirect()
+            ->route('company.offers.show', $offer)
+            ->with('success', $result['message']);
+    }
+
+    private function validatedPackageOffer(Request $request): array
+    {
+        return $request->validate([
+            'title_en' => ['required', 'string', 'min:3', 'max:150'],
+            'title_ar' => ['nullable', 'string', 'max:150'],
+            'description_en' => ['nullable', 'string', 'max:2000'],
+            'description_ar' => ['nullable', 'string', 'max:2000'],
+            'max_load_kw' => ['required', 'numeric', 'min:0.1', 'max:1000'],
+            'currency' => ['required', Rule::in(['SDG', 'USD'])],
+            'expires_at' => ['nullable', 'date', 'after:now'],
+            'discount' => ['nullable', 'numeric', 'min:0', 'max:9999999999999'],
+            'items' => ['required', 'array', 'min:1', 'max:25'],
+            'items.*.description' => ['required', 'string', 'min:2', 'max:255'],
+            'items.*.quantity' => ['required', 'numeric', 'gt:0', 'max:10000'],
+            'items.*.unit_price' => ['required', 'numeric', 'min:0', 'max:9999999999999'],
+            'items.*.product_id' => ['nullable', 'integer', 'min:1'],
+            'items.*.type' => ['nullable', Rule::in(array_keys(Product::TYPES))],
+        ], [], app()->isLocale('ar') ? [
+            'title_en' => __('company/messages.package_offers.title_en'),
+            'max_load_kw' => __('company/messages.package_offers.max_load'),
+            'items' => __('company/messages.package_offers.items'),
+        ] : []);
+    }
+
+    //Package Offers End
 
     //Notifications Managment End
     public function notifications(Request $request)

@@ -62,6 +62,11 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
         Route::post('/offer-accept', [MainController::class, 'acceptOffer'])->middleware('throttle:60,1')->name('offer-accept');
         Route::post('/offer-reject', [MainController::class, 'rejectOffer'])->middleware('throttle:60,1')->name('offer-reject');
 
+        // Company package offers pushed in notifications (docs/api/customer-package-offers.md)
+        Route::get('/package-offers/{id}', [MainController::class, 'getPackageOffer'])->whereNumber('id')->middleware('throttle:60,1');
+        Route::post('/package-offers/{id}/accept', [MainController::class, 'acceptPackageOffer'])->whereNumber('id')->middleware('throttle:20,1');
+        Route::post('/package-offers/{id}/decline', [MainController::class, 'declinePackageOffer'])->whereNumber('id')->middleware('throttle:20,1');
+
         // Ratings: rate the company whose offer was accepted (one per quote)
         Route::get('/rating-form', [MainController::class, 'getRatingForm'])->middleware('throttle:60,1');
         Route::post('/rating', [MainController::class, 'submitRating'])->middleware('throttle:20,1')->name('rating');

@@ -412,6 +412,19 @@ Route::prefix('company')->name('company.')->middleware(CompanyValidationLines::c
                 Route::get('/{id}/invoice/pdf', 'downloadQuoteInvoice')->whereNumber('id')->middleware('throttle:30,1')->name('invoice.pdf');
             });
 
+            // Package offers: a ready system pushed to customers, who accept it with their devices
+            Route::prefix('offers')->name('offers.')->group(function () {
+                Route::get('/', 'packageOffers')->name('index');
+                Route::get('/create', 'createPackageOffer')->name('create');
+                Route::post('/', 'storePackageOffer')->name('store');
+                Route::get('/{offer}', 'showPackageOffer')->whereNumber('offer')->name('show');
+                Route::get('/{offer}/edit', 'editPackageOffer')->whereNumber('offer')->name('edit');
+                Route::put('/{offer}', 'updatePackageOffer')->whereNumber('offer')->name('update');
+                Route::delete('/{offer}', 'destroyPackageOffer')->whereNumber('offer')->name('destroy');
+                Route::post('/{offer}/close', 'closePackageOffer')->whereNumber('offer')->name('close');
+                Route::post('/{offer}/send', 'sendPackageOffer')->whereNumber('offer')->middleware('throttle:10,1')->name('send');
+            });
+
             Route::get('/invoices', 'companyInvoices')->name('invoices.index');
             Route::delete('/invoices/{id}', 'deleteCompanyInvoice')->whereNumber('id')->name('invoices.destroy');
 

@@ -139,6 +139,21 @@ class CustomerService
         return $this->customerRepository->acceptOffer($data);
     }
 
+    public function getPackageOffer(int $offerId): array
+    {
+        return $this->customerRepository->getPackageOffer($offerId);
+    }
+
+    public function acceptPackageOffer(int $offerId, array $data): array
+    {
+        return $this->customerRepository->acceptPackageOffer($offerId, $data);
+    }
+
+    public function declinePackageOffer(int $offerId, array $data): array
+    {
+        return $this->customerRepository->declinePackageOffer($offerId, $data);
+    }
+
     public function rejectOffer(array $data)
     {
         return $this->customerRepository->rejectOffer($data);

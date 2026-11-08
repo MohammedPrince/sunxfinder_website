@@ -2439,6 +2439,8 @@ class MainController extends Controller
             'offer_old_price' => ['nullable', 'numeric', 'min:0', 'max:999999999', 'gt:offer_price'],
             'offer_currency' => ['nullable', Rule::in(['SDG', 'USD'])],
             'offer_expires_at' => ['nullable', 'date', 'after:now'],
+            // A company package offer customers can accept (checked against company_id in the repository).
+            'package_offer_id' => ['nullable', 'integer', 'min:1'],
             'is_sponsored' => ['nullable', 'boolean'],
         ], [
             'image.uploaded' => 'The image could not be uploaded. The server accepts files up to ' . round($maxKb / 1024, 1) . ' MB.',

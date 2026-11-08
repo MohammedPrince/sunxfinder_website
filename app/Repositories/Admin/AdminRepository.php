@@ -31,6 +31,7 @@ use App\Models\CustomerTermsAcceptance;
 use App\Models\Project;
 use App\Models\CustomerNotification;
 use App\Models\Notification;
+use App\Models\PackageOffer;
 use App\Models\Product;
 use App\Models\ProductSpec;
 use App\Models\Quote;
@@ -3562,7 +3563,7 @@ class AdminRepository
                         'format', 'image_path', 'image_width', 'image_height',
                         'link_url', 'link_label_en', 'link_label_ar', 'company_id',
                         'offer_title_en', 'offer_title_ar', 'offer_price', 'offer_old_price',
-                        'offer_currency', 'offer_expires_at', 'audience_city',
+                        'offer_currency', 'offer_expires_at', 'audience_city', 'package_offer_id',
                     ]));
 
                     $notification = Notification::create([
@@ -3732,6 +3733,8 @@ class AdminRepository
                 'image_url' => (string) $imageUrl,
                 'link_url' => (string) $notification->link_url,
                 'company_id' => $notification->company_id ? (string) $notification->company_id : '',
+                // Open the package offer screen on tap.
+                'package_offer_id' => $notification->package_offer_id ? (string) $notification->package_offer_id : '',
             ], fn($value) => $value !== '');
 
             $pushMessage = Helper::withNotificationSound(CloudMessage::new())
@@ -3888,10 +3891,19 @@ class AdminRepository
             ->orderBy('name')
             ->get();
 
+        // Open package offers of those companies, to attach to a "Company offer" campaign.
+        $packageOffers = PackageOffer::query()
+            ->whereIn('company_id', $companies->pluck('id'))
+            ->where('status', PackageOffer::STATUS_ACTIVE)
+            ->where(fn($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->latest('id')
+            ->get(['id', 'company_id', 'title_en', 'title_ar', 'max_load_kw', 'subtotal', 'discount', 'price', 'currency', 'expires_at']);
+
         return [
             'customers' => $customers,
             'cities' => $cities,
             'companies' => $companies,
+            'packageOffers' => $packageOffers,
             'appCustomerCount' => $customers->count(),
         ];
     }
@@ -3911,6 +3923,25 @@ class AdminRepository
             if ($helper->plainText($data['message_en']) === '') {
                 throw ValidationException::withMessages(['message_en' => 'The English message is empty after removing unsupported HTML.']);
             }
+        }
+
+        // A company package offer: its card comes from the offer, and customers can accept it.
+        $packageOffer = null;
+        if (!empty($data['package_offer_id'])) {
+            $packageOffer = PackageOffer::query()->find($data['package_offer_id']);
+
+            if (!$packageOffer || (int) $packageOffer->company_id !== (int) ($data['company_id'] ?? 0)) {
+                throw ValidationException::withMessages(['package_offer_id' => 'Choose a package offer of the selected company.']);
+            }
+
+            if (!$packageOffer->isOpen()) {
+                throw ValidationException::withMessages(['package_offer_id' => 'This package offer is closed or expired.']);
+            }
+
+            $data = array_replace($data, Notification::offerCardFields($packageOffer));
+            $data['has_offer'] = true;
+        } else {
+            $data['package_offer_id'] = null;
         }
 
         if (empty($data['has_offer'])) {
@@ -3934,7 +3965,14 @@ class AdminRepository
         $data['sender_id'] = $adminId;
 
         try {
-            return $this->publishNotification($data);
+            $notification = $this->publishNotification($data);
+
+            // Once customers hold a copy, the company can no longer edit the offer.
+            if ($packageOffer && !$packageOffer->sent_at) {
+                $packageOffer->update(['sent_at' => now()]);
+            }
+
+            return $notification;
         } catch (Throwable $e) {
             // Nothing was published: don't leave the uploaded image behind. (A push
             // failure after the save keeps it, since the inbox item uses it.)

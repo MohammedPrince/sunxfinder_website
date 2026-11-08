@@ -24,6 +24,16 @@
             'city' => $c->city,
             'logo' => app(\App\Helpers\Helper::class)->publicUrl($c->logo_path),
         ]]);
+        // Same card fields the server copies from the offer (Notification::offerCardFields).
+        $packageOfferJson = $packageOffers->mapWithKeys(fn($o) => [$o->id => [
+            'company' => (int) $o->company_id,
+            'title_en' => $o->title_en,
+            'title_ar' => $o->title_ar,
+            'price' => (float) $o->price,
+            'old_price' => (float) $o->discount > 0 ? (float) $o->subtotal : null,
+            'currency' => $o->currency,
+            'expires_at' => $o->expires_at?->format('Y-m-d\TH:i'),
+        ]]);
     @endphp
 
     @include('partials.page-guide', [
@@ -229,6 +239,19 @@
                     </label>
 
                     <div class="form-grid" id="campaignOfferFields" @if (!$hasOffer) hidden @endif>
+                        <div class="form-group full-width">
+                            <label for="package_offer_id">Company package offer</label>
+                            <select class="select-control" id="package_offer_id" name="package_offer_id">
+                                <option value="">None: write the offer card by hand</option>
+                                @foreach ($packageOffers as $packageOffer)
+                                    <option value="{{ $packageOffer->id }}" data-company="{{ $packageOffer->company_id }}"
+                                        @selected((int) old('package_offer_id') === (int) $packageOffer->id)>
+                                        {{ $packageOffer->title_en }} · up to {{ $packageOffer->maxLoadLabel() }} kW · {{ number_format((float) $packageOffer->price) }} {{ $packageOffer->currency }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <span class="form-hint" id="campaignPackageHint">Customers can accept a package offer in the app and send their devices to the company. Only open offers of the featured company are listed; picking one fills the card below.</span>
+                        </div>
                         <div class="form-group">
                             <label for="offer_title_en">Offer title (English) *</label>
                             <input type="text" class="form-control" id="offer_title_en" name="offer_title_en" maxlength="150"
@@ -418,6 +441,36 @@
                 sync();
             };
             toggle('has_offer', 'campaignOfferFields', ['offer_title_en']);
+
+            // --- Company package offer: fills the card and locks it, matching what the server saves ---
+            const packageOffers = @json($packageOfferJson);
+            const offerFields = ['offer_title_en', 'offer_title_ar', 'offer_price', 'offer_old_price', 'offer_expires_at'];
+            const syncPackageOffer = () => {
+                const select = $('package_offer_id');
+                const companyId = Number($('company_id').value || 0);
+                Array.from(select.options).forEach((option) => {
+                    if (option.value) option.hidden = Number(option.dataset.company) !== companyId;
+                });
+                if (select.selectedOptions[0]?.hidden) select.value = '';
+
+                const offer = packageOffers[select.value];
+                offerFields.concat(['offer_currency']).forEach((id) => {
+                    $(id).readOnly = !!offer;
+                    $(id).classList.toggle('is-locked', !!offer);
+                });
+                $('offer_currency').style.pointerEvents = offer ? 'none' : '';
+                if (offer) {
+                    $('offer_title_en').value = offer.title_en || '';
+                    $('offer_title_ar').value = offer.title_ar || '';
+                    $('offer_price').value = offer.price ?? '';
+                    $('offer_old_price').value = offer.old_price ?? '';
+                    $('offer_currency').value = offer.currency;
+                    $('offer_expires_at').value = offer.expires_at || '';
+                }
+            };
+            $('package_offer_id').addEventListener('change', () => { syncPackageOffer(); render(); });
+            $('company_id').addEventListener('change', () => { syncPackageOffer(); render(); });
+            syncPackageOffer();
             toggle('has_link', 'campaignLinkFields', ['link_url']);
 
             // --- Formatting toolbar ---
