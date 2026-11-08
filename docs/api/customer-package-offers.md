@@ -2,7 +2,7 @@
 
 Companies and SunXFinder admins can push a **package offer** to customers: a ready solar system (panels, inverter, batteries, installation…) for loads up to a set size, for example "5 kW home system, 2,300,000 SDG", usually with a picture.
 
-- A **company** sends its offers to its own customers (people who accepted one of its offers before).
+- A **company** can send its offers to any app customer. (In the company portal, customers who never worked with that company show only as "Customer-{id}".) Nothing changes for the app.
 - An **admin** sends a company's offer as a "Company offer" campaign, to all customers, one city, or selected customers.
 
 For the app both look the same: a notification with `type: "offer"`, an image, an offer card and a `package_offer` object.

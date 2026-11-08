@@ -1499,12 +1499,46 @@ class CompanyRepository
      * accepted one of its offers) that the app can reach. Unlike other notifications,
      * admin opening "all customers" does not apply to offers.
      */
+    /**
+     * Every app customer a package offer can be pushed to, own customers first.
+     * Only the company's own customers carry a name and city; the rest are "Customer-{id}".
+     *
+     * @return \Illuminate\Support\Collection<int, array{id: int, label: string, city: ?string, is_own: bool}>
+     */
     public function getOfferRecipients(): \Illuminate\Support\Collection
     {
-        return $this->ownReachableCustomers($this->authenticatedCompanyId())
+        $companyId = $this->authenticatedCompanyId();
+        $ownIds = array_flip($this->ownReachableCustomers($companyId)->pluck('id')->all());
+
+        return $this->reachableCustomers()
             ->select('id', 'full_name', 'username', 'city')
-            ->orderBy('full_name')
-            ->get();
+            ->orderBy('id')
+            ->get()
+            ->map(fn(Customer $customer) => $this->offerCustomerView($customer->id, isset($ownIds[$customer->id]) ? $customer : null))
+            ->sortBy(fn($row) => [$row['is_own'] ? 0 : 1, $row['is_own'] ? mb_strtolower($row['label']) : $row['id']])
+            ->values();
+    }
+
+    /** What the company may see of a customer: the name for its own customers, a number otherwise. */
+    private function offerCustomerView(int $id, ?Customer $ownCustomer): array
+    {
+        return [
+            'id' => $id,
+            'label' => $ownCustomer
+                ? ($ownCustomer->full_name ?: $ownCustomer->username ?: __('company/messages.common.customer_number', ['id' => $id]))
+                : __('company/messages.package_offers.customer_masked', ['id' => $id]),
+            'city' => $ownCustomer?->city,
+            'is_own' => $ownCustomer !== null,
+        ];
+    }
+
+    /** Active app customers with a working device, whichever company they work with. */
+    private function reachableCustomers(): Builder
+    {
+        return Customer::query()
+            ->where('status', 'active')
+            ->where('is_active', true)
+            ->whereHas('deviceTokens', fn($tokens) => $tokens->active());
     }
 
     private function ownReachableCustomers(int $companyId): Builder
@@ -1592,6 +1626,18 @@ class CompanyRepository
             ->paginate(20)
             ->withQueryString();
 
+        // Names only for this company's own customers (anyone who accepted is one).
+        $ownIds = array_flip($this->onlyCompanyCustomers(
+            Customer::query()->whereIn('id', $responses->getCollection()->pluck('customer_id')->filter()->all()),
+            $companyId
+        )->pluck('id')->all());
+
+        $responses->getCollection()->each(function (PackageOfferResponse $response) use ($ownIds) {
+            $own = isset($ownIds[$response->customer_id]) ? $response->customer : null;
+            $response->setAttribute('customer_view', $this->offerCustomerView((int) $response->customer_id, $own));
+            $response->setRelation('customer', null);
+        });
+
         return [
             'offer' => $offer,
             'responses' => $responses,
@@ -1664,7 +1710,7 @@ class CompanyRepository
             'message_ar' => filled($data['message_ar'] ?? null)
                 ? trim($data['message_ar'])
                 : "منظومة طاقة شمسية جاهزة لأحمال حتى {$load} كيلوواط، بسعر {$price}. افتح العرض وأضف أجهزتك واقبله.",
-            'own_customers_only' => true,
+            'all_app_customers' => true,
         ] + Notification::offerCardFields($offer));
 
         if (!$offer->sent_at) {
@@ -1816,8 +1862,8 @@ class CompanyRepository
 
                     $validCustomers = match (true) {
                         $senderType !== 'company' || $automatic => Customer::query(),
-                        // Package offers go to the company's own customers only.
-                        !empty($data['own_customers_only']) => $this->ownReachableCustomers((int) $senderId),
+                        // Package offers can go to any app customer (names stay hidden in the portal).
+                        !empty($data['all_app_customers']) => $this->reachableCustomers(),
                         default => $this->notifiableCustomers((int) $senderId),
                     };
 

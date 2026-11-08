@@ -80,8 +80,10 @@
                                 @endphp
                                 <tr>
                                     <td>
-                                        <strong>{{ $response->customer?->full_name ?: $response->customer?->username ?: __('company/messages.common.customer_number', ['id' => $response->customer_id]) }}</strong>
-                                        <small class="cell-note">{{ $response->customer?->city }}</small>
+                                        <strong>{{ $response->customer_view['label'] }}</strong>
+                                        @if ($response->customer_view['city'])
+                                            <small class="cell-note">{{ $response->customer_view['city'] }}</small>
+                                        @endif
                                     </td>
                                     <td>
                                         <span class="pill {{ $response->status === 'accepted' ? 'pill-green' : 'pill-red' }}">
@@ -133,13 +135,20 @@
                             @csrf
                             <div class="form-grid">
                                 <div class="form-group full-width">
-                                    <label for="customer_ids">{{ __('company/messages.notifications.your_customers') }} <b style="color:red">*</b></label>
-                                    <small class="form-hint">{{ __('company/messages.package_offers.own_customers_only') }}</small>
-                                    <select class="select-control" id="customer_ids" name="customer_ids[]" multiple size="8" @required($hasCustomers)>
-                                        @foreach ($customers as $customer)
-                                            <option value="{{ $customer->id }}" @selected(in_array((string) $customer->id, $selectedIds, true))>
-                                                {{ $customer->full_name ?: $customer->username ?: __('company/messages.common.customer_number', ['id' => $customer->id]) }}
-                                            </option>
+                                    <label for="customer_ids">{{ __('company/messages.package_offers.app_customers') }} <b style="color:red">*</b></label>
+                                    <small class="form-hint">{{ __('company/messages.package_offers.all_customers_hint') }}</small>
+                                    @php $groups = $customers->groupBy(fn($customer) => $customer['is_own'] ? 'own' : 'other'); @endphp
+                                    <select class="select-control" id="customer_ids" name="customer_ids[]" multiple size="10" @required($hasCustomers)>
+                                        @foreach (['own' => 'notifications.your_customers', 'other' => 'package_offers.other_customers'] as $group => $labelKey)
+                                            @if ($groups->has($group))
+                                                <optgroup label="{{ __('company/messages.' . $labelKey) }} ({{ $groups[$group]->count() }})">
+                                                    @foreach ($groups[$group] as $customer)
+                                                        <option value="{{ $customer['id'] }}" @selected(in_array((string) $customer['id'], $selectedIds, true))>
+                                                            {{ $customer['label'] }}{{ $customer['city'] ? ' · ' . $customer['city'] : '' }}
+                                                        </option>
+                                                    @endforeach
+                                                </optgroup>
+                                            @endif
                                         @endforeach
                                     </select>
                                     @if ($hasCustomers)

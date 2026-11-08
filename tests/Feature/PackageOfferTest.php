@@ -239,21 +239,44 @@ class PackageOfferTest extends TestCase
         \Illuminate\Support\Facades\File::delete(public_path($offer->image_path));
     }
 
-    public function test_company_sends_offers_to_its_own_customers_even_when_opened_to_all(): void
+    public function test_company_sends_offers_to_all_app_customers_but_sees_only_its_own_names(): void
     {
-        // Admin opened all customers for this company's other notifications.
-        $this->company->forceFill(['can_notify_all_customers' => true])->save();
         $stranger = $this->makeCustomer('stranger');
+        $stranger->forceFill(['city' => 'Port Sudan'])->save();
         $offer = $this->createOffer();
 
+        // Own customer by name; anyone else only as a number, with no city.
         $this->get(route('company.offers.show', $offer->id))
             ->assertOk()
             ->assertSee('own customer')
-            ->assertDontSee('stranger customer');
+            ->assertSee('Customer-' . $stranger->id)
+            ->assertDontSee('stranger customer')
+            ->assertDontSee('Port Sudan')
+            ->assertDontSee('company/messages.');
 
-        $this->post(route('company.offers.send', $offer->id), ['customer_ids' => [$stranger->id]])
-            ->assertSessionHasErrors('customer_ids');
-        $this->assertSame(0, Notification::query()->count());
+        $this->sendOffer($offer, [$this->customer->id, $stranger->id]);
+        $this->assertSame(2, \App\Models\CustomerNotification::query()->where('notification_id', Notification::query()->latest('id')->value('id'))->count());
+
+        // The stranger declines: still a number on the offer page.
+        Sanctum::actingAs($stranger);
+        $this->postJson('/api/v1/customer/package-offers/' . $offer->id . '/decline')->assertOk();
+
+        $this->actingAs($this->company, 'company');
+        $this->get(route('company.offers.show', $offer->id))
+            ->assertOk()
+            ->assertSee('Customer-' . $stranger->id)
+            ->assertDontSee('stranger customer')
+            ->assertDontSee('Port Sudan');
+
+        // Accepting makes them this company's customer, so the name shows.
+        Sanctum::actingAs($stranger);
+        $this->postJson('/api/v1/customer/package-offers/' . $offer->id . '/accept', $this->acceptPayload())->assertCreated();
+
+        $this->actingAs($this->company, 'company');
+        $this->get(route('company.offers.show', $offer->id))
+            ->assertOk()
+            ->assertSee('stranger customer')
+            ->assertSee('Port Sudan');
     }
 
     public function test_sending_pushes_the_offer_and_locks_it(): void
@@ -275,9 +298,10 @@ class PackageOfferTest extends TestCase
         $this->delete(route('company.offers.destroy', $offer->id));
         $this->assertNotNull($offer->fresh());
 
-        // Only the company's own customers, as for other company notifications.
-        $stranger = $this->makeCustomer('stranger');
-        $this->post(route('company.offers.send', $offer->id), ['customer_ids' => [$stranger->id]])
+        // Any app customer, but not a blocked account.
+        $blocked = $this->makeCustomer('blocked');
+        $blocked->forceFill(['is_active' => false])->save();
+        $this->post(route('company.offers.send', $offer->id), ['customer_ids' => [$blocked->id]])
             ->assertSessionHasErrors('customer_ids');
     }
 

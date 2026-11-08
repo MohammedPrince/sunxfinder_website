@@ -1479,5 +1479,9 @@ return [
         'copy_image_note' => 'The copy does not include the image. Choose it again if you want one.',
         'made_by_admin' => 'SunXFinder made and sent this offer for your company.',
         'own_customers_only' => 'Offers go to your own customers only: those who accepted one of your offers and use the app.',
+        'app_customers' => 'Customers',
+        'all_customers_hint' => 'You can send this offer to any app customer. You see names only for your own customers (those who accepted one of your offers); others show as a number.',
+        'other_customers' => 'Other app customers',
+        'customer_masked' => 'Customer-:id',
     ],
 ];
