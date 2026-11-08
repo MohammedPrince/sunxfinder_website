@@ -55,6 +55,9 @@ class PackageOfferTest extends TestCase
         $supplier = Supplier::query()->forceCreate(['name' => 'Jinko']);
         $this->panel = $this->makeProduct($this->company, $supplier, 'Tiger Neo 550W', 'solar_panel');
         $this->inverter = $this->makeProduct($this->company, $supplier, 'Deye 5kW', 'inverter');
+        $this->panel->forceFill(['model' => 'JKM550N'])->save();
+        \App\Models\ProductSpec::query()->create(['product_id' => $this->panel->id, 'spec_name' => 'Rated Power', 'spec_value' => '550 W']);
+        \App\Models\ProductSpec::query()->create(['product_id' => $this->panel->id, 'spec_name' => 'Warranty', 'spec_value' => '25 years']);
 
         $this->actingAs($this->company, 'company');
     }
@@ -308,6 +311,16 @@ class PackageOfferTest extends TestCase
         $this->assertCount(3, $details['items']);
         $this->assertSame('solar_panel', $details['items'][0]['type']);
         $this->assertEquals(1200000, $details['items'][0]['line_total']);
+
+        // Lines picked from the company's products carry the product details.
+        $panel = $details['items'][0]['product'];
+        $this->assertSame('Tiger Neo 550W', $panel['name']);
+        $this->assertSame('JKM550N', $panel['model']);
+        $this->assertSame('Jinko', $panel['brand']);
+        $this->assertSame('solar_panel', $panel['type']);
+        $this->assertSame([['name' => 'Rated Power', 'value' => '550 W'], ['name' => 'Warranty', 'value' => '25 years']], $panel['specs']);
+        $this->assertSame('Deye 5kW', $details['items'][1]['product']['name']);
+        $this->assertNull($details['items'][2]['product']);
         $this->assertEquals(2300000, $details['price']);
     }
 
@@ -392,6 +405,10 @@ class PackageOfferTest extends TestCase
         $this->assertSame('accepted', $myQuote['status']);
         $this->assertSame($project->id, $myQuote['project_id']);
         $this->assertSame('selected', $myQuote['offers'][0]['status']);
+        // The accepted offer's lines keep the product details in My Quotes too.
+        $this->assertSame('solar_panel', $myQuote['offers'][0]['items'][0]['type']);
+        $this->assertSame('Jinko', $myQuote['offers'][0]['items'][0]['product']['brand']);
+        $this->assertNull($myQuote['offers'][0]['items'][2]['product']);
         $this->assertSame('PKG-' . $offer->id . '-Q' . str_pad((string) $quote->id, 5, '0', STR_PAD_LEFT), $myQuote['offers'][0]['invoice']['invoice_number']);
 
         // A second tap does not open another request.

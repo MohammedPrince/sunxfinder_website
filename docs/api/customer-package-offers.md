@@ -17,6 +17,12 @@ Older app versions keep working: they show the notification and its offer card a
 
 ## Changes
 
+### Update 4: product details on each item
+
+Items the company picked from its products now carry a `product` object: name, model, brand, description and specs (for example Rated Power, Capacity or Warranty, whatever the company entered). It is on `items[]` in `GET /package-offers/{id}` (section 5.1) and on `offers[].items[]` in My Quotes. Custom lines such as "Installation" have `product: null`, so keep showing `description` for those. See **Item product details** below 5.1.
+
+There are **no product photos**: products have no image in the backend yet.
+
 ### Update 3: offer images, and one kind of "Company offer"
 
 | | Before | Now |
@@ -189,9 +195,28 @@ Only works for customers who were sent the offer. Anyone else gets `404`.
       },
       "max_load_kw": 5,
       "items": [
-        { "type": "solar_panel", "product_id": 4, "description": "Tiger Neo 550W", "quantity": 6, "unit_price": 200000, "line_total": 1200000 },
-        { "type": "inverter", "product_id": 6, "description": "Deye 5kW", "quantity": 1, "unit_price": 900000, "line_total": 900000 },
-        { "type": "other", "product_id": null, "description": "Installation", "quantity": 1, "unit_price": 300000, "line_total": 300000 }
+        {
+          "type": "solar_panel",
+          "product_id": 4,
+          "description": "Tiger Neo 550W",
+          "quantity": 6,
+          "unit_price": 200000,
+          "line_total": 1200000,
+          "product": {
+            "id": 4,
+            "name": "Tiger Neo 550W",
+            "model": "JKM550N-72HL4",
+            "brand": "Jinko",
+            "type": "solar_panel",
+            "description": "N-type monocrystalline module.",
+            "specs": [
+              { "name": "Rated Power", "value": "550 W" },
+              { "name": "Warranty", "value": "25 years" }
+            ]
+          }
+        },
+        { "type": "inverter", "product_id": 6, "description": "Deye 5kW", "quantity": 1, "unit_price": 900000, "line_total": 900000, "product": { "…": "same shape" } },
+        { "type": "other", "product_id": null, "description": "Installation", "quantity": 1, "unit_price": 300000, "line_total": 300000, "product": null }
       ],
       "subtotal": 2400000,
       "discount": 100000,
@@ -214,12 +239,33 @@ Only works for customers who were sent the offer. Anyone else gets `404`.
 | `image` | `{ url, width, height }` or `null`. Usually 2:1 (1200 × 600). Use `width` / `height` to reserve the space before it loads. This is the offer's own image; it can differ from the notification image when an admin uploaded a campaign image. |
 | `items[].type` | `solar_panel`, `inverter`, `battery`, `other` or `null`. Use it for an icon. |
 | `items[].description` | Text written by the company (not translated). |
+| `items[].product` | Product details (brand, model, specs) or `null` for custom lines. See **Item product details** below. |
 | `price` | What the customer pays: `subtotal - discount`. |
 | `company` | `null` if the company is no longer on the app (then `status` is `closed`). |
 | `max_load_kw` | The calculator limit for this offer. |
 | `my_response.quote_id` | After accepting: the accepted request, so "View project" can find it in My Quotes. |
 
 **404:** `{ "status": "error", "code": 404, "message": "Offer not found.", "data": null }`
+
+#### Item product details
+
+`items[].product` is set when the company picked the line from its products, and `null` for custom lines.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | int | Same as `product_id`. |
+| `name` | string | Product name, e.g. "Tiger Neo 550W". |
+| `model` | string\|null | Model number. |
+| `brand` | string\|null | The manufacturer (the product's supplier), e.g. "Jinko". |
+| `type` | string | `solar_panel`, `inverter`, `battery` or `other`. |
+| `description` | string\|null | The company's product description (English, not translated). |
+| `specs` | array | `[{ "name", "value" }]` in the company's order. Free text written by the company, so names vary ("Rated Power", "Power", "Capacity", "Warranty"…). Show them as a simple list; do not look for fixed names. Can be empty. |
+
+Suggested display per item: **brand + name** as the title, **model** as a subtitle, then the specs list. Fall back to `description` when `product` is `null`.
+
+The same `product` (and `type`) is on each line of `offers[].items[]` in `POST /my-quotes` and `main-data`, for offers whose lines were picked from products. `null` otherwise.
+
+These are the product's current details, so a later change by the company (for example a corrected spec) shows here too. A product the company deleted afterwards still shows.
 
 ### 5.2 Accept: `POST /package-offers/{id}/accept`
 
@@ -343,6 +389,7 @@ It is `null` for normal requests. A request from a package offer comes back alre
 - [ ] Handle `package_offer_id` in the push and the `sunxfinder://package-offer/{id}` deep link.
 - [ ] Offer details screen (`GET /package-offers/{id}`) with the `image` on top, right-to-left with the `ar_*` fields.
 - [ ] Older `type: "offer"` notifications with `package_offer: null`: show the card only, no Accept / Decline.
+- [ ] Per item: brand + name, model and specs from `items[].product`; `description` when it is `null`.
 - [ ] Accept / Decline only when `can_respond` is true; show "You accepted / declined" from `my_response`.
 - [ ] Calculator limited to `max_load_kw`; send `peak_load_kw` as a number.
 - [ ] Confirm before accepting (it is final), then handle the `data.reason` errors.

@@ -27,6 +27,7 @@ use App\Models\Invoice;
 use App\Models\LegalSection;
 use App\Models\PackageOffer;
 use App\Models\PackageOfferResponse;
+use App\Models\Product;
 use App\Models\Project;
 use App\Models\ProjectMilestone;
 use App\Models\ProjectUpdate;
@@ -1875,14 +1876,20 @@ class CustomerRepository
     {
         $invoice = $offer->invoice;
 
+        $items = $invoice?->items ?? [];
+        $products = $this->itemProducts($items);
+
         return [
-            'items' => collect($invoice?->items ?? [])
+            'items' => collect($items)
                 ->map(fn(array $item) => [
                     'description' => $item['description'] ?? '',
                     'ar_description' => $item['ar_description'] ?? null,
                     'quantity' => (float) ($item['quantity'] ?? 0),
                     'unit_price' => number_format((float) ($item['unit_price'] ?? 0), 2, '.', ''),
                     'line_total' => number_format((float) ($item['total'] ?? 0), 2, '.', ''),
+                    // Set when the company picked the line from its products.
+                    'type' => $item['type'] ?? null,
+                    'product' => $products[(int) ($item['product_id'] ?? 0)] ?? null,
                 ])
                 ->values(),
             'subtotal' => $invoice?->subtotal ?? $offer->price,
@@ -2314,9 +2321,62 @@ class CustomerRepository
         ] : null;
     }
 
+    /** Product details already loaded in this request, by id (null: not found). */
+    private array $productDetailsCache = [];
+
+    /**
+     * Details of the company products named by offer/invoice lines (product_id), keyed by id:
+     * name, model, brand (the supplier), description and the company's specs (e.g. Rated Power,
+     * Capacity, Warranty). Current product data; a product deleted since still shows.
+     *
+     * @return array<int, array>
+     */
+    private function itemProducts(array $items): array
+    {
+        $ids = collect($items)
+            ->pluck('product_id')
+            ->filter(fn($id) => is_numeric($id) && (int) $id > 0)
+            ->map(fn($id) => (int) $id)
+            ->unique();
+
+        $missing = $ids->reject(fn(int $id) => array_key_exists($id, $this->productDetailsCache))->values();
+
+        if ($missing->isNotEmpty()) {
+            $products = Product::withTrashed()
+                ->with([
+                    'supplier' => fn($q) => $q->withTrashed()->select('id', 'name'),
+                    'specs' => fn($q) => $q->select('id', 'product_id', 'spec_name', 'spec_value')->orderBy('id'),
+                ])
+                ->whereIn('id', $missing)
+                ->get(['id', 'supplier_id', 'name', 'model', 'type', 'description'])
+                ->keyBy('id');
+
+            foreach ($missing as $id) {
+                $product = $products->get($id);
+
+                $this->productDetailsCache[$id] = $product ? [
+                    'id' => (int) $product->id,
+                    'name' => $product->name,
+                    'model' => $product->model,
+                    'brand' => $product->supplier?->name,
+                    'type' => $product->type,
+                    'description' => $product->description,
+                    'specs' => $product->specs
+                        ->filter(fn($spec) => filled($spec->spec_name) && filled($spec->spec_value))
+                        ->map(fn($spec) => ['name' => $spec->spec_name, 'value' => $spec->spec_value])
+                        ->values(),
+                ] : null;
+            }
+        }
+
+        return $ids->mapWithKeys(fn(int $id) => [$id => $this->productDetailsCache[$id]])->filter()->all();
+    }
+
     /** Full offer for the details screen. */
     private function formatPackageOffer(PackageOffer $offer, ?PackageOfferResponse $response): array
     {
+        $products = $this->itemProducts($offer->items ?? []);
+
         $company = $this->helper->isCompanyVisible($offer->company) ? $offer->company : null;
         $status = $this->packageOfferStatus($offer);
 
@@ -2349,6 +2409,7 @@ class CustomerRepository
                     'quantity' => (float) ($item['quantity'] ?? 0),
                     'unit_price' => (float) ($item['unit_price'] ?? 0),
                     'line_total' => (float) ($item['total'] ?? 0),
+                    'product' => $products[(int) ($item['product_id'] ?? 0)] ?? null,
                 ])
                 ->values(),
             'subtotal' => (float) $offer->subtotal,
