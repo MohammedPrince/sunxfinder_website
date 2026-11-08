@@ -16,7 +16,7 @@
         <nav class="nav-links">
             <a href="{{ $homeUrl }}#how">{{ trans('messages.How it works') }}</a>
 
-            <a href="{{ $homeUrl }}#calculator">{{ trans('messages.Load calculator') }}</a>
+            {{-- <a href="{{ $homeUrl }}#calculator">{{ trans('messages.Load calculator') }}</a> --}}
 
             <a href="{{ $homeUrl }}#solutions">{{ trans('messages.Solutions') }}</a>
 
