@@ -308,6 +308,207 @@
     gap: 12px;
 }
 
+/* Product catalog: filter chips, then one collapsible row per product. */
+.company-product-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.company-product-filters button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border: 1px solid #e1e8f1;
+    border-radius: 999px;
+    background: #fff;
+    color: #3d536f;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.company-product-filters button span {
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #eef3f9;
+    color: #60718a;
+    font-size: 11px;
+}
+
+.company-product-filters button.is-active {
+    border-color: #123566;
+    background: #123566;
+    color: #fff;
+}
+
+.company-product-filters button.is-active span {
+    background: rgba(255, 255, 255, .18);
+    color: #fff;
+}
+
+.company-product-list {
+    display: grid;
+    gap: 10px;
+}
+
+.company-product-item {
+    border: 1px solid #e9eef5;
+    border-radius: 14px;
+    background: #fff;
+    transition: border-color .15s, box-shadow .15s;
+}
+
+.company-product-item[open] {
+    border-color: #d5e0ee;
+    box-shadow: 0 6px 18px rgba(15, 43, 80, .06);
+}
+
+.company-product-item summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.company-product-item summary::-webkit-details-marker {
+    display: none;
+}
+
+.company-product-item summary:focus-visible {
+    outline: 2px solid #fd5103;
+    outline-offset: 2px;
+    border-radius: 14px;
+}
+
+.company-product-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    background: #eef3f9;
+    color: #15558e;
+}
+
+.company-product-icon-solar_panel { background: #fff4e5; color: #d97706; }
+.company-product-icon-inverter { background: #e8f1fd; color: #1d4ed8; }
+.company-product-icon-battery { background: #e7f7ed; color: #16834b; }
+
+.company-product-head {
+    display: grid;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.company-product-type {
+    color: #fd5103;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+}
+
+.company-product-head strong {
+    color: #17365f;
+    font-size: 15px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.company-product-head small {
+    color: #8190a4;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.company-product-toggle {
+    flex: 0 0 auto;
+    width: 9px;
+    height: 9px;
+    border-inline-end: 2px solid #8190a4;
+    border-bottom: 2px solid #8190a4;
+    transform: rotate(45deg);
+    transition: transform .15s;
+    margin-inline-end: 4px;
+}
+
+.company-product-item[open] .company-product-toggle {
+    transform: rotate(-135deg);
+}
+
+.company-product-body {
+    padding: 0 14px 14px;
+    border-top: 1px solid #f0f3f8;
+}
+
+.company-product-description {
+    margin: 12px 0 0;
+    color: #60718a;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.company-product-specs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 12px 0 0;
+}
+
+.company-product-specs div {
+    padding: 9px 11px;
+    border-radius: 10px;
+    background: #f6f8fb;
+    min-width: 0;
+}
+
+.company-product-specs dt {
+    color: #8190a4;
+    font-size: 11px;
+}
+
+.company-product-specs dd {
+    margin: 2px 0 0;
+    color: #17365f;
+    font-size: 13px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.company-product-more {
+    display: block;
+    width: 100%;
+    margin-top: 12px;
+    padding: 11px;
+    border: 1px dashed #c9d5e4;
+    border-radius: 12px;
+    background: #fff;
+    color: #123566;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.company-product-more:hover {
+    border-color: #123566;
+}
+
+@media (max-width: 560px) {
+    .company-product-specs {
+        grid-template-columns: 1fr;
+    }
+}
+
 .company-service-item {
     display: flex;
     align-items: center;
