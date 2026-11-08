@@ -292,58 +292,6 @@
         </div>
     </section>
 
-    {{-- ============ Solutions ============ --}}
-    <section class="hx-section hx-section-soft" id="solutions">
-        <div class="container">
-            <div class="hx-heading">
-                <span class="hx-kicker">{{ __('messages.Solutions') }}</span>
-                <h2>{{ __('messages.Solar for every need') }}</h2>
-                <p>{{ __('messages.Whatever you want to power, there is a company on SunXFinder that can help.') }}</p>
-            </div>
-
-            <div class="hx-solutions">
-                <article class="hx-solution">
-                    <span class="hx-solution-icon hx-tone-blue" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <path d="m3 11 9-7 9 7" />
-                            <path d="M5 10v10h14V10" />
-                            <path d="M10 20v-6h4v6" />
-                        </svg>
-                    </span>
-                    <h3>{{ __('messages.Home energy') }}</h3>
-                    <p>{{ __('messages.Solar panels, batteries and backup power for homeowners.') }}</p>
-                </article>
-
-                <article class="hx-solution">
-                    <span class="hx-solution-icon hx-tone-orange" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="4" y="3" width="16" height="18" rx="1.5" />
-                            <path d="M9 7h1M14 7h1M9 11h1M14 11h1M9 15h1M14 15h1M10 21v-3h4v3" />
-                        </svg>
-                    </span>
-                    <h3>{{ __('messages.Business & industry') }}</h3>
-                    <p>{{ __('messages.Energy options for shops, offices, facilities and operations.') }}</p>
-                </article>
-
-                <article class="hx-solution">
-                    <span class="hx-solution-icon hx-tone-green" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 21V11" />
-                            <path d="M12 11c0-4 3-7 7-7 0 4-3 7-7 7Z" />
-                            <path d="M12 14c0-3-2.5-5.5-6-5.5 0 3.5 2.5 5.5 6 5.5Z" />
-                            <path d="M4 21h16" />
-                        </svg>
-                    </span>
-                    <h3>{{ __('messages.Farms & water pumps') }}</h3>
-                    <p>{{ __('messages.Solar-powered irrigation and remote energy systems.') }}</p>
-                </article>
-            </div>
-        </div>
-    </section>
-
     {{-- ============ Load calculator (same sizing rules as the app) ============ --}}
     @if (!empty($calculatorGroups))
         @php
@@ -560,6 +508,58 @@
             </div>
         </section>
     @endif
+
+    {{-- ============ Solutions ============ --}}
+    <section class="hx-section hx-section-soft" id="solutions">
+        <div class="container">
+            <div class="hx-heading">
+                <span class="hx-kicker">{{ __('messages.Solutions') }}</span>
+                <h2>{{ __('messages.Solar for every need') }}</h2>
+                <p>{{ __('messages.Whatever you want to power, there is a company on SunXFinder that can help.') }}</p>
+            </div>
+
+            <div class="hx-solutions">
+                <article class="hx-solution">
+                    <span class="hx-solution-icon hx-tone-blue" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m3 11 9-7 9 7" />
+                            <path d="M5 10v10h14V10" />
+                            <path d="M10 20v-6h4v6" />
+                        </svg>
+                    </span>
+                    <h3>{{ __('messages.Home energy') }}</h3>
+                    <p>{{ __('messages.Solar panels, batteries and backup power for homeowners.') }}</p>
+                </article>
+
+                <article class="hx-solution">
+                    <span class="hx-solution-icon hx-tone-orange" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="4" y="3" width="16" height="18" rx="1.5" />
+                            <path d="M9 7h1M14 7h1M9 11h1M14 11h1M9 15h1M14 15h1M10 21v-3h4v3" />
+                        </svg>
+                    </span>
+                    <h3>{{ __('messages.Business & industry') }}</h3>
+                    <p>{{ __('messages.Energy options for shops, offices, facilities and operations.') }}</p>
+                </article>
+
+                <article class="hx-solution">
+                    <span class="hx-solution-icon hx-tone-green" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 21V11" />
+                            <path d="M12 11c0-4 3-7 7-7 0 4-3 7-7 7Z" />
+                            <path d="M12 14c0-3-2.5-5.5-6-5.5 0 3.5 2.5 5.5 6 5.5Z" />
+                            <path d="M4 21h16" />
+                        </svg>
+                    </span>
+                    <h3>{{ __('messages.Farms & water pumps') }}</h3>
+                    <p>{{ __('messages.Solar-powered irrigation and remote energy systems.') }}</p>
+                </article>
+            </div>
+        </div>
+    </section>
 
     {{-- ============ Companies (hidden when no company is active in Company Carousel) ============ --}}
     @if ($companies->isNotEmpty())
