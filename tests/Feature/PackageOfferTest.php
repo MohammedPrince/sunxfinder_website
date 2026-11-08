@@ -658,6 +658,56 @@ class PackageOfferTest extends TestCase
         $this->assertNull($notification->offer_title_en);
     }
 
+    public function test_dashboards_and_reports_show_package_offer_results(): void
+    {
+        $other = $this->makeCustomer('two');
+        $this->makeOwnCustomer($other);
+        $offer = $this->createOffer();
+        $this->sendOffer($offer, [$this->customer->id, $other->id]);
+
+        Sanctum::actingAs($this->customer);
+        $this->postJson('/api/v1/customer/package-offers/' . $offer->id . '/accept', $this->acceptPayload())->assertCreated();
+        Sanctum::actingAs($other);
+        $this->postJson('/api/v1/customer/package-offers/' . $offer->id . '/decline')->assertOk();
+
+        $stats = \App\Support\BusinessStats::packageOffers(now()->subDay(), now()->addMinute(), $this->company->id);
+        $this->assertSame(1, $stats['sent']);
+        $this->assertSame(2, $stats['reached']);
+        $this->assertSame(1, $stats['accepted']);
+        $this->assertSame(1, $stats['declined']);
+        $this->assertSame(50, $stats['accept_rate']);
+        $this->assertSame([['currency' => 'SDG', 'count' => 1, 'total' => 2300000.0]], $stats['won']);
+        $this->assertSame(1, $stats['open_now']);
+        $this->assertSame('5 kW home system', $stats['top'][0]['title']);
+        // Another company's figures stay out.
+        $this->assertSame(0, \App\Support\BusinessStats::packageOffers(now()->subDay(), now()->addMinute(), $this->company->id + 999)['accepted']);
+
+        // Company portal.
+        $this->actingAs($this->company, 'company');
+        $this->get(route('company.dashboard'))->assertOk()->assertSee('Package offers accepted')->assertDontSee('company/messages.');
+        $this->get(route('company.reports.index'))->assertOk()->assertSee('id="package-offers"', false)
+            ->assertSee('Most accepted offers')->assertSee('5 kW home system')->assertDontSee('company/messages.');
+        $csv = $this->get(route('company.reports.export', ['section' => 'package_offers']))->assertOk()->streamedContent();
+        $this->assertStringContainsString('5 kW home system', $csv);
+        $this->assertStringContainsString('Accepted', $csv);
+        $this->assertStringContainsString('Declined', $csv);
+
+        // Admin.
+        $admin = \App\Models\Admin::query()->forceCreate([
+            'username' => 'admin-stats',
+            'email' => 'admin-stats@example.test',
+            'password' => Hash::make('secret123'),
+            'is_active' => true,
+        ]);
+        $this->actingAs($admin, 'admin');
+        $this->get(route('admin.dashboard.page'))->assertOk()->assertSee('Package offers accepted');
+        $this->get(route('admin.reports.index'))->assertOk()->assertSee('Most accepted offers')->assertSee('Red Sea Solar')
+            ->assertSee('1 open now')->assertDontSee(':count');
+        $csv = $this->get(route('admin.reports.export', ['section' => 'package_offers']))->assertOk()->streamedContent();
+        $this->assertStringContainsString('Red Sea Solar', $csv);
+        $this->assertStringContainsString('own customer', $csv);
+    }
+
     public function test_load_text_is_read_in_kw(): void
     {
         $this->assertSame(4.2, PackageOffer::loadToKw('4.2 kW'));

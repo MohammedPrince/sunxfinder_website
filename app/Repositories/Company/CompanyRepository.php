@@ -409,6 +409,8 @@ class CompanyRepository
                 ->join('tbl_quote_requests as q', 'q.id', '=', 'tbl_company_quotations.quote_id')->distinct()->count('q.customer_id'),
             // Ad results for the last 30 days, only when Advertising is open to this company.
             'ads' => Setting::companyAdsEnabled($companyId) ? BusinessStats::advertising(now()->subDays(29)->startOfDay(), now(), $companyId) : null,
+            // Package offer results for the last 30 days.
+            'packageOffers' => BusinessStats::packageOffers(now()->subDays(29)->startOfDay(), now(), $companyId),
         ];
     }
 
@@ -524,6 +526,7 @@ class CompanyRepository
             'products' => $this->companyReportProducts($companyId),
             'notifications' => $this->companyReportNotifications($companyId, $from, $to),
             'ratings' => BusinessStats::ratings($from, $to, $companyId),
+            'packageOffers' => BusinessStats::packageOffers($from, $to, $companyId),
             'advertising' => Setting::companyAdsEnabled($companyId) ? BusinessStats::advertising($from, $to, $companyId) : null,
         ];
     }
@@ -539,6 +542,24 @@ class CompanyRepository
         $to = $period['to'];
         $suffix = $from->format('Y-m-d') . '_to_' . $to->format('Y-m-d');
         $ref = fn($id) => '#Q-' . str_pad((string) $id, 5, '0', STR_PAD_LEFT);
+
+        if ($section === 'package_offers') {
+            $answers = [
+                PackageOfferResponse::ACCEPTED => __('company/messages.reports.pkg_accepted'),
+                PackageOfferResponse::DECLINED => __('company/messages.reports.pkg_declined'),
+            ];
+            $lang = app()->getLocale();
+
+            return [
+                'filename' => "my-package-offers_{$suffix}.csv",
+                'headers' => array_map(fn($key) => __('company/messages.' . $key), ['reports.pkg_offer', 'package_offers.max_load', 'reports.price', 'reports.currency', 'reports.pkg_answer', 'reports.pkg_answered_at', 'common.customer', 'common.city', 'common.request', 'common.project', 'common.status']),
+                'rows' => BusinessStats::packageOfferAnswers($from, $to, $companyId)->map(fn($r) => [
+                    $lang === 'ar' && filled($r->title_ar) ? $r->title_ar : $r->title_en, $r->max_load_kw, $r->price, $r->currency,
+                    $answers[$r->status] ?? $r->status, $r->responded_at, $r->full_name ?: $r->username, $r->city,
+                    $r->quote_id ? $ref($r->quote_id) : '', $r->project_id, $r->project_status,
+                ])->all(),
+            ];
+        }
 
         if ($section === 'offers') {
             $rows = DB::table('tbl_company_quotations as o')

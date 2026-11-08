@@ -233,6 +233,7 @@ class AdminRepository
             'topVisitorCountry' => $topVisitorCountry,
             // Money, ads, complaints and ratings for the second row of cards.
             'ads' => BusinessStats::advertising($thisMonth, now()),
+            'packageOffers' => BusinessStats::packageOffers($thisMonth, now()),
             'ratings' => BusinessStats::ratingOverall(),
             'complaints' => [
                 'open' => CustomerComplaint::query()->where('status', 'pending')->count(),
@@ -367,6 +368,7 @@ class AdminRepository
             'catalog' => $this->reportCatalog(),
             'notifications' => $this->reportNotifications($from, $to),
             'advertising' => BusinessStats::advertising($from, $to),
+            'packageOffers' => BusinessStats::packageOffers($from, $to),
             'ratings' => BusinessStats::ratings($from, $to),
             'complaints' => BusinessStats::complaints($from, $to),
         ];
@@ -381,6 +383,18 @@ class AdminRepository
         $from = $period['from'];
         $to = $period['to'];
         $suffix = $from->format('Y-m-d') . '_to_' . $to->format('Y-m-d');
+
+        if ($section === 'package_offers') {
+            return [
+                'filename' => "package-offers_{$suffix}.csv",
+                'headers' => ['Offer', 'Title', 'Company', 'Sent by', 'Max load (kW)', 'Price', 'Currency', 'Answer', 'Answered at', 'Customer', 'City', 'Request', 'Project', 'Project status'],
+                'rows' => BusinessStats::packageOfferAnswers($from, $to)->map(fn($r) => [
+                    $r->offer_id, $r->title_en, $r->company, $r->created_by_type, $r->max_load_kw, $r->price, $r->currency,
+                    $r->status, $r->responded_at, $r->full_name ?: $r->username, $r->city,
+                    $r->quote_id ? '#Q-' . str_pad((string) $r->quote_id, 5, '0', STR_PAD_LEFT) : '', $r->project_id, $r->project_status,
+                ])->all(),
+            ];
+        }
 
         if ($section === 'companies') {
             return [

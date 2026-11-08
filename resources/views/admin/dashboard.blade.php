@@ -130,8 +130,8 @@
         </article>
     </section>
 
-    {{-- Money and follow-ups: ads, complaints and ratings --}}
-    <section class="stats-grid" style="margin-top:15px">
+    {{-- Money and follow-ups: ads, package offers, complaints and ratings --}}
+    <section class="stats-grid" style="margin-top:15px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
         <article class="stat-card">
             <div class="stat-top">
                 <span>Ad revenue this month</span>
@@ -174,6 +174,27 @@
                 {{ number_format($ads['awaiting_payment']) }} awaiting payment
             </div>
             <small><a class="text-link" href="{{ route('admin.ad-sales.index', ['ending' => 1]) }}">{{ number_format($ads['ending_soon']) }} ending within {{ \App\Models\AdSale::ENDING_SOON_DAYS }} days ↗</a></small>
+        </article>
+
+        <article class="stat-card">
+            <div class="stat-top">
+                <span>Package offers accepted</span>
+                <span class="stat-icon purple">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M20 12v9H4v-9" />
+                        <path d="M2 7h20v5H2z" />
+                        <path d="M12 21V7" />
+                        <path d="M12 7H7.5a2.5 2.5 0 1 1 0-5C11 2 12 7 12 7Z" />
+                        <path d="M12 7h4.5a2.5 2.5 0 1 0 0-5C13 2 12 7 12 7Z" />
+                    </svg>
+                </span>
+            </div>
+            <div class="stat-value">{{ number_format($packageOffers['accepted']) }}</div>
+            <div class="stat-foot">
+                This month · {{ number_format($packageOffers['declined']) }} declined · {{ number_format($packageOffers['reached']) }} customers reached
+            </div>
+            <small><a class="text-link" href="{{ route('admin.reports.index') }}#package-offers">{{ number_format($packageOffers['open_now']) }} offers open now ↗</a></small>
         </article>
 
         <article class="stat-card">

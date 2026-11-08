@@ -102,7 +102,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             // Reports (date range via ?preset=30d or ?preset=custom&from=&to=)
             Route::prefix('reports')->name('reports.')->group(function () {
                 Route::get('/', 'reports')->name('index');
-                Route::get('/export/{section}', 'exportReport')->whereIn('section', ['companies', 'quote_requests', 'customers'])->name('export');
+                Route::get('/export/{section}', 'exportReport')->whereIn('section', ['companies', 'quote_requests', 'customers', 'package_offers'])->name('export');
             });
 
             // Solar companies
@@ -386,7 +386,7 @@ Route::prefix('company')->name('company.')->middleware(CompanyValidationLines::c
             // Reports (date range via ?preset=30d or ?preset=custom&from=&to=)
             Route::prefix('reports')->name('reports.')->group(function () {
                 Route::get('/', 'reports')->name('index');
-                Route::get('/export/{section}', 'exportReport')->whereIn('section', ['offers', 'projects', 'customers'])->name('export');
+                Route::get('/export/{section}', 'exportReport')->whereIn('section', ['offers', 'projects', 'customers', 'package_offers'])->name('export');
             });
 
             // Company profile

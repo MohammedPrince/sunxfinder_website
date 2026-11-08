@@ -45,7 +45,7 @@ class MainController extends Controller
 
     public function exportReport(Request $request, string $section)
     {
-        abort_unless(in_array($section, ['offers', 'projects', 'customers'], true), 404);
+        abort_unless(in_array($section, ['offers', 'projects', 'customers', 'package_offers'], true), 404);
 
         $export = $this->companyService->getCompanyReportExport($section, $this->validatedReportFilters($request));
 
