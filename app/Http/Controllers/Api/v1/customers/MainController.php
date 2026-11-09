@@ -118,9 +118,10 @@ class MainController extends Controller
             'second_name' => ['nullable', 'string', 'max:15', 'min:3'],
             'third_name' => ['nullable', 'string', 'max:15'],
             'phone' => ['required', 'string', 'min:9', 'max:10', 'regex:/\A[0-9]+\z/'],
+            // Required: name, phone, email and city. Address is optional.
             'email' => ['required', 'email', 'max:50'],
             'gender' => ['nullable', 'in:male,female'],
-            'city' => ['nullable', 'string', 'max:15', 'min:3'],
+            'city' => ['required', 'string', 'max:15', 'min:3'],
             'address' => ['nullable', 'string', 'max:500'],
             'password' => [
                 'required',
@@ -311,13 +312,14 @@ class MainController extends Controller
         $validator = Validator::make($request->all(), [
             // 'username' => ['required', 'string', 'max:100'],
             'first_name' => ['required', 'string', 'max:15', 'min:3'],
-            'second_name' => ['required', 'string', 'max:15', 'min:3'],
+            // Same rules as create account: a customer who signed up without a second name can
+            // still save the profile. Name, phone, email and city are required.
+            'second_name' => ['nullable', 'string', 'max:15', 'min:3'],
             'third_name' => ['nullable', 'string', 'max:15', 'min:3'],
-            // Same as create account, so a 9-digit number can still save the profile.
             'phone' => ['required', 'string', 'min:9', 'max:10', 'regex:/\A[0-9]+\z/'],
             'email' => ['required', 'email', 'max:50'],
             'gender' => ['nullable', 'in:male,female'],
-            'city' => ['nullable', 'string', 'max:15', 'min:3'],
+            'city' => ['required', 'string', 'max:15', 'min:3'],
             'address' => ['nullable', 'string', 'max:500'],
             // 'password' => [
             //     'nullable',
@@ -915,6 +917,46 @@ class MainController extends Controller
         ], $httpCode);
     }
 
+    /**
+     * POST /quote-complete {quote_id}: the customer confirms the handover after the company
+     * finished every installation step. 404 for someone else's quote, 422 when it cannot be
+     * confirmed yet (errors.quote_id + reason), 200 again if it is already completed.
+     */
+    public function completeQuote(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'quote_id' => ['required', 'integer', 'min:1'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'code' => 422,
+                'message' => 'Validation failed.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $result = $this->customerService->completeQuote($validator->validated());
+        $httpCode = $result['code'] ?? 500;
+
+        if ($result['success'] ?? false) {
+            return response()->json([
+                'status' => 'success',
+                'message' => $result['message'],
+                'data' => $result['data'],
+            ], 200);
+        }
+
+        return response()->json(array_filter([
+            'status' => 'error',
+            'code' => $httpCode,
+            'message' => $result['message'] ?? 'Unable to confirm completion.',
+            'reason' => $result['reason'] ?? null,
+            'errors' => $httpCode === 422 ? ['quote_id' => [$result['message']]] : null,
+        ], fn($value) => $value !== null), $httpCode);
+    }
+
     public function acceptOffer(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -1361,11 +1403,13 @@ class MainController extends Controller
     //Password Reset (public) Start
 
     // Step 1: phone + email -> 6-digit code sent by email (SMS when enabled).
+    // Email may be left empty: an account without an email gets 422 reason "no_email"
+    // (contact support); an account that has one gets 422 reason "email_required".
     public function forgotPassword(Request $request): JsonResponse
     {
         $data = $request->validate([
             'phone' => ['required', 'string', 'min:9', 'max:15'],
-            'email' => ['required', 'email', 'max:191'],
+            'email' => ['nullable', 'email', 'max:191'],
             'channel' => ['nullable', 'in:email,sms'],
             'lang' => ['nullable', 'in:en,ar'],
         ]);
@@ -1456,10 +1500,14 @@ class MainController extends Controller
                 'message' => $result['message'],
             ], $result['code']);
         } else {
+            // 409 = an unfinished project blocks deletion. "message" is translated (customer's
+            // language) and can be shown as is; "error" is the same text for older app builds.
             return response()->json([
                 'status' => 'error',
                 'code' => $result['code'],
-                'error' => $result['message']
+                'reason' => $result['code'] === 409 ? 'active_project' : null,
+                'message' => $result['message'],
+                'error' => $result['message'],
             ], $result['code']);
         }
     }

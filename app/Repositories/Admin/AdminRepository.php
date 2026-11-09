@@ -996,6 +996,8 @@ class AdminRepository
                     'year_of_exp' => (int) $data['year_of_exp'],
                     'number_of_projects' => (int) $data['number_of_projects'],
                     'commission_rate' => round((float) ($data['commission_rate'] ?? 0), 2),
+                    'show_email_in_app' => (bool) ($data['show_email_in_app'] ?? true),
+                    'show_phone_in_app' => (bool) ($data['show_phone_in_app'] ?? true),
                 ]);
 
                 return [
@@ -1099,6 +1101,14 @@ class AdminRepository
                 $company->number_of_projects = $data['number_of_projects'] ?? null;
                 // Offers already sent keep the rate they were sent with.
                 $company->commission_rate = round((float) ($data['commission_rate'] ?? 0), 2);
+
+                // Contact details in the app (unchanged when the form does not send them).
+                if (array_key_exists('show_email_in_app', $data)) {
+                    $company->show_email_in_app = (bool) $data['show_email_in_app'];
+                }
+                if (array_key_exists('show_phone_in_app', $data)) {
+                    $company->show_phone_in_app = (bool) $data['show_phone_in_app'];
+                }
 
                 // Only change the password when a new one is supplied.
                 if (!empty($data['password'])) {

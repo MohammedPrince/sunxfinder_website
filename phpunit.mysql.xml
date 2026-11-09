@@ -29,6 +29,8 @@
         <env name="CACHE_STORE" value="array" force="true"/>
         <env name="DB_CONNECTION" value="mysql" force="true"/>
         <env name="DB_DATABASE" value="sunxfinder_test" force="true"/>
+        <!-- The dev server defaults to MyISAM (no transactions): InnoDB lets RefreshDatabase roll back. -->
+        <env name="DB_ENGINE" value="InnoDB" force="true"/>
         <env name="DB_URL" value="" force="true"/>
         <env name="MAIL_MAILER" value="array" force="true"/>
         <env name="QUEUE_CONNECTION" value="sync" force="true"/>

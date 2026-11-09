@@ -58,6 +58,8 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
         Route::post('/my-quotes', [MainController::class, 'getMyQuotes'])->middleware('throttle:60,1')->name('my-quotes');
         Route::post('/archive', [MainController::class, 'archiveQuote'])->middleware('throttle:60,1')->name('archive');
         Route::post('/quote', [MainController::class, 'storeQuote'])->middleware('throttle:60,1')->name('quote');
+        // Customer confirms the handover once the company finished installation (completes the project).
+        Route::post('/quote-complete', [MainController::class, 'completeQuote'])->middleware('throttle:20,1')->name('quote-complete');
 
         Route::post('/offer-accept', [MainController::class, 'acceptOffer'])->middleware('throttle:60,1')->name('offer-accept');
         Route::post('/offer-reject', [MainController::class, 'rejectOffer'])->middleware('throttle:60,1')->name('offer-reject');

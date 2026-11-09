@@ -145,14 +145,18 @@ class AuthController extends Controller
             in_array($previousCompany->status, ['pending', 'approved'], true)
         ) {
             // Restore the real company without clearing its "remember me" cookie.
+            // login() renews the CSRF token: keep it so the admin tab's forms stay valid.
+            $csrfToken = $request->session()->token();
             $guard->login($previousCompany);
+            $request->session()->put('_token', $csrfToken);
             $request->session()->put('company_id', $previousCompany->id);
         } else {
             $guard->logoutCurrentDevice();
             $request->session()->forget('company_id');
         }
 
-        $request->session()->regenerateToken();
+        // No regenerateToken() here: the admin is still signed in on this session, and a
+        // new token would expire the forms open in the admin tab.
 
         return $previousCompany && Auth::guard('company')->check()
             ? redirect()->route('company.dashboard')

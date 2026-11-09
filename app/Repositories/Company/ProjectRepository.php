@@ -6,6 +6,7 @@ use App\Helpers\Helper;
 use App\Models\Project;
 use App\Models\ProjectMilestone;
 use App\Models\ProjectUpdate;
+use App\Models\Quote;
 use App\Models\SolarCompany;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
@@ -386,6 +387,12 @@ class ProjectRepository
                 SolarCompany::query()
                     ->whereKey($companyId)
                     ->update(['number_of_projects' => DB::raw('COALESCE(number_of_projects, 0) + 1')]);
+
+                // The request is finished too (same as when the customer confirms in the app).
+                Quote::query()
+                    ->whereKey($project->quote_id)
+                    ->where('status', 'accepted')
+                    ->update(['status' => 'completed']);
             }
 
             ProjectUpdate::query()->create([

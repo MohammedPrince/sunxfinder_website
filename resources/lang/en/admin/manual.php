@@ -47,6 +47,7 @@ return [
                 'Open a company with <strong>Company details</strong> to see its profile, customers, quote activity, offers, projects and ratings.',
                 'Press <strong>Update company</strong> to edit it. Under <strong>Account Settings</strong> set the <strong>Approval Status</strong>, <strong>Company Verified</strong> and <strong>Account Active</strong>.',
                 'Set the <strong>SunXFinder Commission (%)</strong>: the share of each offer price that is due when a customer accepts the offer. Use 0 for none.',
+                'Use <strong>Email in the App</strong> and <strong>Phone in the App</strong> (Show / Hide) to choose whether customers see the company\'s email and phone on its page in the app. Hiding the phone also hides WhatsApp. The directory marks hidden ones with "Hidden in app".',
                 'Use <strong>Log in as company</strong> to see the company panel exactly as the company sees it, for support.',
                 'Add a company yourself with <strong>+ Add New Company</strong>, or delete one with the delete button.',
             ],

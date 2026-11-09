@@ -321,6 +321,30 @@
                         @enderror
                     </div>
 
+                    {{-- Contact details on the company's page in the customer app --}}
+                    @foreach (['show_email_in_app' => 'Email in the App', 'show_phone_in_app' => 'Phone in the App'] as $field => $label)
+                        <div class="form-group">
+                            <label for="{{ $field }}">{{ $label }}</label>
+                            @php
+                                $selectedVisibility = (string) old($field, (int) ($company->{$field} ?? true));
+                            @endphp
+
+                            <select class="select-control" id="{{ $field }}" name="{{ $field }}">
+                                <option value="1" @selected($selectedVisibility === '1')>Show</option>
+                                <option value="0" @selected($selectedVisibility === '0')>Hide</option>
+                            </select>
+                            <small class="form-hint">
+                                {{ $field === 'show_email_in_app'
+                                    ? 'Hide removes the email button from this company\'s page in the app.'
+                                    : 'Hide removes the call and WhatsApp buttons from this company\'s page in the app.' }}
+                                The website and offer invoices are not affected.
+                            </small>
+                            @error($field)
+                                <small class="field-error">{{ $message }}</small>
+                            @enderror
+                        </div>
+                    @endforeach
+
                 </div>
 
                 <div class="form-actions">

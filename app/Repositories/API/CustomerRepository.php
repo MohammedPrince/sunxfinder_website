@@ -788,8 +788,37 @@ class CustomerRepository
                 ];
             }
 
+            // Email is optional: a blank email is saved as NULL (several NULLs fit the unique index).
+            $email = trim((string) ($data['email'] ?? ''));
+            $email = $email !== '' ? $email : null;
+
+            // Phone and email are unique: say which one is taken instead of failing with a 500.
+            $takenField = match (true) {
+                Customer::withTrashed()->where('phone', $data['phone'])->whereKeyNot($customer->id)->exists() => 'phone',
+                $email !== null && Customer::withTrashed()->where('email', $email)->whereKeyNot($customer->id)->exists() => 'email',
+                default => null,
+            };
+
+            if ($takenField !== null) {
+                $isArabic = $this->customerPreferredLanguage($customer->id) === 'ar';
+                $label = $takenField === 'phone'
+                    ? ($isArabic ? 'رقم الهاتف' : 'phone number')
+                    : ($isArabic ? 'البريد الإلكتروني' : 'email address');
+                $message = $isArabic
+                    ? "{$label} مستخدم في حساب آخر. يرجى استخدام قيمة أخرى."
+                    : "This {$label} is already used by another account. Please use a different one.";
+
+                return [
+                    'success' => false,
+                    'code' => 422,
+                    'message' => $message,
+                    'errors' => [$takenField => [$message]],
+                    'data' => null,
+                ];
+            }
+
             $customer->phone = $data['phone'];
-            $customer->email = $data['email'];
+            $customer->email = $email;
             $customer->gender = $data['gender'] ?? null;
             $customer->city = $data['city'] ?? null;
             $customer->address = $data['address'] ?? null;
@@ -807,7 +836,7 @@ class CustomerRepository
                     // 'username' => $customer->username,
                     'full_name' => $fullName,
                     'first_name' => $data['first_name'],
-                    'second_name' => $data['second_name'],
+                    'second_name' => $data['second_name'] ?? '',
                     'third_name' => $data['third_name'] ?? '',
                     'phone' => $customer->phone,
                     'email' => $customer->email,
@@ -1996,6 +2025,165 @@ class CustomerRepository
         }
     }
 
+    /**
+     * POST /quote-complete: the customer confirms the "Customer handover" step.
+     * Allowed only after the company has completed every installation step; it then
+     * completes the handover, the project (locked) and the quote, and emails the company.
+     * Calling it again on a completed project returns the same 200 body.
+     */
+    public function completeQuote(array $data): array
+    {
+        $lang = 'en';
+
+        try {
+            $customer = $this->helper->isCustomerAuthenticated();
+
+            if (!$customer) {
+                return ['success' => false, 'code' => 401, 'message' => 'Unauthenticated.'];
+            }
+
+            $lang = $this->customerPreferredLanguage($customer->id);
+            $say = fn(string $en, string $ar) => $lang === 'ar' ? $ar : $en;
+
+            $result = DB::transaction(function () use ($data, $customer, $say) {
+                // Someone else's quote is "not found", never "forbidden".
+                $quote = Quote::query()
+                    ->where('customer_id', $customer->id)
+                    ->whereKey($data['quote_id'])
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$quote) {
+                    return ['success' => false, 'code' => 404, 'message' => $say('Quote request not found.', 'طلب عرض السعر غير موجود.')];
+                }
+
+                $offer = CompanyQuotation::query()
+                    ->where('quote_id', $quote->id)
+                    ->where('status', 'selected')
+                    ->first();
+
+                $project = $offer
+                    ? Project::query()->where('quote_id', $quote->id)->lockForUpdate()->first()
+                    : null;
+
+                if (!$offer || !$project) {
+                    return [
+                        'success' => false,
+                        'code' => 422,
+                        'reason' => 'no_accepted_offer',
+                        'message' => $say(
+                            'You can confirm completion only after accepting an offer on this request.',
+                            'يمكنك تأكيد الاكتمال فقط بعد قبول عرض على هذا الطلب.'
+                        ),
+                    ];
+                }
+
+                $done = fn(bool $newlyCompleted) => [
+                    'success' => true,
+                    'code' => 200,
+                    'message' => $say('Marked as completed.', 'تم تأكيد اكتمال المشروع.'),
+                    'newly_completed' => $newlyCompleted,
+                    'offer_id' => (int) $offer->id,
+                    'project_id' => (int) $project->id,
+                    'data' => ['quote_id' => (int) $quote->id, 'quote_status' => 'completed'],
+                ];
+
+                // Already completed (by the company or an earlier call): safe to repeat.
+                if ($project->status === 'completed') {
+                    if ($quote->status !== 'completed') {
+                        $quote->status = 'completed';
+                        $quote->save();
+                    }
+
+                    return $done(false);
+                }
+
+                $milestones = ProjectMilestone::query()
+                    ->where('project_id', $project->id)
+                    ->orderBy('sort_order')
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get();
+
+                $isHandover = fn($milestone) => strtolower(trim((string) $milestone->title)) === 'customer handover';
+                $handover = $milestones->first($isHandover);
+                $installation = $milestones->reject($isHandover)->values();
+
+                // Same rule as the company panel: every installation step must be done first.
+                $installationComplete = $project->status === 'in_progress'
+                    && $installation->isNotEmpty()
+                    && $installation->every(fn($milestone) => $milestone->status === 'completed');
+
+                if (!$installationComplete) {
+                    return [
+                        'success' => false,
+                        'code' => 422,
+                        'reason' => 'installation_not_finished',
+                        'message' => $say(
+                            'The company has not finished the installation yet. You can confirm once all installation steps are done.',
+                            'لم تُنهِ الشركة التركيب بعد. يمكنك التأكيد بعد اكتمال جميع مراحل التركيب.'
+                        ),
+                    ];
+                }
+
+                if ($handover) {
+                    $handover->status = 'completed';
+                    $handover->started_at ??= now();
+                    $handover->completed_at ??= now();
+                    $handover->save();
+                }
+
+                $oldStatus = $project->status;
+                $project->status = 'completed';
+                $project->progress_percent = 100;
+                $project->completed_at ??= now();
+                $project->save();
+
+                SolarCompany::query()
+                    ->whereKey($project->company_id)
+                    ->update(['number_of_projects' => DB::raw('COALESCE(number_of_projects, 0) + 1')]);
+
+                ProjectUpdate::query()->create([
+                    'project_id' => $project->id,
+                    'updated_by_type' => 'customer',
+                    'updated_by_id' => $customer->id,
+                    'old_status' => $oldStatus,
+                    'new_status' => 'completed',
+                    'progress_percent' => 100,
+                    'message' => 'The customer confirmed the handover in the app. The project is completed.',
+                    'visible_to_customer' => true,
+                ]);
+
+                $quote->status = 'completed';
+                $quote->save();
+
+                // Email the company (queued until commit).
+                SendCompanyOfferDecisionEmail::dispatch($offer->id, CompanyOfferDecisionMail::COMPLETED);
+
+                return $done(true);
+            });
+
+            if (($result['newly_completed'] ?? false) === true) {
+                ActivityLogger::log('project_completed', 'Customer confirmed the handover in the app', $customer, [
+                    'quote_id' => $result['data']['quote_id'],
+                    'project_id' => $result['project_id'],
+                ], ActivityLogger::actorFor($customer), 'projects');
+            }
+
+            return $result;
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+                'message' => $lang === 'ar'
+                    ? 'تعذّر تأكيد الاكتمال. يرجى المحاولة مرة أخرى.'
+                    : 'Unable to confirm completion. Please try again.',
+            ];
+        }
+    }
+
     public function acceptOffer(array $data): array
     {
         try {
@@ -2047,7 +2235,7 @@ class CustomerRepository
                     ];
                 }
 
-                if (in_array($quote->status, ['accepted', 'cancelled', 'rejected'], true)) {
+                if (in_array($quote->status, ['accepted', 'completed', 'cancelled', 'rejected'], true)) {
                     return [
                         'success' => false,
                         'code' => 409,
@@ -2751,11 +2939,12 @@ class CustomerRepository
                 ];
             }
 
+            // Someone else's quote is "not found", like every other customer route.
             if ((int) $quote->customer_id !== (int) $customer->id) {
                 return [
                     'success' => false,
-                    'code' => 403,
-                    'message' => 'This quote request does not belong to your account.',
+                    'code' => 404,
+                    'message' => 'Quote request not found.',
                     'data' => null,
                 ];
             }
@@ -3220,8 +3409,10 @@ class CustomerRepository
             100
         );
 
+        // id breaks ties: two notifications in the same second keep the newest first.
         $recipients = $query
             ->latest('created_at')
+            ->latest('id')
             ->paginate($perPage);
 
         /** @var \Illuminate\Support\Collection<int, CustomerNotification> $recipientRows */
@@ -3583,6 +3774,11 @@ class CustomerRepository
             ]);
         }
 
+        // No email typed: tell the customer why they cannot reset by email.
+        if (trim((string) ($data['email'] ?? '')) === '') {
+            return $this->passwordResetWithoutEmail($data['phone'], $lang);
+        }
+
         $found = $this->findCustomerForPasswordReset($data['phone'], $data['email'], $lang);
 
         if (!$found['success']) {
@@ -3717,6 +3913,31 @@ class CustomerRepository
         return ['success' => true, 'customer' => $customer];
     }
 
+    /**
+     * Forgot password with the phone only. Codes are sent by email, so: an account with no
+     * email gets "no_email" (contact support); one that has an email must type it.
+     */
+    private function passwordResetWithoutEmail(string $phone, string $lang): array
+    {
+        $lastDigits = substr(preg_replace('/\D/', '', $phone), -9);
+
+        $customer = strlen($lastDigits) === 9
+            ? Customer::query()->where('phone', 'like', '%' . $lastDigits)->first()
+            : null;
+
+        if (!$customer) {
+            return $this->passwordResetError(404, 'account_not_found', $lang);
+        }
+
+        if ($customer->status !== 'active' || !$customer->is_active) {
+            return $this->passwordResetError(403, 'account_inactive', $lang);
+        }
+
+        return empty($customer->email)
+            ? $this->passwordResetError(422, 'no_email', $lang)
+            : $this->passwordResetError(422, 'email_required', $lang);
+    }
+
     private function passwordResetError(int $code, string $reason, string $lang, array $extra = []): array
     {
         return [
@@ -3754,6 +3975,14 @@ class CustomerRepository
             'account_inactive' => [
                 'en' => 'This account is inactive. Please contact support.',
                 'ar' => 'هذا الحساب غير نشط. يرجى التواصل مع الدعم.',
+            ],
+            'no_email' => [
+                'en' => 'No email on this account, so we cannot send a reset code. Please contact support.',
+                'ar' => 'لا يوجد بريد إلكتروني في هذا الحساب، لذا لا يمكننا إرسال رمز إعادة التعيين. يرجى التواصل مع الدعم.',
+            ],
+            'email_required' => [
+                'en' => 'Please enter the email address on your account.',
+                'ar' => 'يرجى إدخال البريد الإلكتروني المسجّل في حسابك.',
             ],
             'channel_unavailable' => [
                 'en' => 'SMS is not available yet. Please use email.',

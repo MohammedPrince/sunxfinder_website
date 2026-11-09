@@ -134,6 +134,11 @@ class CustomerService
         return $this->customerRepository->archiveQuote($data);
     }
 
+    public function completeQuote(array $data): array
+    {
+        return $this->customerRepository->completeQuote($data);
+    }
+
     public function acceptOffer(array $data)
     {
         return $this->customerRepository->acceptOffer($data);

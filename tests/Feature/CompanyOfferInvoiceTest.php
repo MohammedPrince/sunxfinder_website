@@ -211,7 +211,8 @@ class CompanyOfferInvoiceTest extends TestCase
 
     public function test_pdf_filename_falls_back_when_the_number_has_no_latin_characters(): void
     {
-        $invoice = new Invoice(['invoice_number' => 'فاتورة']);
+        // Arabic is transliterated (فاتورة -> fator.pdf); only symbols leave nothing to use.
+        $invoice = new Invoice(['invoice_number' => '#/#']);
         $invoice->id = 7;
 
         $this->assertSame('invoice-7.pdf', InvoicePdf::filename($invoice));
@@ -234,14 +235,15 @@ class CompanyOfferInvoiceTest extends TestCase
         $this->get(route('company.quote-requests.show', $this->quote->id))
             ->assertOk()
             ->assertSee('invoiceItemTemplate')
-            ->assertDontSee('Download Invoice PDF');
+            // The help text names the button, so check its link instead of its label.
+            ->assertDontSee(route('company.quote-requests.invoice.pdf', $this->quote->id));
 
         $this->submitOffer();
 
         $this->get(route('company.quote-requests.show', $this->quote->id))
             ->assertOk()
             ->assertSee('INV-1001')
-            ->assertSee('Download Invoice PDF');
+            ->assertSee(route('company.quote-requests.invoice.pdf', $this->quote->id));
 
         $this->get(route('company.quote-requests.invoice', $this->quote->id))
             ->assertOk()

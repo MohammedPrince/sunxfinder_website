@@ -154,7 +154,9 @@ class CompanyNotificationAudienceTest extends TestCase
         $this->get(route('company.notifications.create'))
             ->assertOk()
             ->assertViewHas('canNotifyAll', true)
-            ->assertSee('own@example.test')
+            // The picker lists names only, never emails.
+            ->assertSee('own customer')
+            ->assertDontSee('own@example.test')
             ->assertSee('other customer')
             ->assertDontSee('other@example.test')
             ->assertSee('Select all customers');

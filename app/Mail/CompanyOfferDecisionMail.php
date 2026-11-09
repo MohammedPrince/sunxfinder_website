@@ -16,17 +16,18 @@ class CompanyOfferDecisionMail extends Mailable
 
     public const ACCEPTED = 'accepted';
     public const REJECTED = 'rejected';
+    // The customer confirmed the handover in the app: the project is completed.
+    public const COMPLETED = 'completed';
 
     public function __construct(
         public string $decision,
         public array $details
     ) {
-        $this->decision = $decision === self::ACCEPTED ? self::ACCEPTED : self::REJECTED;
+        $this->decision = in_array($decision, [self::ACCEPTED, self::COMPLETED], true) ? $decision : self::REJECTED;
     }
 
     public function build(): self
     {
-        $isAccepted = $this->decision === self::ACCEPTED;
         $baseUrl = rtrim(config('app.url'), '/');
         $quoteId = $this->details['quote_id'] ?? null;
 
@@ -35,16 +36,16 @@ class CompanyOfferDecisionMail extends Mailable
                 config('mail.offer_from.address'),
                 config('mail.offer_from.name')
             )
-            ->subject(
-                $isAccepted
-                ? "Your offer was accepted - Request #{$quoteId} | تم قبول عرضك"
-                : "Your offer was not selected - Request #{$quoteId} | لم يتم اختيار عرضك"
-            )
-            ->view(
-                $isAccepted
-                ? 'emails.company.customer-accept-offer'
-                : 'emails.company.customer-reject-offer'
-            )
+            ->subject(match ($this->decision) {
+                self::ACCEPTED => "Your offer was accepted - Request #{$quoteId} | تم قبول عرضك",
+                self::COMPLETED => "Customer confirmed the handover - Request #{$quoteId} | أكّد العميل الاستلام",
+                default => "Your offer was not selected - Request #{$quoteId} | لم يتم اختيار عرضك",
+            })
+            ->view(match ($this->decision) {
+                self::ACCEPTED => 'emails.company.customer-accept-offer',
+                self::COMPLETED => 'emails.company.customer-confirm-handover',
+                default => 'emails.company.customer-reject-offer',
+            })
             ->with($this->details + [
                 'homeUrl' => $baseUrl,
                 'supportEmail' => config('mail.from.address'),

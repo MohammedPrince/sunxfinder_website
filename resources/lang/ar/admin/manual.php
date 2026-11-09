@@ -47,6 +47,7 @@ return [
                 'افتح الشركة عبر <strong>Company details</strong> لترى ملفها وعملاءها ونشاط الطلبات والعروض والمشاريع والتقييمات.',
                 'اضغط <strong>Update company</strong> للتعديل. في <strong>Account Settings</strong> حدّد <strong>Approval Status</strong> و<strong>Company Verified</strong> و<strong>Account Active</strong>.',
                 'حدّد <strong>عمولة SunXFinder (%)</strong>: نسبة من سعر كل عرض تُستحق عند قبول العميل له. ضع 0 لعدم وجود عمولة.',
+                'استخدم <strong>Email in the App</strong> و<strong>Phone in the App</strong> (Show / Hide) لتحديد ما إذا كان العملاء يرون بريد الشركة وهاتفها في صفحتها بالتطبيق. إخفاء الهاتف يخفي واتساب أيضاً. يظهر في القائمة "Hidden in app" بجانب المخفي منها.',
                 'استخدم <strong>Log in as company</strong> لترى لوحة الشركة كما تراها الشركة تماماً، للمساعدة والدعم.',
                 'أضف شركة بنفسك عبر <strong>+ Add New Company</strong>، أو احذفها بزر الحذف.',
             ],

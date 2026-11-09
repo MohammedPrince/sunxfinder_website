@@ -129,9 +129,15 @@ class MainController extends Controller
             ? ($impersonation['previous_company_id'] ?? null)
             : $guard->id();
 
+        // Admin and company share this session. login() gives the session a new id (good)
+        // and a new CSRF token, which would make every form already open in the admin tab
+        // (e.g. Companies) fail with "Page expired" until refreshed: keep the token.
+        $csrfToken = $request->session()->token();
+
         // Never use $guard->logout() here: it cycles the remember token and would
         // sign the switched-out company out of its own devices too.
         $guard->login($company);
+        $request->session()->put('_token', $csrfToken);
 
         if ($realCompanyId && (int) $realCompanyId === $company->id) {
             // Back to the real company itself: nothing to restore later.
@@ -142,7 +148,6 @@ class MainController extends Controller
                 'company_id' => $company->id,
             ]);
         }
-        $request->session()->regenerate();
         $request->session()->put('company_id', $company->id);
 
         ActivityLogger::log(
@@ -278,6 +283,9 @@ class MainController extends Controller
             'year_of_exp' => ['required', 'integer', 'min:1'],
             'number_of_projects' => ['required', 'integer', 'min:1'],
             'commission_rate' => ['required', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
+            // Show or hide the email / phone in the app.
+            'show_email_in_app' => ['sometimes', 'boolean'],
+            'show_phone_in_app' => ['sometimes', 'boolean'],
         ]);
 
         if ($validator->fails()) {
@@ -336,6 +344,9 @@ class MainController extends Controller
             'year_of_exp' => ['required', 'integer', 'min:1'],
             'number_of_projects' => ['required', 'integer', 'min:1'],
             'commission_rate' => ['required', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
+            // Show or hide the email / phone in the app.
+            'show_email_in_app' => ['sometimes', 'boolean'],
+            'show_phone_in_app' => ['sometimes', 'boolean'],
         ]);
 
         $result = $this->adminService->updateCompany($id, $validated);

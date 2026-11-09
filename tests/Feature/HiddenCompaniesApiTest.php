@@ -165,9 +165,10 @@ class HiddenCompaniesApiTest extends TestCase
 
     public function test_main_data_returns_only_visible_companies(): void
     {
-        $data = $this->postJson('/api/v1/customer/main-data')->assertOk()->json('data');
+        $response = $this->postJson('/api/v1/customer/main-data')->assertOk();
 
-        $this->assertSame([$this->visible->id], collect($data['companies'])->pluck('id')->all());
-        $this->assertSame(1, $data['meta']['companies_total']);
+        $this->assertSame([$this->visible->id], collect($response->json('data.companies'))->pluck('id')->all());
+        // "meta" sits next to "data" in the response.
+        $this->assertSame(1, $response->json('meta.companies_total'));
     }
 }

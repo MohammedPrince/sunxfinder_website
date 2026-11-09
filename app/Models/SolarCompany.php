@@ -45,6 +45,8 @@ class SolarCompany extends Authenticatable
         'year_of_exp',
         'number_of_projects',
         'commission_rate',
+        'show_email_in_app',
+        'show_phone_in_app',
     ];
 
     protected $hidden = [
@@ -64,7 +66,20 @@ class SolarCompany extends Authenticatable
             'can_notify_all_customers' => 'boolean',
             'all_customers_monthly_limit' => 'integer',
             'commission_rate' => 'decimal:2',
+            'show_email_in_app' => 'boolean',
+            'show_phone_in_app' => 'boolean',
         ];
+    }
+
+    /** Admin can hide the email or phone from customers in the app (both shown by default). */
+    public function showsEmailInApp(): bool
+    {
+        return $this->show_email_in_app ?? true;
+    }
+
+    public function showsPhoneInApp(): bool
+    {
+        return $this->show_phone_in_app ?? true;
     }
 
     /** SunXFinder's commission on a price at this company's current rate. */
