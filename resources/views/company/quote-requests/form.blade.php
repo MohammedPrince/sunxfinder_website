@@ -225,6 +225,14 @@
 
         // Renumbered so new rows never reuse an index after a validation error.
         $invoiceItems = array_values(old('invoice_items', $invoice?->items ?? []));
+        $packageOffer = $packageOffer ?? null;
+        $products = $products ?? collect();
+        // First offer on a request opened from a package offer: start from the package.
+        $fromPackage = $packageOffer && !$companyQuotation;
+        $defaultCurrency = $companyQuotation?->currency ?? ($fromPackage ? $packageOffer->currency : 'SDG');
+        if (!$invoiceItems && $fromPackage) {
+            $invoiceItems = array_values($packageOffer->items ?? []);
+        }
         if (!$invoiceItems && $companyQuotation?->price) {
             // An offer saved without an invoice: start from its price.
             $invoiceItems = [[
@@ -293,6 +301,18 @@
         }
 
         $reference = '#Q-' . str_pad($quote->id, 5, '0', STR_PAD_LEFT);
+
+        // SunXFinder commission: admin and company only. Never printed, shared or on the invoice.
+        // The admin can set this offer's commission as its own % or a fixed amount instead of the company rate.
+        $commissionType = $companyQuotation?->commission_type ?: 'company';
+        $commissionRate = $commissionType === 'percent'
+            ? (float) $companyQuotation->commission_rate
+            : (float) ($authenticatedCompany?->commission_rate ?? 0);
+        $commissionFixed = $commissionType === 'fixed' ? (float) $companyQuotation->commission_amount : null;
+        $commissionRateLabel = rtrim(rtrim(number_format($commissionRate, 2, '.', ''), '0'), '.');
+        $commissionHeading = $commissionType === 'fixed'
+            ? __('company/messages.quote.commission_fixed_label')
+            : __('company/messages.quote.commission_label', ['rate' => $commissionRateLabel]);
 
         // New offers can be submitted only while the request is pending.
         // Existing offers can be edited only while this company's offer is submitted.
@@ -377,6 +397,10 @@
                 <strong>{{ $quote->peak_load ?: '—' }}</strong>
             </div>
         </section>
+
+        @if ($packageOffer)
+            @include('company.quote-requests.partials.package-offer-banner', ['packageOffer' => $packageOffer, 'quote' => $quote, 'fromPackage' => $fromPackage])
+        @endif
 
         @include('partials.request-journey', [
             'quote' => $quote,
@@ -513,6 +537,16 @@
                             {{ number_format((float) $companyQuotation->price, 2) }}
                             <span>{{ $companyQuotation->currency }}</span>
                         </div>
+
+                        <p class="offer-commission-note">
+                            {{ $companyQuotation->commission_type === 'fixed'
+                                ? __('company/messages.quote.commission_fixed_label')
+                                : __('company/messages.quote.commission_label', ['rate' => $companyQuotation->commissionRateLabel()]) }}:
+                            <strong>{{ number_format((float) $companyQuotation->commission_amount, 2) }} {{ $companyQuotation->currency }}</strong>
+                            @if ($companyQuotation->status !== 'selected')
+                                <small>{{ __('company/messages.quote.commission_when_accepted') }}</small>
+                            @endif
+                        </p>
 
                         @if ($companyQuotation->message)
                             <p class="offer-current-message">
@@ -669,11 +703,11 @@
                                             value="{{ old('price', $companyQuotation?->price) }}" required>
 
                                         <select name="currency" aria-label="{{ __('company/messages.quote.currency') }}" required>
-                                            <option value="SDG" @selected(old('currency', $companyQuotation?->currency ?? 'SDG') === 'SDG')>
+                                            <option value="SDG" @selected(old('currency', $defaultCurrency) === 'SDG')>
                                                 SDG
                                             </option>
 
-                                            <option value="USD" @selected(old('currency', $companyQuotation?->currency ?? 'SDG') === 'USD')>
+                                            <option value="USD" @selected(old('currency', $defaultCurrency) === 'USD')>
                                                 USD
                                             </option>
                                         </select>
@@ -735,7 +769,7 @@
                                             </div>
                                             <div class="offer-invoice-items" id="invoiceItems">
                                                 @foreach ($invoiceItems as $item)
-                                                    @include('company.quote-requests.partials.offer-invoice-item', ['index' => $loop->index, 'item' => $item])
+                                                    @include('company.quote-requests.partials.offer-invoice-item', ['index' => $loop->index, 'item' => $item, 'products' => $products])
                                                 @endforeach
                                             </div>
                                             <div class="offer-invoice-suggestions" aria-label="{{ __('company/messages.quote.quick_add_label') }}">
@@ -745,7 +779,7 @@
                                                 @endforeach
                                             </div>
                                             <template id="invoiceItemTemplate">
-                                                @include('company.quote-requests.partials.offer-invoice-item', ['index' => '__INDEX__', 'item' => []])
+                                                @include('company.quote-requests.partials.offer-invoice-item', ['index' => '__INDEX__', 'item' => [], 'products' => $products])
                                             </template>
                                             @error('invoice_items')
                                                 <small class="field-error">{{ $message }}</small>
@@ -753,7 +787,7 @@
                                         </div>
 
                                         <div class="offer-invoice-adjustments">
-                                            <div class="offer-form-group"><label for="invoice_discount">{{ __('company/messages.quote.discount') }}</label><input class="form-control" id="invoice_discount" name="invoice_discount" type="number" min="0" step="0.01" value="{{ old('invoice_discount', $invoice?->discount ?? 0) }}"></div>
+                                            <div class="offer-form-group"><label for="invoice_discount">{{ __('company/messages.quote.discount') }}</label><input class="form-control" id="invoice_discount" name="invoice_discount" type="number" min="0" step="0.01" value="{{ old('invoice_discount', $invoice?->discount ?? ($fromPackage ? $packageOffer->discount : 0)) }}"></div>
                                             <div class="offer-form-group"><label for="invoice_tax_rate">{{ __('company/messages.quote.tax_rate') }}</label><input class="form-control" id="invoice_tax_rate" name="invoice_tax_rate" type="number" min="0" max="100" step="0.01" value="{{ old('invoice_tax_rate', $invoice?->tax_rate ?? 0) }}"></div>
                                             <div class="offer-form-group"><label for="invoice_shipping">{{ __('company/messages.quote.shipping') }}</label><input class="form-control" id="invoice_shipping" name="invoice_shipping" type="number" min="0" step="0.01" value="{{ old('invoice_shipping', $invoice?->shipping ?? 0) }}"></div>
                                         </div>
@@ -772,7 +806,7 @@
                                         </label>
 
                                         <textarea name="message" id="message" class="form-control" rows="5" required maxlength="2000"
-                                            placeholder="{{ __('company/messages.quote.message_placeholder') }}">{{ old('message', $companyQuotation?->message ?? 'Thank you for considering our company for your solar energy project. This offer includes the proposed solar equipment, installation, system testing, and warranty as specified in the quotation. Please review the details and contact us if you have any questions.') }}</textarea>
+                                            placeholder="{{ __('company/messages.quote.message_placeholder') }}">{{ old('message', $companyQuotation?->message ?? ($fromPackage && $packageOffer->description_en ? $packageOffer->description_en : null) ?? 'Thank you for considering our company for your solar energy project. This offer includes the proposed solar equipment, installation, system testing, and warranty as specified in the quotation. Please review the details and contact us if you have any questions.') }}</textarea>
                                         @error('message')
                                             <small class="field-error">{{ $message }}</small>
                                         @enderror
@@ -785,7 +819,7 @@
 
                                         <textarea name="ar_message" id="ar_message" class="form-control" rows="5" dir="rtl" lang="ar"
                                             required maxlength="2000"
-                                            placeholder="اكتب تفاصيل عرض السعر، والألواح الشمسية، والمحول، والبطاريات، والتركيب، والضمان، ومدة التنفيذ...">{{ old('ar_message', $companyQuotation?->ar_message ?? 'شكرًا لاختياركم شركتنا لتقديم عرض لنظام الطاقة الشمسية. يشمل هذا العرض المعدات المقترحة وأعمال التركيب واختبار النظام والضمان وفقًا للتفاصيل الموضحة في عرض السعر. يرجى مراجعة التفاصيل والتواصل معنا إذا كانت لديكم أي استفسارات.') }}</textarea>
+                                            placeholder="اكتب تفاصيل عرض السعر، والألواح الشمسية، والمحول، والبطاريات، والتركيب، والضمان، ومدة التنفيذ...">{{ old('ar_message', $companyQuotation?->ar_message ?? ($fromPackage && $packageOffer->description_ar ? $packageOffer->description_ar : null) ?? 'شكرًا لاختياركم شركتنا لتقديم عرض لنظام الطاقة الشمسية. يشمل هذا العرض المعدات المقترحة وأعمال التركيب واختبار النظام والضمان وفقًا للتفاصيل الموضحة في عرض السعر. يرجى مراجعة التفاصيل والتواصل معنا إذا كانت لديكم أي استفسارات.') }}</textarea>
                                         @error('ar_message')
                                             <small class="field-error">{{ $message }}</small>
                                         @enderror
@@ -828,11 +862,26 @@
                                     </dl>
                                     <div class="offer-summary-total">
                                         <span>{{ __('company/messages.quote.offer_total') }}</span>
-                                        <strong><span id="summaryTotal">0.00</span> <small data-offer-currency>{{ old('currency', $companyQuotation?->currency ?? 'SDG') }}</small></strong>
+                                        <strong><span id="summaryTotal">0.00</span> <small data-offer-currency>{{ old('currency', $defaultCurrency) }}</small></strong>
                                     </div>
                                     <small class="offer-summary-minimum" id="offerMinimumWarning" hidden>
                                         {{ __('company/messages.quote.minimum_warning') }}
                                     </small>
+                                </div>
+
+                                {{-- SunXFinder commission: shown to the company only, not to the customer --}}
+                                <div class="offer-summary-card offer-commission-card" id="offerCommission"
+                                    data-commission-rate="{{ $commissionRate }}"
+                                    @if ($commissionFixed !== null) data-commission-fixed="{{ $commissionFixed }}" @endif>
+                                    <h3>{{ $commissionHeading }}</h3>
+                                    @if ($commissionType !== 'company')
+                                        <small>{{ __('company/messages.quote.commission_set_for_offer') }}</small>
+                                    @endif
+                                    <div class="offer-summary-total">
+                                        <span>{{ __('company/messages.quote.commission_of_price') }}</span>
+                                        <strong><span id="summaryCommission">0.00</span> <small data-offer-currency>{{ old('currency', $defaultCurrency) }}</small></strong>
+                                    </div>
+                                    <small>{{ __('company/messages.quote.commission_hint') }}</small>
                                 </div>
 
                                 <div class="offer-notice">
@@ -852,7 +901,7 @@
                         <div class="offer-modal-footer">
                             <div class="offer-footer-total">
                                 <span>{{ __('company/messages.quote.offer_total') }}</span>
-                                <strong><span id="footerTotal">0.00</span> <small data-offer-currency>{{ old('currency', $companyQuotation?->currency ?? 'SDG') }}</small></strong>
+                                <strong><span id="footerTotal">0.00</span> <small data-offer-currency>{{ old('currency', $defaultCurrency) }}</small></strong>
                             </div>
 
                             <button type="button" class="offer-cancel-button" onclick="closeOfferModal()">{{ __('company/messages.common.cancel') }}</button>
@@ -1071,6 +1120,8 @@
         </footer>
     </div>
 
+    @include('company.quote-requests.partials.offer-item-picker-script')
+
     <script>
 
         function printQuote() {
@@ -1198,6 +1249,12 @@
                 setText('summaryShipping', formatMoney(shipping));
                 setText('summaryTotal', formatMoney(total));
                 setText('footerTotal', formatMoney(total));
+                // Mirrors CompanyRepository::submitQuoteOffer(), which saves the commission.
+                const commissionData = document.getElementById('offerCommission')?.dataset || {};
+                const commission = commissionData.commissionFixed !== undefined
+                    ? Math.min(Number(commissionData.commissionFixed), total)
+                    : roundMoney(total * Number(commissionData.commissionRate || 0) / 100);
+                setText('summaryCommission', formatMoney(commission));
                 document.getElementById('offerMinimumWarning').hidden = !belowMinimum;
                 submitButton.disabled = belowMinimum;
 

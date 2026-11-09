@@ -93,6 +93,11 @@ class AdminService
         return $this->adminRepository->updateCompany($id, $data);
     }
 
+    public function getCompanyCommissionSummary(int $companyId): \Illuminate\Support\Collection
+    {
+        return $this->adminRepository->getCompanyCommissionSummary($companyId);
+    }
+
     public function deleteCompany($id)
     {
         return $this->adminRepository->deleteCompany($id);
@@ -489,6 +494,11 @@ class AdminService
         return $this->adminRepository->cancelQuoteRequest($id, $reason, $notifyCustomer);
     }
 
+    public function updateOfferCommission(int $quoteId, int $offerId, array $data): array
+    {
+        return $this->adminRepository->updateOfferCommission($quoteId, $offerId, $data);
+    }
+
     public function reassignQuoteRequest(int $id, ?int $companyId): array
     {
         return $this->adminRepository->reassignQuoteRequest($id, $companyId);
@@ -533,6 +543,47 @@ class AdminService
     public function deleteNotification(int $id): array
     {
         return $this->adminRepository->deleteNotification($id);
+    }
+
+    // Automatic notifications (schedules)
+    public function getNotificationSchedules(): array
+    {
+        return $this->adminRepository->getNotificationSchedules();
+    }
+
+    public function getNotificationScheduleFormData(?int $id = null): array
+    {
+        return $this->adminRepository->getNotificationScheduleFormData($id);
+    }
+
+    public function saveNotificationSchedule(array $data, ?int $id = null): array
+    {
+        return $this->adminRepository->saveNotificationSchedule($data, $id);
+    }
+
+    public function toggleNotificationSchedule(int $id): array
+    {
+        return $this->adminRepository->toggleNotificationSchedule($id);
+    }
+
+    public function resetNotificationSchedule(int $id): array
+    {
+        return $this->adminRepository->resetNotificationSchedule($id);
+    }
+
+    public function deleteNotificationSchedule(int $id): array
+    {
+        return $this->adminRepository->deleteNotificationSchedule($id);
+    }
+
+    public function sendNotificationScheduleNow(int $id): array
+    {
+        return $this->adminRepository->sendNotificationScheduleNow($id);
+    }
+
+    public function runDueNotificationSchedules(): array
+    {
+        return $this->adminRepository->runDueNotificationSchedules();
     }
 
     public function getCampaignFormData(): array
@@ -731,6 +782,16 @@ class AdminService
         return $this->adminRepository->createDatabaseBackup();
     }
 
+    public function getServerToolsStatus(): array
+    {
+        return $this->adminRepository->getServerToolsStatus();
+    }
+
+    public function runServerTool(string $action): array
+    {
+        return $this->adminRepository->runServerTool($action);
+    }
+
     public function getDatabaseBackupPath(string $name): ?string
     {
         return $this->adminRepository->getDatabaseBackupPath($name);
@@ -753,6 +814,21 @@ class AdminService
         return $this->adminRepository->getFailedJobs($filters);
     }
 
+    public function deleteOldNotifications(): int
+    {
+        return $this->adminRepository->deleteOldNotifications();
+    }
+
+    public function getNotificationScheduleRuns(array $filters = []): array
+    {
+        return $this->adminRepository->getNotificationScheduleRuns($filters);
+    }
+
+    public function stampSchedulerHeartbeat(): void
+    {
+        $this->adminRepository->stampSchedulerHeartbeat();
+    }
+
     public function getFailedJob(string $uuid): ?object
     {
         return $this->adminRepository->getFailedJob($uuid);
@@ -768,6 +844,28 @@ class AdminService
         return $this->adminRepository->deleteFailedJobs($uuids);
     }
     //Background Jobs End
+
+    //Terms Acceptance Start
+    public function getTermsAcceptanceCustomers(array $filters, ?string $currentVersion): LengthAwarePaginator
+    {
+        return $this->adminRepository->getTermsAcceptanceCustomers($filters, $currentVersion);
+    }
+
+    public function getTermsAcceptanceMetrics(?string $currentVersion): array
+    {
+        return $this->adminRepository->getTermsAcceptanceMetrics($currentVersion);
+    }
+
+    public function getCustomerTermsHistory(int $customerId): ?array
+    {
+        return $this->adminRepository->getCustomerTermsHistory($customerId);
+    }
+
+    public function termsAcceptancesForExport(array $filters)
+    {
+        return $this->adminRepository->termsAcceptancesForExport($filters);
+    }
+    //Terms Acceptance End
 
     //Activity Logs Start
     public function getActivityLogs(array $filters = []): LengthAwarePaginator

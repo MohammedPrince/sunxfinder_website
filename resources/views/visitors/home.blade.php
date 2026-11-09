@@ -292,6 +292,223 @@
         </div>
     </section>
 
+    {{-- ============ Load calculator (same sizing rules as the app) ============ --}}
+    @if (!empty($calculatorGroups))
+        @php
+            $calcText = $isArabic
+                ? [
+                    'kicker' => 'حاسبة الأحمال',
+                    'title' => 'احسب منظومتك الشمسية',
+                    'lead' => 'أضف أجهزتك لتعرف عدد الألواح وحجم المحوّل والبطاريات التي تحتاجها. مجاناً وبدون تسجيل.',
+                    'step1' => 'اختر أجهزتك',
+                    'search' => 'ابحث عن جهاز، مثل: ثلاجة أو مكيف',
+                    'noMatch' => 'لا يوجد جهاز بهذا الاسم.',
+                    'step2' => 'ساعات التشغيل يومياً',
+                    'emptyList' => 'لم تضف أي جهاز بعد. اختر أجهزتك من القائمة.',
+                    'step3' => 'زمن تشغيل البطارية',
+                    'backupNone' => 'بدون',
+                    'backupNight' => 'المساء والليل',
+                    'backupFull' => '24 ساعة',
+                    'resultTitle' => 'منظومتك الشمسية',
+                    'resultEmpty' => 'أضف جهازاً واحداً على الأقل لترى المنظومة المناسبة لك.',
+                    'daily' => 'الحمل اليومي',
+                    'peak' => 'الحمل الأقصى',
+                    'panels' => 'الألواح الشمسية',
+                    'inverter' => 'المحوّل (الإنفرتر)',
+                    'battery' => 'البطارية',
+                    'note' => 'هذا تقدير تقريبي. ستؤكد الشركة التصميم النهائي بعد زيارة الموقع.',
+                    'tooSmall' => 'هذا الحمل صغير جداً لطلب عرض سعر. تبدأ العروض عادة من حمل أقصى حوالي 900 واط.',
+                    'cta' => 'اطلب عروضاً لهذه المنظومة',
+                    'haveApp' => 'لديك حساب؟ افتح هذه المنظومة في التطبيق',
+                    'reset' => 'ابدأ من جديد',
+                    'add' => 'أضف',
+                    'remove' => 'إزالة',
+                    'less' => 'إنقاص',
+                    'more' => 'زيادة',
+                ]
+                : [
+                    'kicker' => 'Load calculator',
+                    'title' => 'Calculate your solar system',
+                    'lead' => 'Add your appliances to see how many panels, what inverter and which batteries you need. Free, no sign-up.',
+                    'step1' => 'Choose your appliances',
+                    'search' => 'Search an appliance, e.g. fridge or AC',
+                    'noMatch' => 'No appliance matches that name.',
+                    'step2' => 'Hours of use per day',
+                    'emptyList' => 'No appliances added yet. Pick yours from the list.',
+                    'step3' => 'Battery backup',
+                    'backupNone' => 'None',
+                    'backupNight' => 'Evening & night',
+                    'backupFull' => '24 hours',
+                    'resultTitle' => 'Your solar system',
+                    'resultEmpty' => 'Add at least one appliance to see the system that suits you.',
+                    'daily' => 'Daily load',
+                    'peak' => 'Peak load',
+                    'panels' => 'Solar panels',
+                    'inverter' => 'Inverter',
+                    'battery' => 'Battery',
+                    'note' => 'This is a rough estimate. The company confirms the final design after a site visit.',
+                    'tooSmall' => 'This load is too small to request a quote. Offers usually start from a peak load of about 900 W.',
+                    'cta' => 'Get offers for this system',
+                    'haveApp' => 'Already have an account? Open this in the app',
+                    'reset' => 'Start over',
+                    'add' => 'Add',
+                    'remove' => 'Remove',
+                    'less' => 'Fewer',
+                    'more' => 'More',
+                ];
+
+            // Strings the script builds results with (:count, :watts ... are filled in).
+            $calcJs = $isArabic
+                ? [
+                    'hours' => ':hours ساعة/يوم',
+                    'panelsValue' => ':count ألواح (:watts واط للوح)',
+                    'panelsTotal' => 'الإجمالي: :kw كيلوواط',
+                    'inverterValue' => 'وحدة واحدة (:kw كيلوواط)',
+                    'leadAcid' => ':count وحدات (:ah أمبير ساعة، حمض الرصاص)',
+                    'lithium' => ':count وحدات (:kwh كيلوواط ساعة، ليثيوم)',
+                    'batteryNone' => 'غير مشمولة',
+                    'kwhDay' => ':value كيلوواط ساعة/يوم',
+                    'kw' => ':value كيلوواط',
+                    'watts' => ':watts واط',
+                ]
+                : [
+                    'hours' => ':hours h/day',
+                    'panelsValue' => ':count panels (:watts W each)',
+                    'panelsTotal' => 'Total: :kw kW',
+                    'inverterValue' => '1 unit (:kw kW)',
+                    'leadAcid' => ':count units (:ah Ah lead-acid)',
+                    'lithium' => ':count units (:kwh kWh lithium)',
+                    'batteryNone' => 'Not included',
+                    'kwhDay' => ':value kWh/day',
+                    'kw' => ':value kW',
+                    'watts' => ':watts W',
+                ];
+            $calcJs += ['remove' => $calcText['remove'], 'less' => $calcText['less'], 'more' => $calcText['more']];
+        @endphp
+
+        <section class="hx-section" id="calculator">
+            <div class="container">
+                <div class="hx-heading">
+                    <span class="hx-kicker">{{ $calcText['kicker'] }}</span>
+                    <h2>{{ $calcText['title'] }}</h2>
+                    <p>{{ $calcText['lead'] }}</p>
+                </div>
+
+                <div class="hx-calc" data-calc data-text='@json($calcJs)'>
+                    <div class="hx-calc-main">
+                        {{-- Step 1: the catalogue --}}
+                        <div class="hx-calc-card">
+                            <h3 class="hx-calc-step"><span>1</span>{{ $calcText['step1'] }}</h3>
+
+                            <input type="search" class="hx-calc-search" data-calc-search maxlength="60"
+                                placeholder="{{ $calcText['search'] }}" aria-label="{{ $calcText['search'] }}">
+
+                            <div class="hx-calc-groups" data-calc-groups>
+                                @foreach ($calculatorGroups as $index => $group)
+                                    <button type="button" class="hx-calc-group {{ $index === 0 ? 'is-active' : '' }}"
+                                        data-group="{{ $group['id'] }}" aria-pressed="{{ $index === 0 ? 'true' : 'false' }}">
+                                        {{ $isArabic ? $group['ar_name'] : $group['name'] }}
+                                    </button>
+                                @endforeach
+                            </div>
+
+                            <ul class="hx-calc-items" data-calc-items>
+                                @foreach ($calculatorGroups as $index => $group)
+                                    @foreach ($group['items'] as $item)
+                                        @php $itemName = $isArabic ? $item['ar_name'] : $item['name']; @endphp
+                                        <li class="hx-calc-item" data-item="{{ $item['id'] }}" data-group="{{ $group['id'] }}"
+                                            data-watts="{{ $item['watts'] }}" data-name="{{ $itemName }}"
+                                            data-search="{{ mb_strtolower($item['name'] . ' ' . $item['ar_name']) }}"
+                                            @if ($index !== 0) hidden @endif>
+                                            <span class="hx-calc-item-name">
+                                                <strong>{{ $itemName }}</strong>
+                                                <small dir="ltr">{{ $item['watts'] }} W</small>
+                                            </span>
+                                            <span class="hx-calc-qty" data-calc-qty>
+                                                <button type="button" data-step="-1" aria-label="{{ $calcText['less'] }}: {{ $itemName }}">−</button>
+                                                <output>0</output>
+                                                <button type="button" data-step="1" aria-label="{{ $calcText['more'] }}: {{ $itemName }}">+</button>
+                                            </span>
+                                        </li>
+                                    @endforeach
+                                @endforeach
+                            </ul>
+                            <p class="hx-calc-empty" data-calc-nomatch hidden>{{ $calcText['noMatch'] }}</p>
+                        </div>
+
+                        {{-- Steps 2 and 3: hours and backup --}}
+                        <div class="hx-calc-card">
+                            <h3 class="hx-calc-step"><span>2</span>{{ $calcText['step2'] }}</h3>
+                            <ul class="hx-calc-lines" data-calc-lines></ul>
+                            <p class="hx-calc-empty" data-calc-nolines>{{ $calcText['emptyList'] }}</p>
+
+                            <h3 class="hx-calc-step hx-calc-step-gap"><span>3</span>{{ $calcText['step3'] }}</h3>
+                            <div class="hx-calc-backup" role="radiogroup" aria-label="{{ $calcText['step3'] }}">
+                                @foreach (['none' => $calcText['backupNone'], 'night' => $calcText['backupNight'], 'full' => $calcText['backupFull']] as $value => $label)
+                                    <label>
+                                        <input type="radio" name="calc_backup" value="{{ $value }}" @checked($value === 'night')>
+                                        <span>{{ $label }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- The result --}}
+                    <aside class="hx-calc-result" aria-live="polite">
+                        <h3>{{ $calcText['resultTitle'] }}</h3>
+
+                        <p class="hx-calc-result-empty" data-calc-result-empty>{{ $calcText['resultEmpty'] }}</p>
+
+                        <div data-calc-result hidden>
+                            <div class="hx-calc-stats">
+                                <div>
+                                    <small>{{ $calcText['daily'] }}</small>
+                                    <strong data-out="daily"></strong>
+                                </div>
+                                <div>
+                                    <small>{{ $calcText['peak'] }}</small>
+                                    <strong data-out="peak"></strong>
+                                </div>
+                            </div>
+
+                            <dl class="hx-calc-system">
+                                <div>
+                                    <dt><span class="hx-calc-dot hx-tone-orange" aria-hidden="true">☀</span>{{ $calcText['panels'] }}</dt>
+                                    <dd><strong data-out="panels"></strong><small data-out="panelsTotal"></small></dd>
+                                </div>
+                                <div>
+                                    <dt><span class="hx-calc-dot hx-tone-blue" aria-hidden="true">⚡</span>{{ $calcText['inverter'] }}</dt>
+                                    <dd><strong data-out="inverter"></strong></dd>
+                                </div>
+                                <div>
+                                    <dt><span class="hx-calc-dot hx-tone-green" aria-hidden="true">▮</span>{{ $calcText['battery'] }}</dt>
+                                    <dd><strong data-out="battery"></strong></dd>
+                                </div>
+                            </dl>
+
+                            <p class="hx-calc-note">{{ $calcText['note'] }}</p>
+                            <p class="hx-calc-warning" data-calc-small hidden>{{ $calcText['tooSmall'] }}</p>
+
+                            {{-- Sign-up saves this load on the new account; the app opens it after login. --}}
+                            <div data-calc-cta>
+                                <a class="hx-btn hx-btn-primary hx-calc-cta"
+                                    href="{{ route('customer.register', ['lang' => $locale, 'from' => 'calculator']) }}">
+                                    {{ $calcText['cta'] }}
+                                    <span aria-hidden="true">{{ $isArabic ? '←' : '→' }}</span>
+                                </a>
+                                <a class="hx-calc-app-link" data-calc-applink href="{{ route('app.calculator') }}">
+                                    {{ $calcText['haveApp'] }}
+                                </a>
+                            </div>
+                            <button type="button" class="hx-calc-reset" data-calc-reset>{{ $calcText['reset'] }}</button>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+        </section>
+    @endif
+
     {{-- ============ Solutions ============ --}}
     <section class="hx-section hx-section-soft" id="solutions">
         <div class="container">
@@ -830,6 +1047,303 @@
 
             showSlide(0);
             startAutoplay();
+        });
+
+        // Load calculator. Same rules as the app (load_calculator.dart), so a
+        // customer sees the same system on the website and on the phone.
+        document.querySelectorAll('[data-calc]').forEach((calc) => {
+            const text = JSON.parse(calc.dataset.text || '{}');
+            const STORE_KEY = 'sxf-load-calculator';
+
+            const PEAK_SUN_HOURS = 5.5;
+            const SYSTEM_EFFICIENCY = 0.75;
+            const PANEL_W = 550;          // up to 4 panels
+            const LARGE_PANEL_W = 590;    // from 5 panels up
+            const BATTERY_AH = 200;
+            const LEAD_ACID_USABLE_KWH = 1.2;
+            const LITHIUM_MODULE_KWH = 5;
+            const LEAD_ACID_MAX_UNITS = 2;
+            const INVERTER_MARGIN_KW = 2;
+            const MIN_QUOTE_PEAK_W = 900;
+            const BACKUP = { none: 0, night: 0.5, full: 1 };
+
+            // Typical hours per group, as the app starts them.
+            const defaultHours = (groupId) => ({ 1: 6, 2: 8, 3: 8, 4: 8, 5: 8, 6: 24, 11: 2, 12: 1.5 })[groupId] ?? 2;
+
+            const items = new Map();
+            calc.querySelectorAll('[data-item]').forEach((row) => {
+                items.set(row.dataset.item, {
+                    row,
+                    group: Number(row.dataset.group),
+                    name: row.dataset.name,
+                    watts: Number(row.dataset.watts),
+                });
+            });
+
+            // id -> { qty, hours }, in the order the customer added them.
+            let lines = new Map();
+            let backup = 'night';
+
+            const fill = (template, values) =>
+                Object.entries(values).reduce((s, [k, v]) => s.replaceAll(':' + k, v), template || '');
+            // Western digits in both languages, like the rest of the site.
+            const num = (value, digits = 1) =>
+                Number(value.toFixed(digits)).toLocaleString('en-US', { maximumFractionDigits: digits });
+
+            function estimate() {
+                let dailyWh = 0;
+                let peakW = 0;
+                lines.forEach((line, id) => {
+                    const item = items.get(id);
+                    if (!item || line.qty <= 0) return;
+                    dailyWh += line.qty * item.watts * line.hours;
+                    peakW += line.qty * item.watts;
+                });
+
+                const dailyKwh = dailyWh / 1000;
+                const peakKw = peakW / 1000;
+                if (dailyKwh <= 0) return null;
+
+                const requiredW = dailyWh / (PEAK_SUN_HOURS * SYSTEM_EFFICIENCY);
+                let panelWatts = PANEL_W;
+                let panels = Math.max(1, Math.ceil(requiredW / panelWatts));
+                if (panels > 4) {
+                    panelWatts = LARGE_PANEL_W;
+                    panels = Math.max(1, Math.ceil(requiredW / panelWatts));
+                }
+                if (panels % 2 === 1) panels += 1;   // panels are wired in pairs
+
+                const inverterKw = Math.ceil(peakKw - 1e-9) + INVERTER_MARGIN_KW;
+
+                let kind = 'none';
+                let batteries = 0;
+                let batteryKwh = 0;
+                const fraction = BACKUP[backup] ?? 0;
+                if (fraction > 0) {
+                    const needKwh = dailyKwh * fraction;
+                    batteries = Math.ceil(needKwh / LEAD_ACID_USABLE_KWH);
+                    kind = 'leadAcid';
+                    if (batteries > LEAD_ACID_MAX_UNITS) {
+                        kind = 'lithium';
+                        batteries = Math.ceil(needKwh / LITHIUM_MODULE_KWH);
+                        batteryKwh = batteries * LITHIUM_MODULE_KWH;
+                    }
+                }
+
+                return { dailyKwh, peakKw, peakW, panels, panelWatts, arrayKw: panels * panelWatts / 1000, inverterKw, kind, batteries, batteryKwh };
+            }
+
+            // ---- Catalogue: groups, search, quantity buttons ----
+            const groupButtons = calc.querySelectorAll('[data-group]:not([data-item])');
+            const search = calc.querySelector('[data-calc-search]');
+            const noMatch = calc.querySelector('[data-calc-nomatch]');
+            let activeGroup = groupButtons[0]?.dataset.group;
+
+            function filterItems() {
+                const query = (search.value || '').trim().toLowerCase();
+                let shown = 0;
+                items.forEach((item) => {
+                    const visible = query
+                        ? item.row.dataset.search.includes(query)
+                        : String(item.group) === activeGroup;
+                    item.row.hidden = !visible;
+                    if (visible) shown++;
+                });
+                noMatch.hidden = shown > 0;
+                calc.querySelector('[data-calc-groups]').classList.toggle('is-searching', Boolean(query));
+            }
+
+            groupButtons.forEach((button) => button.addEventListener('click', () => {
+                activeGroup = button.dataset.group;
+                search.value = '';
+                groupButtons.forEach((b) => {
+                    b.classList.toggle('is-active', b === button);
+                    b.setAttribute('aria-pressed', String(b === button));
+                });
+                filterItems();
+            }));
+            search.addEventListener('input', filterItems);
+
+            function setQty(id, qty) {
+                const item = items.get(id);
+                if (!item) return;
+                qty = Math.max(0, Math.min(99, qty));
+                if (qty === 0) {
+                    lines.delete(id);
+                } else if (lines.has(id)) {
+                    lines.get(id).qty = qty;
+                } else {
+                    lines.set(id, { qty, hours: defaultHours(item.group) });
+                }
+                render();
+            }
+
+            calc.querySelector('[data-calc-items]').addEventListener('click', (event) => {
+                const row = event.target.closest('[data-item]');
+                if (!row) return;
+                const step = event.target.closest('[data-step]');
+                const current = lines.get(row.dataset.item)?.qty ?? 0;
+                // A tap on the name adds one; the buttons step up or down.
+                setQty(row.dataset.item, current + (step ? Number(step.dataset.step) : 1));
+            });
+
+            // ---- Selected appliances: hours and quantity ----
+            const linesList = calc.querySelector('[data-calc-lines]');
+            const noLines = calc.querySelector('[data-calc-nolines]');
+
+            function renderLines() {
+                linesList.replaceChildren();
+                lines.forEach((line, id) => {
+                    const item = items.get(id);
+                    const li = document.createElement('li');
+                    li.className = 'hx-calc-line';
+                    li.dataset.line = id;
+
+                    const head = document.createElement('div');
+                    head.className = 'hx-calc-line-head';
+                    const title = document.createElement('strong');
+                    title.textContent = line.qty > 1 ? `${line.qty} × ${item.name}` : item.name;
+                    const watts = document.createElement('small');
+                    watts.textContent = fill(text.watts, { watts: num(item.watts * line.qty, 0) });
+                    const remove = document.createElement('button');
+                    remove.type = 'button';
+                    remove.className = 'hx-calc-remove';
+                    remove.dataset.remove = id;
+                    remove.setAttribute('aria-label', `${text.remove}: ${item.name}`);
+                    remove.textContent = '×';
+                    head.append(title, watts, remove);
+
+                    const hours = document.createElement('label');
+                    hours.className = 'hx-calc-hours';
+                    const range = document.createElement('input');
+                    range.type = 'range';
+                    range.min = '0';
+                    range.max = '24';
+                    range.step = '0.5';
+                    range.value = String(line.hours);
+                    range.dataset.hours = id;
+                    range.setAttribute('aria-label', `${item.name}: ${fill(text.hours, { hours: num(line.hours) })}`);
+                    const value = document.createElement('output');
+                    value.textContent = fill(text.hours, { hours: num(line.hours) });
+                    hours.append(range, value);
+
+                    li.append(head, hours);
+                    linesList.append(li);
+                });
+                noLines.hidden = lines.size > 0;
+            }
+
+            linesList.addEventListener('input', (event) => {
+                const id = event.target.dataset.hours;
+                if (!id || !lines.has(id)) return;
+                const line = lines.get(id);
+                line.hours = Number(event.target.value);
+                const label = fill(text.hours, { hours: num(line.hours) });
+                event.target.nextElementSibling.textContent = label;
+                event.target.setAttribute('aria-label', `${items.get(id).name}: ${label}`);
+                renderResult();   // no full re-render, so the slider keeps focus
+                save();
+            });
+
+            linesList.addEventListener('click', (event) => {
+                const id = event.target.closest('[data-remove]')?.dataset.remove;
+                if (id) setQty(id, 0);
+            });
+
+            calc.querySelectorAll('input[name="calc_backup"]').forEach((radio) => radio.addEventListener('change', () => {
+                backup = radio.value;
+                renderResult();
+                save();
+            }));
+
+            // ---- Result ----
+            const out = (name) => calc.querySelector(`[data-out="${name}"]`);
+
+            function renderResult() {
+                const e = estimate();
+                calc.querySelector('[data-calc-result]').hidden = !e;
+                calc.querySelector('[data-calc-result-empty]').hidden = Boolean(e);
+                if (!e) return;
+
+                out('daily').textContent = fill(text.kwhDay, { value: num(e.dailyKwh) });
+                out('peak').textContent = fill(text.kw, { value: num(e.peakKw, 2) });
+                out('panels').textContent = fill(text.panelsValue, { count: num(e.panels, 0), watts: num(e.panelWatts, 0) });
+                out('panelsTotal').textContent = fill(text.panelsTotal, { kw: num(e.arrayKw, 2) });
+                out('inverter').textContent = fill(text.inverterValue, { kw: num(e.inverterKw, 0) });
+                out('battery').textContent = e.kind === 'lithium'
+                    ? fill(text.lithium, { count: num(e.batteries, 0), kwh: num(e.batteryKwh, 0) })
+                    : e.kind === 'leadAcid'
+                        ? fill(text.leadAcid, { count: num(e.batteries, 0), ah: num(BATTERY_AH, 0) })
+                        : text.batteryNone;
+
+                const tooSmall = e.peakW < MIN_QUOTE_PEAK_W;
+                calc.querySelector('[data-calc-small]').hidden = !tooSmall;
+                calc.querySelector('[data-calc-cta]').hidden = tooSmall;
+
+                // "Open in the app" carries the load in the link (base64url JSON).
+                const appLink = calc.querySelector('[data-calc-applink]');
+                const encoded = btoa(JSON.stringify(loadPayload()))
+                    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+                appLink.href = appLink.href.split('?')[0] + '?load=' + encoded;
+            }
+
+            // The load as the server and the app expect it (website-load-handoff.md).
+            function loadPayload() {
+                return {
+                    backup,
+                    items: [...lines].map(([id, line]) => ({
+                        appliance_id: Number(id),
+                        quantity: line.qty,
+                        hours: line.hours,
+                    })),
+                };
+            }
+
+            function render() {
+                items.forEach((item, id) => {
+                    const qty = lines.get(id)?.qty ?? 0;
+                    item.row.querySelector('output').textContent = qty;
+                    item.row.classList.toggle('is-selected', qty > 0);
+                });
+                renderLines();
+                renderResult();
+                save();
+            }
+
+            calc.querySelector('[data-calc-reset]').addEventListener('click', () => {
+                lines = new Map();
+                backup = 'night';
+                calc.querySelector('input[name="calc_backup"][value="night"]').checked = true;
+                render();
+            });
+
+            // Kept in this browser only, so a visitor who comes back finds their list.
+            function save() {
+                try {
+                    localStorage.setItem(STORE_KEY, JSON.stringify({ backup, lines: [...lines] }));
+                } catch (_) { }
+            }
+
+            try {
+                const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+                if (saved && Array.isArray(saved.lines)) {
+                    saved.lines.forEach(([id, line]) => {
+                        if (items.has(id) && line.qty > 0) {
+                            lines.set(id, {
+                                qty: Math.min(99, Math.round(line.qty)),
+                                hours: Math.max(0, Math.min(24, Number(line.hours) || 0)),
+                            });
+                        }
+                    });
+                }
+                if (saved && saved.backup in BACKUP) {
+                    backup = saved.backup;
+                    const radio = calc.querySelector(`input[name="calc_backup"][value="${backup}"]`);
+                    if (radio) radio.checked = true;
+                }
+            } catch (_) { }
+
+            render();
         });
 
 

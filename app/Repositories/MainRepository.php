@@ -191,6 +191,8 @@ class MainRepository
             $customer->city = $data['city'];
             $customer->address = $data['address'];
             $customer->password = $data['password'];
+            // From the home page calculator, already checked by CalculatorLoad (or null).
+            $customer->pending_load = $data['pending_load'] ?? null;
 
             $customer->status = 'pending';
             $customer->is_active = false;
@@ -296,6 +298,46 @@ class MainRepository
                 ->limit(10)
                 ->get(['id', 'name', 'description_ar', 'description_en', 'image_path', 'image_width', 'image_height', 'link_url', 'is_sponsored', 'interval_seconds'])
                 ->toArray());
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
+    }
+
+    /**
+     * Active appliance groups with their active appliances, for the home page load
+     * calculator. Same catalogue as the app's /calculator-items. Cached for 5 minutes.
+     *
+     * @return array<int, array{id: int, name: string, ar_name: string, items: array<int, array{id: int, name: string, ar_name: string, watts: int}>}>
+     */
+    public function getCalculatorCatalogue(): array
+    {
+        try {
+            return Cache::remember('home:calculator-catalogue', 300, fn() => \App\Models\ApplianceGroup::query()
+                ->where('is_active', true)
+                ->with(['appliances' => fn($query) => $query
+                    ->where('is_active', true)
+                    ->where('watts', '>', 0)
+                    ->orderBy('sort_order')
+                    ->orderBy('id')])
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get()
+                ->map(fn($group) => [
+                    'id' => (int) $group->id,
+                    'name' => (string) $group->name,
+                    'ar_name' => (string) ($group->ar_name ?: $group->name),
+                    'items' => $group->appliances->map(fn($item) => [
+                        'id' => (int) $item->id,
+                        'name' => (string) $item->name,
+                        'ar_name' => (string) ($item->ar_name ?: $item->name),
+                        'watts' => (int) $item->watts,
+                    ])->values()->all(),
+                ])
+                ->filter(fn($group) => $group['items'] !== [])
+                ->values()
+                ->all());
         } catch (\Throwable $e) {
             report($e);
 

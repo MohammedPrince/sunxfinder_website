@@ -109,11 +109,17 @@ class Helper
         return $data + [
             'description' => $this->plainText($company->description),
             'ar_description' => $this->plainText($company->ar_description),
-            'phone' => $company->phone,
-            'email' => $company->email,
+            // Admin → Companies → Edit can hide these from the app: null when hidden,
+            // and show_phone / show_email tell the app to hide the call / email buttons.
+            'phone' => $company->showsPhoneInApp() ? $company->phone : null,
+            'email' => $company->showsEmailInApp() ? $company->email : null,
+            'show_phone' => $company->showsPhoneInApp(),
+            'show_email' => $company->showsEmailInApp(),
             'license_number' => $company->license_number,
-            'social_links' => $this->parseSocialLinks(
-                $company->social_media
+            // WhatsApp is a phone number too: "Hide phone" hides it as well.
+            'social_links' => array_merge(
+                $this->parseSocialLinks($company->social_media),
+                $company->showsPhoneInApp() ? [] : ['whatsapp' => null]
             ),
             'years_experience' => null,
             'projects_completed' => null,

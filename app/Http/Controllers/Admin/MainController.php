@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Models\CustomerTermsAcceptance;
 use App\Models\ArchivedItem;
 use App\Models\AppVersion;
 use App\Repositories\Admin\AdminRepository;
@@ -20,11 +21,13 @@ use App\Models\SolarCompany;
 use App\Models\SentEmail;
 use App\Services\Admin\AdminService;
 use App\Support\ActivityLogger;
+use App\Support\TermsVersion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use App\Models\NotificationScheduleRun;
 
 class MainController extends Controller
 {
@@ -57,7 +60,7 @@ class MainController extends Controller
 
     public function exportReport(Request $request, string $section)
     {
-        abort_unless(in_array($section, ['companies', 'quote_requests', 'customers'], true), 404);
+        abort_unless(in_array($section, ['companies', 'quote_requests', 'customers', 'package_offers'], true), 404);
 
         $export = $this->adminService->getReportExport($section, $this->validatedReportFilters($request));
 
@@ -126,9 +129,15 @@ class MainController extends Controller
             ? ($impersonation['previous_company_id'] ?? null)
             : $guard->id();
 
+        // Admin and company share this session. login() gives the session a new id (good)
+        // and a new CSRF token, which would make every form already open in the admin tab
+        // (e.g. Companies) fail with "Page expired" until refreshed: keep the token.
+        $csrfToken = $request->session()->token();
+
         // Never use $guard->logout() here: it cycles the remember token and would
         // sign the switched-out company out of its own devices too.
         $guard->login($company);
+        $request->session()->put('_token', $csrfToken);
 
         if ($realCompanyId && (int) $realCompanyId === $company->id) {
             // Back to the real company itself: nothing to restore later.
@@ -139,7 +148,6 @@ class MainController extends Controller
                 'company_id' => $company->id,
             ]);
         }
-        $request->session()->regenerate();
         $request->session()->put('company_id', $company->id);
 
         ActivityLogger::log(
@@ -219,8 +227,10 @@ class MainController extends Controller
         $projectCount = (clone $projectBase)->count();
         $ratingCount = (clone $ratingBase)->count();
         $customerCount = (clone $customersBase)->distinct()->count('id');
+        $commissionSummary = $this->adminService->getCompanyCommissionSummary($companyId);
 
         return view('admin.companies.company-details', compact(
+            'commissionSummary',
             'company',
             'quotes',
             'customers',
@@ -272,6 +282,10 @@ class MainController extends Controller
             'is_active' => ['required', 'boolean'],
             'year_of_exp' => ['required', 'integer', 'min:1'],
             'number_of_projects' => ['required', 'integer', 'min:1'],
+            'commission_rate' => ['required', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
+            // Show or hide the email / phone in the app.
+            'show_email_in_app' => ['sometimes', 'boolean'],
+            'show_phone_in_app' => ['sometimes', 'boolean'],
         ]);
 
         if ($validator->fails()) {
@@ -329,6 +343,10 @@ class MainController extends Controller
             'is_active' => ['required', 'boolean'],
             'year_of_exp' => ['required', 'integer', 'min:1'],
             'number_of_projects' => ['required', 'integer', 'min:1'],
+            'commission_rate' => ['required', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
+            // Show or hide the email / phone in the app.
+            'show_email_in_app' => ['sometimes', 'boolean'],
+            'show_phone_in_app' => ['sometimes', 'boolean'],
         ]);
 
         $result = $this->adminService->updateCompany($id, $validated);
@@ -1578,6 +1596,22 @@ class MainController extends Controller
         return back()->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
+    public function updateOfferCommission(Request $request, int $id, int $offer)
+    {
+        $data = $request->validate([
+            'commission_type' => ['required', Rule::in(CompanyQuotation::COMMISSION_TYPES)],
+            'commission_percent' => ['exclude_unless:commission_type,percent', 'required', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
+            'commission_fixed' => ['exclude_unless:commission_type,fixed', 'required', 'numeric', 'min:0', 'max:9999999999999', 'decimal:0,2'],
+        ], [
+            'commission_percent.required' => 'Enter the commission percentage for this offer.',
+            'commission_fixed.required' => 'Enter the commission amount for this offer.',
+        ]);
+
+        $result = $this->adminService->updateOfferCommission($id, $offer, $data);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
     public function reassignQuoteRequest(Request $request, int $id)
     {
         $data = $request->validate([
@@ -1597,18 +1631,34 @@ class MainController extends Controller
         return back()->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
+    /**
+     * Admin Manual: static help text from resources/lang/{en,ar}/admin/manual.php.
+     * The admin panel is English; ?lang=ar shows the manual in Arabic (remembered in the session).
+     */
+    public function manual(Request $request)
+    {
+        $lang = $request->validate(['lang' => ['nullable', Rule::in(['en', 'ar'])]])['lang']
+            ?? $request->session()->get('admin_manual_lang', 'en');
+
+        $request->session()->put('admin_manual_lang', $lang);
+
+        return view('admin.manual', compact('lang'));
+    }
+
     //Background Jobs Start
 
     public function backgroundJobs(Request $request)
     {
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
+            'run_status' => ['nullable', Rule::in(array_keys(NotificationScheduleRun::STATUSES))],
         ]);
 
         $overview = $this->adminService->getQueueOverview();
         $failedJobs = $this->adminService->getFailedJobs($filters);
+        $automatic = $this->adminService->getNotificationScheduleRuns($filters);
 
-        return view('admin.queue.index', compact('overview', 'failedJobs'));
+        return view('admin.queue.index', compact('overview', 'failedJobs', 'automatic'));
     }
 
     public function showFailedJob(string $uuid)
@@ -2089,6 +2139,33 @@ class MainController extends Controller
 
     //Database Backups End
 
+    //Server Tools Start (hosting only: clear/optimize, migrate, queue, composer, copy public folders)
+
+    public function serverTools()
+    {
+        $status = $this->adminService->getServerToolsStatus();
+        $actions = \App\Support\ServerTools::ACTIONS;
+
+        return view('admin.server-tools.index', compact('status', 'actions'));
+    }
+
+    public function runServerTool(Request $request)
+    {
+        $data = $request->validate([
+            'action' => ['required', Rule::in(array_keys(\App\Support\ServerTools::ACTIONS))],
+        ]);
+
+        $result = $this->adminService->runServerTool($data['action']);
+
+        return redirect()
+            ->route('admin.server-tools.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message'])
+            ->with('tool_output', $result['output'])
+            ->with('tool_action', $data['action']);
+    }
+
+    //Server Tools End
+
     //Archives Start
 
     public function archives(Request $request)
@@ -2130,6 +2207,74 @@ class MainController extends Controller
     }
 
     //Archives End
+
+    //Terms Acceptance Start
+
+    /** Which customers accepted the Terms, and which version (System → Terms Acceptance). */
+    public function termsAcceptances(Request $request)
+    {
+        $filters = $request->validate([
+            'status' => ['nullable', Rule::in(['current', 'outdated', 'never'])],
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $currentVersion = TermsVersion::current();
+        $customers = $this->adminService->getTermsAcceptanceCustomers($filters, $currentVersion);
+        $metrics = $this->adminService->getTermsAcceptanceMetrics($currentVersion);
+
+        return view('admin.terms-acceptances.index', compact('customers', 'metrics', 'currentVersion'));
+    }
+
+    /** Every acceptance by one customer. */
+    public function customerTermsHistory(int $id)
+    {
+        $history = $this->adminService->getCustomerTermsHistory($id);
+
+        abort_if(!$history, 404);
+
+        return view('admin.terms-acceptances.show', [
+            ...$history,
+            'currentVersion' => TermsVersion::current(),
+        ]);
+    }
+
+    /** The full acceptance log (or one customer's) as CSV: the legal record. */
+    public function exportTermsAcceptances(Request $request)
+    {
+        $filters = $request->validate(['customer_id' => ['nullable', 'integer', 'min:1']]);
+        $rows = $this->adminService->termsAcceptancesForExport($filters);
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+
+            // UTF-8 BOM so Excel shows Arabic names correctly.
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['ID', 'Accepted at (server time)', 'Customer ID', 'Username', 'Full name', 'Phone', 'Email', 'Terms version', 'Language', 'Where', 'Platform', 'App version', 'IP address', 'User agent']);
+
+            foreach ($rows as $row) {
+                fputcsv($out, [
+                    $row->id,
+                    $row->accepted_at?->format('Y-m-d H:i:s'),
+                    $row->customer_id,
+                    $row->customer?->username,
+                    $row->customer?->full_name,
+                    $row->customer?->phone,
+                    $row->customer?->email,
+                    $row->terms_version,
+                    $row->lang,
+                    CustomerTermsAcceptance::SOURCES[$row->source] ?? $row->source,
+                    CustomerTermsAcceptance::PLATFORMS[$row->platform] ?? $row->platform,
+                    $row->app_version,
+                    $row->ip_address,
+                    $row->user_agent,
+                ]);
+            }
+
+            fclose($out);
+        }, 'terms-acceptances-' . now()->format('Y-m-d') . '.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    //Terms Acceptance End
 
     //Activity Logs Start
 
@@ -2308,6 +2453,110 @@ class MainController extends Controller
             ->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
+    // Automatic notifications: messages sent one by one on chosen weekdays, every N days.
+    public function notificationSchedules()
+    {
+        return view('admin.notifications.schedules.index', $this->adminService->getNotificationSchedules());
+    }
+
+    public function createNotificationSchedule()
+    {
+        return view('admin.notifications.schedules.form', $this->adminService->getNotificationScheduleFormData());
+    }
+
+    public function storeNotificationSchedule(Request $request)
+    {
+        $result = $this->adminService->saveNotificationSchedule($this->validateNotificationSchedule($request));
+
+        return redirect()
+            ->route('admin.notifications.schedules.edit', $result['id'])
+            ->with('success', $result['message']);
+    }
+
+    public function editNotificationSchedule(int $id)
+    {
+        $data = $this->adminService->getNotificationScheduleFormData($id);
+
+        if (!$data['success']) {
+            return redirect()->route('admin.notifications.schedules.index')->with('error', $data['message']);
+        }
+
+        return view('admin.notifications.schedules.form', $data);
+    }
+
+    public function updateNotificationSchedule(Request $request, int $id)
+    {
+        $result = $this->adminService->saveNotificationSchedule($this->validateNotificationSchedule($request), $id);
+
+        if (!$result['success']) {
+            return redirect()->route('admin.notifications.schedules.index')->with('error', $result['message']);
+        }
+
+        return redirect()
+            ->route('admin.notifications.schedules.edit', $id)
+            ->with('success', $result['message']);
+    }
+
+    public function toggleNotificationSchedule(int $id)
+    {
+        $result = $this->adminService->toggleNotificationSchedule($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function resetNotificationSchedule(int $id)
+    {
+        $result = $this->adminService->resetNotificationSchedule($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function sendNotificationScheduleNow(int $id)
+    {
+        $result = $this->adminService->sendNotificationScheduleNow($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function destroyNotificationSchedule(int $id)
+    {
+        $result = $this->adminService->deleteNotificationSchedule($id);
+
+        return redirect()->route('admin.notifications.schedules.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    private function validateNotificationSchedule(Request $request): array
+    {
+        return $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'is_active' => ['nullable', 'boolean'],
+            'days' => ['required', 'array', 'min:1'],
+            'days.*' => ['integer', Rule::in(array_keys(\App\Models\NotificationSchedule::WEEKDAYS))],
+            'every_days' => ['required', 'integer', 'min:1', 'max:60'],
+            'send_time' => ['required', 'date_format:H:i'],
+            'timezone' => ['required', 'timezone:all'],
+            'starts_on' => ['nullable', 'date'],
+            'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
+            'notification_type' => ['required', Rule::in(array_keys(\App\Models\NotificationSchedule::TYPES))],
+            'audience_type' => ['required', Rule::in(['all', 'city'])],
+            'audience_city' => ['nullable', 'required_if:audience_type,city', 'string', 'max:120'],
+            'after_last' => ['required', Rule::in(array_keys(\App\Models\NotificationSchedule::AFTER_LAST))],
+            'messages' => ['required', 'array', 'min:1', 'max:100'],
+            'messages.*.id' => ['nullable', 'integer', 'min:1'],
+            'messages.*.is_active' => ['nullable', 'boolean'],
+            'messages.*.title_en' => ['required', 'string', 'max:180'],
+            'messages.*.title_ar' => ['nullable', 'string', 'max:180'],
+            'messages.*.message_en' => ['required', 'string', 'max:2000'],
+            'messages.*.message_ar' => ['nullable', 'string', 'max:2000'],
+        ], [
+            'days.required' => 'Choose at least one day of the week.',
+            'messages.required' => 'Add at least one message.',
+            'messages.*.title_en.required' => 'Every message needs an English title.',
+            'messages.*.message_en.required' => 'Every message needs an English text.',
+        ]);
+    }
+
     // Customer campaigns: rich notifications (offer, new company, news) with image and link.
     public function createCampaign(Request $request)
     {
@@ -2324,6 +2573,9 @@ class MainController extends Controller
     public function storeCampaign(Request $request)
     {
         $maxKb = $this->appSliderMaxUploadKb();
+
+        $isOffer = $request->input('type') === 'offer';
+        $buildsOffer = $isOffer && $request->input('offer_source') === 'new';
 
         $data = $request->validate([
             'type' => ['required', Rule::in(array_keys(\App\Models\Notification::CAMPAIGN_TYPES))],
@@ -2342,24 +2594,20 @@ class MainController extends Controller
             'link_label_en' => ['nullable', 'string', 'max:60'],
             'link_label_ar' => ['nullable', 'string', 'max:60'],
             'company_id' => ['nullable', Rule::requiredIf(in_array($request->input('type'), ['offer', 'new_company'], true)), 'integer', Rule::exists('tbl_solar_companies', 'id')->whereNull('deleted_at')],
-            'has_offer' => ['nullable', 'boolean'],
-            'offer_title_en' => ['nullable', 'required_if:has_offer,1', 'string', 'max:150'],
-            'offer_title_ar' => ['nullable', 'string', 'max:150'],
-            'offer_price' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
-            'offer_old_price' => ['nullable', 'numeric', 'min:0', 'max:999999999', 'gt:offer_price'],
-            'offer_currency' => ['nullable', Rule::in(['SDG', 'USD'])],
-            'offer_expires_at' => ['nullable', 'date', 'after:now'],
+            // "Company offer" carries a package offer customers can accept: one of the company's
+            // open offers, or a new one built here with the same builder as the company panel.
+            'offer_source' => [Rule::requiredIf($isOffer), 'nullable', Rule::in(['existing', 'new'])],
+            'package_offer_id' => [Rule::requiredIf($isOffer && !$buildsOffer), 'nullable', 'integer', 'min:1'],
             'is_sponsored' => ['nullable', 'boolean'],
-        ], [
+        ] + ($buildsOffer ? \App\Models\PackageOffer::rules() : []), [
             'image.uploaded' => 'The image could not be uploaded. The server accepts files up to ' . round($maxKb / 1024, 1) . ' MB.',
             'image.max' => 'The image must be ' . round($maxKb / 1024, 1) . ' MB or smaller.',
             'link_url.regex' => 'The link must start with https:// (or sunxfinder:// for a screen in the app).',
             'company_id.required' => 'Choose the company this campaign is about.',
-            'offer_title_en.required_if' => 'Give the offer a short title, e.g. "20% off 5 kW systems".',
-            'offer_old_price.gt' => 'The old price must be higher than the offer price.',
+            'package_offer_id.required' => 'Choose one of the company’s offers, or build a new one.',
             'audience_city.required_if' => 'Choose the city to send to.',
             'customer_ids.required_if' => 'Select at least one customer.',
-        ]);
+        ], $buildsOffer ? \App\Models\PackageOffer::attributes() : []);
 
         $data['is_sponsored'] = $request->boolean('is_sponsored');
 

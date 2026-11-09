@@ -182,6 +182,7 @@
                 </svg>
             </span>
             <span>Projects</span>
+            <span class="nav-count warm">{{ $projectsCount ?? 0 }}</span>
         </a>
         <a class="nav-link {{ request()->routeIs('admin.complaints.*') ? 'active' : '' }}"
             href="{{ route('admin.complaints.index') }}">
@@ -192,6 +193,7 @@
                 </svg>
             </span>
             <span>Complaints</span>
+            <span class="nav-count warm">{{ $complaintsCount ?? 0 }}</span>
         </a>
         <a class="nav-link {{ request()->routeIs('admin.notifications.*') ? 'active' : '' }}"
             href="{{ route('admin.notifications.index') }}">
@@ -234,7 +236,19 @@
         </a>
         @endcomponent
 
-        @component('partials.nav-group', ['key' => 'system', 'label' => 'System', 'icon' => 'gear', 'routes' => ['admin.send-email.*', 'admin.logs.*', 'admin.queue.*', 'admin.settings.*', 'admin.backups.*', 'admin.legal.*', 'admin.archives.*']])
+        @component('partials.nav-group', ['key' => 'system', 'label' => 'System', 'icon' => 'gear', 'routes' => ['admin.manual', 'admin.send-email.*', 'admin.logs.*', 'admin.queue.*', 'admin.settings.*', 'admin.backups.*', 'admin.server-tools.*', 'admin.legal.*', 'admin.terms-acceptances.*', 'admin.archives.*']])
+        <a class="nav-link {{ request()->routeIs('admin.manual') ? 'active' : '' }}"
+            href="{{ route('admin.manual') }}">
+            <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5Z" />
+                    <path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5" />
+                    <path d="M8 7h8M8 11h6" />
+                </svg>
+            </span>
+            <span>Admin Manual</span>
+        </a>
         <a class="nav-link {{ request()->routeIs('admin.send-email.*') ? 'active' : '' }}"
             href="{{ route('admin.send-email.index') }}">
             <span class="nav-icon">
@@ -301,6 +315,17 @@
             </span>
             <span>Database Backups</span>
         </a>
+        <a class="nav-link {{ request()->routeIs('admin.server-tools.*') ? 'active' : '' }}"
+            href="{{ route('admin.server-tools.index') }}">
+            <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="16" rx="2" />
+                    <path d="m7 9 3 3-3 3M12 15h5" />
+                </svg>
+            </span>
+            <span>Server Tools</span>
+        </a>
         <a class="nav-link {{ request()->routeIs('admin.legal.*') ? 'active' : '' }}"
             href="{{ route('admin.legal.index') }}">
             <span class="nav-icon">
@@ -311,6 +336,18 @@
                 </svg>
             </span>
             <span>Privacy &amp; Terms</span>
+        </a>
+        <a class="nav-link {{ request()->routeIs('admin.terms-acceptances.*') ? 'active' : '' }}"
+            href="{{ route('admin.terms-acceptances.index') }}">
+            <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+                    <path d="M14 3v6h6" />
+                    <path d="m9 15 2 2 4-4" />
+                </svg>
+            </span>
+            <span>Terms Acceptance</span>
         </a>
         <a class="nav-link {{ request()->routeIs('admin.archives.*') ? 'active' : '' }}"
             href="{{ route('admin.archives.index') }}">

@@ -43,12 +43,17 @@ class SolarCompany extends Authenticatable
         'social_media',
         'license_number',
         'year_of_exp',
-        'number_of_projects'
+        'number_of_projects',
+        'commission_rate',
+        'show_email_in_app',
+        'show_phone_in_app',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
+        // Between SunXFinder and the company only; never in customer API output.
+        'commission_rate',
     ];
 
     protected function casts(): array
@@ -60,7 +65,27 @@ class SolarCompany extends Authenticatable
             'on_app' => 'boolean',
             'can_notify_all_customers' => 'boolean',
             'all_customers_monthly_limit' => 'integer',
+            'commission_rate' => 'decimal:2',
+            'show_email_in_app' => 'boolean',
+            'show_phone_in_app' => 'boolean',
         ];
+    }
+
+    /** Admin can hide the email or phone from customers in the app (both shown by default). */
+    public function showsEmailInApp(): bool
+    {
+        return $this->show_email_in_app ?? true;
+    }
+
+    public function showsPhoneInApp(): bool
+    {
+        return $this->show_phone_in_app ?? true;
+    }
+
+    /** SunXFinder's commission on a price at this company's current rate. */
+    public function commissionFor(float $price): float
+    {
+        return round($price * (float) $this->commission_rate / 100, 2);
     }
 
     public function products(): HasMany

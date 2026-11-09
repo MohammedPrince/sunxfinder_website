@@ -730,6 +730,50 @@
     overflow-wrap: anywhere;
 }
 
+/* SunXFinder commission: company panel only, never printed */
+.offer-commission-note {
+    margin: 6px 0 10px;
+    color: #475569;
+    font-size: 13px;
+}
+
+.offer-commission-note strong {
+    color: #172b45;
+}
+
+.offer-commission-note small {
+    display: block;
+    color: #64748b;
+    font-size: 11px;
+}
+
+.offer-commission-card {
+    background: #f8fafc;
+}
+
+.offer-commission-card .offer-summary-total {
+    border-top-color: #172b45;
+}
+
+.offer-commission-card .offer-summary-total strong {
+    color: #172b45;
+}
+
+.offer-commission-card > small {
+    display: block;
+    margin-top: 8px;
+    color: #64748b;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+@media print {
+    .offer-commission-note,
+    .offer-commission-card {
+        display: none !important;
+    }
+}
+
 .offer-panel-action {
     flex-shrink: 0;
 }
@@ -920,7 +964,8 @@
 
 .offer-invoice-item {
     display: grid;
-    grid-template-columns: minmax(180px, 2fr) minmax(70px, .55fr) minmax(110px, .8fr) minmax(90px, .7fr) 32px;
+    /* product | description | qty | unit price | line total | remove */
+    grid-template-columns: minmax(140px, 1.3fr) minmax(160px, 1.7fr) minmax(70px, .55fr) minmax(110px, .8fr) minmax(90px, .7fr) 32px;
     align-items: end;
     gap: 10px;
     padding: 12px;
@@ -1208,6 +1253,7 @@
         grid-template-columns: minmax(0, 1fr) minmax(70px, .45fr) 32px;
     }
 
+    .offer-invoice-item-product,
     .offer-invoice-item-description {
         grid-column: 1 / -1;
     }
@@ -1218,7 +1264,7 @@
 
     .offer-invoice-remove {
         grid-column: 3;
-        grid-row: 2;
+        grid-row: 3;
     }
 
     .offer-invoice-bottom,
@@ -2447,5 +2493,139 @@
 
     .topbar-right {
         margin-inline-start: auto;
+    }
+}
+
+/* ---------- Package offers (Quotes & Projects → Package offers) ---------- */
+
+.inline-form {
+    display: inline;
+}
+
+.alert-info {
+    border: 1px solid #bfdbfe;
+    background: #eff6ff;
+    color: #1e3a8a;
+}
+
+.package-offer-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    align-items: start;
+    gap: 18px;
+}
+
+.package-offer-main {
+    display: grid;
+    gap: 18px;
+    min-width: 0;
+}
+
+.package-offer-aside {
+    position: sticky;
+    top: 16px;
+    display: grid;
+    gap: 12px;
+}
+
+.package-offer-submit {
+    width: 100%;
+    justify-content: center;
+}
+
+.package-offer-items {
+    display: grid;
+    gap: 8px;
+    margin: 0 0 12px;
+    padding: 0;
+    list-style: none;
+}
+
+.package-offer-items li {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eef2f7;
+    font-size: 12px;
+}
+
+.package-offer-items li span:first-child {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.package-offer-items small {
+    color: #64748b;
+}
+
+.package-offer-items li span:last-child {
+    white-space: nowrap;
+    color: #475569;
+}
+
+.package-offer-description {
+    margin: 12px 0 0;
+    color: #475569;
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-line;
+}
+
+/* Product picker: its own column, the same height as the other fields in the row. */
+.offer-invoice-item .offer-invoice-product {
+    height: 39px;
+    min-height: 39px;
+    margin: 0;
+    padding-block: 0;
+    background: #f8fafc;
+    color: #334155;
+}
+
+/* Quote request opened from a package offer. */
+.package-offer-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 18px;
+    border: 1px solid #fed7aa;
+    background: #fff7ed;
+}
+
+.package-offer-banner-icon {
+    display: grid;
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+    border-radius: 10px;
+    background: #ffedd5;
+    color: #ea580c;
+}
+
+.package-offer-banner-copy h3 {
+    margin: 2px 0 4px;
+    font-size: 16px;
+}
+
+.package-offer-banner-copy h3 a {
+    color: #172b45;
+    text-decoration: none;
+}
+
+.package-offer-banner-copy p {
+    margin: 2px 0;
+    color: #475569;
+    font-size: 13px;
+}
+
+@media (max-width: 1000px) {
+    .package-offer-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .package-offer-aside {
+        position: static;
     }
 }

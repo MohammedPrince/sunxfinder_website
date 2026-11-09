@@ -30,9 +30,26 @@ class MainController extends Controller
         $validated = $request->validate([
             'username' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string'],
+            // Terms acceptance (the app asks on every sign-in). "sometimes" so older app
+            // builds that do not send it can still sign in; make it required later.
+            'terms_accepted' => ['sometimes', 'accepted'],
+            'terms_version' => ['required_with:terms_accepted', 'date_format:Y-m-d'],
+            'terms_lang' => ['required_with:terms_accepted', 'in:en,ar'],
+            'platform' => ['nullable', 'in:android,ios,web'],
+            'app_version' => ['nullable', 'string', 'max:20'],
         ]);
 
-        $data = ['username' => trim($validated['username']), 'password' => $validated['password'],];
+        $data = [
+            'username' => trim($validated['username']),
+            'password' => $validated['password'],
+            // Saved only after the password check succeeds (CustomerRepository::login).
+            'terms' => $request->boolean('terms_accepted') ? [
+                'terms_version' => $validated['terms_version'],
+                'lang' => $validated['terms_lang'],
+                'platform' => $validated['platform'] ?? null,
+                'app_version' => $validated['app_version'] ?? null,
+            ] : null,
+        ];
 
         $result = $this->customerService->login($data);
 
@@ -101,9 +118,10 @@ class MainController extends Controller
             'second_name' => ['nullable', 'string', 'max:15', 'min:3'],
             'third_name' => ['nullable', 'string', 'max:15'],
             'phone' => ['required', 'string', 'min:9', 'max:10', 'regex:/\A[0-9]+\z/'],
+            // Required: name, phone, email and city. Address is optional.
             'email' => ['required', 'email', 'max:50'],
             'gender' => ['nullable', 'in:male,female'],
-            'city' => ['nullable', 'string', 'max:15', 'min:3'],
+            'city' => ['required', 'string', 'max:15', 'min:3'],
             'address' => ['nullable', 'string', 'max:500'],
             'password' => [
                 'required',
@@ -294,13 +312,14 @@ class MainController extends Controller
         $validator = Validator::make($request->all(), [
             // 'username' => ['required', 'string', 'max:100'],
             'first_name' => ['required', 'string', 'max:15', 'min:3'],
-            'second_name' => ['required', 'string', 'max:15', 'min:3'],
+            // Same rules as create account: a customer who signed up without a second name can
+            // still save the profile. Name, phone, email and city are required.
+            'second_name' => ['nullable', 'string', 'max:15', 'min:3'],
             'third_name' => ['nullable', 'string', 'max:15', 'min:3'],
-            // Same as create account, so a 9-digit number can still save the profile.
             'phone' => ['required', 'string', 'min:9', 'max:10', 'regex:/\A[0-9]+\z/'],
             'email' => ['required', 'email', 'max:50'],
             'gender' => ['nullable', 'in:male,female'],
-            'city' => ['nullable', 'string', 'max:15', 'min:3'],
+            'city' => ['required', 'string', 'max:15', 'min:3'],
             'address' => ['nullable', 'string', 'max:500'],
             // 'password' => [
             //     'nullable',
@@ -739,6 +758,53 @@ class MainController extends Controller
         ], $result['code']);
     }
 
+    /** GET /pending-load: the load calculated on the website before sign-up, or null. */
+    public function getPendingLoad()
+    {
+        $result = $this->customerService->getPendingLoad();
+
+        if ($result['success']) {
+            return response()->json([
+                'status' => 'success',
+                'code' => $result['code'],
+                'message' => $result['message'],
+                'data' => [
+                    'pending_load' => $result['pending_load'],
+                ],
+            ], $result['code']);
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'code' => $result['code'],
+            'error' => $result['message'],
+        ], $result['code']);
+    }
+
+    /** DELETE /pending-load?id=…: the app used or discarded it. */
+    public function clearPendingLoad(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => ['nullable', 'string', 'max:64'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'code' => 422,
+                'error' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $result = $this->customerService->clearPendingLoad($request->input('id'));
+
+        return response()->json([
+            'status' => $result['success'] ? 'success' : 'error',
+            'code' => $result['code'],
+            $result['success'] ? 'message' : 'error' => $result['message'],
+        ], $result['code']);
+    }
+
     public function storeQuote(Request $request)
     {
         // Older app builds send "service_needed"; newer ones send "quote_name".
@@ -851,6 +917,46 @@ class MainController extends Controller
         ], $httpCode);
     }
 
+    /**
+     * POST /quote-complete {quote_id}: the customer confirms the handover after the company
+     * finished every installation step. 404 for someone else's quote, 422 when it cannot be
+     * confirmed yet (errors.quote_id + reason), 200 again if it is already completed.
+     */
+    public function completeQuote(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'quote_id' => ['required', 'integer', 'min:1'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'code' => 422,
+                'message' => 'Validation failed.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $result = $this->customerService->completeQuote($validator->validated());
+        $httpCode = $result['code'] ?? 500;
+
+        if ($result['success'] ?? false) {
+            return response()->json([
+                'status' => 'success',
+                'message' => $result['message'],
+                'data' => $result['data'],
+            ], 200);
+        }
+
+        return response()->json(array_filter([
+            'status' => 'error',
+            'code' => $httpCode,
+            'message' => $result['message'] ?? 'Unable to confirm completion.',
+            'reason' => $result['reason'] ?? null,
+            'errors' => $httpCode === 422 ? ['quote_id' => [$result['message']]] : null,
+        ], fn($value) => $value !== null), $httpCode);
+    }
+
     public function acceptOffer(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -879,6 +985,72 @@ class MainController extends Controller
             'status' => ($result['success'] ?? false) ? 'success' : 'error',
             'code' => $httpCode,
             'message' => $result['message'] ?? 'Unable to accept offer.',
+            'data' => $result['data'] ?? null,
+        ], $httpCode);
+    }
+
+    /** Package offer details (opened from a notification). */
+    public function getPackageOffer(int $offerId)
+    {
+        return $this->packageOfferResponse($this->customerService->getPackageOffer($offerId));
+    }
+
+    /**
+     * Accept a package offer with the devices from the load calculator. Same load fields as
+     * POST /quote; the peak load must not be above the offer's max_load_kw.
+     */
+    public function acceptPackageOffer(Request $request, int $offerId)
+    {
+        // appliances_ids may arrive as a JSON array; store it as a string, like POST /quote.
+        if (is_array($request->input('appliances_ids'))) {
+            $request->merge(['appliances_ids' => json_encode(array_values($request->input('appliances_ids')))]);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'quote_name' => ['nullable', 'string', 'max:100'],
+            'estimated_load' => ['nullable', 'string', 'max:50000'],
+            'peak_load' => ['required', 'string', 'max:255'],
+            // The calculator's peak in kW as a number. Preferred over parsing peak_load.
+            'peak_load_kw' => ['nullable', 'numeric', 'min:0', 'max:100000'],
+            'daily_load' => ['required', 'string', 'max:255'],
+            'appliances_ids' => ['required', 'string', 'max:1000'],
+            'message' => ['nullable', 'string', 'max:5000'],
+            'notification_id' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'code' => 422,
+                'message' => 'Validation failed.',
+                'errors' => $validator->errors(),
+                'data' => null,
+            ], 422);
+        }
+
+        $validated = $validator->validated();
+        $validated['appliances_ids'] = trim($validated['appliances_ids']);
+
+        return $this->packageOfferResponse($this->customerService->acceptPackageOffer($offerId, $validated));
+    }
+
+    public function declinePackageOffer(Request $request, int $offerId)
+    {
+        $validated = $request->validate([
+            'notification_id' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        return $this->packageOfferResponse($this->customerService->declinePackageOffer($offerId, $validated));
+    }
+
+    private function packageOfferResponse(array $result)
+    {
+        $httpCode = $result['code'] ?? 500;
+
+        return response()->json([
+            'status' => ($result['success'] ?? false) ? 'success' : 'error',
+            'code' => $httpCode,
+            'message' => $result['message'] ?? 'Something went wrong.',
             'data' => $result['data'] ?? null,
         ], $httpCode);
     }
@@ -1231,11 +1403,13 @@ class MainController extends Controller
     //Password Reset (public) Start
 
     // Step 1: phone + email -> 6-digit code sent by email (SMS when enabled).
+    // Email may be left empty: an account without an email gets 422 reason "no_email"
+    // (contact support); an account that has one gets 422 reason "email_required".
     public function forgotPassword(Request $request): JsonResponse
     {
         $data = $request->validate([
             'phone' => ['required', 'string', 'min:9', 'max:15'],
-            'email' => ['required', 'email', 'max:191'],
+            'email' => ['nullable', 'email', 'max:191'],
             'channel' => ['nullable', 'in:email,sms'],
             'lang' => ['nullable', 'in:en,ar'],
         ]);
@@ -1326,10 +1500,14 @@ class MainController extends Controller
                 'message' => $result['message'],
             ], $result['code']);
         } else {
+            // 409 = an unfinished project blocks deletion. "message" is translated (customer's
+            // language) and can be shown as is; "error" is the same text for older app builds.
             return response()->json([
                 'status' => 'error',
                 'code' => $result['code'],
-                'error' => $result['message']
+                'reason' => $result['code'] === 409 ? 'active_project' : null,
+                'message' => $result['message'],
+                'error' => $result['message'],
             ], $result['code']);
         }
     }

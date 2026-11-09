@@ -16,13 +16,24 @@
         $audience = old('audience_type', $presetCustomerId ? 'selected' : 'all');
         $selectedCustomers = array_map('intval', old('customer_ids', $presetCustomerId ? [$presetCustomerId] : []));
         $format = old('format', 'html');
-        $hasOffer = (bool) old('has_offer', 0);
         $hasLink = (bool) old('has_link', 0);
         $companyId = (int) old('company_id', $presetCompanyId);
+        $offerSource = old('offer_source', 'existing');
         $companyJson = $companies->mapWithKeys(fn($c) => [$c->id => [
             'name' => $c->name,
             'city' => $c->city,
             'logo' => app(\App\Helpers\Helper::class)->publicUrl($c->logo_path),
+        ]]);
+        // Same card fields the server copies from the offer (Notification::offerCardFields).
+        $packageOfferJson = $packageOffers->mapWithKeys(fn($o) => [$o->id => [
+            'company' => (int) $o->company_id,
+            'title_en' => $o->title_en,
+            'title_ar' => $o->title_ar,
+            'price' => (float) $o->price,
+            'old_price' => (float) $o->discount > 0 ? (float) $o->subtotal : null,
+            'currency' => $o->currency,
+            'expires_at' => $o->expires_at?->format('Y-m-d\TH:i'),
+            'image' => $o->imageUrl(),
         ]]);
     @endphp
 
@@ -63,7 +74,7 @@
 
                     <div class="campaign-choice-grid" role="radiogroup" aria-label="Campaign topic">
                         @foreach ([
-                            'offer' => ['Company offer', 'A discount or package from one company.'],
+                            'offer' => ['Company offer', 'A ready system from one company that customers can accept in the app.'],
                             'new_company' => ['New company', 'Introduce a company that just joined.'],
                             'promotion' => ['News / promotion', 'SunXFinder news, tips or a general offer.'],
                         ] as $value => [$label, $hint])
@@ -79,7 +90,7 @@
                             <label for="audience_type">Send to *</label>
                             <select class="select-control" id="audience_type" name="audience_type" required>
                                 <option value="all" @selected($audience === 'all')>All app customers ({{ number_format($appCustomerCount) }})</option>
-                                <option value="city" @selected($audience === 'city') @disabled($cities->isEmpty())>Customers in one city</option>
+                                <option value="city" @selected($audience === 'city') @disabled(count($cities) === 0)>Customers in one city</option>
                                 <option value="selected" @selected($audience === 'selected')>Selected customers</option>
                             </select>
                         </div>
@@ -216,53 +227,44 @@
                     </label>
                 </section>
 
-                {{-- 5. Offer --}}
-                <section class="panel">
-                    <label class="toggle-card" for="has_offer">
-                        <span class="toggle-card-copy">
-                            <strong>5. Include an offer</strong>
-                            <small>Shows a price card with the discount and an expiry date.</small>
-                        </span>
-                        <input type="hidden" name="has_offer" value="0">
-                        <input class="toggle-input" type="checkbox" id="has_offer" name="has_offer" value="1" @checked($hasOffer)>
-                        <span class="toggle-switch" aria-hidden="true"></span>
-                    </label>
-
-                    <div class="form-grid" id="campaignOfferFields" @if (!$hasOffer) hidden @endif>
-                        <div class="form-group">
-                            <label for="offer_title_en">Offer title (English) *</label>
-                            <input type="text" class="form-control" id="offer_title_en" name="offer_title_en" maxlength="150"
-                                value="{{ old('offer_title_en') }}" placeholder="e.g. 5 kW system, installed">
-                        </div>
-                        <div class="form-group">
-                            <label for="offer_title_ar">Offer title (Arabic)</label>
-                            <input type="text" class="form-control" id="offer_title_ar" name="offer_title_ar" maxlength="150" dir="rtl" lang="ar"
-                                value="{{ old('offer_title_ar') }}" placeholder="مثال: نظام 5 كيلوواط مع التركيب">
-                        </div>
-                        <div class="form-group">
-                            <label for="offer_price">Offer price</label>
-                            <input type="number" class="form-control" id="offer_price" name="offer_price" min="0" step="0.01"
-                                value="{{ old('offer_price') }}" placeholder="e.g. 2400000">
-                        </div>
-                        <div class="form-group">
-                            <label for="offer_old_price">Old price <small class="cell-note">(shows the discount)</small></label>
-                            <input type="number" class="form-control" id="offer_old_price" name="offer_old_price" min="0" step="0.01"
-                                value="{{ old('offer_old_price') }}" placeholder="e.g. 3000000">
-                        </div>
-                        <div class="form-group">
-                            <label for="offer_currency">Currency</label>
-                            <select class="select-control" id="offer_currency" name="offer_currency">
-                                @foreach (['SDG', 'USD'] as $currency)
-                                    <option value="{{ $currency }}" @selected(old('offer_currency', 'SDG') === $currency)>{{ $currency }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="offer_expires_at">Valid until</label>
-                            <input type="datetime-local" class="form-control" id="offer_expires_at" name="offer_expires_at"
-                                value="{{ old('offer_expires_at') }}">
+                {{-- 5. Company offer: a package offer customers can accept (same builder as the company panel) --}}
+                <section class="panel" id="campaignOfferPanel" @if ($type !== 'offer') hidden @endif>
+                    <div class="panel-heading">
+                        <div>
+                            <h2>5. The offer *</h2>
+                            <p>Customers see the offer card and can accept it in the app with their devices. Accepting creates the project for the company right away.</p>
                         </div>
                     </div>
+
+                    <div class="campaign-choice-grid" role="radiogroup" aria-label="Offer source">
+                        <label class="campaign-choice">
+                            <input type="radio" name="offer_source" value="existing" @checked($offerSource === 'existing')>
+                            <span><strong>Use one of the company's offers</strong><small>An open offer the company already made.</small></span>
+                        </label>
+                        <label class="campaign-choice">
+                            <input type="radio" name="offer_source" value="new" @checked($offerSource === 'new')>
+                            <span><strong>Build a new offer</strong><small>From the company's products. It is saved for the company.</small></span>
+                        </label>
+                    </div>
+
+                    <div class="form-group" id="campaignExistingOffer">
+                        <label for="package_offer_id">Offer *</label>
+                        <select class="select-control" id="package_offer_id" name="package_offer_id">
+                            <option value="">Choose an offer…</option>
+                            @foreach ($packageOffers as $packageOffer)
+                                <option value="{{ $packageOffer->id }}" data-company="{{ $packageOffer->company_id }}"
+                                    @selected((int) old('package_offer_id') === (int) $packageOffer->id)>
+                                    {{ $packageOffer->title_en }} · up to {{ $packageOffer->maxLoadLabel() }} kW · {{ number_format((float) $packageOffer->price) }} {{ $packageOffer->currency }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <span class="form-hint" id="campaignNoOffers" hidden>This company has no open offers. Build a new one instead.</span>
+                    </div>
+
+                    <div id="campaignNewOffer">
+                        @include('partials.package-offer-builder', ['base' => null, 'products' => $products])
+                    </div>
+                    <span class="form-hint">The image in section 4 is used for the offer too. Without one, the offer's own image is sent.</span>
                 </section>
 
                 {{-- 6. Button --}}
@@ -359,8 +361,13 @@
     </form>
 @endsection
 
+@push('styles')
+    <link rel="stylesheet" href="{{ asset_v('css/package-offer-builder.css') }}">
+@endpush
+
 @section('scripts')
     <script src="{{ asset_v('admin/js/image-resizer.js') }}"></script>
+    @include('partials.package-offer-builder-script')
     <script>
         (function () {
             const $ = (id) => document.getElementById(id);
@@ -417,8 +424,59 @@
                 box.addEventListener('change', () => { sync(); render(); });
                 sync();
             };
-            toggle('has_offer', 'campaignOfferFields', ['offer_title_en']);
             toggle('has_link', 'campaignLinkFields', ['link_url']);
+
+            // --- Company offer: one of the company's open offers, or a new one from the shared builder ---
+            const packageOffers = @json($packageOfferJson);
+            const builder = document.querySelector('#campaignNewOffer [data-package-builder]');
+            let builderSummary = null;
+            const offerSource = () => (form.querySelector('input[name=offer_source]:checked') || {}).value || 'existing';
+            const syncOffer = () => {
+                const isOffer = typeValue() === 'offer';
+                const building = isOffer && offerSource() === 'new';
+                const companyId = $('company_id').value;
+                const select = $('package_offer_id');
+
+                $('campaignOfferPanel').hidden = !isOffer;
+                form.querySelectorAll('input[name=offer_source]').forEach((radio) => { radio.disabled = !isOffer; });
+
+                // Only this company's open offers.
+                let visible = 0;
+                Array.from(select.options).forEach((option) => {
+                    if (!option.value) return;
+                    option.hidden = option.dataset.company !== companyId;
+                    if (!option.hidden) visible++;
+                });
+                if (select.selectedOptions[0]?.hidden) select.value = '';
+                $('campaignExistingOffer').hidden = !isOffer || building;
+                select.disabled = !isOffer || building;
+                select.required = isOffer && !building;
+                $('campaignNoOffers').hidden = visible > 0 || !companyId;
+
+                // The builder is posted only when building, with the company's products.
+                $('campaignNewOffer').hidden = !building;
+                window.PackageOfferBuilder.setCompany(builder, companyId);
+                window.PackageOfferBuilder.setEnabled(builder, building);
+            };
+            builder.addEventListener('pkg:change', (event) => { builderSummary = event.detail; });
+            form.querySelectorAll('input[name=offer_source]').forEach((radio) => radio.addEventListener('change', () => { syncOffer(); render(); }));
+            form.querySelectorAll('input[name=type]').forEach((radio) => radio.addEventListener('change', () => { syncOffer(); render(); }));
+            $('company_id').addEventListener('change', () => { syncOffer(); render(); });
+
+            // The offer card shown in the preview, the same fields the server copies from the offer.
+            const offerCard = () => {
+                if (typeValue() !== 'offer') return null;
+                if (offerSource() === 'new') {
+                    if (!builderSummary) return null;
+                    return {
+                        title_en: builderSummary.titleEn, title_ar: builderSummary.titleAr,
+                        price: builderSummary.total,
+                        old_price: builderSummary.discount > 0 ? builderSummary.subtotal : null,
+                        currency: builderSummary.currency, expires_at: builderSummary.expiresAt, image: null,
+                    };
+                }
+                return packageOffers[$('package_offer_id').value] || null;
+            };
 
             // --- Formatting toolbar ---
             const isHtml = () => $('formatHtml').checked;
@@ -515,7 +573,10 @@
                 $('pvBadge').textContent = t[typeValue()];
                 $('pvBadge').dataset.type = typeValue();
 
-                ['pvImage', 'pvPushImage'].forEach((id) => { $(id).hidden = !imageUrl; if (imageUrl) $(id).src = imageUrl; });
+                // The campaign image wins; otherwise the chosen offer's own image is sent.
+                const card = offerCard();
+                const shownImage = imageUrl || card?.image || null;
+                ['pvImage', 'pvPushImage'].forEach((id) => { $(id).hidden = !shownImage; if (shownImage) $(id).src = shownImage; });
 
                 const company = companies[$('company_id').value];
                 $('pvCompany').hidden = !company;
@@ -526,17 +587,16 @@
                     if (company.logo) $('pvCompanyLogo').src = company.logo;
                 }
 
-                const hasOffer = $('has_offer').checked;
-                $('pvOffer').hidden = !hasOffer;
-                if (hasOffer) {
-                    const price = parseFloat($('offer_price').value), old = parseFloat($('offer_old_price').value);
-                    const currency = ' ' + $('offer_currency').value;
-                    $('pvOfferTitle').textContent = pick('offer_title_en', 'offer_title_ar');
+                $('pvOffer').hidden = !card;
+                if (card) {
+                    const price = Number(card.price), old = Number(card.old_price || 0);
+                    const currency = ' ' + card.currency;
+                    $('pvOfferTitle').textContent = (lang === 'ar' && card.title_ar) ? card.title_ar : (card.title_en || '');
                     $('pvOfferPrice').textContent = price >= 0 ? money(price) + currency : '';
                     $('pvOfferOld').textContent = old > price ? money(old) + currency : '';
                     $('pvOfferDiscount').hidden = !(old > price && price >= 0);
                     $('pvOfferDiscount').textContent = Math.round((old - price) / old * 100) + t.off;
-                    const expiry = $('offer_expires_at').value;
+                    const expiry = card.expires_at;
                     $('pvOfferExpiry').textContent = expiry ? t.until + new Date(expiry).toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
                 }
 
@@ -565,6 +625,11 @@
                 const who = audience.value === 'all' ? 'all {{ number_format($appCustomerCount) }} app customers'
                     : audience.value === 'city' ? 'customers in ' + $('audience_city').value
                     : customerBoxes().filter((box) => box.checked).length + ' selected customer(s)';
+                if (typeValue() === 'offer' && offerSource() === 'new' && !builderSummary?.valid) {
+                    event.preventDefault();
+                    alert('The new offer must total at least 1,000.');
+                    return;
+                }
                 if (!confirm('Send this campaign to ' + who + '? This cannot be undone.')) {
                     event.preventDefault();
                     return;
@@ -577,6 +642,7 @@
             syncSelected();
             syncType();
             syncFormat();
+            syncOffer();
             render();
         })();
     </script>

@@ -27,9 +27,15 @@ use App\Models\CompanyQuotation;
 use App\Models\CustomerComplaint;
 use App\Models\ApiEndpoint;
 use App\Models\Customer;
+use App\Models\CustomerTermsAcceptance;
 use App\Models\Project;
 use App\Models\CustomerNotification;
 use App\Models\Notification;
+use App\Models\NotificationSchedule;
+use App\Models\NotificationScheduleRun;
+use App\Models\NotificationScheduleMessage;
+use App\Models\PackageOffer;
+use App\Repositories\PackageOfferRepository;
 use App\Models\Product;
 use App\Models\ProductSpec;
 use App\Models\Quote;
@@ -230,6 +236,7 @@ class AdminRepository
             'topVisitorCountry' => $topVisitorCountry,
             // Money, ads, complaints and ratings for the second row of cards.
             'ads' => BusinessStats::advertising($thisMonth, now()),
+            'packageOffers' => BusinessStats::packageOffers($thisMonth, now()),
             'ratings' => BusinessStats::ratingOverall(),
             'complaints' => [
                 'open' => CustomerComplaint::query()->where('status', 'pending')->count(),
@@ -364,6 +371,7 @@ class AdminRepository
             'catalog' => $this->reportCatalog(),
             'notifications' => $this->reportNotifications($from, $to),
             'advertising' => BusinessStats::advertising($from, $to),
+            'packageOffers' => BusinessStats::packageOffers($from, $to),
             'ratings' => BusinessStats::ratings($from, $to),
             'complaints' => BusinessStats::complaints($from, $to),
         ];
@@ -378,6 +386,18 @@ class AdminRepository
         $from = $period['from'];
         $to = $period['to'];
         $suffix = $from->format('Y-m-d') . '_to_' . $to->format('Y-m-d');
+
+        if ($section === 'package_offers') {
+            return [
+                'filename' => "package-offers_{$suffix}.csv",
+                'headers' => ['Offer', 'Title', 'Company', 'Sent by', 'Max load (kW)', 'Price', 'Currency', 'Answer', 'Answered at', 'Customer', 'City', 'Request', 'Project', 'Project status'],
+                'rows' => BusinessStats::packageOfferAnswers($from, $to)->map(fn($r) => [
+                    $r->offer_id, $r->title_en, $r->company, $r->created_by_type, $r->max_load_kw, $r->price, $r->currency,
+                    $r->status, $r->responded_at, $r->full_name ?: $r->username, $r->city,
+                    $r->quote_id ? '#Q-' . str_pad((string) $r->quote_id, 5, '0', STR_PAD_LEFT) : '', $r->project_id, $r->project_status,
+                ])->all(),
+            ];
+        }
 
         if ($section === 'companies') {
             return [
@@ -975,7 +995,9 @@ class AdminRepository
                     'is_active' => (int) $data['is_active'],
                     'year_of_exp' => (int) $data['year_of_exp'],
                     'number_of_projects' => (int) $data['number_of_projects'],
-
+                    'commission_rate' => round((float) ($data['commission_rate'] ?? 0), 2),
+                    'show_email_in_app' => (bool) ($data['show_email_in_app'] ?? true),
+                    'show_phone_in_app' => (bool) ($data['show_phone_in_app'] ?? true),
                 ]);
 
                 return [
@@ -1007,6 +1029,21 @@ class AdminRepository
             'success' => true,
             'company' => $company,
         ];
+    }
+
+    /**
+     * SunXFinder commission from this company's accepted offers, one row per currency:
+     * currency, accepted (count), offer_value and commission.
+     */
+    public function getCompanyCommissionSummary(int $companyId): \Illuminate\Support\Collection
+    {
+        return CompanyQuotation::query()
+            ->where('company_id', $companyId)
+            ->where('status', 'selected')
+            ->selectRaw('currency, COUNT(*) as accepted, SUM(price) as offer_value, SUM(commission_amount) as commission')
+            ->groupBy('currency')
+            ->orderBy('currency')
+            ->get();
     }
 
     public function updateCompany(int $id, array $data): array
@@ -1062,6 +1099,16 @@ class AdminRepository
                 $company->is_active = (int) $data['is_active'];
                 $company->year_of_exp = $data['year_of_exp'] ?? null;
                 $company->number_of_projects = $data['number_of_projects'] ?? null;
+                // Offers already sent keep the rate they were sent with.
+                $company->commission_rate = round((float) ($data['commission_rate'] ?? 0), 2);
+
+                // Contact details in the app (unchanged when the form does not send them).
+                if (array_key_exists('show_email_in_app', $data)) {
+                    $company->show_email_in_app = (bool) $data['show_email_in_app'];
+                }
+                if (array_key_exists('show_phone_in_app', $data)) {
+                    $company->show_phone_in_app = (bool) $data['show_phone_in_app'];
+                }
 
                 // Only change the password when a new one is supplied.
                 if (!empty($data['password'])) {
@@ -2736,6 +2783,8 @@ class AdminRepository
                 'customer',
                 'company',
                 'project:id,quote_id,company_id,status,progress_percent',
+                // SunXFinder commission column: admin only.
+                'acceptedOffer:id,quote_id,company_id,price,currency,commission_type,commission_rate,commission_amount,status',
             ])
             ->withCount('companyQuotations')
             ->when(!empty($filters['status']), function ($query) use ($filters) {
@@ -2799,6 +2848,85 @@ class AdminRepository
             ])
             ->withCount('companyQuotations')
             ->find($id);
+    }
+
+    /**
+     * Customers with their latest Terms acceptance, newest acceptance first.
+     * status: current (accepted $currentVersion) | outdated (an older version) | never.
+     */
+    public function getTermsAcceptanceCustomers(array $filters, ?string $currentVersion): LengthAwarePaginator
+    {
+        $query = Customer::query()
+            ->with('latestTermsAcceptance')
+            ->withCount('termsAcceptances');
+
+        match ($filters['status'] ?? null) {
+            'current' => $query->where('terms_accepted_version', $currentVersion),
+            'outdated' => $query->whereNotNull('terms_accepted_version')
+                ->where('terms_accepted_version', '!=', (string) $currentVersion),
+            'never' => $query->whereNull('terms_accepted_version'),
+            default => null,
+        };
+
+        if (!empty($filters['search'])) {
+            $search = '%' . addcslashes($filters['search'], '%_\\') . '%';
+            $query->where(fn($q) => $q
+                ->where('full_name', 'like', $search)
+                ->orWhere('username', 'like', $search)
+                ->orWhere('phone', 'like', $search)
+                ->orWhere('email', 'like', $search));
+        }
+
+        return $query
+            ->orderByRaw('terms_accepted_at IS NULL')
+            ->orderByDesc('terms_accepted_at')
+            ->orderByDesc('id')
+            ->paginate(25)
+            ->withQueryString();
+    }
+
+    public function getTermsAcceptanceMetrics(?string $currentVersion): array
+    {
+        $customers = Customer::query();
+
+        return [
+            'customers' => (clone $customers)->count(),
+            'current' => $currentVersion ? (clone $customers)->where('terms_accepted_version', $currentVersion)->count() : 0,
+            'outdated' => (clone $customers)->whereNotNull('terms_accepted_version')
+                ->where('terms_accepted_version', '!=', (string) $currentVersion)->count(),
+            'never' => (clone $customers)->whereNull('terms_accepted_version')->count(),
+            'today' => CustomerTermsAcceptance::query()->where('accepted_at', '>=', today())->count(),
+        ];
+    }
+
+    /** One customer (deleted ones too) and every acceptance, newest first. */
+    public function getCustomerTermsHistory(int $customerId): ?array
+    {
+        $customer = Customer::withTrashed()->find($customerId);
+
+        if (!$customer) {
+            return null;
+        }
+
+        return [
+            'customer' => $customer,
+            'acceptances' => CustomerTermsAcceptance::query()
+                ->where('customer_id', $customerId)
+                ->orderByDesc('accepted_at')
+                ->orderByDesc('id')
+                ->get(),
+        ];
+    }
+
+    /** Every acceptance row (the legal record) for the CSV export, oldest first. */
+    public function termsAcceptancesForExport(array $filters)
+    {
+        return CustomerTermsAcceptance::query()
+            ->with(['customer:id,username,full_name,phone,email'])
+            ->when(!empty($filters['customer_id']), fn($q) => $q->where('customer_id', $filters['customer_id']))
+            ->orderBy('accepted_at')
+            ->orderBy('id')
+            ->lazy(500);
     }
 
     public function getAdminProjects(array $filters = []): LengthAwarePaginator
@@ -2935,6 +3063,61 @@ class AdminRepository
      * Close a spam or dead request. Only open (pending) requests can be cancelled;
      * waiting offers are withdrawn so companies stop seeing it as active.
      */
+    /**
+     * Sets one offer's SunXFinder commission: back to the company's rate, a custom percentage,
+     * or a fixed amount. Works on accepted offers too, for deals agreed separately.
+     */
+    public function updateOfferCommission(int $quoteId, int $offerId, array $data): array
+    {
+        try {
+            $offer = CompanyQuotation::query()
+                ->with('company:id,name,commission_rate')
+                ->where('quote_id', $quoteId)
+                ->find($offerId);
+
+            if (!$offer) {
+                return ['success' => false, 'message' => 'Offer not found on this request.'];
+            }
+
+            $type = $data['commission_type'];
+            $price = (float) $offer->price;
+
+            if ($type === CompanyQuotation::COMMISSION_FIXED && (float) $data['commission_fixed'] > $price) {
+                return ['success' => false, 'message' => 'The commission cannot be more than the offer price ('
+                    . $offer->currency . ' ' . number_format($price, 2) . ').'];
+            }
+
+            $before = $offer->currency . ' ' . number_format((float) $offer->commission_amount, 2)
+                . ' (' . $offer->commissionRateLabel() . '%, ' . ($offer->commission_type ?: 'company') . ')';
+
+            $offer->commission_type = $type;
+            if ($type === CompanyQuotation::COMMISSION_PERCENT) {
+                $offer->commission_rate = round((float) $data['commission_percent'], 2);
+            } elseif ($type === CompanyQuotation::COMMISSION_FIXED) {
+                $offer->commission_amount = round((float) $data['commission_fixed'], 2);
+            }
+
+            $offer->applyCommission((float) ($offer->company?->commission_rate ?? 0));
+            $offer->save();
+
+            $after = $offer->currency . ' ' . number_format((float) $offer->commission_amount, 2)
+                . ' (' . $offer->commissionRateLabel() . '%, ' . $type . ')';
+            $reference = '#Q-' . str_pad((string) $quoteId, 5, '0', STR_PAD_LEFT);
+
+            ActivityLogger::log('updated', "Admin changed the SunXFinder commission on {$reference} for "
+                . ($offer->company?->name ?? "company #{$offer->company_id}") . ": {$before} → {$after}", $offer);
+
+            return [
+                'success' => true,
+                'message' => 'Commission saved: ' . $after . '.',
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to save the commission. Please try again.'];
+        }
+    }
+
     public function cancelQuoteRequest(int $id, string $reason, bool $notifyCustomer): array
     {
         try {
@@ -3153,6 +3336,59 @@ class AdminRepository
         ];
     }
 
+    /** Cache key the "notifications:send-scheduled" command stamps each minute it runs. */
+    public const SCHEDULER_HEARTBEAT_KEY = 'notifications:scheduler-heartbeat';
+
+    /** Automatic notification sends for Background jobs: health, today's counts and the run log. */
+    public function getNotificationScheduleRuns(array $filters = []): array
+    {
+        $heartbeat = Cache::get(self::SCHEDULER_HEARTBEAT_KEY);
+        $lastTick = $heartbeat ? Carbon::parse($heartbeat) : null;
+        $activeSchedules = NotificationSchedule::query()->where('is_active', true)->count();
+        $today = NotificationScheduleRun::query()->where('created_at', '>=', now()->startOfDay());
+
+        $runs = NotificationScheduleRun::query()
+            ->with('schedule:id,name,is_active,last_message_id,last_message_order,after_last')
+            ->when(
+                !empty($filters['run_status']),
+                fn(Builder $q) => $q->where('status', $filters['run_status'])
+            )
+            ->latest('id')
+            ->paginate(15, ['*'], 'runs_page')
+            ->withQueryString();
+
+        // Only the newest attempt of a schedule can be retried ("Send next message now").
+        $latestIds = NotificationScheduleRun::query()
+            ->whereIn('schedule_id', $runs->pluck('schedule_id')->unique())
+            ->selectRaw('MAX(id) as id')
+            ->groupBy('schedule_id')
+            ->pluck('id')
+            ->all();
+
+        return [
+            'runs' => $runs,
+            'retryableIds' => $latestIds,
+            'overview' => [
+                'scheduler_last_run' => $lastTick,
+                // The cron runs every minute; a few minutes of silence means it is not set up.
+                'scheduler_down' => $activeSchedules > 0 && (!$lastTick || $lastTick->lt(now()->subMinutes(5))),
+                'active_schedules' => $activeSchedules,
+                'done_today' => (clone $today)->where('status', 'done')->count(),
+                'partial_today' => (clone $today)->where('status', 'partial')->count(),
+                'failed_today' => (clone $today)->where('status', 'failed')->count(),
+                'failed_week' => NotificationScheduleRun::query()
+                    ->where('status', 'failed')
+                    ->where('created_at', '>=', now()->subDays(7))
+                    ->count(),
+            ],
+        ];
+    }
+
+    public function stampSchedulerHeartbeat(): void
+    {
+        Cache::forever(self::SCHEDULER_HEARTBEAT_KEY, now()->toIso8601String());
+    }
+
     public function getFailedJobs(array $filters = []): LengthAwarePaginator
     {
         $paginator = DB::table('failed_jobs')
@@ -3289,9 +3525,13 @@ class AdminRepository
 
     //Notifications Start
 
+    /** Push delivery counts of the last publishNotification() call (read by automatic notifications). */
+    private array $lastPushReport = ['devices' => 0, 'delivered' => 0, 'failed' => 0];
+
     public function publishNotification(array $data): Notification
     {
         $startedAt = microtime(true);
+        $this->lastPushReport = ['devices' => 0, 'delivered' => 0, 'failed' => 0];
 
         $context = [
             'sender_type' => $data['sender_type'] ?? 'admin',
@@ -3408,7 +3648,8 @@ class AdminRepository
                         'format', 'image_path', 'image_width', 'image_height',
                         'link_url', 'link_label_en', 'link_label_ar', 'company_id',
                         'offer_title_en', 'offer_title_ar', 'offer_price', 'offer_old_price',
-                        'offer_currency', 'offer_expires_at', 'audience_city',
+                        'offer_currency', 'offer_expires_at', 'audience_city', 'package_offer_id',
+                        'notification_schedule_id',
                     ]));
 
                     $notification = Notification::create([
@@ -3578,6 +3819,8 @@ class AdminRepository
                 'image_url' => (string) $imageUrl,
                 'link_url' => (string) $notification->link_url,
                 'company_id' => $notification->company_id ? (string) $notification->company_id : '',
+                // Open the package offer screen on tap.
+                'package_offer_id' => $notification->package_offer_id ? (string) $notification->package_offer_id : '',
             ], fn($value) => $value !== '');
 
             $pushMessage = Helper::withNotificationSound(CloudMessage::new())
@@ -3612,9 +3855,362 @@ class AdminRepository
             'duration_ms' => round((microtime(true) - $startedAt) * 1000),
         ]);
 
+        $this->lastPushReport = [
+            'devices' => $devices->pluck('fcm_token')->unique()->count(),
+            'delivered' => $successCount,
+            'failed' => $failureCount,
+        ];
+
         return $notification;
     }
 
+
+    // Automatic notifications Start
+
+    public function getNotificationSchedules(): array
+    {
+        $schedules = NotificationSchedule::query()
+            ->withCount([
+                'messages',
+                'messages as active_messages_count' => fn($query) => $query->where('is_active', true),
+            ])
+            ->orderByDesc('is_active')
+            ->orderBy('name')
+            ->get();
+
+        return [
+            'schedules' => $schedules,
+            'metrics' => [
+                'total' => $schedules->count(),
+                'active' => $schedules->where('is_active', true)->count(),
+                'sent' => (int) $schedules->sum('sent_count'),
+                'messages' => (int) $schedules->sum('messages_count'),
+            ],
+        ];
+    }
+
+    /** Schedule (null for a new one), its messages, recent sends and the city list. */
+    public function getNotificationScheduleFormData(?int $id = null): array
+    {
+        $schedule = null;
+
+        if ($id !== null) {
+            $schedule = NotificationSchedule::with('messages')->find($id);
+
+            if (!$schedule) {
+                return ['success' => false, 'message' => 'Schedule not found.'];
+            }
+        }
+
+        $cities = Customer::query()
+            ->whereHas('deviceTokens')
+            ->whereNotNull('city')
+            ->where('city', '<>', '')
+            ->selectRaw('TRIM(city) as city, COUNT(*) as total')
+            ->groupByRaw('TRIM(city)')
+            ->orderBy('city')
+            ->pluck('total', 'city');
+
+        return [
+            'success' => true,
+            'schedule' => $schedule,
+            'messages' => $schedule?->messages ?? collect(),
+            'nextMessage' => $schedule?->nextMessage(),
+            'recentSends' => $schedule
+                ? $schedule->notifications()->withCount('recipients')->latest('published_at')->limit(10)->get()
+                : collect(),
+            'cities' => $cities,
+            'appCustomerCount' => Customer::query()->whereHas('deviceTokens')->count(),
+        ];
+    }
+
+    /** Creates or updates a schedule and its messages; messages keep the order they were posted in. */
+    public function saveNotificationSchedule(array $data, ?int $id = null): array
+    {
+        $schedule = $id !== null ? NotificationSchedule::find($id) : new NotificationSchedule();
+
+        if (!$schedule) {
+            return ['success' => false, 'message' => 'Schedule not found.'];
+        }
+
+        // Saturday-first order, so the stored list reads like the form.
+        $days = array_values(array_filter(
+            array_keys(NotificationSchedule::WEEKDAYS),
+            fn($day) => in_array($day, array_map('intval', $data['days']), true)
+        ));
+
+        DB::transaction(function () use ($schedule, $data, $days) {
+            $schedule->fill([
+                'name' => $data['name'],
+                'is_active' => (bool) ($data['is_active'] ?? false),
+                'days' => $days,
+                'every_days' => (int) $data['every_days'],
+                'send_time' => $data['send_time'],
+                'timezone' => $data['timezone'],
+                'starts_on' => $data['starts_on'] ?? null,
+                'ends_on' => $data['ends_on'] ?? null,
+                'notification_type' => $data['notification_type'],
+                'audience_type' => $data['audience_type'],
+                'audience_city' => $data['audience_type'] === 'city' ? trim((string) $data['audience_city']) : null,
+                'after_last' => $data['after_last'],
+            ])->save();
+
+            $existing = $schedule->messages()->get()->keyBy('id');
+            $keptIds = [];
+
+            foreach (array_values($data['messages']) as $index => $row) {
+                $values = [
+                    'sort_order' => $index + 1,
+                    'is_active' => (bool) ($row['is_active'] ?? false),
+                    'title_en' => trim($row['title_en']),
+                    'title_ar' => filled($row['title_ar'] ?? null) ? trim($row['title_ar']) : null,
+                    'message_en' => trim($row['message_en']),
+                    'message_ar' => filled($row['message_ar'] ?? null) ? trim($row['message_ar']) : null,
+                ];
+
+                $message = !empty($row['id']) ? $existing->get((int) $row['id']) : null;
+
+                if ($message) {
+                    $message->fill($values)->save();
+                } else {
+                    $message = $schedule->messages()->create($values);
+                }
+
+                $keptIds[] = (int) $message->id;
+            }
+
+            $existing->except($keptIds)->each->delete();
+
+            // Messages were renumbered: keep the progress pointing at the same message.
+            $lastId = (int) $schedule->last_message_id;
+            if ($lastId && in_array($lastId, $keptIds, true)) {
+                NotificationSchedule::whereKey($schedule->id)->update([
+                    'last_message_order' => array_search($lastId, $keptIds, true) + 1,
+                ]);
+            }
+        });
+
+        return [
+            'success' => true,
+            'message' => $id !== null ? 'Schedule saved.' : 'Schedule created.',
+            'id' => $schedule->id,
+        ];
+    }
+
+    public function toggleNotificationSchedule(int $id): array
+    {
+        $schedule = NotificationSchedule::find($id);
+
+        if (!$schedule) {
+            return ['success' => false, 'message' => 'Schedule not found.'];
+        }
+
+        $schedule->is_active = !$schedule->is_active;
+        $schedule->save();
+
+        return [
+            'success' => true,
+            'message' => $schedule->is_active
+                ? 'Schedule turned on. The next message goes out on the next chosen day.'
+                : 'Schedule paused. No more messages will be sent until you turn it on.',
+        ];
+    }
+
+    /** Starts the schedule again from the first message (keeps the history). */
+    public function resetNotificationSchedule(int $id): array
+    {
+        if (!NotificationSchedule::whereKey($id)->exists()) {
+            return ['success' => false, 'message' => 'Schedule not found.'];
+        }
+
+        NotificationSchedule::whereKey($id)->update([
+            'last_message_id' => null,
+            'last_message_order' => null,
+            'last_sent_on' => null,
+            'last_run_on' => null,
+            'last_error' => null,
+        ]);
+
+        return ['success' => true, 'message' => 'Schedule restarted. The first message goes out on the next chosen day.'];
+    }
+
+    public function deleteNotificationSchedule(int $id): array
+    {
+        $schedule = NotificationSchedule::find($id);
+
+        if (!$schedule) {
+            return ['success' => false, 'message' => 'Schedule not found.'];
+        }
+
+        DB::transaction(function () use ($schedule) {
+            $schedule->messages()->get()->each->delete();
+            $schedule->delete();
+        });
+
+        // Notifications already sent stay in the history and in the customers' app.
+        return ['success' => true, 'message' => 'Schedule deleted. Notifications already sent are kept.'];
+    }
+
+    /** "Send next message now" from the admin: counts as today's send. */
+    public function sendNotificationScheduleNow(int $id): array
+    {
+        $schedule = NotificationSchedule::find($id);
+
+        if (!$schedule) {
+            return ['success' => false, 'message' => 'Schedule not found.'];
+        }
+
+        $today = $schedule->localNow()->toDateString();
+        NotificationSchedule::whereKey($id)->update(['last_run_on' => $today]);
+
+        return $this->sendScheduledMessage($schedule->fresh(), $today, 'manual');
+    }
+
+    /**
+     * Sends every schedule that is due now. Run every minute by "notifications:send-scheduled".
+     * Each schedule is tried at most once per local day: the day is claimed with a conditional
+     * update first, so two overlapping runs cannot send the same message twice.
+     */
+    public function runDueNotificationSchedules(): array
+    {
+        $summary = ['due' => 0, 'sent' => 0, 'failed' => 0, 'messages' => []];
+
+        $schedules = NotificationSchedule::query()->where('is_active', true)->get();
+
+        foreach ($schedules as $schedule) {
+            if (!$schedule->isDueAt()) {
+                continue;
+            }
+
+            $today = $schedule->localNow()->toDateString();
+
+            $claimed = NotificationSchedule::query()
+                ->whereKey($schedule->id)
+                ->where(fn($query) => $query->whereNull('last_run_on')->orWhere('last_run_on', '<>', $today))
+                ->update(['last_run_on' => $today]);
+
+            if (!$claimed) {
+                continue;
+            }
+
+            $summary['due']++;
+            $result = $this->sendScheduledMessage($schedule->fresh(), $today);
+            $summary[$result['success'] ? 'sent' : 'failed']++;
+            $summary['messages'][] = $schedule->name . ': ' . $result['message'];
+        }
+
+        return $summary;
+    }
+
+    private function sendScheduledMessage(NotificationSchedule $schedule, string $today, string $trigger = 'auto'): array
+    {
+        $startedAt = microtime(true);
+        $message = $schedule->nextMessage();
+
+        // Every attempt is logged for Admin → Background jobs.
+        $logRun = fn(string $status, array $values = []) => NotificationScheduleRun::create([
+            'schedule_id' => $schedule->id,
+            'schedule_name' => Str::limit($schedule->name, 145),
+            'message_id' => $message?->id,
+            'message_order' => $message?->sort_order,
+            'message_title' => $message ? Str::limit($message->title_en, 175) : null,
+            'trigger' => $trigger,
+            'status' => $status,
+            'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+        ] + $values);
+
+        if (!$message) {
+            NotificationSchedule::whereKey($schedule->id)->update([
+                'is_active' => false,
+                'last_error' => 'No message left to send.',
+            ]);
+
+            $logRun('failed', ['error' => 'No message left to send.']);
+
+            return ['success' => false, 'message' => 'No message left to send. Restart the schedule or add messages.'];
+        }
+
+        try {
+            $notification = $this->publishNotification([
+                'sender_type' => 'admin',
+                'sender_id' => null,
+                'type' => $schedule->notification_type,
+                'audience_type' => $schedule->audience_type,
+                'audience_city' => $schedule->audience_city,
+                'title_en' => $message->title_en,
+                'title_ar' => $message->title_ar,
+                'message_en' => $message->message_en,
+                'message_ar' => $message->message_ar,
+                'notification_schedule_id' => $schedule->id,
+            ]);
+        } catch (ValidationException $e) {
+            $error = collect($e->errors())->flatten()->first() ?: 'The notification could not be sent.';
+        } catch (Throwable $e) {
+            Log::error('SunXFinder automatic notification: send failed', [
+                'schedule_id' => $schedule->id,
+                'message_id' => $message->id,
+                'exception_class' => get_class($e),
+                'error' => $e->getMessage(),
+            ]);
+
+            $error = 'Sending failed: ' . $e->getMessage();
+        }
+
+        if (isset($error)) {
+            NotificationSchedule::whereKey($schedule->id)->update(['last_error' => Str::limit($error, 250)]);
+            $logRun('failed', ['error' => Str::limit($error, 250)]);
+
+            return ['success' => false, 'message' => $error];
+        }
+
+        // The notification is saved (customers see it in the app inbox); the status is about the push.
+        $push = $this->lastPushReport;
+        [$status, $note] = match (true) {
+            $push['devices'] === 0 => ['failed', 'Saved in the app inbox, but no device was found to push to.'],
+            $push['delivered'] === 0 => ['failed', "Push not delivered to any of the {$push['devices']} devices. Check the Firebase settings and the log."],
+            $push['failed'] > 0 => ['partial', "{$push['failed']} of {$push['devices']} devices not reached (usually old or uninstalled apps)."],
+            default => ['done', null],
+        };
+
+        $logRun($status, [
+            'notification_id' => $notification->id,
+            'recipients' => $notification->recipients()->count(),
+            'devices' => $push['devices'],
+            'delivered' => $push['delivered'],
+            'failed_devices' => $push['failed'],
+            'error' => $note,
+        ]);
+
+        $now = now();
+
+        NotificationSchedule::whereKey($schedule->id)->update([
+            'last_message_id' => $message->id,
+            'last_message_order' => $message->sort_order,
+            'last_sent_on' => $today,
+            'last_sent_at' => $now,
+            'last_error' => null,
+            'sent_count' => DB::raw('sent_count + 1'),
+        ]);
+
+        NotificationScheduleMessage::whereKey($message->id)->update([
+            'last_sent_at' => $now,
+            'sent_count' => DB::raw('sent_count + 1'),
+        ]);
+
+        // A "stop" schedule switches itself off after its last message.
+        $fresh = $schedule->fresh();
+        if ($fresh->after_last === 'stop' && !$fresh->nextMessage()) {
+            NotificationSchedule::whereKey($schedule->id)->update(['is_active' => false]);
+        }
+
+        return [
+            'success' => true,
+            'message' => "Sent \"{$message->title_en}\" (message {$message->sort_order}).",
+            'notification_id' => $notification->id,
+        ];
+    }
+
+    // Automatic notifications End
 
     public function getNotifications(array $filters = []): array
     {
@@ -3699,6 +4295,36 @@ class AdminRepository
         return ['success' => true, 'message' => 'Notification deleted. Customers no longer see it in the app.'];
     }
 
+    /**
+     * Soft-deletes plain notifications older than Notification::AUTO_DELETE_DAYS, with their
+     * customer rows, so they leave the history and the customers' inbox. Run daily by
+     * "notifications:delete-old". Query-level deletes: no activity-log row per notification.
+     */
+    public function deleteOldNotifications(): int
+    {
+        $deleted = 0;
+
+        Notification::query()->autoDeletable()->select('id')->chunkById(500, function ($rows) use (&$deleted) {
+            $ids = $rows->pluck('id')->all();
+
+            DB::transaction(function () use ($ids) {
+                CustomerNotification::query()->whereIn('notification_id', $ids)->delete();
+                Notification::query()->whereIn('id', $ids)->delete();
+            });
+
+            $deleted += count($ids);
+        });
+
+        if ($deleted > 0) {
+            Log::info('SunXFinder notification: old notifications deleted', [
+                'count' => $deleted,
+                'older_than_days' => Notification::AUTO_DELETE_DAYS,
+            ]);
+        }
+
+        return $deleted;
+    }
+
     public function getNotificationFormData(): array
     {
         $customers = Customer::query()
@@ -3734,10 +4360,17 @@ class AdminRepository
             ->orderBy('name')
             ->get();
 
+        // "Company offer" campaigns carry a package offer: one of the company's open offers,
+        // or a new one built here from the company's products (same builder as the company panel).
+        $companyIds = $companies->pluck('id')->all();
+        $packageOffers = app(PackageOfferRepository::class);
+
         return [
             'customers' => $customers,
             'cities' => $cities,
             'companies' => $companies,
+            'packageOffers' => $packageOffers->openOffers($companyIds),
+            'products' => $packageOffers->productOptions($companyIds),
             'appCustomerCount' => $customers->count(),
         ];
     }
@@ -3759,37 +4392,101 @@ class AdminRepository
             }
         }
 
-        if (empty($data['has_offer'])) {
-            foreach (['offer_title_en', 'offer_title_ar', 'offer_price', 'offer_old_price', 'offer_currency', 'offer_expires_at'] as $field) {
-                $data[$field] = null;
-            }
-        }
         if (empty($data['has_link'])) {
             $data['link_url'] = $data['link_label_en'] = $data['link_label_ar'] = null;
+        }
+
+        // The offer price card exists only on "Company offer" campaigns, and always comes
+        // from a package offer the customer can accept.
+        foreach (['offer_title_en', 'offer_title_ar', 'offer_price', 'offer_old_price', 'offer_currency', 'offer_expires_at'] as $field) {
+            $data[$field] = null;
+        }
+        if (($data['type'] ?? null) !== 'offer') {
+            $data['package_offer_id'] = null;
         }
 
         $stored = null;
         if ($image) {
             $stored = Helper::storeOptimizedImage($image, self::CAMPAIGN_IMAGE_DIR, 1200, 88);
-            $data['image_path'] = $stored['path'];
-            $data['image_width'] = $stored['width'];
-            $data['image_height'] = $stored['height'];
         }
 
-        $data['sender_type'] = 'admin';
-        $data['sender_id'] = $adminId;
+        $packageOffer = null;
+        $createdOffer = false;
 
         try {
-            return $this->publishNotification($data);
+            if (($data['type'] ?? null) === 'offer') {
+                [$packageOffer, $createdOffer] = $this->campaignPackageOffer($data, $stored, $adminId);
+                $data = array_replace($data, Notification::offerCardFields($packageOffer));
+            }
+
+            // The campaign image wins; without one, the offer's own image is used.
+            if ($stored) {
+                $data['image_path'] = $stored['path'];
+                $data['image_width'] = $stored['width'];
+                $data['image_height'] = $stored['height'];
+            }
+
+            $data['sender_type'] = 'admin';
+            $data['sender_id'] = $adminId;
+
+            $notification = $this->publishNotification($data);
+
+            // Once customers hold a copy, the company can no longer edit the offer.
+            if ($packageOffer && !$packageOffer->sent_at) {
+                $packageOffer->update(['sent_at' => now()]);
+            }
+
+            return $notification;
         } catch (Throwable $e) {
-            // Nothing was published: don't leave the uploaded image behind. (A push
-            // failure after the save keeps it, since the inbox item uses it.)
+            // Nothing was published: don't leave a new offer or the uploaded image behind.
+            // (A push failure after the save keeps them, since the inbox item uses them.)
+            if ($createdOffer && !Notification::withTrashed()->where('package_offer_id', $packageOffer->id)->exists()) {
+                $packageOffer->forceDelete();
+            }
             if ($stored && !Notification::withTrashed()->where('image_path', $stored['path'])->exists()) {
                 \Illuminate\Support\Facades\File::delete(public_path($stored['path']));
             }
 
             throw $e;
         }
+    }
+
+    /**
+     * The package offer behind a "Company offer" campaign: one of the company's open offers
+     * (offer_source = existing), or a new one built from the campaign form (offer_source = new),
+     * saved for the company with the campaign image.
+     *
+     * @return array{0: PackageOffer, 1: bool} the offer, and whether it was created here
+     */
+    private function campaignPackageOffer(array $data, ?array $storedImage, ?int $adminId): array
+    {
+        $companyId = (int) ($data['company_id'] ?? 0);
+
+        if (($data['offer_source'] ?? 'existing') === 'new') {
+            $offer = app(PackageOfferRepository::class)->save(
+                $companyId,
+                $data['package'] ?? [],
+                null,
+                null,
+                'admin',
+                $adminId,
+                $storedImage
+            );
+
+            return [$offer, true];
+        }
+
+        $offer = PackageOffer::query()->find($data['package_offer_id'] ?? 0);
+
+        if (!$offer || (int) $offer->company_id !== $companyId) {
+            throw ValidationException::withMessages(['package_offer_id' => 'Choose an offer of the selected company, or build a new one.']);
+        }
+
+        if (!$offer->isOpen()) {
+            throw ValidationException::withMessages(['package_offer_id' => 'This offer is closed or expired.']);
+        }
+
+        return [$offer, false];
     }
 
 
@@ -3821,7 +4518,7 @@ class AdminRepository
         $recipients = CustomerNotification::query()
             ->with([
                 'customer:id,full_name,phone',
-                'customer.deviceTokens:id,customer_id,fcm_token,lang,platform',
+                'customer.deviceTokens:id,customer_id,lang,platform,is_active',
             ])
             ->where('notification_id', $id)
             ->latest('created_at')
@@ -4707,6 +5404,41 @@ class AdminRepository
 
             return ['success' => false, 'message' => 'Backup failed: ' . $e->getMessage()];
         }
+    }
+
+    /** Admin → System → Server Tools: what can run here, and the paths it uses. */
+    public function getServerToolsStatus(): array
+    {
+        return \App\Support\ServerTools::status();
+    }
+
+    /** Runs one deploy action on the hosting and writes it to the activity log. */
+    public function runServerTool(string $action): array
+    {
+        $title = \App\Support\ServerTools::ACTIONS[$action]['title'] ?? $action;
+
+        try {
+            $result = \App\Support\ServerTools::run($action);
+        } catch (Throwable $e) {
+            return ['success' => false, 'message' => $title . ': ' . $e->getMessage(), 'output' => null];
+        }
+
+        ActivityLogger::log(
+            $result['success'] ? 'server_tool_run' : 'server_tool_failed',
+            "Admin ran server tool \"{$title}\"" . ($result['success'] ? '' : ' (failed)'),
+            null,
+            ['action' => $action, 'seconds' => $result['seconds'], 'output' => mb_substr($result['output'], -4000)],
+            null,
+            'system'
+        );
+
+        return [
+            'success' => $result['success'],
+            'message' => $result['success']
+                ? "{$title} finished in {$result['seconds']}s."
+                : "{$title} failed after {$result['seconds']}s. See the output below.",
+            'output' => $result['output'],
+        ];
     }
 
     public function getDatabaseBackupPath(string $name): ?string

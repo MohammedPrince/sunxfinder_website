@@ -228,6 +228,14 @@
         </div>
     </section>
 
+    {{-- Package offers (company offers and admin campaigns) --}}
+    @include('partials.report-package-offers', [
+        'stats' => $packageOffers,
+        'exportUrl' => route('admin.reports.export', ['section' => 'package_offers'] + $exportQuery),
+        'manageUrl' => route('admin.notifications.campaign.create', ['type' => 'offer']),
+        'showCompany' => true,
+    ])
+
     {{-- Company performance --}}
     <section class="panel table-panel">
         <div class="panel-heading">

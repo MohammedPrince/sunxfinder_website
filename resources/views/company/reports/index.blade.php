@@ -264,6 +264,14 @@
         </div>
     </section>
 
+    {{-- Package offers --}}
+    @include('partials.report-package-offers', [
+        'stats' => $packageOffers,
+        'exportUrl' => route('company.reports.export', ['section' => 'package_offers'] + $exportQuery),
+        'offerUrl' => fn($id) => route('company.offers.show', $id),
+        'manageUrl' => route('company.offers.index'),
+    ])
+
     {{-- Projects --}}
     <section class="panel">
         <div class="panel-heading">

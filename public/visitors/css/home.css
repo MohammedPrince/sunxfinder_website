@@ -687,6 +687,493 @@ html[lang="ar"] .hx-app-copy h2 {
    color: var(--hx-green);
 }
 
+/* ---------- Load calculator ---------- */
+
+.hx-calc {
+   display: grid;
+   grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr);
+   gap: 22px;
+   align-items: start;
+}
+
+/* minmax(0, 1fr) and min-width: 0 stop the long row of group chips from
+   widening the column (it scrolls sideways instead). An "auto" grid track
+   grows to its content's full width, which pushed the column under the result. */
+.hx-calc-main {
+   display: grid;
+   grid-template-columns: minmax(0, 1fr);
+   gap: 22px;
+   min-width: 0;
+}
+
+.hx-calc-card,
+.hx-calc-groups,
+.hx-calc-result {
+   min-width: 0;
+   max-width: 100%;
+}
+
+.hx-calc-card,
+.hx-calc-result {
+   padding: 24px;
+   border: 1px solid var(--hx-line);
+   border-radius: var(--hx-radius);
+   background: #fff;
+}
+
+.hx-calc-step {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+   margin: 0 0 16px;
+   font-size: 18px;
+   color: var(--hx-navy);
+}
+
+.hx-calc-step span {
+   display: grid;
+   place-items: center;
+   flex: none;
+   width: 28px;
+   height: 28px;
+   border-radius: 50%;
+   background: var(--hx-orange-soft);
+   color: var(--hx-orange);
+   font-size: 14px;
+}
+
+.hx-calc-step-gap {
+   margin-top: 26px;
+}
+
+.hx-calc-search {
+   width: 100%;
+   min-height: 46px;
+   padding: 0 14px;
+   border: 1px solid #d6e1ee;
+   border-radius: 12px;
+   background: var(--hx-soft);
+   font: inherit;
+   color: var(--hx-ink);
+}
+
+.hx-calc-search:focus {
+   outline: none;
+   border-color: var(--hx-blue);
+   background: #fff;
+}
+
+/* Group chips scroll sideways rather than wrapping into many rows. */
+.hx-calc-groups {
+   display: flex;
+   gap: 8px;
+   margin: 14px 0;
+   padding-bottom: 6px;
+   overflow-x: auto;
+   scrollbar-width: thin;
+}
+
+.hx-calc-groups.is-searching {
+   opacity: 0.5;
+}
+
+.hx-calc-group {
+   flex: none;
+   padding: 8px 14px;
+   border: 1px solid var(--hx-line);
+   border-radius: 999px;
+   background: #fff;
+   color: var(--hx-ink);
+   font: inherit;
+   font-size: 14px;
+   font-weight: 600;
+   white-space: nowrap;
+   cursor: pointer;
+}
+
+.hx-calc-group:hover {
+   border-color: var(--hx-blue);
+   color: var(--hx-blue);
+}
+
+.hx-calc-group.is-active {
+   border-color: var(--hx-navy);
+   background: var(--hx-navy);
+   color: #fff;
+}
+
+.hx-calc-items,
+.hx-calc-lines {
+   margin: 0;
+   padding: 0;
+   list-style: none;
+}
+
+.hx-calc-items {
+   display: grid;
+   grid-template-columns: repeat(2, minmax(0, 1fr));
+   gap: 8px;
+   max-height: 330px;
+   overflow-y: auto;
+}
+
+.hx-calc-item {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: 10px;
+   padding: 10px 12px;
+   border: 1px solid var(--hx-line);
+   border-radius: 12px;
+   cursor: pointer;
+}
+
+.hx-calc-item[hidden] {
+   display: none;
+}
+
+.hx-calc-item:hover {
+   border-color: #c8d6e8;
+}
+
+.hx-calc-item.is-selected {
+   border-color: var(--hx-orange);
+   background: var(--hx-orange-soft);
+}
+
+.hx-calc-item-name {
+   display: grid;
+   min-width: 0;
+}
+
+.hx-calc-item-name strong {
+   font-size: 14px;
+   color: var(--hx-ink);
+   overflow-wrap: anywhere;
+}
+
+.hx-calc-item-name small {
+   justify-self: start;
+   font-size: 12px;
+   color: var(--hx-muted);
+}
+
+.hx-calc-qty {
+   display: flex;
+   align-items: center;
+   flex: none;
+   gap: 4px;
+}
+
+.hx-calc-qty button {
+   width: 30px;
+   height: 30px;
+   border: 1px solid #d6e1ee;
+   border-radius: 9px;
+   background: #fff;
+   color: var(--hx-navy);
+   font-size: 17px;
+   line-height: 1;
+   cursor: pointer;
+}
+
+.hx-calc-qty button:hover {
+   border-color: var(--hx-orange);
+   color: var(--hx-orange);
+}
+
+.hx-calc-qty output {
+   min-width: 22px;
+   font-weight: 700;
+   text-align: center;
+   color: var(--hx-navy);
+}
+
+.hx-calc-empty {
+   margin: 6px 0 0;
+   color: var(--hx-muted);
+   font-size: 14px;
+}
+
+.hx-calc-lines {
+   display: grid;
+   gap: 10px;
+}
+
+.hx-calc-line {
+   padding: 12px 14px;
+   border-radius: 12px;
+   background: var(--hx-soft);
+}
+
+.hx-calc-line-head {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+}
+
+.hx-calc-line-head strong {
+   flex: 1;
+   min-width: 0;
+   font-size: 14px;
+   color: var(--hx-ink);
+   overflow-wrap: anywhere;
+}
+
+.hx-calc-line-head small {
+   flex: none;
+   color: var(--hx-muted);
+   font-size: 12px;
+}
+
+.hx-calc-remove {
+   flex: none;
+   width: 28px;
+   height: 28px;
+   border: 0;
+   border-radius: 8px;
+   background: #fff;
+   color: var(--hx-muted);
+   font-size: 18px;
+   line-height: 1;
+   cursor: pointer;
+}
+
+.hx-calc-remove:hover {
+   color: #c62828;
+}
+
+.hx-calc-hours {
+   display: flex;
+   align-items: center;
+   gap: 12px;
+   margin-top: 8px;
+}
+
+.hx-calc-hours input {
+   flex: 1;
+   min-width: 0;
+   accent-color: var(--hx-orange);
+}
+
+.hx-calc-hours output {
+   flex: none;
+   min-width: 78px;
+   font-size: 13px;
+   font-weight: 700;
+   color: var(--hx-navy);
+   text-align: end;
+}
+
+.hx-calc-backup {
+   display: grid;
+   grid-template-columns: repeat(3, minmax(0, 1fr));
+   gap: 8px;
+}
+
+.hx-calc-backup label {
+   position: relative;
+   cursor: pointer;
+}
+
+.hx-calc-backup input {
+   position: absolute;
+   opacity: 0;
+}
+
+.hx-calc-backup span {
+   display: grid;
+   place-items: center;
+   min-height: 46px;
+   padding: 6px 8px;
+   border: 1px solid #d6e1ee;
+   border-radius: 12px;
+   font-size: 14px;
+   font-weight: 700;
+   text-align: center;
+   color: var(--hx-ink);
+}
+
+.hx-calc-backup input:checked+span {
+   border-color: var(--hx-navy);
+   background: var(--hx-navy);
+   color: #fff;
+}
+
+.hx-calc-backup input:focus-visible+span {
+   outline: 3px solid #ffc59e;
+   outline-offset: 2px;
+}
+
+/* Result: stays in view on wide screens while the list is edited. */
+.hx-calc-result {
+   position: sticky;
+   top: 100px;
+   border-color: transparent;
+   background: var(--hx-navy);
+   color: #fff;
+}
+
+.hx-calc-result h3 {
+   margin: 0 0 16px;
+   font-size: 20px;
+   color: #fff;
+}
+
+.hx-calc-result-empty {
+   margin: 0;
+   color: rgba(255, 255, 255, 0.75);
+}
+
+.hx-calc-stats {
+   display: grid;
+   grid-template-columns: 1fr 1fr;
+   gap: 10px;
+}
+
+.hx-calc-stats div {
+   padding: 12px;
+   border-radius: 12px;
+   background: rgba(255, 255, 255, 0.08);
+}
+
+.hx-calc-stats small {
+   display: block;
+   color: rgba(255, 255, 255, 0.7);
+   font-size: 12px;
+}
+
+.hx-calc-stats strong {
+   font-size: 17px;
+}
+
+.hx-calc-system {
+   display: grid;
+   gap: 10px;
+   margin: 14px 0;
+}
+
+.hx-calc-system div {
+   padding: 12px;
+   border-radius: 12px;
+   background: #fff;
+   color: var(--hx-ink);
+}
+
+.hx-calc-system dt {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+   font-size: 13px;
+   color: var(--hx-muted);
+}
+
+.hx-calc-system dd {
+   display: grid;
+   margin: 6px 0 0;
+}
+
+.hx-calc-system dd strong {
+   font-size: 16px;
+   color: var(--hx-navy);
+}
+
+.hx-calc-system dd small {
+   font-size: 13px;
+   color: var(--hx-muted);
+}
+
+.hx-calc-dot {
+   display: grid;
+   place-items: center;
+   width: 26px;
+   height: 26px;
+   border-radius: 8px;
+   font-size: 13px;
+}
+
+.hx-calc-note {
+   margin: 0;
+   color: rgba(255, 255, 255, 0.7);
+   font-size: 13px;
+}
+
+.hx-calc-warning {
+   margin: 12px 0 0;
+   padding: 10px 12px;
+   border-radius: 12px;
+   background: rgba(255, 179, 26, 0.16);
+   color: #ffd27a;
+   font-size: 13px;
+}
+
+.hx-calc-cta {
+   width: 100%;
+   margin-top: 16px;
+   white-space: normal;
+   text-align: center;
+}
+
+[data-calc-cta][hidden] {
+   display: none;
+}
+
+.hx-calc-app-link {
+   display: block;
+   margin-top: 12px;
+   color: #ffd29a;
+   font-size: 14px;
+   font-weight: 600;
+   text-align: center;
+}
+
+.hx-calc-app-link:hover {
+   color: #fff;
+}
+
+.hx-calc-reset {
+   display: block;
+   margin: 10px auto 0;
+   padding: 6px 10px;
+   border: 0;
+   background: none;
+   color: rgba(255, 255, 255, 0.75);
+   font: inherit;
+   font-size: 14px;
+   text-decoration: underline;
+   cursor: pointer;
+}
+
+.hx-calc-reset:hover {
+   color: #fff;
+}
+
+@media (max-width: 1000px) {
+   .hx-calc {
+      grid-template-columns: minmax(0, 1fr);
+   }
+
+   .hx-calc-result {
+      position: static;
+   }
+}
+
+@media (max-width: 640px) {
+
+   .hx-calc-card,
+   .hx-calc-result {
+      padding: 18px 16px;
+   }
+
+   .hx-calc-items {
+      grid-template-columns: 1fr;
+   }
+
+   .hx-calc-backup span {
+      font-size: 13px;
+   }
+}
+
 /* ---------- Companies (slider markup and JS come from the layout) ---------- */
 
 #companies .company-slider-controls {

@@ -85,6 +85,8 @@ class AppServiceProvider extends ServiceProvider
                 'appSliderCount' => \App\Models\AppSlider::count(),
                 'adSaleCount' => \App\Models\AdSale::query()->count(),
                 'quoteCount' => Quote::count(),
+                'projectsCount' => Project::count(),
+                'complaintsCount' => \App\Models\CustomerComplaint::count(),
                 'appVersionCount' => AppVersion::count(),
                 'notificationsCount' => Notification::count(),
                 'ratingsCount' => Rating::count(),
@@ -117,6 +119,7 @@ class AppServiceProvider extends ServiceProvider
             $notificationsCount = 0;
             $ratingsCount = 0;
             $companyCustomersCount = 0;
+            $packageOffersCount = 0;
 
             if ($company) {
                 $companyId = $company->getAuthIdentifier();
@@ -135,6 +138,7 @@ class AppServiceProvider extends ServiceProvider
                 $notificationsCount = Notification::query()->where('sender_id', $companyId)->count();
                 $ratingsCount = Rating::query()->visible()->where('company_id', $companyId)->count();
                 $companyCustomersCount = Project::query()->where('company_id', $companyId)->distinct()->count('customer_id');
+                $packageOffersCount = \App\Models\PackageOffer::query()->where('company_id', $companyId)->count();
             }
 
 
@@ -146,6 +150,7 @@ class AppServiceProvider extends ServiceProvider
                 'companyInvoicesCount' => $companyInvoicesCount,
                 'notificationsCount' => $notificationsCount,
                 'ratingsCount' => $ratingsCount,
+                'packageOffersCount' => $packageOffersCount,
             ]);
         });
     }

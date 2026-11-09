@@ -34,6 +34,8 @@ Route::controller(WebsiteController::class)->middleware(['site.maintenance', 'si
     // "Open in App": opens the company in the mobile app, or falls back to the store/website.
     // Also the App Link / Universal Link path the app registers for.
     Route::get('/open/companies/{slug}', 'openCompanyInApp')->name('app.company');
+    // The same for the load calculator, optionally with the load (?load=base64url JSON).
+    Route::get('/open/calculator', 'openCalculatorInApp')->middleware('throttle:60,1')->name('app.calculator');
 
     // Domain verification files for Android App Links and iOS Universal Links
     Route::get('/.well-known/assetlinks.json', 'androidAssetLinks')->name('app.assetlinks');
@@ -97,10 +99,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
             Route::get('/dashboard', 'dashboard')->name('dashboard.page');
 
+            // Admin Manual (System menu), ?lang=en|ar
+            Route::get('/manual', 'manual')->name('manual');
+
             // Reports (date range via ?preset=30d or ?preset=custom&from=&to=)
             Route::prefix('reports')->name('reports.')->group(function () {
                 Route::get('/', 'reports')->name('index');
-                Route::get('/export/{section}', 'exportReport')->whereIn('section', ['companies', 'quote_requests', 'customers'])->name('export');
+                Route::get('/export/{section}', 'exportReport')->whereIn('section', ['companies', 'quote_requests', 'customers', 'package_offers'])->name('export');
             });
 
             // Solar companies
@@ -217,6 +222,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::post('/{id}/cancel', 'cancelQuoteRequest')->whereNumber('id')->name('cancel');
                 Route::post('/{id}/reassign', 'reassignQuoteRequest')->whereNumber('id')->name('reassign');
                 Route::post('/{id}/nudge', 'nudgeCompaniesForQuote')->whereNumber('id')->middleware('throttle:10,1')->name('nudge');
+                // SunXFinder commission for one offer: company rate, custom % or fixed amount
+                Route::put('/{id}/offers/{offer}/commission', 'updateOfferCommission')->whereNumber(['id', 'offer'])->name('offers.commission');
             });
 
             // Platform-wide project oversight and stalled-project follow-up.
@@ -251,6 +258,18 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 // Rich customer campaign: offer / new company / news with image and link
                 Route::get('/campaign', 'createCampaign')->name('campaign.create');
                 Route::post('/campaign', 'storeCampaign')->middleware('throttle:10,1')->name('campaign.store');
+                // Automatic notifications: messages sent in order on chosen weekdays (needs the schedule:run cron)
+                Route::prefix('automatic')->name('schedules.')->group(function () {
+                    Route::get('/', 'notificationSchedules')->name('index');
+                    Route::get('/create', 'createNotificationSchedule')->name('create');
+                    Route::post('/', 'storeNotificationSchedule')->name('store');
+                    Route::get('/{id}/edit', 'editNotificationSchedule')->whereNumber('id')->name('edit');
+                    Route::put('/{id}', 'updateNotificationSchedule')->whereNumber('id')->name('update');
+                    Route::patch('/{id}/toggle', 'toggleNotificationSchedule')->whereNumber('id')->name('toggle');
+                    Route::post('/{id}/reset', 'resetNotificationSchedule')->whereNumber('id')->name('reset');
+                    Route::post('/{id}/send-now', 'sendNotificationScheduleNow')->whereNumber('id')->middleware('throttle:10,1')->name('send-now');
+                    Route::delete('/{id}', 'destroyNotificationSchedule')->whereNumber('id')->name('destroy');
+                });
                 Route::get('/{notification}', 'showNotification')->whereNumber('notification')->name('show');
                 Route::delete('/{notification}', 'destroyNotification')->whereNumber('notification')->name('destroy');
             });
@@ -310,6 +329,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::delete('/{file}', 'deleteDatabaseBackup')->where('file', '[A-Za-z0-9_\-]+\.sql')->name('destroy');
             });
 
+            // Server Tools (hosting only): clear/optimize caches, migrate, run jobs, composer, copy public folders
+            Route::prefix('server-tools')->name('server-tools.')->group(function () {
+                Route::get('/', 'serverTools')->name('index');
+                Route::post('/run', 'runServerTool')->middleware('throttle:10,1')->name('run');
+            });
+
             // Privacy Policy and Terms text, section by section, in English and Arabic
             Route::prefix('legal-pages')->name('legal.')->group(function () {
                 Route::get('/', 'legalPages')->name('index');
@@ -321,6 +346,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::patch('/sections/{id}/toggle', 'toggleLegalSection')->whereNumber('id')->name('toggle');
                 Route::patch('/sections/{id}/move', 'moveLegalSection')->whereNumber('id')->name('move');
                 Route::delete('/sections/{id}', 'destroyLegalSection')->whereNumber('id')->name('destroy');
+            });
+
+            // Customers who accepted the Terms in the app, and which version (legal record)
+            Route::prefix('terms-acceptances')->name('terms-acceptances.')->group(function () {
+                Route::get('/', 'termsAcceptances')->name('index');
+                Route::get('/export', 'exportTermsAcceptances')->name('export');
+                Route::get('/customers/{id}', 'customerTermsHistory')->whereNumber('id')->name('show');
             });
 
             // Archived website and app records. Removing an archive entry is a soft delete.
@@ -375,7 +407,7 @@ Route::prefix('company')->name('company.')->middleware(CompanyValidationLines::c
             // Reports (date range via ?preset=30d or ?preset=custom&from=&to=)
             Route::prefix('reports')->name('reports.')->group(function () {
                 Route::get('/', 'reports')->name('index');
-                Route::get('/export/{section}', 'exportReport')->whereIn('section', ['offers', 'projects', 'customers'])->name('export');
+                Route::get('/export/{section}', 'exportReport')->whereIn('section', ['offers', 'projects', 'customers', 'package_offers'])->name('export');
             });
 
             // Company profile
@@ -399,6 +431,19 @@ Route::prefix('company')->name('company.')->middleware(CompanyValidationLines::c
                 Route::post('/{id}/offer', 'submitQuoteOffer')->whereNumber('id')->name('offer.store');
                 Route::get('/{id}/invoice', 'showQuoteInvoice')->whereNumber('id')->name('invoice');
                 Route::get('/{id}/invoice/pdf', 'downloadQuoteInvoice')->whereNumber('id')->middleware('throttle:30,1')->name('invoice.pdf');
+            });
+
+            // Package offers: a ready system pushed to customers, who accept it with their devices
+            Route::prefix('offers')->name('offers.')->group(function () {
+                Route::get('/', 'packageOffers')->name('index');
+                Route::get('/create', 'createPackageOffer')->name('create');
+                Route::post('/', 'storePackageOffer')->name('store');
+                Route::get('/{offer}', 'showPackageOffer')->whereNumber('offer')->name('show');
+                Route::get('/{offer}/edit', 'editPackageOffer')->whereNumber('offer')->name('edit');
+                Route::put('/{offer}', 'updatePackageOffer')->whereNumber('offer')->name('update');
+                Route::delete('/{offer}', 'destroyPackageOffer')->whereNumber('offer')->name('destroy');
+                Route::post('/{offer}/close', 'closePackageOffer')->whereNumber('offer')->name('close');
+                Route::post('/{offer}/send', 'sendPackageOffer')->whereNumber('offer')->middleware('throttle:10,1')->name('send');
             });
 
             Route::get('/invoices', 'companyInvoices')->name('invoices.index');
@@ -427,6 +472,9 @@ Route::prefix('company')->name('company.')->middleware(CompanyValidationLines::c
 
             // Ratings customers gave this company
             Route::get('/ratings', 'ratings')->name('ratings.index');
+
+            // Company Manual (System menu): how to use the panel
+            Route::get('/manual', 'manual')->name('manual');
         });
 
         // Projects (offers accepted by customers)

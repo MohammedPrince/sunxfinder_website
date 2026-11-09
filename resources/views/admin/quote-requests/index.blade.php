@@ -109,6 +109,7 @@
                         <th>Received</th>
                         <th>Offers</th>
                         <th>Company</th>
+                        <th class="no-print">Commission</th>
                         <th>Stage</th>
                         <th>Details</th>
                     </tr>
@@ -182,6 +183,18 @@
                                 @endif
                             </td>
 
+                            <td class="no-print">
+                                @if ($acceptedOffer = $quote->acceptedOffer)
+                                    <strong>{{ $acceptedOffer->currency }} {{ number_format((float) $acceptedOffer->commission_amount, 2) }}</strong>
+                                    <small class="cell-note">
+                                        {{ $acceptedOffer->commission_type === 'fixed' ? 'Fixed' : $acceptedOffer->commissionRateLabel() . '%' }}
+                                        of {{ number_format((float) $acceptedOffer->price, 2) }}
+                                    </small>
+                                @else
+                                    <span class="gray-text">Not due yet</span>
+                                @endif
+                            </td>
+
                             <td style="min-width:150px">
                                 <span class="pill {{ $stage['class'] }}">{{ $stage['label'] }}</span>
                                 @if ($project && $project->status !== 'completed')
@@ -199,7 +212,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="dashboard-empty">
+                            <td colspan="10" class="dashboard-empty">
                                 <strong>No quote requests found.</strong>
                                 Try changing the search text or status filter.
                             </td>

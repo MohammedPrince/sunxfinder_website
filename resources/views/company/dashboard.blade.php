@@ -203,6 +203,31 @@
             <small><a class="text-link" href="{{ route('company.customers.index') }}">{{ __('company/messages.dashboard.view_customers') }} ↗</a></small>
         </article>
 
+        {{-- Package offers: accepted in the last 30 days --}}
+        <article class="stat-card">
+            <div class="stat-top">
+                <span>{{ __('company/messages.dashboard.package_offers_accepted') }}</span>
+                <span class="stat-icon purple">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M20 12v9H4v-9" />
+                        <path d="M2 7h20v5H2z" />
+                        <path d="M12 21V7" />
+                        <path d="M12 7H7.5a2.5 2.5 0 1 1 0-5C11 2 12 7 12 7Z" />
+                        <path d="M12 7h4.5a2.5 2.5 0 1 0 0-5C13 2 12 7 12 7Z" />
+                    </svg>
+                </span>
+            </div>
+            <div class="stat-value">{{ number_format($packageOffers['accepted']) }}</div>
+            <div class="stat-foot">
+                {{ __('company/messages.dashboard.package_offers_sub', [
+                    'declined' => number_format($packageOffers['declined']),
+                    'reached' => number_format($packageOffers['reached']),
+                ]) }}
+            </div>
+            <small><a class="text-link" href="{{ route('company.offers.index') }}">{{ __('company/messages.dashboard.package_offers_open', ['count' => number_format($packageOffers['open_now'])]) }} ↗</a></small>
+        </article>
+
         @if ($ads)
             <article class="stat-card">
                 <div class="stat-top">

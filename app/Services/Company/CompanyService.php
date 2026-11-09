@@ -5,6 +5,7 @@ namespace App\Services\Company;
 use App\Helpers\Helper;
 use App\Models\CompanyQuotation;
 use App\Models\Invoice;
+use App\Models\PackageOffer;
 use App\Models\Product;
 use App\Models\Project;
 use App\Models\Quote;
@@ -210,6 +211,65 @@ class CompanyService
     }
 
     //Quote Requests End
+
+    //Package Offers Start
+
+    public function getCompanyProductOptions(): \Illuminate\Support\Collection
+    {
+        return $this->companyRepository->getCompanyProductOptions();
+    }
+
+    public function getPackageOffers(array $filters = []): LengthAwarePaginator
+    {
+        return $this->companyRepository->getPackageOffers($filters);
+    }
+
+    public function findPackageOffer(int $id): PackageOffer
+    {
+        return $this->companyRepository->findPackageOffer($id);
+    }
+
+    public function getPackageOfferDetails(int $id): array
+    {
+        return $this->companyRepository->getPackageOfferDetails($id);
+    }
+
+    public function savePackageOffer(array $data, ?int $id = null, ?\Illuminate\Http\UploadedFile $image = null): PackageOffer
+    {
+        return $this->companyRepository->savePackageOffer($data, $id, $image);
+    }
+
+    public function getOfferRecipients(): \Illuminate\Support\Collection
+    {
+        return $this->companyRepository->getOfferRecipients();
+    }
+
+    public function closePackageOffer(int $id): PackageOffer
+    {
+        return $this->companyRepository->closePackageOffer($id);
+    }
+
+    public function deletePackageOffer(int $id): array
+    {
+        return $this->companyRepository->deletePackageOffer($id);
+    }
+
+    public function sendPackageOffer(int $id, array $data): array
+    {
+        $notification = $this->companyRepository->sendPackageOffer($id, $data);
+
+        return [
+            'success' => true,
+            'message' => __('company/messages.package_offers.sent', ['count' => $notification->recipients()->count()]),
+        ];
+    }
+
+    public function getPackageOfferForQuote(Quote $quote): ?PackageOffer
+    {
+        return $this->companyRepository->getPackageOfferForQuote($quote);
+    }
+
+    //Package Offers End
 
     //Notifications Start
     public function publishNotification(array $data): array

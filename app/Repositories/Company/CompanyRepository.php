@@ -12,7 +12,10 @@ use App\Models\Customer;
 use App\Models\CustomerNotification;
 use App\Models\Invoice;
 use App\Models\Notification;
+use App\Models\PackageOffer;
+use App\Models\PackageOfferResponse;
 use App\Models\Product;
+use App\Repositories\PackageOfferRepository;
 use App\Models\Project;
 use App\Models\Quote;
 use App\Models\Rating;
@@ -406,6 +409,8 @@ class CompanyRepository
                 ->join('tbl_quote_requests as q', 'q.id', '=', 'tbl_company_quotations.quote_id')->distinct()->count('q.customer_id'),
             // Ad results for the last 30 days, only when Advertising is open to this company.
             'ads' => Setting::companyAdsEnabled($companyId) ? BusinessStats::advertising(now()->subDays(29)->startOfDay(), now(), $companyId) : null,
+            // Package offer results for the last 30 days.
+            'packageOffers' => BusinessStats::packageOffers(now()->subDays(29)->startOfDay(), now(), $companyId),
         ];
     }
 
@@ -521,6 +526,7 @@ class CompanyRepository
             'products' => $this->companyReportProducts($companyId),
             'notifications' => $this->companyReportNotifications($companyId, $from, $to),
             'ratings' => BusinessStats::ratings($from, $to, $companyId),
+            'packageOffers' => BusinessStats::packageOffers($from, $to, $companyId),
             'advertising' => Setting::companyAdsEnabled($companyId) ? BusinessStats::advertising($from, $to, $companyId) : null,
         ];
     }
@@ -536,6 +542,24 @@ class CompanyRepository
         $to = $period['to'];
         $suffix = $from->format('Y-m-d') . '_to_' . $to->format('Y-m-d');
         $ref = fn($id) => '#Q-' . str_pad((string) $id, 5, '0', STR_PAD_LEFT);
+
+        if ($section === 'package_offers') {
+            $answers = [
+                PackageOfferResponse::ACCEPTED => __('company/messages.reports.pkg_accepted'),
+                PackageOfferResponse::DECLINED => __('company/messages.reports.pkg_declined'),
+            ];
+            $lang = app()->getLocale();
+
+            return [
+                'filename' => "my-package-offers_{$suffix}.csv",
+                'headers' => array_map(fn($key) => __('company/messages.' . $key), ['reports.pkg_offer', 'package_offers.max_load', 'reports.price', 'reports.currency', 'reports.pkg_answer', 'reports.pkg_answered_at', 'common.customer', 'common.city', 'common.request', 'common.project', 'common.status']),
+                'rows' => BusinessStats::packageOfferAnswers($from, $to, $companyId)->map(fn($r) => [
+                    $lang === 'ar' && filled($r->title_ar) ? $r->title_ar : $r->title_en, $r->max_load_kw, $r->price, $r->currency,
+                    $answers[$r->status] ?? $r->status, $r->responded_at, $r->full_name ?: $r->username, $r->city,
+                    $r->quote_id ? $ref($r->quote_id) : '', $r->project_id, $r->project_status,
+                ])->all(),
+            ];
+        }
 
         if ($section === 'offers') {
             $rows = DB::table('tbl_company_quotations as o')
@@ -1151,6 +1175,11 @@ class CompanyRepository
                 ? $invoiceData['balance_due']
                 : $data['price'];
 
+            // SunXFinder commission at the company's rate now, read fresh so an admin change
+            // applies right away. Kept on the offer, so later rate changes do not rewrite it.
+            // A commission the admin set for this offer (percent or fixed) is kept instead.
+            $companyRate = round((float) SolarCompany::query()->whereKey($companyId)->value('commission_rate'), 2);
+
             // Find this company's existing offer for the request.
             $quotation = CompanyQuotation::query()
                 ->where('quote_id', $quote->id)
@@ -1187,6 +1216,7 @@ class CompanyRepository
                 $quotation->customer_id = $quote->customer_id;
                 $quotation->price = $offerPrice;
                 $quotation->currency = $data['currency'];
+                $quotation->applyCommission($companyRate);
                 $quotation->message = $data['message'] ?? null;
                 $quotation->ar_message = $data['ar_message'] ?? null;
                 $quotation->save();
@@ -1203,6 +1233,8 @@ class CompanyRepository
             $quotation->company_id = $companyId;
             $quotation->price = $offerPrice;
             $quotation->currency = $data['currency'];
+            $quotation->commission_type = CompanyQuotation::COMMISSION_COMPANY;
+            $quotation->applyCommission($companyRate);
             $quotation->message = $data['message'] ?? null;
             $quotation->ar_message = $data['ar_message'] ?? null;
             $quotation->status = 'submitted';
@@ -1219,19 +1251,15 @@ class CompanyRepository
         return $quotation;
     }
 
+    /** Invoice lines with product picking, the same way package offers build theirs. */
+    private function normalizeOfferItems(array $items, int $companyId, string $errorKey = 'invoice_items'): array
+    {
+        return app(PackageOfferRepository::class)->normalizeItems($items, $companyId, $errorKey);
+    }
+
     private function makeQuoteInvoiceData(Quote $quote, SolarCompany $company, array $data): array
     {
-        $items = collect($data['invoice_items'] ?? [])->map(function (array $item) {
-            $quantity = (float) $item['quantity'];
-            $unitPrice = round((float) $item['unit_price'], 2);
-
-            return [
-                'description' => trim($item['description']),
-                'quantity' => $quantity,
-                'unit_price' => $unitPrice,
-                'total' => round($quantity * $unitPrice, 2),
-            ];
-        })->values()->all();
+        $items = $this->normalizeOfferItems($data['invoice_items'] ?? [], (int) $company->getAuthIdentifier());
 
         $subtotal = round(array_sum(array_column($items, 'total')), 2);
         $discount = min($subtotal, round((float) ($data['invoice_discount'] ?? 0), 2));
@@ -1458,6 +1486,254 @@ class CompanyRepository
 
     //Quote Requests End
 
+    //Package Offers Start
+
+    /** This company's active products for the item pickers, grouped by type in the views. */
+    public function getCompanyProductOptions(): \Illuminate\Support\Collection
+    {
+        return app(PackageOfferRepository::class)->productOptions([$this->authenticatedCompanyId()]);
+    }
+
+    /**
+     * Customers a company may send its package offers to: only its own customers (who
+     * accepted one of its offers) that the app can reach. Unlike other notifications,
+     * admin opening "all customers" does not apply to offers.
+     */
+    /**
+     * Every app customer a package offer can be pushed to, own customers first.
+     * Only the company's own customers carry a name and city; the rest are "Customer-{id}".
+     *
+     * @return \Illuminate\Support\Collection<int, array{id: int, label: string, city: ?string, is_own: bool}>
+     */
+    public function getOfferRecipients(): \Illuminate\Support\Collection
+    {
+        $companyId = $this->authenticatedCompanyId();
+        $ownIds = array_flip($this->ownReachableCustomers($companyId)->pluck('id')->all());
+
+        return $this->reachableCustomers()
+            ->select('id', 'full_name', 'username', 'city')
+            ->orderBy('id')
+            ->get()
+            ->map(fn(Customer $customer) => $this->offerCustomerView($customer->id, isset($ownIds[$customer->id]) ? $customer : null))
+            ->sortBy(fn($row) => [$row['is_own'] ? 0 : 1, $row['is_own'] ? mb_strtolower($row['label']) : $row['id']])
+            ->values();
+    }
+
+    /** What the company may see of a customer: the name for its own customers, a number otherwise. */
+    private function offerCustomerView(int $id, ?Customer $ownCustomer): array
+    {
+        return [
+            'id' => $id,
+            'label' => $ownCustomer
+                ? ($ownCustomer->full_name ?: $ownCustomer->username ?: __('company/messages.common.customer_number', ['id' => $id]))
+                : __('company/messages.package_offers.customer_masked', ['id' => $id]),
+            'city' => $ownCustomer?->city,
+            'is_own' => $ownCustomer !== null,
+        ];
+    }
+
+    /** Active app customers with a working device, whichever company they work with. */
+    private function reachableCustomers(): Builder
+    {
+        return Customer::query()
+            ->where('status', 'active')
+            ->where('is_active', true)
+            ->whereHas('deviceTokens', fn($tokens) => $tokens->active());
+    }
+
+    private function ownReachableCustomers(int $companyId): Builder
+    {
+        return $this->onlyCompanyCustomers(
+            Customer::query()->where('status', 'active')->where('is_active', true),
+            $companyId
+        )->whereHas('deviceTokens', fn($tokens) => $tokens->active());
+    }
+
+    public function getPackageOffers(array $filters = []): LengthAwarePaginator
+    {
+        $companyId = $this->authenticatedCompanyId();
+
+        $offers = PackageOffer::query()
+            ->where('company_id', $companyId)
+            ->withCount([
+                'responses as accepted_count' => fn($q) => $q->where('status', PackageOfferResponse::ACCEPTED),
+                'responses as declined_count' => fn($q) => $q->where('status', PackageOfferResponse::DECLINED),
+            ])
+            ->when(($filters['status'] ?? null) === 'active', fn($q) => $q
+                ->where('status', PackageOffer::STATUS_ACTIVE)
+                ->where(fn($w) => $w->whereNull('expires_at')->orWhere('expires_at', '>', now())))
+            ->when(($filters['status'] ?? null) === 'ended', fn($q) => $q->where(fn($w) => $w
+                ->where('status', PackageOffer::STATUS_CLOSED)
+                ->orWhere('expires_at', '<=', now())))
+            ->when(!empty($filters['search']), function ($q) use ($filters) {
+                $search = trim($filters['search']);
+                $q->where(fn($w) => $w->where('title_en', 'like', "%{$search}%")->orWhere('title_ar', 'like', "%{$search}%"));
+            })
+            ->latest('id')
+            ->paginate(15)
+            ->withQueryString();
+
+        $sentCounts = $this->packageOfferRecipientCounts($offers->getCollection()->pluck('id')->all());
+        $offers->getCollection()->each(fn(PackageOffer $offer) => $offer->setAttribute('sent_count', $sentCounts[$offer->id] ?? 0));
+
+        return $offers;
+    }
+
+    /** Distinct customers each offer was pushed to. */
+    private function packageOfferRecipientCounts(array $offerIds): array
+    {
+        if (!$offerIds) {
+            return [];
+        }
+
+        return CustomerNotification::query()
+            ->join('tbl_notifications as n', 'n.id', '=', 'tbl_customer_notifications.notification_id')
+            ->whereIn('n.package_offer_id', $offerIds)
+            ->whereNull('n.deleted_at')
+            ->groupBy('n.package_offer_id')
+            ->selectRaw('n.package_offer_id as offer_id, COUNT(DISTINCT tbl_customer_notifications.customer_id) as total')
+            ->pluck('total', 'offer_id')
+            ->map(fn($total) => (int) $total)
+            ->all();
+    }
+
+    public function findPackageOffer(int $id): PackageOffer
+    {
+        return PackageOffer::query()
+            ->where('company_id', $this->authenticatedCompanyId())
+            ->findOrFail($id);
+    }
+
+    /** One offer with who answered it. Contact details stay hidden, as on quote requests. */
+    public function getPackageOfferDetails(int $id): array
+    {
+        $offer = $this->findPackageOffer($id);
+        $companyId = (int) $offer->company_id;
+
+        $responses = PackageOfferResponse::query()
+            ->where('package_offer_id', $offer->id)
+            ->with([
+                'customer:id,full_name,username,city',
+                'quote' => fn($q) => $q->select('id', 'status', 'company_id', 'peak_load', 'daily_load', 'created_at')
+                    ->with([
+                        'companyQuotations' => fn($o) => $o->where('company_id', $companyId)->select('id', 'quote_id', 'company_id', 'status', 'price', 'currency'),
+                        'project' => fn($p) => $p->where('company_id', $companyId)->select('id', 'quote_id', 'company_id', 'status'),
+                    ]),
+            ])
+            // Accepted first: those need the company's review.
+            ->orderByRaw("status = 'accepted' DESC")
+            ->latest('responded_at')
+            ->paginate(20)
+            ->withQueryString();
+
+        // Names only for this company's own customers (anyone who accepted is one).
+        $ownIds = array_flip($this->onlyCompanyCustomers(
+            Customer::query()->whereIn('id', $responses->getCollection()->pluck('customer_id')->filter()->all()),
+            $companyId
+        )->pluck('id')->all());
+
+        $responses->getCollection()->each(function (PackageOfferResponse $response) use ($ownIds) {
+            $own = isset($ownIds[$response->customer_id]) ? $response->customer : null;
+            $response->setAttribute('customer_view', $this->offerCustomerView((int) $response->customer_id, $own));
+            $response->setRelation('customer', null);
+        });
+
+        return [
+            'offer' => $offer,
+            'responses' => $responses,
+            'sentCount' => $this->packageOfferRecipientCounts([$offer->id])[$offer->id] ?? 0,
+            'acceptedCount' => $offer->responses()->where('status', PackageOfferResponse::ACCEPTED)->count(),
+            'declinedCount' => $offer->responses()->where('status', PackageOfferResponse::DECLINED)->count(),
+        ];
+    }
+
+    public function savePackageOffer(array $data, ?int $id = null, ?\Illuminate\Http\UploadedFile $image = null): PackageOffer
+    {
+        $companyId = $this->authenticatedCompanyId();
+
+        return app(PackageOfferRepository::class)->save(
+            $companyId,
+            $data,
+            $id ? $this->findPackageOffer($id) : null,
+            $image,
+            'company',
+            $companyId
+        );
+    }
+
+    /** Stops new acceptances. Requests already sent stay with the company. */
+    public function closePackageOffer(int $id): PackageOffer
+    {
+        $offer = $this->findPackageOffer($id);
+        $offer->update(['status' => PackageOffer::STATUS_CLOSED]);
+
+        return $offer;
+    }
+
+    /** Only an offer that was never sent can be deleted; a sent one is closed instead. */
+    public function deletePackageOffer(int $id): array
+    {
+        $offer = $this->findPackageOffer($id);
+
+        if ($offer->isLocked()) {
+            return ['success' => false, 'message' => __('company/messages.package_offers.cannot_delete')];
+        }
+
+        $offer->delete();
+
+        return ['success' => true, 'message' => __('company/messages.package_offers.deleted')];
+    }
+
+    /** Pushes the offer, with its image, to the chosen customers: the company's own customers only. */
+    public function sendPackageOffer(int $id, array $data): Notification
+    {
+        $offer = $this->findPackageOffer($id);
+
+        if (!$offer->isOpen()) {
+            throw ValidationException::withMessages([
+                'customer_ids' => __('company/messages.package_offers.not_open'),
+            ]);
+        }
+
+        $price = number_format((float) $offer->price) . ' ' . $offer->currency;
+        $load = $offer->maxLoadLabel();
+
+        $notification = $this->publishNotification([
+            'type' => 'offer',
+            'audience_type' => 'selected',
+            'customer_ids' => $data['customer_ids'],
+            'title_en' => $offer->title_en,
+            'title_ar' => $offer->title_ar,
+            'message_en' => filled($data['message_en'] ?? null)
+                ? trim($data['message_en'])
+                : "A ready solar system for loads up to {$load} kW, for {$price}. Open the offer, add your devices and accept it.",
+            'message_ar' => filled($data['message_ar'] ?? null)
+                ? trim($data['message_ar'])
+                : "منظومة طاقة شمسية جاهزة لأحمال حتى {$load} كيلوواط، بسعر {$price}. افتح العرض وأضف أجهزتك واقبله.",
+            'all_app_customers' => true,
+        ] + Notification::offerCardFields($offer));
+
+        if (!$offer->sent_at) {
+            $offer->update(['sent_at' => now()]);
+        }
+
+        return $notification;
+    }
+
+    /** The offer behind a request, when the customer accepted one of this company's offers. */
+    public function getPackageOfferForQuote(Quote $quote): ?PackageOffer
+    {
+        if (!$quote->package_offer_id) {
+            return null;
+        }
+
+        return PackageOffer::withTrashed()
+            ->where('company_id', $this->authenticatedCompanyId())
+            ->find($quote->package_offer_id);
+    }
+
+    //Package Offers End
+
 
     //Notifications Start
 
@@ -1584,9 +1860,12 @@ class CompanyRepository
                         ]);
                     }
 
-                    $validCustomers = $senderType === 'company' && !$automatic
-                        ? $this->notifiableCustomers((int) $senderId)
-                        : Customer::query();
+                    $validCustomers = match (true) {
+                        $senderType !== 'company' || $automatic => Customer::query(),
+                        // Package offers can go to any app customer (names stay hidden in the portal).
+                        !empty($data['all_app_customers']) => $this->reachableCustomers(),
+                        default => $this->notifiableCustomers((int) $senderId),
+                    };
 
                     $existingIds = $validCustomers
                         ->whereIn('id', $customerIds)
@@ -1648,6 +1927,13 @@ class CompanyRepository
 
                     Log::info('SunXFinder notification: creating notification');
 
+                    // A package offer adds its card (title, price, expiry) and its id.
+                    $offerFields = array_intersect_key($data, array_flip([
+                        'company_id', 'package_offer_id', 'offer_title_en', 'offer_title_ar',
+                        'offer_price', 'offer_old_price', 'offer_currency', 'offer_expires_at',
+                        'image_path', 'image_width', 'image_height',
+                    ]));
+
                     $notification = Notification::create([
                         'is_sponsored' => $isSponsored,
                         'sender_type' => $senderType,
@@ -1661,7 +1947,7 @@ class CompanyRepository
                         'audience_type' => $audienceType,
                         'status' => 'published',
                         'published_at' => now(),
-                    ]);
+                    ] + $offerFields);
 
                     Log::info(
                         'SunXFinder notification: notification created',
@@ -1824,13 +2110,17 @@ class CompanyRepository
                 $message = Helper::withNotificationSound(CloudMessage::new())
                     ->toToken($device->fcm_token)
                     ->withNotification(
-                        FcmNotification::create($title, $body)
+                        FcmNotification::create($title, $body, $notification->imageUrl())
                     )
-                    ->withData([
+                    ->withData(array_filter([
                         'notification_id' => (string) $notification->id,
                         'type' => (string) $notification->type,
                         'lang' => $lang,
-                    ]);
+                        'company_id' => $notification->company_id ? (string) $notification->company_id : '',
+                        'image_url' => (string) $notification->imageUrl(),
+                        // Open the package offer screen on tap.
+                        'package_offer_id' => $notification->package_offer_id ? (string) $notification->package_offer_id : '',
+                    ], fn($value) => $value !== ''));
 
                 $sendResult = $messaging->send($message);
 
@@ -2125,7 +2415,7 @@ class CompanyRepository
         $recipients = CustomerNotification::query()
             ->with([
                 'customer:id,full_name,phone',
-                'customer.deviceTokens:id,customer_id,fcm_token,lang,platform',
+                'customer.deviceTokens:id,customer_id,lang,platform,is_active',
             ])
             ->where('notification_id', $id)
             ->latest('created_at')

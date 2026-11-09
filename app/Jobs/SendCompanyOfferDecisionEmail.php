@@ -57,7 +57,8 @@ class SendCompanyOfferDecisionEmail implements ShouldQueue
             return;
         }
 
-        $isAccepted = $this->decision === CompanyOfferDecisionMail::ACCEPTED;
+        // Accepted and completed both link to the project.
+        $isAccepted = in_array($this->decision, [CompanyOfferDecisionMail::ACCEPTED, CompanyOfferDecisionMail::COMPLETED], true);
         $customer = $offer->quote?->customer;
 
         $projectId = $isAccepted

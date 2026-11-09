@@ -34,6 +34,18 @@
         </div>
     @endif
 
+    @if ($automatic['overview']['scheduler_down'])
+        <div class="alert alert-danger">
+            <strong>Automatic notifications are not being sent.</strong>
+            The scheduler has not run
+            {{ $automatic['overview']['scheduler_last_run'] ? 'since ' . $automatic['overview']['scheduler_last_run']->diffForHumans() : 'yet' }},
+            but {{ $automatic['overview']['active_schedules'] }}
+            {{ $automatic['overview']['active_schedules'] === 1 ? 'schedule is' : 'schedules are' }} on.
+            Add a cron job that runs every minute:
+            <code>cd {{ base_path() }} &amp;&amp; php artisan schedule:run &gt;&gt; /dev/null 2&gt;&amp;1</code>
+        </div>
+    @endif
+
     @include('partials.page-guide', [
         'key' => 'admin-background-jobs',
         'title' => 'How background jobs work',
@@ -155,5 +167,152 @@
                 </form>
             </div>
         @endif
+    </section>
+
+    {{-- Automatic notifications are sent by the scheduler, not the queue: each attempt is logged here. --}}
+    @php
+        $auto = $automatic['overview'];
+        $runs = $automatic['runs'];
+    @endphp
+    <section class="panel table-panel" id="automatic-notifications">
+        <div class="panel-heading table-toolbar">
+            <div>
+                <h2>Automatic notifications</h2>
+                <p>
+                    Every send by a schedule, newest first.
+                    Scheduler last ran:
+                    @if ($auto['scheduler_last_run'])
+                        <strong class="{{ $auto['scheduler_down'] ? 'schedule-error' : '' }}">{{ $auto['scheduler_last_run']->diffForHumans() }}</strong>
+                    @else
+                        <strong class="{{ $auto['scheduler_down'] ? 'schedule-error' : '' }}">never</strong>
+                    @endif
+                    · {{ $auto['active_schedules'] }} {{ \Illuminate\Support\Str::plural('schedule', $auto['active_schedules']) }} on ·
+                    <a href="{{ route('admin.notifications.schedules.index') }}">Manage schedules</a>
+                </p>
+            </div>
+
+            <form method="GET" action="{{ route('admin.queue.index') }}#automatic-notifications" class="table-filters">
+                @if (request()->filled('search'))
+                    <input type="hidden" name="search" value="{{ request('search') }}">
+                @endif
+                <select class="select-control" name="run_status" aria-label="Filter automatic sends by status"
+                    onchange="this.form.submit()">
+                    <option value="">All statuses</option>
+                    @foreach (\App\Models\NotificationScheduleRun::STATUSES as $value => $label)
+                        <option value="{{ $value }}" @selected(request('run_status') === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+                @if (request()->filled('run_status'))
+                    <a href="{{ route('admin.queue.index', request()->except(['run_status', 'runs_page'])) }}#automatic-notifications"
+                        class="btn btn-light">Clear</a>
+                @endif
+            </form>
+        </div>
+
+        <div class="metrics-strip" style="margin:0 19px 12px">
+            <div><small>Done today</small><strong>{{ number_format($auto['done_today']) }}</strong></div>
+            <div><small>Partly delivered today</small><strong>{{ number_format($auto['partial_today']) }}</strong></div>
+            <div>
+                <small>Failed today</small>
+                <strong class="{{ $auto['failed_today'] ? 'warning' : '' }}">{{ number_format($auto['failed_today']) }}</strong>
+            </div>
+            <div><small>Failed (7 days)</small><strong>{{ number_format($auto['failed_week']) }}</strong></div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Schedule / message</th>
+                        <th>Status</th>
+                        <th>Delivery</th>
+                        <th>Details</th>
+                        <th>When</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($runs as $run)
+                        @php
+                            $schedule = $run->schedule;
+                            // Retry = "Send next message now", only while the failed message is still the next one.
+                            $canRetry = $run->status === 'failed'
+                                && $schedule
+                                && in_array($run->id, $automatic['retryableIds'], true)
+                                && $run->message_id
+                                && $schedule->nextMessage()?->id === $run->message_id;
+                        @endphp
+                        <tr>
+                            <td>
+                                @if ($schedule)
+                                    <a href="{{ route('admin.notifications.schedules.edit', $schedule->id) }}"><strong>{{ $run->schedule_name }}</strong></a>
+                                @else
+                                    <strong>{{ $run->schedule_name }}</strong> <small class="cell-note">(deleted)</small>
+                                @endif
+                                <small class="cell-note">
+                                    @if ($run->message_order)
+                                        Message {{ $run->message_order }}: {{ \Illuminate\Support\Str::limit($run->message_title, 50) }}
+                                    @else
+                                        No message
+                                    @endif
+                                </small>
+                            </td>
+                            <td>
+                                <span class="pill {{ \App\Models\NotificationScheduleRun::STATUS_PILLS[$run->status] ?? 'pill-yellow' }}">
+                                    {{ \App\Models\NotificationScheduleRun::STATUSES[$run->status] ?? ucfirst($run->status) }}
+                                </span>
+                                <small class="cell-note">{{ $run->trigger === 'manual' ? 'Sent by admin' : 'Automatic' }}</small>
+                            </td>
+                            <td style="white-space:nowrap">
+                                @if ($run->notification_id)
+                                    {{ number_format($run->recipients) }} {{ \Illuminate\Support\Str::plural('customer', $run->recipients) }}
+                                    <small class="cell-note">{{ number_format($run->delivered) }} of {{ number_format($run->devices) }} devices reached</small>
+                                @else
+                                    —
+                                @endif
+                            </td>
+                            <td>
+                                @if ($run->error)
+                                    <div class="job-error">{{ $run->error }}</div>
+                                @else
+                                    <span class="cell-note">Sent to every device.</span>
+                                @endif
+                            </td>
+                            <td style="white-space:nowrap">
+                                {{ $run->created_at->format('M d, Y H:i') }}
+                                <small class="cell-note">{{ $run->created_at->diffForHumans() }}</small>
+                            </td>
+                            <td>
+                                <div class="company-actions">
+                                    @if ($run->notification_id)
+                                        <a href="{{ route('admin.notifications.show', $run->notification_id) }}" class="row-action">View</a>
+                                    @endif
+                                    @if ($canRetry)
+                                        <form method="POST" action="{{ route('admin.notifications.schedules.send-now', $schedule->id) }}"
+                                            onsubmit="return confirm('Send message {{ $run->message_order }} of this schedule again now?');">
+                                            @csrf
+                                            <button type="submit" class="row-action">Retry</button>
+                                        </form>
+                                    @endif
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6" class="dashboard-empty">
+                                @if (request()->filled('run_status'))
+                                    <strong>No automatic sends with this status.</strong>
+                                @else
+                                    <strong>No automatic notifications sent yet.</strong>
+                                    Sends appear here once a schedule is on and its day and time come.
+                                @endif
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        @include('partials.table-pagination', ['paginator' => $runs, 'label' => 'automatic sends'])
     </section>
 @endsection

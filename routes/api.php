@@ -26,6 +26,11 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
         Route::post('/reset', [MainController::class, 'resetPassword'])->middleware('throttle:customer-password-reset');
     });
 
+    // Legal pages (Admin → System → Privacy & Terms). No token: the app shows the Terms
+    // before sign-in. ?lang=en|ar, else the signed-in customer's language, else English.
+    Route::get('/privacy-policy', [MainController::class, 'privacyPolicy'])->middleware('throttle:60,1');
+    Route::get('/terms', [MainController::class, 'terms'])->middleware('throttle:60,1');
+
     // Protected routes: valid Sanctum token required
     Route::middleware('auth:sanctum')->group(function () {
 
@@ -46,13 +51,23 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
         Route::get('/sliders', [MainController::class, 'getAppSliders'])->middleware('throttle:60,1');
         Route::get('/home-sections', [MainController::class, 'getHomeSections'])->middleware('throttle:60,1');
         Route::get('/calculator-items', [MainController::class, 'appliancesCalculator'])->middleware('throttle:60,1');
+        // A load calculated on the website before sign-up (docs: sunxfinder_app/docs/website-load-handoff.md).
+        Route::get('/pending-load', [MainController::class, 'getPendingLoad'])->middleware('throttle:60,1');
+        Route::delete('/pending-load', [MainController::class, 'clearPendingLoad'])->middleware('throttle:60,1');
 
         Route::post('/my-quotes', [MainController::class, 'getMyQuotes'])->middleware('throttle:60,1')->name('my-quotes');
         Route::post('/archive', [MainController::class, 'archiveQuote'])->middleware('throttle:60,1')->name('archive');
         Route::post('/quote', [MainController::class, 'storeQuote'])->middleware('throttle:60,1')->name('quote');
+        // Customer confirms the handover once the company finished installation (completes the project).
+        Route::post('/quote-complete', [MainController::class, 'completeQuote'])->middleware('throttle:20,1')->name('quote-complete');
 
         Route::post('/offer-accept', [MainController::class, 'acceptOffer'])->middleware('throttle:60,1')->name('offer-accept');
         Route::post('/offer-reject', [MainController::class, 'rejectOffer'])->middleware('throttle:60,1')->name('offer-reject');
+
+        // Company package offers pushed in notifications (docs/api/customer-package-offers.md)
+        Route::get('/package-offers/{id}', [MainController::class, 'getPackageOffer'])->whereNumber('id')->middleware('throttle:60,1');
+        Route::post('/package-offers/{id}/accept', [MainController::class, 'acceptPackageOffer'])->whereNumber('id')->middleware('throttle:20,1');
+        Route::post('/package-offers/{id}/decline', [MainController::class, 'declinePackageOffer'])->whereNumber('id')->middleware('throttle:20,1');
 
         // Ratings: rate the company whose offer was accepted (one per quote)
         Route::get('/rating-form', [MainController::class, 'getRatingForm'])->middleware('throttle:60,1');
@@ -73,10 +88,6 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
         Route::get('/notifications/{id}', [MainController::class, 'getNotification'])->whereNumber('id')->middleware('throttle:60,1');
         Route::post('/notifications/{id}/read', [MainController::class, 'markNotificationAsRead']);
         Route::post('/notifications/read-all', [MainController::class, 'markAllNotificationsAsRead']);
-
-        // Legal pages (Admin → System → Privacy & Terms), in the customer's app language
-        Route::get('/privacy-policy', [MainController::class, 'privacyPolicy'])->middleware('throttle:60,1');
-        Route::get('/terms', [MainController::class, 'terms'])->middleware('throttle:60,1');
 
         Route::post('/delete-account', [MainController::class, 'deleteAccount']);
         Route::post('/logout', [MainController::class, 'logout']);

@@ -8324,3 +8324,411 @@ a.cd-chip:hover {
 .legal-editor[dir="rtl"] .ql-editor {
     text-align: right;
 }
+
+/* Automatic notifications (admin/notifications/schedules) */
+.schedule-summary {
+    color: var(--navy);
+    font-weight: 600;
+}
+
+.schedule-days {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.schedule-day {
+    position: relative;
+    cursor: pointer;
+}
+
+.schedule-day input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.schedule-day span {
+    display: inline-block;
+    min-width: 104px;
+    padding: 9px 14px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--ink);
+    text-align: center;
+    font-weight: 600;
+    transition: background .15s, border-color .15s, color .15s;
+}
+
+.schedule-day input:checked + span {
+    border-color: var(--orange);
+    background: var(--orange);
+    color: #fff;
+}
+
+.schedule-day input:focus-visible + span {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+}
+
+.schedule-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.schedule-presets .btn-sm,
+.schedule-message-tools .btn-sm {
+    padding: 5px 11px;
+    font-size: 13px;
+    min-height: 0;
+}
+
+.schedule-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.schedule-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.schedule-message {
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--canvas);
+}
+
+.schedule-message-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.schedule-message-tools {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.schedule-remove {
+    color: #c62828;
+}
+
+.schedule-progress {
+    margin-bottom: 16px;
+}
+
+.schedule-progress-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.schedule-error {
+    color: #c62828;
+}
+
+@media (max-width: 720px) {
+    .schedule-day span {
+        min-width: 0;
+    }
+
+    .schedule-message-tools {
+        margin-left: 0;
+    }
+}
+
+/* ------------------------------------------------------------------
+   Admin and Company Manuals (System menu, both panels). Logical properties so the
+   same rules work in Arabic (RTL).
+------------------------------------------------------------------- */
+.manual-intro h2 {
+    margin: 0 0 6px;
+    font-size: 20px;
+}
+
+.manual-intro p {
+    margin: 0 0 18px;
+    max-width: 820px;
+    line-height: 1.7;
+    color: var(--muted);
+}
+
+.manual-intro h3 {
+    margin: 0 0 12px;
+    font-size: 15px;
+}
+
+.manual-flow {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.manual-flow li {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff8f4;
+}
+
+.manual-flow small {
+    color: var(--muted);
+    line-height: 1.5;
+}
+
+.manual-flow-number,
+.manual-section-number {
+    display: inline-grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--orange);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    flex: none;
+}
+
+.manual-layout {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.manual-toc {
+    position: sticky;
+    top: 86px;
+    padding: 16px 18px;
+}
+
+.manual-toc ol {
+    margin: 10px 0 0;
+    padding-inline-start: 20px;
+    line-height: 2;
+}
+
+.manual-toc a {
+    color: var(--ink);
+}
+
+.manual-toc a:hover,
+.manual-toc a:focus-visible {
+    color: var(--orange);
+}
+
+.manual-section {
+    scroll-margin-top: 90px;
+}
+
+.manual-section-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.manual-section-heading h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.manual-label {
+    margin: 0 0 8px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+}
+
+.manual-steps {
+    margin: 0 0 18px;
+    padding-inline-start: 22px;
+    line-height: 1.75;
+}
+
+.manual-steps li + li {
+    margin-top: 6px;
+}
+
+.manual-tips {
+    padding: 14px 16px;
+    border-inline-start: 4px solid var(--yellow);
+    border-radius: 10px;
+    background: #fffaf0;
+}
+
+.manual-tips ul {
+    margin: 0;
+    padding-inline-start: 20px;
+    line-height: 1.7;
+}
+
+.manual-top-link {
+    display: inline-block;
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.manual-top-link:hover {
+    color: var(--orange);
+}
+
+[dir="rtl"] .manual-label {
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+@media (max-width: 900px) {
+    .manual-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .manual-toc {
+        position: static;
+    }
+
+    .manual-section-heading {
+        flex-direction: column;
+    }
+}
+
+@media print {
+    .manual-layout {
+        display: block;
+    }
+
+    .manual-section {
+        break-inside: avoid-page;
+        box-shadow: none !important;
+        border: 1px solid #ddd;
+    }
+
+    .manual-flow li,
+    .manual-tips {
+        background: #fff !important;
+    }
+}
+
+/* Manual language switch (admin manual: English / العربية) */
+.manual-lang {
+    display: inline-flex;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.manual-lang a {
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.manual-lang a.is-active {
+    background: var(--orange);
+    color: #fff;
+}
+
+.manual[dir="rtl"] {
+    font-family: Tahoma, "Segoe UI", system-ui, sans-serif;
+}
+
+.manual code {
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: #f1f4f8;
+    font-size: 12px;
+    word-break: break-word;
+}
+
+
+/* Admin -> System -> Server Tools */
+.alert-warning {
+    color: #92400e;
+    background: #fffbeb;
+    border-color: #fde68a;
+}
+
+.server-tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+.server-tool {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #fff;
+}
+
+.server-tool h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.server-tool code {
+    font-size: 12px;
+    color: #475569;
+    word-break: break-word;
+}
+
+.server-tool p {
+    flex: 1;
+    margin: 0;
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+.server-tool .btn {
+    align-self: flex-start;
+}
+
+.server-tool .btn:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.server-tools-output {
+    max-height: 420px;
+    margin: 0;
+    padding: 14px;
+    overflow: auto;
+    border-radius: 10px;
+    background: #0f172a;
+    color: #e2e8f0;
+    font-size: 12px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+}

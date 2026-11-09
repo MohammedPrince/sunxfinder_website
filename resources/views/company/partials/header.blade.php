@@ -86,7 +86,7 @@
         </a>
         @endcomponent
 
-        @component('partials.nav-group', ['key' => 'quotes', 'label' => __('company/messages.navigation.quotes_projects'), 'icon' => 'file', 'routes' => ['company.quote-requests.*', 'company.projects.*', 'company.invoices.*']])
+        @component('partials.nav-group', ['key' => 'quotes', 'label' => __('company/messages.navigation.quotes_projects'), 'icon' => 'file', 'routes' => ['company.quote-requests.*', 'company.offers.*', 'company.projects.*', 'company.invoices.*']])
         <a class="nav-link {{ request()->routeIs('company.quote-requests.*') ? 'active' : '' }}"
             href="{{ route('company.quote-requests.index') }}">
             <span class="nav-icon">
@@ -100,6 +100,18 @@
             </span>
             <span>{{ __('company/messages.navigation.quote_requests') }}</span>
             <span class="nav-count warm">{{ $myCompanyQuoteCount ?? 0 }}</span>
+        </a>
+        <a class="nav-link {{ request()->routeIs('company.offers.*') ? 'active' : '' }}"
+            href="{{ route('company.offers.index') }}">
+            <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z" />
+                    <circle cx="7.5" cy="7.5" r="1.5" />
+                </svg>
+            </span>
+            <span>{{ __('company/messages.navigation.package_offers') }}</span>
+            <span class="nav-count warm">{{ $packageOffersCount ?? 0 }}</span>
         </a>
         <a class="nav-link {{ request()->routeIs('company.projects.*') ? 'active' : '' }}"
             href="{{ route('company.projects.index') }}">
@@ -181,7 +193,19 @@
         </a>
         @endcomponent
 
-        @component('partials.nav-group', ['key' => 'system', 'label' => __('company/messages.navigation.system'), 'icon' => 'gear', 'routes' => []])
+        @component('partials.nav-group', ['key' => 'system', 'label' => __('company/messages.navigation.system'), 'icon' => 'gear', 'routes' => ['company.manual']])
+        <a class="nav-link {{ request()->routeIs('company.manual') ? 'active' : '' }}"
+            href="{{ route('company.manual') }}">
+            <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5Z" />
+                    <path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5" />
+                    <path d="M8 7h8M8 11h6" />
+                </svg>
+            </span>
+            <span>{{ __('company/manual.title') }}</span>
+        </a>
         @if ($isPubliclyVisible)
             <a class="nav-link" href="{{ $publicPageUrl }}" target="_blank" rel="noopener"
                 title="{{ __('company/messages.navigation.public_page_title') }}">

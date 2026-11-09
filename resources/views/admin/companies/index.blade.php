@@ -84,6 +84,7 @@
                     <tr>
                         <th>Company</th>
                         <th>Email</th>
+                        <th>Phone</th>
                         <th>Joined</th>
                         <th>Status</th>
                         <th>Verification</th>
@@ -135,6 +136,23 @@
                                     <a href="{{ route('admin.send-email.index', ['email' => $company->email]) }}">
                                         {{ $company->email }}
                                     </a>
+                                    @unless ($company->showsEmailInApp())
+                                        <small class="cell-note">Hidden in app</small>
+                                    @endunless
+                                @else
+                                    —
+                                @endif
+                            </td>
+
+                            {{-- Phone --}}
+                            <td>
+                                @if ($company->phone)
+                                    <a href="tel:{{ preg_replace('/[^\d+]/', '', $company->phone) }}" dir="ltr">
+                                        {{ $company->phone }}
+                                    </a>
+                                    @unless ($company->showsPhoneInApp())
+                                        <small class="cell-note">Hidden in app</small>
+                                    @endunless
                                 @else
                                     —
                                 @endif
@@ -258,7 +276,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="text-center">
+                            <td colspan="8" class="text-center">
                                 No companies found.
                                 <a href="{{ route('admin.companies.create') }}">
                                     Add your first company

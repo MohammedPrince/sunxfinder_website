@@ -74,6 +74,16 @@ class CustomerService
         return $this->customerRepository->appliancesCalculator();
     }
 
+    public function getPendingLoad(): array
+    {
+        return $this->customerRepository->getPendingLoad();
+    }
+
+    public function clearPendingLoad(?string $loadId = null): array
+    {
+        return $this->customerRepository->clearPendingLoad($loadId);
+    }
+
     public function getCarousels(): array
     {
         return $this->customerRepository->getCarousels();
@@ -124,9 +134,29 @@ class CustomerService
         return $this->customerRepository->archiveQuote($data);
     }
 
+    public function completeQuote(array $data): array
+    {
+        return $this->customerRepository->completeQuote($data);
+    }
+
     public function acceptOffer(array $data)
     {
         return $this->customerRepository->acceptOffer($data);
+    }
+
+    public function getPackageOffer(int $offerId): array
+    {
+        return $this->customerRepository->getPackageOffer($offerId);
+    }
+
+    public function acceptPackageOffer(int $offerId, array $data): array
+    {
+        return $this->customerRepository->acceptPackageOffer($offerId, $data);
+    }
+
+    public function declinePackageOffer(int $offerId, array $data): array
+    {
+        return $this->customerRepository->declinePackageOffer($offerId, $data);
     }
 
     public function rejectOffer(array $data)

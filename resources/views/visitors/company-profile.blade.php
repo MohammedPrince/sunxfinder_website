@@ -142,61 +142,128 @@
                         <h2>{{ trans('messages.Our Products') }}</h2>
 
                         @if ($companyProducts->isNotEmpty())
-                            <div class="company-product-grid">
-                                @foreach ($companyProducts as $product)
-                                    <article class="company-product-card">
-                                        <div class="company-product-icon" aria-hidden="true">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"
-                                                fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
-                                                stroke-linejoin="round">
-                                                <path d="m21 8-9-5-9 5" />
-                                                <path d="m3 8 9 5 9-5" />
-                                                <path d="M12 13v9" />
-                                                <path d="M3 8v8l9 5 9-5V8" />
-                                            </svg>
-                                        </div>
+                            @php
+                                // Filter chips: one per product type, in catalog order.
+                                $productTypes = $companyProducts->groupBy('type')->map(fn($group) => [
+                                    'label' => company_label('common.product_type_' . $group->first()->type, $group->first()->typeLabel()),
+                                    'count' => $group->count(),
+                                ]);
+                                $productsVisible = 6;
+                            @endphp
 
-                                        <div class="company-product-content">
-                                            <span class="company-product-type">
-                                                {{ $product->typeLabel() }}
-                                            </span>
+                            <div class="company-product-catalog" data-product-catalog data-visible="{{ $productsVisible }}">
+                                @if ($productTypes->count() > 1)
+                                    <div class="company-product-filters" role="group" aria-label="{{ trans('messages.Filter products') }}">
+                                        <button type="button" class="is-active" data-product-filter="all" aria-pressed="true">
+                                            {{ trans('messages.All') }} <span>{{ $companyProducts->count() }}</span>
+                                        </button>
+                                        @foreach ($productTypes as $type => $info)
+                                            <button type="button" data-product-filter="{{ $type }}" aria-pressed="false">
+                                                {{ $info['label'] }} <span>{{ $info['count'] }}</span>
+                                            </button>
+                                        @endforeach
+                                    </div>
+                                @endif
 
-                                            <h3>{{ $product->name }}</h3>
+                                <div class="company-product-list">
+                                    @foreach ($companyProducts as $product)
+                                        <details class="company-product-item" data-product-type="{{ $product->type }}"
+                                            @if ($loop->index >= $productsVisible) hidden @endif>
+                                            <summary>
+                                                <span class="company-product-icon company-product-icon-{{ $product->type }}" aria-hidden="true">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                                        fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                                                        stroke-linejoin="round">
+                                                        <path d="m21 8-9-5-9 5" />
+                                                        <path d="m3 8 9 5 9-5" />
+                                                        <path d="M12 13v9" />
+                                                        <path d="M3 8v8l9 5 9-5V8" />
+                                                    </svg>
+                                                </span>
+                                                <span class="company-product-head">
+                                                    <span class="company-product-type">{{ company_label('common.product_type_' . $product->type, $product->typeLabel()) }}</span>
+                                                    <strong>{{ $product->name }}</strong>
+                                                    @php $productLine = collect([$product->supplier?->name, $product->model])->filter()->implode(' · '); @endphp
+                                                    @if ($productLine !== '')
+                                                        <small>{{ $productLine }}</small>
+                                                    @endif
+                                                </span>
+                                                <span class="company-product-toggle" aria-hidden="true"></span>
+                                            </summary>
 
-                                            @if ($product->model)
-                                                <p class="company-product-model">
-                                                    {{ trans('messages.Model') }}:
-                                                    {{ $product->model }}
-                                                </p>
-                                            @endif
+                                            <div class="company-product-body">
+                                                @if ($product->description)
+                                                    <p class="company-product-description">{{ $product->description }}</p>
+                                                @endif
 
-                                            @if ($product->supplier)
-                                                <p class="company-product-supplier">
-                                                    {{ trans('messages.Brand') }}:
-                                                    {{ $product->supplier->name }}
-                                                </p>
-                                            @endif
-
-                                            @if ($product->description)
-                                                <p class="company-product-description">
-                                                    {{ $product->description }}
-                                                </p>
-                                            @endif
-
-                                            @if ($product->specs->isNotEmpty())
-                                                <div class="company-product-specs">
+                                                <dl class="company-product-specs">
+                                                    @if ($product->supplier)
+                                                        <div><dt>{{ trans('messages.Brand') }}</dt><dd>{{ $product->supplier->name }}</dd></div>
+                                                    @endif
+                                                    @if ($product->model)
+                                                        <div><dt>{{ trans('messages.Model') }}</dt><dd dir="ltr">{{ $product->model }}</dd></div>
+                                                    @endif
                                                     @foreach ($product->specs as $spec)
-                                                        <div class="company-product-spec">
-                                                            <span>{{ $spec->spec_name }}</span>
-                                                            <strong>{{ $spec->spec_value }}</strong>
-                                                        </div>
+                                                        <div><dt>{{ $spec->spec_name }}</dt><dd>{{ $spec->spec_value }}</dd></div>
                                                     @endforeach
-                                                </div>
-                                            @endif
-                                        </div>
-                                    </article>
-                                @endforeach
+                                                </dl>
+                                            </div>
+                                        </details>
+                                    @endforeach
+                                </div>
+
+                                @if ($companyProducts->count() > $productsVisible)
+                                    <button type="button" class="company-product-more" data-product-more
+                                        data-more="{{ trans('messages.Show all products', ['count' => $companyProducts->count()]) }}"
+                                        data-less="{{ trans('messages.Show fewer products') }}" aria-expanded="false">
+                                        {{ trans('messages.Show all products', ['count' => $companyProducts->count()]) }}
+                                    </button>
+                                @endif
                             </div>
+
+                            <script>
+                                // Show/hide for the catalog: type filter, plus "show all" past the first few.
+                                document.querySelectorAll('[data-product-catalog]').forEach(function (catalog) {
+                                    const items = Array.from(catalog.querySelectorAll('.company-product-item'));
+                                    const more = catalog.querySelector('[data-product-more]');
+                                    const limit = Number(catalog.dataset.visible) || 6;
+                                    let filter = 'all';
+                                    let expanded = false;
+
+                                    function render() {
+                                        const matching = items.filter(item => filter === 'all' || item.dataset.productType === filter);
+                                        items.forEach(item => { item.hidden = true; });
+                                        matching.forEach((item, index) => { item.hidden = !expanded && index >= limit; });
+                                        if (more) {
+                                            more.hidden = matching.length <= limit;
+                                            more.textContent = expanded ? more.dataset.less : more.dataset.more.replace(/\d+/, matching.length);
+                                            more.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                                        }
+                                    }
+
+                                    catalog.querySelectorAll('[data-product-filter]').forEach(function (button) {
+                                        button.addEventListener('click', function () {
+                                            filter = button.dataset.productFilter;
+                                            expanded = false;
+                                            catalog.querySelectorAll('[data-product-filter]').forEach(other => {
+                                                other.classList.toggle('is-active', other === button);
+                                                other.setAttribute('aria-pressed', other === button ? 'true' : 'false');
+                                            });
+                                            render();
+                                        });
+                                    });
+
+                                    if (more) {
+                                        more.addEventListener('click', function () {
+                                            expanded = !expanded;
+                                            render();
+                                            if (!expanded) catalog.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                        });
+                                    }
+
+                                    render();
+                                });
+                            </script>
                         @else
                             <p class="company-muted">
                                 {{ trans('messages.No products have been added yet.') }}

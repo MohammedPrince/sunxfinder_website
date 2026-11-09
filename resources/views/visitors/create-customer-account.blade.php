@@ -45,6 +45,20 @@
                     <p>{{ session('success') }}</p>
                     <p>{{ __('messages.We will email you when your account is approved. Then open the SunXFinder app and log in with your username and password.') }}</p>
 
+                    @if (session('load_saved'))
+                        {{-- The calculator's load is on the account; the app opens it after login. --}}
+                        <div class="provider-alert provider-calc-note" role="note">
+                            {{ $isArabic
+                                ? 'تم حفظ حساب الأحمال في حسابك. بعد الموافقة على حسابك، سجّل الدخول في التطبيق وستُفتح الحاسبة بأجهزتك.'
+                                : 'Your load calculation is saved to your account. After your account is approved, log in to the app and the calculator will open with your appliances.' }}
+                        </div>
+                        <div class="provider-success-actions">
+                            <a class="provider-submit-button" href="{{ route('app.calculator') }}">
+                                {{ $isArabic ? 'افتح في التطبيق' : 'Open in the app' }}
+                            </a>
+                        </div>
+                    @endif
+
                     @if ($appLinks)
                         {{-- <p>{{ __('messages.Download the SunXFinder app:') }}</p>
                         <div class="provider-success-actions">
@@ -73,6 +87,16 @@
                 <form action="{{ route('customer.register.store', ['lang' => $locale]) }}" method="POST"
                     class="provider-register-form" data-register-form>
                     @csrf
+
+                    {{-- The home page calculator's load. Filled in by the script below when the
+                         visitor came from the calculator; saved on the account for the app. --}}
+                    <input type="hidden" name="calculator_load" value="{{ old('calculator_load') }}" data-calc-load>
+                    <div class="provider-alert provider-calc-note" role="note" data-calc-load-note hidden>
+                        <span data-calc-load-text></span>
+                        <button type="button" class="provider-calc-note-remove" data-calc-load-remove>
+                            {{ $isArabic ? 'عدم الحفظ' : "Don't save it" }}
+                        </button>
+                    </div>
 
                     <section class="provider-form-section">
                         <div class="provider-section-heading">
@@ -250,4 +274,56 @@
 
 @section('scripts')
     <script src="{{ asset_v('visitors/js/register.js') }}" defer></script>
+
+    {{-- Carries the home page calculator's load (kept in this browser) into sign-up. --}}
+    <script>
+        (function() {
+            var input = document.querySelector('[data-calc-load]');
+            var note = document.querySelector('[data-calc-load-note]');
+            if (!input || !note) return;
+
+            var template = @json($isArabic
+                ? 'سيتم حفظ حساب الأحمال الذي أجريته (:count جهاز) في حسابك. بعد الموافقة على حسابك، سجّل الدخول في تطبيق SunXFinder وستجد أجهزتك بانتظارك.'
+                : 'Your load calculation (:count appliances) will be saved to your account. After your account is approved, log in to the SunXFinder app and your appliances will be waiting.');
+
+            // Kept after a failed submit (old input); otherwise taken from the calculator.
+            if (!input.value && new URLSearchParams(location.search).get('from') === 'calculator') {
+                try {
+                    var saved = JSON.parse(localStorage.getItem('sxf-load-calculator') || 'null');
+                    if (saved && Array.isArray(saved.lines) && saved.lines.length) {
+                        input.value = JSON.stringify({
+                            backup: saved.backup || 'night',
+                            items: saved.lines.map(function(entry) {
+                                return {
+                                    appliance_id: Number(entry[0]),
+                                    quantity: entry[1].qty,
+                                    hours: entry[1].hours
+                                };
+                            })
+                        });
+                    }
+                } catch (e) {
+                    input.value = '';
+                }
+            }
+
+            var count = 0;
+            try {
+                (JSON.parse(input.value || '{}').items || []).forEach(function(item) {
+                    count += Number(item.quantity) || 0;
+                });
+            } catch (e) {
+                input.value = '';
+            }
+            if (!count) return;
+
+            note.querySelector('[data-calc-load-text]').textContent = template.replace(':count', count);
+            note.hidden = false;
+
+            note.querySelector('[data-calc-load-remove]').addEventListener('click', function() {
+                input.value = '';
+                note.hidden = true;
+            });
+        })();
+    </script>
 @endsection

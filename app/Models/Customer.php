@@ -33,17 +33,35 @@ class Customer extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        // Only GET /pending-load sends it.
+        'pending_load',
+        // Admin only (System → Terms Acceptance).
+        'terms_accepted_version',
+        'terms_accepted_at',
     ];
 
     protected function casts(): array
     {
         return [
+            'pending_load' => 'array',
+            'terms_accepted_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
             'app_status_changed_at' => 'datetime',
             'max_open_quotes' => 'integer',
         ];
+    }
+
+    /** Every Terms acceptance (Admin → System → Terms Acceptance). */
+    public function termsAcceptances(): HasMany
+    {
+        return $this->hasMany(CustomerTermsAcceptance::class, 'customer_id');
+    }
+
+    public function latestTermsAcceptance(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(CustomerTermsAcceptance::class, 'customer_id')->latestOfMany();
     }
 
     public function deviceTokens(): HasMany

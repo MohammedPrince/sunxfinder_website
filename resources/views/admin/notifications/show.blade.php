@@ -147,53 +147,50 @@
                         <tr>
                             <th>Customer Name</th>
                             <th>Phone</th>
-                            <th>FCM Token</th>
+                            <th>Devices</th>
                             <th>Language</th>
                             <th>Read Status</th>
                             <th>Read At</th>
                         </tr>
                     </thead>
                     <tbody>
+                        {{-- One row per customer; the read status belongs to the customer, not to each device. --}}
                         @forelse ($recipients as $recipient)
                             @php
                                 $customer = $recipient->customer;
                                 $devices = $customer?->deviceTokens ?? collect();
+                                $activeDevices = $devices->where('is_active', true);
+                                $platforms = $devices->pluck('platform')->filter()->map(fn ($p) => ucfirst($p))->unique()->implode(', ');
+                                $languages = ($activeDevices->isNotEmpty() ? $activeDevices : $devices)
+                                    ->map(fn ($d) => strtoupper($d->lang ?: 'en'))->unique()->implode(', ');
                             @endphp
-
-                            @if ($devices->isNotEmpty())
-                                @foreach ($devices as $device)
-                                    <tr>
-                                        <td>{{ $customer?->full_name ?? '-' }}</td>
-                                        <td>{{ $customer?->phone ?? '-' }}</td>
-                                        <td>
-                                            <span title="{{ $device->fcm_token }}">
-                                                {{ $device->fcm_token }}
-                                            </span>
-                                        </td>
-                                        <td>{{ strtoupper($device->lang ?? 'en') }}</td>
-                                        <td>
-                                            <span class="pill {{ $recipient->read_at ? 'pill-green' : 'pill-yellow' }}">
-                                                {{ $recipient->read_at ? 'Read' : 'Unread' }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            {{ $recipient->read_at?->format('M d, Y H:i') ?? '—' }}
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            @else
-                                <tr>
-                                    <td>{{ $customer?->full_name ?? '-' }}</td>
-                                    <td>{{ $customer?->phone ?? '-' }}</td>
-                                    <td colspan="2">No registered device</td>
+                            <tr>
+                                <td>
+                                    @if ($customer)
+                                        <a href="{{ route('admin.customers.edit', $customer->id) }}">{{ $customer->full_name ?: '-' }}</a>
+                                    @else
+                                        -
+                                    @endif
+                                </td>
+                                <td>{{ $customer?->phone ?? '-' }}</td>
+                                @if ($devices->isNotEmpty())
                                     <td>
-                                        <span class="pill {{ $recipient->read_at ? 'pill-green' : 'pill-yellow' }}">
-                                            {{ $recipient->read_at ? 'Read' : 'Unread' }}
-                                        </span>
+                                        {{ $activeDevices->count() }} of {{ $devices->count() }} on
+                                        @if ($platforms)
+                                            <small class="cell-note">{{ $platforms }}</small>
+                                        @endif
                                     </td>
-                                    <td>{{ $recipient->read_at?->format('M d, Y H:i') ?? '—' }}</td>
-                                </tr>
-                            @endif
+                                    <td>{{ $languages }}</td>
+                                @else
+                                    <td colspan="2">No registered device</td>
+                                @endif
+                                <td>
+                                    <span class="pill {{ $recipient->read_at ? 'pill-green' : 'pill-yellow' }}">
+                                        {{ $recipient->read_at ? 'Read' : 'Unread' }}
+                                    </span>
+                                </td>
+                                <td>{{ $recipient->read_at?->format('M d, Y H:i') ?? '—' }}</td>
+                            </tr>
                         @empty
                             <tr>
                                 <td colspan="6" class="text-center">

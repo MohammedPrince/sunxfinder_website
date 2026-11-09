@@ -1,5 +1,7 @@
 @extends('visitors.layouts.app')
-@section('title', 'SunXFinder - ' . $company->name)
+{{-- Used for a company ($company) or another app screen ($pageName). --}}
+@php($pageName = isset($company) ? $company->name : ($pageName ?? ''))
+@section('title', 'SunXFinder - ' . $pageName)
 
 @section('content')
     <div class="open-app-page">
@@ -9,7 +11,7 @@
                     width="64" height="64">
 
                 <h1>{{ __('messages.Opening the SunXFinder app…') }}</h1>
-                <p class="open-app-company">{{ $company->name }}</p>
+                <p class="open-app-company">{{ $pageName }}</p>
                 <p class="open-app-hint">{{ __('messages.If the app did not open, choose an option below.') }}</p>
 
                 <div class="open-app-actions">

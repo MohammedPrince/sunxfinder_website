@@ -30,6 +30,8 @@ class ActivityLogger
         \App\Models\RatingQuestion::class => ['rating question', 'ratings'],
         \App\Models\RatingValue::class => ['rating value', 'ratings'],
         \App\Models\Notification::class => ['push notification', 'notifications'],
+        \App\Models\NotificationSchedule::class => ['automatic notification schedule', 'notifications'],
+        \App\Models\NotificationScheduleMessage::class => ['automatic notification message', 'notifications'],
         \App\Models\Product::class => ['product', 'catalog'],
         \App\Models\Supplier::class => ['supplier', 'catalog'],
         \App\Models\ApplianceGroup::class => ['calculator group', 'app'],

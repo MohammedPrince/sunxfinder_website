@@ -306,6 +306,45 @@
                         @enderror
                     </div>
 
+                    <div class="form-group">
+                        <label for="commission_rate">SunXFinder Commission (%) <b style="color: red">*</b></label>
+                        <input class="form-control" type="number" id="commission_rate" name="commission_rate"
+                            min="0" max="100" step="0.01" required
+                            value="{{ old('commission_rate', isset($company) ? rtrim(rtrim(number_format((float) $company->commission_rate, 2, '.', ''), '0'), '.') : 0) }}">
+                        <small class="form-hint">
+                            Percentage of each offer price, due when the customer accepts the offer. Use 0 for no
+                            commission. The company sees it in its offer form; customers never see it. A change
+                            applies to offers the company sends or edits from now on.
+                        </small>
+                        @error('commission_rate')
+                            <small class="field-error">{{ $message }}</small>
+                        @enderror
+                    </div>
+
+                    {{-- Contact details on the company's page in the customer app --}}
+                    @foreach (['show_email_in_app' => 'Email in the App', 'show_phone_in_app' => 'Phone in the App'] as $field => $label)
+                        <div class="form-group">
+                            <label for="{{ $field }}">{{ $label }}</label>
+                            @php
+                                $selectedVisibility = (string) old($field, (int) ($company->{$field} ?? true));
+                            @endphp
+
+                            <select class="select-control" id="{{ $field }}" name="{{ $field }}">
+                                <option value="1" @selected($selectedVisibility === '1')>Show</option>
+                                <option value="0" @selected($selectedVisibility === '0')>Hide</option>
+                            </select>
+                            <small class="form-hint">
+                                {{ $field === 'show_email_in_app'
+                                    ? 'Hide removes the email button from this company\'s page in the app.'
+                                    : 'Hide removes the call and WhatsApp buttons from this company\'s page in the app.' }}
+                                The website and offer invoices are not affected.
+                            </small>
+                            @error($field)
+                                <small class="field-error">{{ $message }}</small>
+                            @enderror
+                        </div>
+                    @endforeach
+
                 </div>
 
                 <div class="form-actions">

@@ -76,6 +76,11 @@ class MainService
         return $this->mainRepository->getWebsiteBanners();
     }
 
+    public function getCalculatorCatalogue(): array
+    {
+        return $this->mainRepository->getCalculatorCatalogue();
+    }
+
     public function getAdTarget(string $type, int $id): ?string
     {
         return $this->mainRepository->getAdTarget($type, $id);

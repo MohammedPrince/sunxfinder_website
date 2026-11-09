@@ -16,6 +16,7 @@ use App\Models\CompanyCarousel;
 use App\Support\AdTracker;
 use App\Models\CompanyQuotation;
 use App\Models\Customer;
+use App\Models\CustomerTermsAcceptance;
 use App\Models\CustomerDeviceToken;
 use App\Models\HomeSection;
 use App\Repositories\MainRepository;
@@ -24,6 +25,9 @@ use App\Models\CustomerNotification;
 use App\Models\ArchivedItem;
 use App\Models\Invoice;
 use App\Models\LegalSection;
+use App\Models\PackageOffer;
+use App\Models\PackageOfferResponse;
+use App\Models\Product;
 use App\Models\Project;
 use App\Models\ProjectMilestone;
 use App\Models\ProjectUpdate;
@@ -162,6 +166,11 @@ class CustomerRepository
 
         ActivityLogger::log('login', 'Signed in to the mobile app', $customer, [], ActivityLogger::actorFor($customer), 'auth');
 
+        // The Terms the customer accepted on the sign-in screen (older apps send none).
+        if (!empty($data['terms'])) {
+            $this->recordTermsAcceptance($customer, $data['terms'], 'login');
+        }
+
         $customerDetails = [
             'id' => $customer->id,
             'username' => $customer->username,
@@ -174,6 +183,7 @@ class CustomerRepository
             'access_token' => $token->plainTextToken,
             'token_type' => 'Bearer',
             'expires_at' => $expiresAt->toISOString(),
+            'terms_accepted_version' => $customer->terms_accepted_version,
         ];
 
         return [
@@ -778,8 +788,37 @@ class CustomerRepository
                 ];
             }
 
+            // Email is optional: a blank email is saved as NULL (several NULLs fit the unique index).
+            $email = trim((string) ($data['email'] ?? ''));
+            $email = $email !== '' ? $email : null;
+
+            // Phone and email are unique: say which one is taken instead of failing with a 500.
+            $takenField = match (true) {
+                Customer::withTrashed()->where('phone', $data['phone'])->whereKeyNot($customer->id)->exists() => 'phone',
+                $email !== null && Customer::withTrashed()->where('email', $email)->whereKeyNot($customer->id)->exists() => 'email',
+                default => null,
+            };
+
+            if ($takenField !== null) {
+                $isArabic = $this->customerPreferredLanguage($customer->id) === 'ar';
+                $label = $takenField === 'phone'
+                    ? ($isArabic ? 'رقم الهاتف' : 'phone number')
+                    : ($isArabic ? 'البريد الإلكتروني' : 'email address');
+                $message = $isArabic
+                    ? "{$label} مستخدم في حساب آخر. يرجى استخدام قيمة أخرى."
+                    : "This {$label} is already used by another account. Please use a different one.";
+
+                return [
+                    'success' => false,
+                    'code' => 422,
+                    'message' => $message,
+                    'errors' => [$takenField => [$message]],
+                    'data' => null,
+                ];
+            }
+
             $customer->phone = $data['phone'];
-            $customer->email = $data['email'];
+            $customer->email = $email;
             $customer->gender = $data['gender'] ?? null;
             $customer->city = $data['city'] ?? null;
             $customer->address = $data['address'] ?? null;
@@ -797,7 +836,7 @@ class CustomerRepository
                     // 'username' => $customer->username,
                     'full_name' => $fullName,
                     'first_name' => $data['first_name'],
-                    'second_name' => $data['second_name'],
+                    'second_name' => $data['second_name'] ?? '',
                     'third_name' => $data['third_name'] ?? '',
                     'phone' => $customer->phone,
                     'email' => $customer->email,
@@ -1097,6 +1136,95 @@ class CustomerRepository
         }
     }
 
+    /**
+     * Adds one row to the Terms acceptance log and keeps the latest on the customer.
+     * Time, IP and device come from the server, not the phone. A failure is logged and
+     * never stops the sign-in. $source: login | register.
+     *
+     * @param array{terms_version: string, lang: string, platform: ?string, app_version: ?string} $terms
+     */
+    private function recordTermsAcceptance(Customer $customer, array $terms, string $source): void
+    {
+        try {
+            $acceptedAt = now();
+
+            CustomerTermsAcceptance::create([
+                'customer_id' => $customer->id,
+                'terms_version' => $terms['terms_version'],
+                'lang' => $terms['lang'] === 'ar' ? 'ar' : 'en',
+                'source' => $source,
+                'platform' => $terms['platform'] ?? null,
+                'app_version' => $terms['app_version'] ?? null,
+                'ip_address' => request()->ip(),
+                'user_agent' => mb_substr((string) request()->userAgent(), 0, 255),
+                'accepted_at' => $acceptedAt,
+            ]);
+
+            $customer->forceFill([
+                'terms_accepted_version' => $terms['terms_version'],
+                'terms_accepted_at' => $acceptedAt,
+            ])->saveQuietly();
+        } catch (Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * The load the customer calculated on the website before signing up, or null.
+     * The app offers to open the calculator with it. See App\Support\CalculatorLoad.
+     */
+    public function getPendingLoad(): array
+    {
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        if (!$customer) {
+            return ['success' => false, 'code' => 401, 'message' => 'Unauthenticated.', 'pending_load' => null];
+        }
+
+        $load = $customer->pending_load;
+
+        return [
+            'success' => true,
+            'code' => 200,
+            'message' => $load ? 'Pending load retrieved successfully.' : 'No pending load.',
+            'pending_load' => is_array($load) && !empty($load['items']) ? $load : null,
+        ];
+    }
+
+    /**
+     * Clears the pending load. With an id, only when it is still that load, so a newer
+     * one saved from the website in the meantime is kept. Nothing waiting is still success.
+     */
+    public function clearPendingLoad(?string $loadId = null): array
+    {
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        if (!$customer) {
+            return ['success' => false, 'code' => 401, 'message' => 'Unauthenticated.'];
+        }
+
+        try {
+            $current = $customer->pending_load;
+            $matches = $loadId === null || ($current['id'] ?? null) === $loadId;
+
+            if ($current !== null && $matches) {
+                $customer->forceFill(['pending_load' => null])->save();
+            }
+
+            return [
+                'success' => true,
+                'code' => 200,
+                'message' => $current !== null && !$matches
+                    ? 'A newer load is waiting; it was kept.'
+                    : 'Pending load cleared.',
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'code' => 500, 'message' => 'Unable to clear the pending load.'];
+        }
+    }
+
 
     public function getCarousels(): array
     {
@@ -1191,20 +1319,14 @@ class CustomerRepository
      * A legal page in one language: ?lang=en|ar when the app sends it, otherwise the
      * language saved with the customer's device. Empty table: the built-in text.
      */
+    /** Public: the app shows the Terms before sign-in. A token, when sent, only picks the language. */
     public function getLegalPage(string $page, ?string $lang = null): array
     {
-        $customer = $this->helper->isCustomerAuthenticated();
-
-        if (!$customer) {
-            return [
-                'success' => false,
-                'code' => 401,
-                'message' => 'Unauthenticated.',
-            ];
-        }
-
         try {
-            $lang = in_array($lang, ['en', 'ar'], true) ? $lang : $this->customerPreferredLanguage($customer->id);
+            if (!in_array($lang, ['en', 'ar'], true)) {
+                $customer = $this->helper->isCustomerAuthenticated();
+                $lang = $customer ? $this->customerPreferredLanguage($customer->id) : 'en';
+            }
             $legal = app(MainRepository::class)->getLegalPage($page) ?? LegalDefaults::page($page);
             $header = $legal['header'];
 
@@ -1698,6 +1820,8 @@ class CustomerRepository
                         'peak_load' => $quote->peak_load,
                         'appliances_ids' => $quote->appliances_ids,
                         'message' => $quote->message,
+                        // Set when the request came from accepting a company package offer.
+                        'package_offer_id' => $quote->package_offer_id !== null ? (int) $quote->package_offer_id : null,
 
                         // Overall customer quote-request status.
                         'status' => $quote->status,
@@ -1781,14 +1905,20 @@ class CustomerRepository
     {
         $invoice = $offer->invoice;
 
+        $items = $invoice?->items ?? [];
+        $products = $this->itemProducts($items);
+
         return [
-            'items' => collect($invoice?->items ?? [])
+            'items' => collect($items)
                 ->map(fn(array $item) => [
                     'description' => $item['description'] ?? '',
                     'ar_description' => $item['ar_description'] ?? null,
                     'quantity' => (float) ($item['quantity'] ?? 0),
                     'unit_price' => number_format((float) ($item['unit_price'] ?? 0), 2, '.', ''),
                     'line_total' => number_format((float) ($item['total'] ?? 0), 2, '.', ''),
+                    // Set when the company picked the line from its products.
+                    'type' => $item['type'] ?? null,
+                    'product' => $products[(int) ($item['product_id'] ?? 0)] ?? null,
                 ])
                 ->values(),
             'subtotal' => $invoice?->subtotal ?? $offer->price,
@@ -1895,6 +2025,165 @@ class CustomerRepository
         }
     }
 
+    /**
+     * POST /quote-complete: the customer confirms the "Customer handover" step.
+     * Allowed only after the company has completed every installation step; it then
+     * completes the handover, the project (locked) and the quote, and emails the company.
+     * Calling it again on a completed project returns the same 200 body.
+     */
+    public function completeQuote(array $data): array
+    {
+        $lang = 'en';
+
+        try {
+            $customer = $this->helper->isCustomerAuthenticated();
+
+            if (!$customer) {
+                return ['success' => false, 'code' => 401, 'message' => 'Unauthenticated.'];
+            }
+
+            $lang = $this->customerPreferredLanguage($customer->id);
+            $say = fn(string $en, string $ar) => $lang === 'ar' ? $ar : $en;
+
+            $result = DB::transaction(function () use ($data, $customer, $say) {
+                // Someone else's quote is "not found", never "forbidden".
+                $quote = Quote::query()
+                    ->where('customer_id', $customer->id)
+                    ->whereKey($data['quote_id'])
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$quote) {
+                    return ['success' => false, 'code' => 404, 'message' => $say('Quote request not found.', 'طلب عرض السعر غير موجود.')];
+                }
+
+                $offer = CompanyQuotation::query()
+                    ->where('quote_id', $quote->id)
+                    ->where('status', 'selected')
+                    ->first();
+
+                $project = $offer
+                    ? Project::query()->where('quote_id', $quote->id)->lockForUpdate()->first()
+                    : null;
+
+                if (!$offer || !$project) {
+                    return [
+                        'success' => false,
+                        'code' => 422,
+                        'reason' => 'no_accepted_offer',
+                        'message' => $say(
+                            'You can confirm completion only after accepting an offer on this request.',
+                            'يمكنك تأكيد الاكتمال فقط بعد قبول عرض على هذا الطلب.'
+                        ),
+                    ];
+                }
+
+                $done = fn(bool $newlyCompleted) => [
+                    'success' => true,
+                    'code' => 200,
+                    'message' => $say('Marked as completed.', 'تم تأكيد اكتمال المشروع.'),
+                    'newly_completed' => $newlyCompleted,
+                    'offer_id' => (int) $offer->id,
+                    'project_id' => (int) $project->id,
+                    'data' => ['quote_id' => (int) $quote->id, 'quote_status' => 'completed'],
+                ];
+
+                // Already completed (by the company or an earlier call): safe to repeat.
+                if ($project->status === 'completed') {
+                    if ($quote->status !== 'completed') {
+                        $quote->status = 'completed';
+                        $quote->save();
+                    }
+
+                    return $done(false);
+                }
+
+                $milestones = ProjectMilestone::query()
+                    ->where('project_id', $project->id)
+                    ->orderBy('sort_order')
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get();
+
+                $isHandover = fn($milestone) => strtolower(trim((string) $milestone->title)) === 'customer handover';
+                $handover = $milestones->first($isHandover);
+                $installation = $milestones->reject($isHandover)->values();
+
+                // Same rule as the company panel: every installation step must be done first.
+                $installationComplete = $project->status === 'in_progress'
+                    && $installation->isNotEmpty()
+                    && $installation->every(fn($milestone) => $milestone->status === 'completed');
+
+                if (!$installationComplete) {
+                    return [
+                        'success' => false,
+                        'code' => 422,
+                        'reason' => 'installation_not_finished',
+                        'message' => $say(
+                            'The company has not finished the installation yet. You can confirm once all installation steps are done.',
+                            'لم تُنهِ الشركة التركيب بعد. يمكنك التأكيد بعد اكتمال جميع مراحل التركيب.'
+                        ),
+                    ];
+                }
+
+                if ($handover) {
+                    $handover->status = 'completed';
+                    $handover->started_at ??= now();
+                    $handover->completed_at ??= now();
+                    $handover->save();
+                }
+
+                $oldStatus = $project->status;
+                $project->status = 'completed';
+                $project->progress_percent = 100;
+                $project->completed_at ??= now();
+                $project->save();
+
+                SolarCompany::query()
+                    ->whereKey($project->company_id)
+                    ->update(['number_of_projects' => DB::raw('COALESCE(number_of_projects, 0) + 1')]);
+
+                ProjectUpdate::query()->create([
+                    'project_id' => $project->id,
+                    'updated_by_type' => 'customer',
+                    'updated_by_id' => $customer->id,
+                    'old_status' => $oldStatus,
+                    'new_status' => 'completed',
+                    'progress_percent' => 100,
+                    'message' => 'The customer confirmed the handover in the app. The project is completed.',
+                    'visible_to_customer' => true,
+                ]);
+
+                $quote->status = 'completed';
+                $quote->save();
+
+                // Email the company (queued until commit).
+                SendCompanyOfferDecisionEmail::dispatch($offer->id, CompanyOfferDecisionMail::COMPLETED);
+
+                return $done(true);
+            });
+
+            if (($result['newly_completed'] ?? false) === true) {
+                ActivityLogger::log('project_completed', 'Customer confirmed the handover in the app', $customer, [
+                    'quote_id' => $result['data']['quote_id'],
+                    'project_id' => $result['project_id'],
+                ], ActivityLogger::actorFor($customer), 'projects');
+            }
+
+            return $result;
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+                'message' => $lang === 'ar'
+                    ? 'تعذّر تأكيد الاكتمال. يرجى المحاولة مرة أخرى.'
+                    : 'Unable to confirm completion. Please try again.',
+            ];
+        }
+    }
+
     public function acceptOffer(array $data): array
     {
         try {
@@ -1946,7 +2235,7 @@ class CustomerRepository
                     ];
                 }
 
-                if (in_array($quote->status, ['accepted', 'cancelled', 'rejected'], true)) {
+                if (in_array($quote->status, ['accepted', 'completed', 'cancelled', 'rejected'], true)) {
                     return [
                         'success' => false,
                         'code' => 409,
@@ -1990,67 +2279,12 @@ class CustomerRepository
                 $quote->status = 'accepted';
                 $quote->save();
 
-                // Create the project for the accepted offer.
-                $project = Project::query()->create([
-                    'quote_id' => $quote->id,
-                    'company_quotation_id' => $offer->id,
-                    'customer_id' => $customer->id,
-                    'company_id' => $offer->company_id,
-                    'status' => 'accepted',
-                    'progress_percent' => 0,
-                    'accepted_at' => now(),
-                ]);
-
-                // Create the default installation checklist.
-                $milestones = [
-                    [
-                        'title' => 'Site inspection',
-                        'description' => 'Visit the customer site and confirm installation details.',
-                        'sort_order' => 1,
-                    ],
-                    [
-                        'title' => 'Equipment procurement',
-                        'description' => 'Order and receive solar panels, inverter, and batteries.',
-                        'sort_order' => 2,
-                    ],
-                    [
-                        'title' => 'Installation & wiring',
-                        'description' => 'Install solar panels, inverter, and complete wiring.',
-                        'sort_order' => 3,
-                    ],
-                    [
-                        'title' => 'System testing',
-                        'description' => 'Test system performance and safety.',
-                        'sort_order' => 4,
-                    ],
-                    [
-                        'title' => 'Customer handover',
-                        'description' => 'Explain system operation and hand over to the customer.',
-                        'sort_order' => 5,
-                    ],
-                ];
-
-                foreach ($milestones as $milestone) {
-                    ProjectMilestone::query()->create([
-                        'project_id' => $project->id,
-                        'title' => $milestone['title'],
-                        'description' => $milestone['description'],
-                        'status' => 'pending',
-                        'sort_order' => $milestone['sort_order'],
-                    ]);
-                }
-
-                // Record the initial project activity.
-                ProjectUpdate::query()->create([
-                    'project_id' => $project->id,
-                    'updated_by_type' => 'customer',
-                    'updated_by_id' => $customer->id,
-                    'old_status' => null,
-                    'new_status' => 'accepted',
-                    'progress_percent' => 0,
-                    'message' => 'The customer accepted the offer. The project is ready for preparation.',
-                    'visible_to_customer' => true,
-                ]);
+                [$project, $milestonesCreated] = $this->createAcceptedProject(
+                    $quote,
+                    $offer,
+                    (int) $customer->id,
+                    'The customer accepted the offer. The project is ready for preparation.'
+                );
 
                 // Email the company that its offer was accepted (queued until commit).
                 SendCompanyOfferDecisionEmail::dispatch($offer->id, CompanyOfferDecisionMail::ACCEPTED);
@@ -2069,7 +2303,7 @@ class CustomerRepository
                         'quote_status' => 'accepted',
                         'project_status' => 'accepted',
                         'progress_percent' => 0,
-                        'milestones_created' => count($milestones),
+                        'milestones_created' => $milestonesCreated,
                     ],
                 ];
             });
@@ -2083,6 +2317,78 @@ class CustomerRepository
                 'data' => null,
             ];
         }
+    }
+
+    /**
+     * Project for an accepted offer, waiting to start: the default installation checklist
+     * and the first update the customer sees. Call inside the acceptance transaction.
+     *
+     * @return array{0: Project, 1: int} the project and how many milestones were created
+     */
+    private function createAcceptedProject(Quote $quote, CompanyQuotation $offer, int $customerId, string $message): array
+    {
+        $project = Project::query()->create([
+            'quote_id' => $quote->id,
+            'company_quotation_id' => $offer->id,
+            'customer_id' => $customerId,
+            'company_id' => $offer->company_id,
+            'status' => 'accepted',
+            'progress_percent' => 0,
+            'accepted_at' => now(),
+        ]);
+
+        // Create the default installation checklist.
+        $milestones = [
+            [
+                'title' => 'Site inspection',
+                'description' => 'Visit the customer site and confirm installation details.',
+                'sort_order' => 1,
+            ],
+            [
+                'title' => 'Equipment procurement',
+                'description' => 'Order and receive solar panels, inverter, and batteries.',
+                'sort_order' => 2,
+            ],
+            [
+                'title' => 'Installation & wiring',
+                'description' => 'Install solar panels, inverter, and complete wiring.',
+                'sort_order' => 3,
+            ],
+            [
+                'title' => 'System testing',
+                'description' => 'Test system performance and safety.',
+                'sort_order' => 4,
+            ],
+            [
+                'title' => 'Customer handover',
+                'description' => 'Explain system operation and hand over to the customer.',
+                'sort_order' => 5,
+            ],
+        ];
+
+        foreach ($milestones as $milestone) {
+            ProjectMilestone::query()->create([
+                'project_id' => $project->id,
+                'title' => $milestone['title'],
+                'description' => $milestone['description'],
+                'status' => 'pending',
+                'sort_order' => $milestone['sort_order'],
+            ]);
+        }
+
+        // Record the initial project activity.
+        ProjectUpdate::query()->create([
+            'project_id' => $project->id,
+            'updated_by_type' => 'customer',
+            'updated_by_id' => $customerId,
+            'old_status' => null,
+            'new_status' => 'accepted',
+            'progress_percent' => 0,
+            'message' => $message,
+            'visible_to_customer' => true,
+        ]);
+
+        return [$project, count($milestones)];
     }
 
     public function rejectOffer(array $data): array
@@ -2148,6 +2454,460 @@ class CustomerRepository
         }
     }
 
+    //Package Offers Start
+
+    /**
+     * The offer, only when this customer was sent it in a notification still in their inbox,
+     * so ids cannot be guessed to see other companies' offers.
+     */
+    private function findPackageOfferForCustomer(int $offerId, int $customerId): ?PackageOffer
+    {
+        $received = CustomerNotification::query()
+            ->where('customer_id', $customerId)
+            ->whereHas('notification', fn($query) => $query
+                ->where('package_offer_id', $offerId)
+                ->where('status', 'published'))
+            ->exists();
+
+        return $received
+            ? PackageOffer::withTrashed()->with('company')->find($offerId)
+            : null;
+    }
+
+    /** @return \Illuminate\Support\Collection<int, PackageOfferResponse> keyed by package_offer_id */
+    private function packageOfferResponses(int $customerId, array $offerIds): \Illuminate\Support\Collection
+    {
+        $offerIds = array_values(array_unique(array_filter($offerIds)));
+
+        if (!$offerIds) {
+            return collect();
+        }
+
+        return PackageOfferResponse::query()
+            ->where('customer_id', $customerId)
+            ->whereIn('package_offer_id', $offerIds)
+            ->get()
+            ->keyBy('package_offer_id');
+    }
+
+    /** active | expired | closed. A deleted offer or a company no longer on the app counts as closed. */
+    private function packageOfferStatus(PackageOffer $offer): string
+    {
+        if ($offer->trashed() || !$this->helper->isCompanyVisible($offer->company)) {
+            return 'closed';
+        }
+
+        return $offer->displayStatus();
+    }
+
+    private function formatPackageOfferResponse(?PackageOfferResponse $response): ?array
+    {
+        return $response ? [
+            'status' => $response->status,
+            'quote_id' => $response->quote_id !== null ? (int) $response->quote_id : null,
+            'responded_at' => $response->responded_at?->copy()->utc()->format('Y-m-d\TH:i:s\Z'),
+        ] : null;
+    }
+
+    /** Product details already loaded in this request, by id (null: not found). */
+    private array $productDetailsCache = [];
+
+    /**
+     * Details of the company products named by offer/invoice lines (product_id), keyed by id:
+     * name, model, brand (the supplier), description and the company's specs (e.g. Rated Power,
+     * Capacity, Warranty). Current product data; a product deleted since still shows.
+     *
+     * @return array<int, array>
+     */
+    private function itemProducts(array $items): array
+    {
+        $ids = collect($items)
+            ->pluck('product_id')
+            ->filter(fn($id) => is_numeric($id) && (int) $id > 0)
+            ->map(fn($id) => (int) $id)
+            ->unique();
+
+        $missing = $ids->reject(fn(int $id) => array_key_exists($id, $this->productDetailsCache))->values();
+
+        if ($missing->isNotEmpty()) {
+            $products = Product::withTrashed()
+                ->with([
+                    'supplier' => fn($q) => $q->withTrashed()->select('id', 'name'),
+                    'specs' => fn($q) => $q->select('id', 'product_id', 'spec_name', 'spec_value')->orderBy('id'),
+                ])
+                ->whereIn('id', $missing)
+                ->get(['id', 'supplier_id', 'name', 'model', 'type', 'description'])
+                ->keyBy('id');
+
+            foreach ($missing as $id) {
+                $product = $products->get($id);
+
+                $this->productDetailsCache[$id] = $product ? [
+                    'id' => (int) $product->id,
+                    'name' => $product->name,
+                    'model' => $product->model,
+                    'brand' => $product->supplier?->name,
+                    'type' => $product->type,
+                    'description' => $product->description,
+                    'specs' => $product->specs
+                        ->filter(fn($spec) => filled($spec->spec_name) && filled($spec->spec_value))
+                        ->map(fn($spec) => ['name' => $spec->spec_name, 'value' => $spec->spec_value])
+                        ->values(),
+                ] : null;
+            }
+        }
+
+        return $ids->mapWithKeys(fn(int $id) => [$id => $this->productDetailsCache[$id]])->filter()->all();
+    }
+
+    /** Full offer for the details screen. */
+    private function formatPackageOffer(PackageOffer $offer, ?PackageOfferResponse $response): array
+    {
+        $products = $this->itemProducts($offer->items ?? []);
+
+        $company = $this->helper->isCompanyVisible($offer->company) ? $offer->company : null;
+        $status = $this->packageOfferStatus($offer);
+
+        return [
+            'id' => (int) $offer->id,
+            'title' => $offer->title_en,
+            'ar_title' => $offer->title_ar,
+            'description' => $offer->description_en,
+            'ar_description' => $offer->description_ar,
+            // Usually 2:1; reserve the space with width/height before it loads.
+            'image' => $offer->image_path ? [
+                'url' => $offer->imageUrl(),
+                'width' => $offer->image_width,
+                'height' => $offer->image_height,
+            ] : null,
+            'company' => $company ? [
+                'id' => (int) $company->id,
+                'name' => $company->name,
+                'slug' => $company->slug,
+                'city' => $company->city,
+                'logo_url' => $this->helper->publicUrl($company->logo_path),
+                'is_verified' => (bool) $company->is_verified,
+            ] : null,
+            'max_load_kw' => (float) $offer->max_load_kw,
+            'items' => collect($offer->items ?? [])
+                ->map(fn(array $item) => [
+                    'type' => $item['type'] ?? null,
+                    'product_id' => isset($item['product_id']) ? (int) $item['product_id'] : null,
+                    'description' => $item['description'] ?? '',
+                    'quantity' => (float) ($item['quantity'] ?? 0),
+                    'unit_price' => (float) ($item['unit_price'] ?? 0),
+                    'line_total' => (float) ($item['total'] ?? 0),
+                    'product' => $products[(int) ($item['product_id'] ?? 0)] ?? null,
+                ])
+                ->values(),
+            'subtotal' => (float) $offer->subtotal,
+            'discount' => (float) $offer->discount,
+            'price' => (float) $offer->price,
+            'currency' => $offer->currency,
+            'discount_percent' => $offer->discountPercent(),
+            'expires_at' => $offer->expires_at?->copy()->utc()->format('Y-m-d\TH:i:s\Z'),
+            'is_expired' => $offer->isExpired(),
+            'status' => $status,
+            // Accept / Decline buttons: only while open and not accepted yet.
+            'can_respond' => $status === 'active' && $response?->status !== PackageOfferResponse::ACCEPTED,
+            'my_response' => $this->formatPackageOfferResponse($response),
+        ];
+    }
+
+    public function getPackageOffer(int $offerId): array
+    {
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        if (!$customer) {
+            return ['success' => false, 'code' => 401, 'message' => 'Unauthenticated.'];
+        }
+
+        $offer = $this->findPackageOfferForCustomer($offerId, (int) $customer->id);
+
+        if (!$offer) {
+            return ['success' => false, 'code' => 404, 'message' => 'Offer not found.'];
+        }
+
+        $response = $this->packageOfferResponses((int) $customer->id, [$offer->id])->get($offer->id);
+
+        return [
+            'success' => true,
+            'code' => 200,
+            'message' => 'Offer retrieved successfully.',
+            'data' => ['package_offer' => $this->formatPackageOffer($offer, $response)],
+        ];
+    }
+
+    /**
+     * The customer accepts with the devices from the load calculator. The peak load must be
+     * within the offer's limit. Both sides have agreed, so this saves the request as accepted,
+     * the company's offer as selected (price and items from the package, with its invoice),
+     * and opens a project waiting to start, exactly as when a customer accepts an offer.
+     */
+    public function acceptPackageOffer(int $offerId, array $data): array
+    {
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        if (!$customer) {
+            return ['success' => false, 'code' => 401, 'message' => 'Unauthenticated.', 'data' => null];
+        }
+
+        $customerId = (int) $customer->id;
+        $offer = $this->findPackageOfferForCustomer($offerId, $customerId);
+
+        if (!$offer) {
+            return ['success' => false, 'code' => 404, 'message' => 'Offer not found.', 'data' => null];
+        }
+
+        if ($this->packageOfferStatus($offer) !== 'active') {
+            return [
+                'success' => false,
+                'code' => 409,
+                'message' => 'This offer has ended and can no longer be accepted.',
+                'data' => ['reason' => 'offer_closed'],
+            ];
+        }
+
+        $peakKw = isset($data['peak_load_kw'])
+            ? (float) $data['peak_load_kw']
+            : PackageOffer::loadToKw($data['peak_load']);
+        $maxKw = (float) $offer->max_load_kw;
+
+        if ($peakKw === null || $peakKw <= 0) {
+            return [
+                'success' => false,
+                'code' => 422,
+                'message' => 'The peak load could not be read. Send peak_load_kw as a number.',
+                'data' => ['reason' => 'invalid_load'],
+            ];
+        }
+
+        // Small tolerance for rounding in the app (4.999 vs 5).
+        if ($peakKw > $maxKw + 0.005) {
+            return [
+                'success' => false,
+                'code' => 422,
+                'message' => "Your peak load is {$peakKw} kW. This offer covers loads up to {$maxKw} kW. Remove some devices and try again.",
+                'data' => [
+                    'reason' => 'load_exceeds_offer',
+                    'max_load_kw' => $maxKw,
+                    'peak_load_kw' => round($peakKw, 2),
+                ],
+            ];
+        }
+
+        try {
+            $result = DB::transaction(function () use ($offer, $customer, $customerId, $data, $peakKw) {
+                // One acceptance at a time per offer, so a double tap cannot open two requests.
+                PackageOffer::withTrashed()->whereKey($offer->id)->lockForUpdate()->first();
+
+                $response = PackageOfferResponse::query()
+                    ->where('package_offer_id', $offer->id)
+                    ->where('customer_id', $customerId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($response?->status === PackageOfferResponse::ACCEPTED) {
+                    return ['already' => $response];
+                }
+
+                $lang = $this->customerApiLanguage($customerId);
+
+                $quote = new Quote();
+                $quote->customer_id = $customerId;
+                $quote->company_id = $offer->company_id;
+                $quote->package_offer_id = $offer->id;
+                $quote->quote_name = Str::limit(trim((string) ($data['quote_name'] ?? '')) ?: $offer->title($lang), 100, '');
+                $quote->estimated_load = $data['estimated_load'] ?? '';
+                $quote->peak_load = filled($data['peak_load'] ?? null) ? $data['peak_load'] : round($peakKw, 2) . ' kW';
+                $quote->daily_load = $data['daily_load'];
+                $quote->appliances_ids = $data['appliances_ids'];
+                $quote->message = $data['message'] ?? null;
+                $quote->status = 'accepted';
+                $quote->save();
+
+                // The package is the company's offer, already accepted by the customer.
+                $quotation = new CompanyQuotation();
+                $quotation->quote_id = $quote->id;
+                $quotation->customer_id = $customerId;
+                $quotation->company_id = $offer->company_id;
+                $quotation->price = $offer->price;
+                $quotation->currency = $offer->currency;
+                $quotation->message = $offer->description_en ?: $offer->title_en;
+                $quotation->ar_message = $offer->description_ar ?: ($offer->title_ar ?: null);
+                $quotation->commission_type = CompanyQuotation::COMMISSION_COMPANY;
+                // SunXFinder commission at the company's rate now, as for a normal offer.
+                $quotation->applyCommission(round((float) SolarCompany::query()->whereKey($offer->company_id)->value('commission_rate'), 2));
+                $quotation->status = 'selected';
+                $quotation->save();
+
+                $this->createPackageOfferInvoice($offer, $quotation, $quote, $customer);
+
+                [$project] = $this->createAcceptedProject(
+                    $quote,
+                    $quotation,
+                    $customerId,
+                    'The customer accepted the package offer. The project is ready for preparation.'
+                );
+
+                $response ??= new PackageOfferResponse([
+                    'package_offer_id' => $offer->id,
+                    'customer_id' => $customerId,
+                ]);
+                $response->fill([
+                    'status' => PackageOfferResponse::ACCEPTED,
+                    'quote_id' => $quote->id,
+                    'notification_id' => $data['notification_id'] ?? $response->notification_id,
+                    'responded_at' => now(),
+                ])->save();
+
+                // Email the company that its offer was accepted (queued until commit).
+                SendCompanyOfferDecisionEmail::dispatch($quotation->id, CompanyOfferDecisionMail::ACCEPTED);
+
+                return ['quote' => $quote, 'quotation' => $quotation, 'project' => $project, 'response' => $response];
+            });
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+                'message' => 'Unable to accept the offer. Please try again.',
+                'data' => null,
+            ];
+        }
+
+        if (isset($result['already'])) {
+            return [
+                'success' => false,
+                'code' => 409,
+                'message' => 'You have already accepted this offer.',
+                'data' => [
+                    'reason' => 'already_accepted',
+                    'quote_id' => $result['already']->quote_id !== null ? (int) $result['already']->quote_id : null,
+                ],
+            ];
+        }
+
+        $quote = $result['quote'];
+
+        return [
+            'success' => true,
+            'code' => 201,
+            'message' => 'Offer accepted and project created. The company will contact you to start the installation.',
+            'data' => [
+                'quote_id' => (int) $quote->id,
+                'offer_id' => (int) $result['quotation']->id,
+                'company_id' => (int) $quote->company_id,
+                'project_id' => (int) $result['project']->id,
+                'offer_status' => 'selected',
+                'quote_status' => 'accepted',
+                'project_status' => 'accepted',
+                'progress_percent' => 0,
+                'quote' => [
+                    'id' => (int) $quote->id,
+                    'reference' => '#Q-' . str_pad((string) $quote->id, 5, '0', STR_PAD_LEFT),
+                    'company_id' => (int) $quote->company_id,
+                    'package_offer_id' => (int) $offer->id,
+                    'quote_name' => $quote->quote_name,
+                    'estimated_load' => $quote->estimated_load,
+                    'peak_load' => $quote->peak_load,
+                    'daily_load' => $quote->daily_load,
+                    'appliances_ids' => $quote->appliances_ids,
+                    'message' => $quote->message,
+                    'status' => $quote->status,
+                    'created_at' => $quote->created_at?->toISOString(),
+                ],
+                'package_offer' => $this->formatPackageOffer($offer, $result['response']),
+            ],
+        ];
+    }
+
+    /** The accepted offer's invoice: the package lines and discount, billed to this customer. */
+    private function createPackageOfferInvoice(PackageOffer $offer, CompanyQuotation $quotation, Quote $quote, Customer $customer): Invoice
+    {
+        $company = $offer->company;
+
+        return Invoice::query()->create([
+            'company_quotation_id' => $quotation->id,
+            'quote_id' => $quote->id,
+            'company_id' => $offer->company_id,
+            'customer_id' => $customer->id,
+            // Unique per company: one package offer accepted once per request.
+            'invoice_number' => 'PKG-' . $offer->id . '-Q' . str_pad((string) $quote->id, 5, '0', STR_PAD_LEFT),
+            'invoice_date' => now()->toDateString(),
+            'payment_terms' => 'Due upon acceptance',
+            'payment_instructions' => null,
+            'currency' => $offer->currency,
+            'company_details' => [
+                'name' => $company?->name,
+                'email' => $company?->email,
+                'phone' => $company?->phone,
+                'address' => $company?->city,
+            ],
+            'customer_details' => [
+                'name' => $customer->full_name ?: $customer->username,
+                'email' => $customer->email,
+                'phone' => $customer->phone,
+                'address' => $customer->address,
+            ],
+            'items' => $offer->items ?? [],
+            'subtotal' => $offer->subtotal,
+            'discount' => $offer->discount,
+            'tax_rate' => 0,
+            'tax' => 0,
+            'shipping' => 0,
+            'balance_due' => $offer->price,
+        ]);
+    }
+
+    /** "Not interested". Can later change to accepted while the offer is open. */
+    public function declinePackageOffer(int $offerId, array $data): array
+    {
+        $customer = $this->helper->isCustomerAuthenticated();
+
+        if (!$customer) {
+            return ['success' => false, 'code' => 401, 'message' => 'Unauthenticated.', 'data' => null];
+        }
+
+        $customerId = (int) $customer->id;
+        $offer = $this->findPackageOfferForCustomer($offerId, $customerId);
+
+        if (!$offer) {
+            return ['success' => false, 'code' => 404, 'message' => 'Offer not found.', 'data' => null];
+        }
+
+        $response = PackageOfferResponse::query()
+            ->where('package_offer_id', $offer->id)
+            ->where('customer_id', $customerId)
+            ->first();
+
+        if ($response?->status === PackageOfferResponse::ACCEPTED) {
+            return [
+                'success' => false,
+                'code' => 409,
+                'message' => 'You already accepted this offer, and its project has been created.',
+                'data' => ['reason' => 'already_accepted', 'quote_id' => $response->quote_id !== null ? (int) $response->quote_id : null],
+            ];
+        }
+
+        $response ??= new PackageOfferResponse(['package_offer_id' => $offer->id, 'customer_id' => $customerId]);
+        $response->fill([
+            'status' => PackageOfferResponse::DECLINED,
+            'notification_id' => $data['notification_id'] ?? $response->notification_id,
+            'responded_at' => now(),
+        ])->save();
+
+        return [
+            'success' => true,
+            'code' => 200,
+            'message' => 'Offer declined.',
+            'data' => ['package_offer' => $this->formatPackageOffer($offer, $response)],
+        ];
+    }
+
+    //Package Offers End
+
     //Ratings Start
 
     /**
@@ -2179,11 +2939,12 @@ class CustomerRepository
                 ];
             }
 
+            // Someone else's quote is "not found", like every other customer route.
             if ((int) $quote->customer_id !== (int) $customer->id) {
                 return [
                     'success' => false,
-                    'code' => 403,
-                    'message' => 'This quote request does not belong to your account.',
+                    'code' => 404,
+                    'message' => 'Quote request not found.',
                     'data' => null,
                 ];
             }
@@ -2633,7 +3394,7 @@ class CustomerRepository
         $customerId = $customer->id;
 
         $query = CustomerNotification::query()
-            ->with('notification.company')
+            ->with(['notification.company', 'notification.packageOffer.company'])
             ->where('customer_id', $customerId)
             ->whereHas('notification', function ($query) {
                 $query->where('status', 'published');
@@ -2648,15 +3409,22 @@ class CustomerRepository
             100
         );
 
+        // id breaks ties: two notifications in the same second keep the newest first.
         $recipients = $query
             ->latest('created_at')
+            ->latest('id')
             ->paginate($perPage);
 
         /** @var \Illuminate\Support\Collection<int, CustomerNotification> $recipientRows */
         $recipientRows = $recipients->getCollection();
 
+        $offerResponses = $this->packageOfferResponses(
+            (int) $customerId,
+            $recipientRows->pluck('notification.package_offer_id')->all()
+        );
+
         $notifications = $recipientRows
-            ->map(fn(CustomerNotification $recipient) => $this->formatCustomerNotification($recipient))
+            ->map(fn(CustomerNotification $recipient) => $this->formatCustomerNotification($recipient, $offerResponses))
             ->filter()
             ->values();
 
@@ -2737,13 +3505,16 @@ class CustomerRepository
         }
 
         $recipient = CustomerNotification::query()
-            ->with('notification.company')
+            ->with(['notification.company', 'notification.packageOffer.company'])
             ->where('notification_id', $notificationId)
             ->where('customer_id', $customer->id)
             ->whereHas('notification', fn($query) => $query->where('status', 'published'))
             ->first();
 
-        $data = $recipient ? $this->formatCustomerNotification($recipient) : null;
+        $offerResponses = $recipient
+            ? $this->packageOfferResponses((int) $customer->id, [$recipient->notification?->package_offer_id])
+            : collect();
+        $data = $recipient ? $this->formatCustomerNotification($recipient, $offerResponses) : null;
 
         if (!$data) {
             return ['success' => false, 'code' => 404, 'message' => 'Notification not found'];
@@ -2756,7 +3527,7 @@ class CustomerRepository
      * App shape of an inbox item. "body"/"ar_body" are always plain text (safe for any
      * app version); rich campaigns add "body_html"/"ar_body_html" (sanitized HTML).
      */
-    private function formatCustomerNotification(CustomerNotification $recipient): ?array
+    private function formatCustomerNotification(CustomerNotification $recipient, ?\Illuminate\Support\Collection $offerResponses = null): ?array
     {
         $notification = $recipient->notification;
 
@@ -2773,8 +3544,20 @@ class CustomerRepository
         $hasOffer = $notification->offer_title_en !== null;
         $currency = $notification->offer_currency ?: 'SDG';
 
+        // A package offer the customer can accept or decline (GET /package-offers/{id}).
+        $packageOffer = $notification->package_offer_id ? $notification->packageOffer : null;
+        $packageOfferResponse = $packageOffer ? $offerResponses?->get($packageOffer->id) : null;
+        $packageOfferStatus = $packageOffer ? $this->packageOfferStatus($packageOffer) : null;
+
         $action = null;
-        if ($notification->link_url) {
+        if ($packageOffer && !$notification->link_url) {
+            $action = [
+                'type' => 'package_offer',
+                'url' => 'sunxfinder://package-offer/' . $packageOffer->id,
+                'label' => 'View offer',
+                'ar_label' => 'تفاصيل العرض',
+            ];
+        } elseif ($notification->link_url) {
             $action = [
                 'type' => Str::startsWith(strtolower($notification->link_url), 'sunxfinder://') ? 'deep_link' : 'url',
                 'url' => $notification->link_url,
@@ -2825,6 +3608,14 @@ class CustomerRepository
                 'discount_percent' => $notification->offerDiscountPercent(),
                 'expires_at' => $iso($notification->offer_expires_at),
                 'is_expired' => $notification->offer_expires_at?->isPast() ?? false,
+            ] : null,
+            'package_offer' => $packageOffer ? [
+                'id' => (int) $packageOffer->id,
+                'max_load_kw' => (float) $packageOffer->max_load_kw,
+                'status' => $packageOfferStatus,
+                'can_respond' => $packageOfferStatus === 'active'
+                    && $packageOfferResponse?->status !== PackageOfferResponse::ACCEPTED,
+                'my_response' => $this->formatPackageOfferResponse($packageOfferResponse),
             ] : null,
             'action' => $action,
             'read' => $recipient->read_at !== null,
@@ -2983,6 +3774,11 @@ class CustomerRepository
             ]);
         }
 
+        // No email typed: tell the customer why they cannot reset by email.
+        if (trim((string) ($data['email'] ?? '')) === '') {
+            return $this->passwordResetWithoutEmail($data['phone'], $lang);
+        }
+
         $found = $this->findCustomerForPasswordReset($data['phone'], $data['email'], $lang);
 
         if (!$found['success']) {
@@ -3117,6 +3913,31 @@ class CustomerRepository
         return ['success' => true, 'customer' => $customer];
     }
 
+    /**
+     * Forgot password with the phone only. Codes are sent by email, so: an account with no
+     * email gets "no_email" (contact support); one that has an email must type it.
+     */
+    private function passwordResetWithoutEmail(string $phone, string $lang): array
+    {
+        $lastDigits = substr(preg_replace('/\D/', '', $phone), -9);
+
+        $customer = strlen($lastDigits) === 9
+            ? Customer::query()->where('phone', 'like', '%' . $lastDigits)->first()
+            : null;
+
+        if (!$customer) {
+            return $this->passwordResetError(404, 'account_not_found', $lang);
+        }
+
+        if ($customer->status !== 'active' || !$customer->is_active) {
+            return $this->passwordResetError(403, 'account_inactive', $lang);
+        }
+
+        return empty($customer->email)
+            ? $this->passwordResetError(422, 'no_email', $lang)
+            : $this->passwordResetError(422, 'email_required', $lang);
+    }
+
     private function passwordResetError(int $code, string $reason, string $lang, array $extra = []): array
     {
         return [
@@ -3154,6 +3975,14 @@ class CustomerRepository
             'account_inactive' => [
                 'en' => 'This account is inactive. Please contact support.',
                 'ar' => 'هذا الحساب غير نشط. يرجى التواصل مع الدعم.',
+            ],
+            'no_email' => [
+                'en' => 'No email on this account, so we cannot send a reset code. Please contact support.',
+                'ar' => 'لا يوجد بريد إلكتروني في هذا الحساب، لذا لا يمكننا إرسال رمز إعادة التعيين. يرجى التواصل مع الدعم.',
+            ],
+            'email_required' => [
+                'en' => 'Please enter the email address on your account.',
+                'ar' => 'يرجى إدخال البريد الإلكتروني المسجّل في حسابك.',
             ],
             'channel_unavailable' => [
                 'en' => 'SMS is not available yet. Please use email.',
