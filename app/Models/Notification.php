@@ -44,6 +44,7 @@ class Notification extends Model
         'offer_currency',
         'offer_expires_at',
         'package_offer_id',
+        'notification_schedule_id',
         'audience_type',
         'audience_city',
         'is_sponsored',
@@ -142,6 +143,12 @@ class Notification extends Model
         $old = (float) $this->offer_old_price;
 
         return $price > 0 && $old > $price ? (int) round(($old - $price) / $old * 100) : null;
+    }
+
+    /** Automatic notification schedule that sent this, if any. */
+    public function schedule(): BelongsTo
+    {
+        return $this->belongsTo(NotificationSchedule::class, 'notification_schedule_id');
     }
 
     public function recipients(): HasMany

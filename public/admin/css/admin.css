@@ -8324,3 +8324,130 @@ a.cd-chip:hover {
 .legal-editor[dir="rtl"] .ql-editor {
     text-align: right;
 }
+
+/* Automatic notifications (admin/notifications/schedules) */
+.schedule-summary {
+    color: var(--navy);
+    font-weight: 600;
+}
+
+.schedule-days {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.schedule-day {
+    position: relative;
+    cursor: pointer;
+}
+
+.schedule-day input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.schedule-day span {
+    display: inline-block;
+    min-width: 104px;
+    padding: 9px 14px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--ink);
+    text-align: center;
+    font-weight: 600;
+    transition: background .15s, border-color .15s, color .15s;
+}
+
+.schedule-day input:checked + span {
+    border-color: var(--orange);
+    background: var(--orange);
+    color: #fff;
+}
+
+.schedule-day input:focus-visible + span {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+}
+
+.schedule-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.schedule-presets .btn-sm,
+.schedule-message-tools .btn-sm {
+    padding: 5px 11px;
+    font-size: 13px;
+    min-height: 0;
+}
+
+.schedule-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.schedule-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.schedule-message {
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--canvas);
+}
+
+.schedule-message-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.schedule-message-tools {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.schedule-remove {
+    color: #c62828;
+}
+
+.schedule-progress {
+    margin-bottom: 16px;
+}
+
+.schedule-progress-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.schedule-error {
+    color: #c62828;
+}
+
+@media (max-width: 720px) {
+    .schedule-day span {
+        min-width: 0;
+    }
+
+    .schedule-message-tools {
+        margin-left: 0;
+    }
+}

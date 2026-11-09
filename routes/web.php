@@ -255,6 +255,18 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 // Rich customer campaign: offer / new company / news with image and link
                 Route::get('/campaign', 'createCampaign')->name('campaign.create');
                 Route::post('/campaign', 'storeCampaign')->middleware('throttle:10,1')->name('campaign.store');
+                // Automatic notifications: messages sent in order on chosen weekdays (needs the schedule:run cron)
+                Route::prefix('automatic')->name('schedules.')->group(function () {
+                    Route::get('/', 'notificationSchedules')->name('index');
+                    Route::get('/create', 'createNotificationSchedule')->name('create');
+                    Route::post('/', 'storeNotificationSchedule')->name('store');
+                    Route::get('/{id}/edit', 'editNotificationSchedule')->whereNumber('id')->name('edit');
+                    Route::put('/{id}', 'updateNotificationSchedule')->whereNumber('id')->name('update');
+                    Route::patch('/{id}/toggle', 'toggleNotificationSchedule')->whereNumber('id')->name('toggle');
+                    Route::post('/{id}/reset', 'resetNotificationSchedule')->whereNumber('id')->name('reset');
+                    Route::post('/{id}/send-now', 'sendNotificationScheduleNow')->whereNumber('id')->middleware('throttle:10,1')->name('send-now');
+                    Route::delete('/{id}', 'destroyNotificationSchedule')->whereNumber('id')->name('destroy');
+                });
                 Route::get('/{notification}', 'showNotification')->whereNumber('notification')->name('show');
                 Route::delete('/{notification}', 'destroyNotification')->whereNumber('notification')->name('destroy');
             });

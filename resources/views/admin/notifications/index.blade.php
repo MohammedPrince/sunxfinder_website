@@ -7,6 +7,7 @@
 @section('page-description', 'Create announcements and review notifications sent to SunXFinder customers.')
 
 @section('page-actions')
+    <a href="{{ route('admin.notifications.schedules.index') }}" class="btn btn-light">⏱ Automatic notifications</a>
     <a href="{{ route('admin.notifications.create') }}" class="btn btn-light">+ Quick notification</a>
     <a href="{{ route('admin.notifications.campaign.create') }}" class="btn btn-primary">📣 New customer campaign</a>
 @endsection
@@ -144,7 +145,13 @@
                                     <small class="cell-note">Company</small>
                                 @else
                                     <strong>{{ $notification->senderLabel() }}</strong>
-                                    <small class="cell-note">SunXFinder team</small>
+                                    @if ($notification->notification_schedule_id)
+                                        <small class="cell-note">
+                                            <a href="{{ route('admin.notifications.schedules.edit', $notification->notification_schedule_id) }}">Automatic</a>
+                                        </small>
+                                    @else
+                                        <small class="cell-note">SunXFinder team</small>
+                                    @endif
                                 @endif
                             </td>
                             <td>

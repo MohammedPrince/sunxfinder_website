@@ -31,6 +31,8 @@ use App\Models\CustomerTermsAcceptance;
 use App\Models\Project;
 use App\Models\CustomerNotification;
 use App\Models\Notification;
+use App\Models\NotificationSchedule;
+use App\Models\NotificationScheduleMessage;
 use App\Models\PackageOffer;
 use App\Repositories\PackageOfferRepository;
 use App\Models\Product;
@@ -3579,6 +3581,7 @@ class AdminRepository
                         'link_url', 'link_label_en', 'link_label_ar', 'company_id',
                         'offer_title_en', 'offer_title_ar', 'offer_price', 'offer_old_price',
                         'offer_currency', 'offer_expires_at', 'audience_city', 'package_offer_id',
+                        'notification_schedule_id',
                     ]));
 
                     $notification = Notification::create([
@@ -3787,6 +3790,319 @@ class AdminRepository
         return $notification;
     }
 
+
+    // Automatic notifications Start
+
+    public function getNotificationSchedules(): array
+    {
+        $schedules = NotificationSchedule::query()
+            ->withCount([
+                'messages',
+                'messages as active_messages_count' => fn($query) => $query->where('is_active', true),
+            ])
+            ->orderByDesc('is_active')
+            ->orderBy('name')
+            ->get();
+
+        return [
+            'schedules' => $schedules,
+            'metrics' => [
+                'total' => $schedules->count(),
+                'active' => $schedules->where('is_active', true)->count(),
+                'sent' => (int) $schedules->sum('sent_count'),
+                'messages' => (int) $schedules->sum('messages_count'),
+            ],
+        ];
+    }
+
+    /** Schedule (null for a new one), its messages, recent sends and the city list. */
+    public function getNotificationScheduleFormData(?int $id = null): array
+    {
+        $schedule = null;
+
+        if ($id !== null) {
+            $schedule = NotificationSchedule::with('messages')->find($id);
+
+            if (!$schedule) {
+                return ['success' => false, 'message' => 'Schedule not found.'];
+            }
+        }
+
+        $cities = Customer::query()
+            ->whereHas('deviceTokens')
+            ->whereNotNull('city')
+            ->where('city', '<>', '')
+            ->selectRaw('TRIM(city) as city, COUNT(*) as total')
+            ->groupByRaw('TRIM(city)')
+            ->orderBy('city')
+            ->pluck('total', 'city');
+
+        return [
+            'success' => true,
+            'schedule' => $schedule,
+            'messages' => $schedule?->messages ?? collect(),
+            'nextMessage' => $schedule?->nextMessage(),
+            'recentSends' => $schedule
+                ? $schedule->notifications()->withCount('recipients')->latest('published_at')->limit(10)->get()
+                : collect(),
+            'cities' => $cities,
+            'appCustomerCount' => Customer::query()->whereHas('deviceTokens')->count(),
+        ];
+    }
+
+    /** Creates or updates a schedule and its messages; messages keep the order they were posted in. */
+    public function saveNotificationSchedule(array $data, ?int $id = null): array
+    {
+        $schedule = $id !== null ? NotificationSchedule::find($id) : new NotificationSchedule();
+
+        if (!$schedule) {
+            return ['success' => false, 'message' => 'Schedule not found.'];
+        }
+
+        // Saturday-first order, so the stored list reads like the form.
+        $days = array_values(array_filter(
+            array_keys(NotificationSchedule::WEEKDAYS),
+            fn($day) => in_array($day, array_map('intval', $data['days']), true)
+        ));
+
+        DB::transaction(function () use ($schedule, $data, $days) {
+            $schedule->fill([
+                'name' => $data['name'],
+                'is_active' => (bool) ($data['is_active'] ?? false),
+                'days' => $days,
+                'every_days' => (int) $data['every_days'],
+                'send_time' => $data['send_time'],
+                'timezone' => $data['timezone'],
+                'starts_on' => $data['starts_on'] ?? null,
+                'ends_on' => $data['ends_on'] ?? null,
+                'notification_type' => $data['notification_type'],
+                'audience_type' => $data['audience_type'],
+                'audience_city' => $data['audience_type'] === 'city' ? trim((string) $data['audience_city']) : null,
+                'after_last' => $data['after_last'],
+            ])->save();
+
+            $existing = $schedule->messages()->get()->keyBy('id');
+            $keptIds = [];
+
+            foreach (array_values($data['messages']) as $index => $row) {
+                $values = [
+                    'sort_order' => $index + 1,
+                    'is_active' => (bool) ($row['is_active'] ?? false),
+                    'title_en' => trim($row['title_en']),
+                    'title_ar' => filled($row['title_ar'] ?? null) ? trim($row['title_ar']) : null,
+                    'message_en' => trim($row['message_en']),
+                    'message_ar' => filled($row['message_ar'] ?? null) ? trim($row['message_ar']) : null,
+                ];
+
+                $message = !empty($row['id']) ? $existing->get((int) $row['id']) : null;
+
+                if ($message) {
+                    $message->fill($values)->save();
+                } else {
+                    $message = $schedule->messages()->create($values);
+                }
+
+                $keptIds[] = (int) $message->id;
+            }
+
+            $existing->except($keptIds)->each->delete();
+
+            // Messages were renumbered: keep the progress pointing at the same message.
+            $lastId = (int) $schedule->last_message_id;
+            if ($lastId && in_array($lastId, $keptIds, true)) {
+                NotificationSchedule::whereKey($schedule->id)->update([
+                    'last_message_order' => array_search($lastId, $keptIds, true) + 1,
+                ]);
+            }
+        });
+
+        return [
+            'success' => true,
+            'message' => $id !== null ? 'Schedule saved.' : 'Schedule created.',
+            'id' => $schedule->id,
+        ];
+    }
+
+    public function toggleNotificationSchedule(int $id): array
+    {
+        $schedule = NotificationSchedule::find($id);
+
+        if (!$schedule) {
+            return ['success' => false, 'message' => 'Schedule not found.'];
+        }
+
+        $schedule->is_active = !$schedule->is_active;
+        $schedule->save();
+
+        return [
+            'success' => true,
+            'message' => $schedule->is_active
+                ? 'Schedule turned on. The next message goes out on the next chosen day.'
+                : 'Schedule paused. No more messages will be sent until you turn it on.',
+        ];
+    }
+
+    /** Starts the schedule again from the first message (keeps the history). */
+    public function resetNotificationSchedule(int $id): array
+    {
+        if (!NotificationSchedule::whereKey($id)->exists()) {
+            return ['success' => false, 'message' => 'Schedule not found.'];
+        }
+
+        NotificationSchedule::whereKey($id)->update([
+            'last_message_id' => null,
+            'last_message_order' => null,
+            'last_sent_on' => null,
+            'last_run_on' => null,
+            'last_error' => null,
+        ]);
+
+        return ['success' => true, 'message' => 'Schedule restarted. The first message goes out on the next chosen day.'];
+    }
+
+    public function deleteNotificationSchedule(int $id): array
+    {
+        $schedule = NotificationSchedule::find($id);
+
+        if (!$schedule) {
+            return ['success' => false, 'message' => 'Schedule not found.'];
+        }
+
+        DB::transaction(function () use ($schedule) {
+            $schedule->messages()->get()->each->delete();
+            $schedule->delete();
+        });
+
+        // Notifications already sent stay in the history and in the customers' app.
+        return ['success' => true, 'message' => 'Schedule deleted. Notifications already sent are kept.'];
+    }
+
+    /** "Send next message now" from the admin: counts as today's send. */
+    public function sendNotificationScheduleNow(int $id): array
+    {
+        $schedule = NotificationSchedule::find($id);
+
+        if (!$schedule) {
+            return ['success' => false, 'message' => 'Schedule not found.'];
+        }
+
+        $today = $schedule->localNow()->toDateString();
+        NotificationSchedule::whereKey($id)->update(['last_run_on' => $today]);
+
+        return $this->sendScheduledMessage($schedule->fresh(), $today);
+    }
+
+    /**
+     * Sends every schedule that is due now. Run every minute by "notifications:send-scheduled".
+     * Each schedule is tried at most once per local day: the day is claimed with a conditional
+     * update first, so two overlapping runs cannot send the same message twice.
+     */
+    public function runDueNotificationSchedules(): array
+    {
+        $summary = ['due' => 0, 'sent' => 0, 'failed' => 0, 'messages' => []];
+
+        $schedules = NotificationSchedule::query()->where('is_active', true)->get();
+
+        foreach ($schedules as $schedule) {
+            if (!$schedule->isDueAt()) {
+                continue;
+            }
+
+            $today = $schedule->localNow()->toDateString();
+
+            $claimed = NotificationSchedule::query()
+                ->whereKey($schedule->id)
+                ->where(fn($query) => $query->whereNull('last_run_on')->orWhere('last_run_on', '<>', $today))
+                ->update(['last_run_on' => $today]);
+
+            if (!$claimed) {
+                continue;
+            }
+
+            $summary['due']++;
+            $result = $this->sendScheduledMessage($schedule->fresh(), $today);
+            $summary[$result['success'] ? 'sent' : 'failed']++;
+            $summary['messages'][] = $schedule->name . ': ' . $result['message'];
+        }
+
+        return $summary;
+    }
+
+    private function sendScheduledMessage(NotificationSchedule $schedule, string $today): array
+    {
+        $message = $schedule->nextMessage();
+
+        if (!$message) {
+            NotificationSchedule::whereKey($schedule->id)->update([
+                'is_active' => false,
+                'last_error' => 'No message left to send.',
+            ]);
+
+            return ['success' => false, 'message' => 'No message left to send. Restart the schedule or add messages.'];
+        }
+
+        try {
+            $notification = $this->publishNotification([
+                'sender_type' => 'admin',
+                'sender_id' => null,
+                'type' => $schedule->notification_type,
+                'audience_type' => $schedule->audience_type,
+                'audience_city' => $schedule->audience_city,
+                'title_en' => $message->title_en,
+                'title_ar' => $message->title_ar,
+                'message_en' => $message->message_en,
+                'message_ar' => $message->message_ar,
+                'notification_schedule_id' => $schedule->id,
+            ]);
+        } catch (ValidationException $e) {
+            $error = collect($e->errors())->flatten()->first() ?: 'The notification could not be sent.';
+        } catch (Throwable $e) {
+            Log::error('SunXFinder automatic notification: send failed', [
+                'schedule_id' => $schedule->id,
+                'message_id' => $message->id,
+                'exception_class' => get_class($e),
+                'error' => $e->getMessage(),
+            ]);
+
+            $error = 'Sending failed: ' . $e->getMessage();
+        }
+
+        if (isset($error)) {
+            NotificationSchedule::whereKey($schedule->id)->update(['last_error' => Str::limit($error, 250)]);
+
+            return ['success' => false, 'message' => $error];
+        }
+
+        $now = now();
+
+        NotificationSchedule::whereKey($schedule->id)->update([
+            'last_message_id' => $message->id,
+            'last_message_order' => $message->sort_order,
+            'last_sent_on' => $today,
+            'last_sent_at' => $now,
+            'last_error' => null,
+            'sent_count' => DB::raw('sent_count + 1'),
+        ]);
+
+        NotificationScheduleMessage::whereKey($message->id)->update([
+            'last_sent_at' => $now,
+            'sent_count' => DB::raw('sent_count + 1'),
+        ]);
+
+        // A "stop" schedule switches itself off after its last message.
+        $fresh = $schedule->fresh();
+        if ($fresh->after_last === 'stop' && !$fresh->nextMessage()) {
+            NotificationSchedule::whereKey($schedule->id)->update(['is_active' => false]);
+        }
+
+        return [
+            'success' => true,
+            'message' => "Sent \"{$message->title_en}\" (message {$message->sort_order}).",
+            'notification_id' => $notification->id,
+        ];
+    }
+
+    // Automatic notifications End
 
     public function getNotifications(array $filters = []): array
     {

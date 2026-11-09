@@ -545,6 +545,47 @@ class AdminService
         return $this->adminRepository->deleteNotification($id);
     }
 
+    // Automatic notifications (schedules)
+    public function getNotificationSchedules(): array
+    {
+        return $this->adminRepository->getNotificationSchedules();
+    }
+
+    public function getNotificationScheduleFormData(?int $id = null): array
+    {
+        return $this->adminRepository->getNotificationScheduleFormData($id);
+    }
+
+    public function saveNotificationSchedule(array $data, ?int $id = null): array
+    {
+        return $this->adminRepository->saveNotificationSchedule($data, $id);
+    }
+
+    public function toggleNotificationSchedule(int $id): array
+    {
+        return $this->adminRepository->toggleNotificationSchedule($id);
+    }
+
+    public function resetNotificationSchedule(int $id): array
+    {
+        return $this->adminRepository->resetNotificationSchedule($id);
+    }
+
+    public function deleteNotificationSchedule(int $id): array
+    {
+        return $this->adminRepository->deleteNotificationSchedule($id);
+    }
+
+    public function sendNotificationScheduleNow(int $id): array
+    {
+        return $this->adminRepository->sendNotificationScheduleNow($id);
+    }
+
+    public function runDueNotificationSchedules(): array
+    {
+        return $this->adminRepository->runDueNotificationSchedules();
+    }
+
     public function getCampaignFormData(): array
     {
         return $this->adminRepository->getCampaignFormData();

@@ -2398,6 +2398,110 @@ class MainController extends Controller
             ->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
+    // Automatic notifications: messages sent one by one on chosen weekdays, every N days.
+    public function notificationSchedules()
+    {
+        return view('admin.notifications.schedules.index', $this->adminService->getNotificationSchedules());
+    }
+
+    public function createNotificationSchedule()
+    {
+        return view('admin.notifications.schedules.form', $this->adminService->getNotificationScheduleFormData());
+    }
+
+    public function storeNotificationSchedule(Request $request)
+    {
+        $result = $this->adminService->saveNotificationSchedule($this->validateNotificationSchedule($request));
+
+        return redirect()
+            ->route('admin.notifications.schedules.edit', $result['id'])
+            ->with('success', $result['message']);
+    }
+
+    public function editNotificationSchedule(int $id)
+    {
+        $data = $this->adminService->getNotificationScheduleFormData($id);
+
+        if (!$data['success']) {
+            return redirect()->route('admin.notifications.schedules.index')->with('error', $data['message']);
+        }
+
+        return view('admin.notifications.schedules.form', $data);
+    }
+
+    public function updateNotificationSchedule(Request $request, int $id)
+    {
+        $result = $this->adminService->saveNotificationSchedule($this->validateNotificationSchedule($request), $id);
+
+        if (!$result['success']) {
+            return redirect()->route('admin.notifications.schedules.index')->with('error', $result['message']);
+        }
+
+        return redirect()
+            ->route('admin.notifications.schedules.edit', $id)
+            ->with('success', $result['message']);
+    }
+
+    public function toggleNotificationSchedule(int $id)
+    {
+        $result = $this->adminService->toggleNotificationSchedule($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function resetNotificationSchedule(int $id)
+    {
+        $result = $this->adminService->resetNotificationSchedule($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function sendNotificationScheduleNow(int $id)
+    {
+        $result = $this->adminService->sendNotificationScheduleNow($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function destroyNotificationSchedule(int $id)
+    {
+        $result = $this->adminService->deleteNotificationSchedule($id);
+
+        return redirect()->route('admin.notifications.schedules.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    private function validateNotificationSchedule(Request $request): array
+    {
+        return $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'is_active' => ['nullable', 'boolean'],
+            'days' => ['required', 'array', 'min:1'],
+            'days.*' => ['integer', Rule::in(array_keys(\App\Models\NotificationSchedule::WEEKDAYS))],
+            'every_days' => ['required', 'integer', 'min:1', 'max:60'],
+            'send_time' => ['required', 'date_format:H:i'],
+            'timezone' => ['required', 'timezone:all'],
+            'starts_on' => ['nullable', 'date'],
+            'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
+            'notification_type' => ['required', Rule::in(array_keys(\App\Models\NotificationSchedule::TYPES))],
+            'audience_type' => ['required', Rule::in(['all', 'city'])],
+            'audience_city' => ['nullable', 'required_if:audience_type,city', 'string', 'max:120'],
+            'after_last' => ['required', Rule::in(array_keys(\App\Models\NotificationSchedule::AFTER_LAST))],
+            'messages' => ['required', 'array', 'min:1', 'max:100'],
+            'messages.*.id' => ['nullable', 'integer', 'min:1'],
+            'messages.*.is_active' => ['nullable', 'boolean'],
+            'messages.*.title_en' => ['required', 'string', 'max:180'],
+            'messages.*.title_ar' => ['nullable', 'string', 'max:180'],
+            'messages.*.message_en' => ['required', 'string', 'max:2000'],
+            'messages.*.message_ar' => ['nullable', 'string', 'max:2000'],
+        ], [
+            'days.required' => 'Choose at least one day of the week.',
+            'messages.required' => 'Add at least one message.',
+            'messages.*.title_en.required' => 'Every message needs an English title.',
+            'messages.*.message_en.required' => 'Every message needs an English text.',
+        ]);
+    }
+
     // Customer campaigns: rich notifications (offer, new company, news) with image and link.
     public function createCampaign(Request $request)
     {
