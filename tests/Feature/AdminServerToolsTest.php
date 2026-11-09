@@ -46,10 +46,101 @@ class AdminServerToolsTest extends TestCase
         parent::tearDown();
     }
 
-    /** Pretend this is the hosting. */
-    private function onHosting(): void
+    /** Pretend this is the hosting, as PROD (sunxfinder_prod) or DEV (sunXfinder). */
+    private function onHosting(string $site = 'PROD'): void
     {
-        config(['server_tools.enabled' => true, 'server_tools.php' => '/opt/cpanel/ea-php82/root/usr/bin/php']);
+        config([
+            'server_tools.enabled' => true,
+            'server_tools.php' => '/opt/cpanel/ea-php82/root/usr/bin/php',
+            // The test project folder stands in for public_html/Repository/sunxfinder_prod or /sunXfinder.
+            'server_tools.sites' => [basename(base_path()) => $site === 'PROD'
+                ? ['name' => 'PROD', 'url' => 'https://sunxfinder.com', 'copy_public' => true]
+                : ['name' => 'DEV', 'url' => 'https://dev.sunxfinder.com', 'copy_public' => false]],
+        ]);
+    }
+
+    public function test_page_shows_which_site_it_is(): void
+    {
+        $this->onHosting('DEV');
+        $this->get(route('admin.server-tools.index'))
+            ->assertOk()
+            ->assertSee('https://dev.sunxfinder.com')
+            ->assertSee('Off on DEV: only PROD copies to public_html.');
+
+        $this->onHosting('PROD');
+        $this->get(route('admin.server-tools.index'))
+            ->assertOk()
+            ->assertSee('https://sunxfinder.com')
+            ->assertDontSee('Off on PROD');
+    }
+
+    public function test_the_default_sites_match_the_hosting_folders(): void
+    {
+        $this->assertSame('PROD', config('server_tools.sites.sunxfinder_prod.name'));
+        $this->assertTrue(config('server_tools.sites.sunxfinder_prod.copy_public'));
+        $this->assertSame('DEV', config('server_tools.sites.sunXfinder.name'));
+        $this->assertFalse(config('server_tools.sites.sunXfinder.copy_public'));
+    }
+
+    public function test_dev_never_copies_public_folders(): void
+    {
+        $this->onHosting('DEV');
+        File::ensureDirectoryExists($this->tmp . '/project/public/css');
+        File::ensureDirectoryExists($this->tmp . '/public_html');
+        config([
+            'server_tools.public_source' => $this->tmp . '/project/public',
+            'server_tools.public_target' => $this->tmp . '/public_html',
+        ]);
+
+        $this->post(route('admin.server-tools.run'), ['action' => 'copy_public'])
+            ->assertSessionHas('error')
+            ->assertSessionHas('tool_output', fn($output) => str_contains($output, 'PROD only'));
+
+        $this->assertFalse(File::isDirectory($this->tmp . '/public_html/css'));
+    }
+
+    public function test_config_clear_and_config_cache(): void
+    {
+        $this->onHosting('DEV');
+        Process::fake();
+
+        $this->post(route('admin.server-tools.run'), ['action' => 'config_clear'])->assertSessionHas('success');
+        $this->post(route('admin.server-tools.run'), ['action' => 'config_cache'])->assertSessionHas('success');
+
+        Process::assertRan(fn(PendingProcess $process) => $process->command === ['/opt/cpanel/ea-php82/root/usr/bin/php', base_path('artisan'), 'config:clear']);
+        Process::assertRan(fn(PendingProcess $process) => $process->command === ['/opt/cpanel/ea-php82/root/usr/bin/php', base_path('artisan'), 'config:cache']);
+    }
+
+    public function test_laravel_log_is_shown_newest_first_and_can_be_downloaded_and_cleared(): void
+    {
+        $logFile = $this->tmp . '/laravel.log';
+        File::ensureDirectoryExists($this->tmp);
+        File::put($logFile, "[2026-11-10 08:00:00] local.INFO: first entry\n[2026-11-10 09:00:00] local.ERROR: something broke\n");
+        config(['server_tools.log_file' => $logFile]);
+
+        $html = $this->get(route('admin.server-tools.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('<span class="log-error">[2026-11-10 09:00:00] local.ERROR: something broke</span>', $html);
+        $this->assertLessThan(strpos($html, 'first entry'), strpos($html, 'something broke'));
+
+        $this->get(route('admin.server-tools.log.download'))->assertOk()->assertDownload();
+
+        $this->delete(route('admin.server-tools.log.clear'))->assertSessionHas('success');
+        $this->assertSame('', File::get($logFile));
+        $this->get(route('admin.server-tools.index'))->assertSee('The log is empty.');
+    }
+
+    public function test_a_big_log_is_read_from_the_end_only(): void
+    {
+        $logFile = $this->tmp . '/laravel.log';
+        File::ensureDirectoryExists($this->tmp);
+        File::put($logFile, str_repeat("old line padding padding padding\n", 40000) . "the very last line\n");
+        config(['server_tools.log_file' => $logFile, 'server_tools.log_lines' => 5]);
+
+        $tail = \App\Support\ServerTools::logTail();
+
+        $this->assertCount(5, $tail['lines']);
+        $this->assertSame('the very last line', $tail['lines'][0]);
+        $this->assertGreaterThan(512 * 1024, $tail['size']);
     }
 
     public function test_page_is_in_the_system_menu_and_off_on_the_local_machine(): void

@@ -2145,8 +2145,26 @@ class MainController extends Controller
     {
         $status = $this->adminService->getServerToolsStatus();
         $actions = \App\Support\ServerTools::ACTIONS;
+        $log = $this->adminService->getServerLog();
 
-        return view('admin.server-tools.index', compact('status', 'actions'));
+        return view('admin.server-tools.index', compact('status', 'actions', 'log'));
+    }
+
+    public function downloadServerLog()
+    {
+        $log = $this->adminService->getServerLog();
+
+        abort_unless($log['exists'], 404);
+
+        return response()->download($log['path'], 'laravel-' . now()->format('Y_m_d-H-i') . '.log', ['Content-Type' => 'text/plain']);
+    }
+
+    public function clearServerLog()
+    {
+        $result = $this->adminService->clearServerLog();
+
+        return redirect()->to(route('admin.server-tools.index') . '#server-log')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
     public function runServerTool(Request $request)

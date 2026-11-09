@@ -35,6 +35,18 @@ class ServerTools
             'help' => 'Builds the config, route and view caches again so the site is fast. Run it after "Clear caches".',
             'confirm' => 'Rebuild the caches now?',
         ],
+        'config_clear' => [
+            'title' => 'Clear config cache',
+            'command' => 'php artisan config:clear',
+            'help' => 'Clears only the cached settings, so a changed .env is read again. Faster than "Clear caches".',
+            'confirm' => 'Clear the config cache now?',
+        ],
+        'config_cache' => [
+            'title' => 'Cache config',
+            'command' => 'php artisan config:cache',
+            'help' => 'Caches the settings from .env and config/ again. Run it after "Clear config cache".',
+            'confirm' => 'Cache the config now?',
+        ],
         'migrate' => [
             'title' => 'Run migrations',
             'command' => 'php artisan migrate --force',
@@ -91,6 +103,28 @@ class ServerTools
         return 'The cPanel PHP binary was not found at ' . config('server_tools.php') . '. Set SERVER_TOOLS_PHP in .env.';
     }
 
+    /**
+     * Which site this is (PROD / DEV), from the project folder name:
+     * public_html/Repository/sunxfinder_prod = PROD, public_html/Repository/sunXfinder = DEV.
+     *
+     * @return array{key: ?string, name: string, url: ?string, copy_public: bool}
+     */
+    public static function site(): array
+    {
+        $folder = basename(base_path());
+        $site = config('server_tools.sites.' . $folder);
+
+        return is_array($site)
+            ? ['key' => $folder, 'name' => $site['name'], 'url' => $site['url'] ?? null, 'copy_public' => (bool) ($site['copy_public'] ?? false)]
+            : ['key' => null, 'name' => self::available() ? 'Unknown' : 'LOCAL', 'url' => config('app.url'), 'copy_public' => false];
+    }
+
+    /** "Copy public folders" is for PROD only: dev.sunxfinder.com serves its own public folder. */
+    public static function canCopyPublic(): bool
+    {
+        return self::site()['copy_public'];
+    }
+
     /** Can the web PHP start other programs? Shared hosting sometimes turns proc_open off. */
     public static function canRunProcesses(): bool
     {
@@ -117,7 +151,58 @@ class ServerTools
             'public_target' => $target,
             'public_folders' => config('server_tools.public_folders'),
             'running' => Cache::has(self::LOCK),
+            'site' => self::site(),
+            'copy_public' => self::canCopyPublic(),
         ];
+    }
+
+    /**
+     * The end of storage/logs/laravel.log, newest line first. Reads at most the last 512 KB,
+     * so a big log never fills the memory.
+     *
+     * @return array{exists: bool, path: string, size: int, modified: ?\Illuminate\Support\Carbon, lines: string[]}
+     */
+    public static function logTail(?int $lines = null): array
+    {
+        $path = (string) config('server_tools.log_file');
+        $lines ??= (int) config('server_tools.log_lines');
+
+        if (!is_file($path)) {
+            return ['exists' => false, 'path' => $path, 'size' => 0, 'modified' => null, 'lines' => []];
+        }
+
+        $size = (int) filesize($path);
+        $chunk = min($size, 512 * 1024);
+        $text = '';
+
+        if ($chunk > 0 && ($handle = fopen($path, 'rb'))) {
+            fseek($handle, -$chunk, SEEK_END);
+            $text = (string) fread($handle, $chunk);
+            fclose($handle);
+        }
+
+        $all = preg_split('/\r\n|\n|\r/', rtrim($text));
+
+        // The first line may be cut in half when only the end was read.
+        if ($chunk < $size) {
+            array_shift($all);
+        }
+
+        return [
+            'exists' => true,
+            'path' => $path,
+            'size' => $size,
+            'modified' => \Illuminate\Support\Carbon::createFromTimestamp(filemtime($path)),
+            'lines' => array_reverse(array_slice($all, -$lines)),
+        ];
+    }
+
+    /** Empties laravel.log (the file stays, so the web server can keep writing to it). */
+    public static function clearLog(): bool
+    {
+        $path = (string) config('server_tools.log_file');
+
+        return !is_file($path) || file_put_contents($path, '') !== false;
     }
 
     /**
@@ -176,6 +261,8 @@ class ServerTools
         $command = match ($action) {
             'optimize_clear' => [$php, $artisan, 'optimize:clear'],
             'optimize' => [$php, $artisan, 'optimize'],
+            'config_clear' => [$php, $artisan, 'config:clear'],
+            'config_cache' => [$php, $artisan, 'config:cache'],
             'migrate' => [$php, $artisan, 'migrate', '--force', '--no-interaction'],
             // Stops when the queue is empty, and never runs longer than the page can wait.
             'queue' => [$php, $artisan, 'queue:work', '--stop-when-empty', '--tries=3', '--max-time=' . max(60, (int) config('server_tools.timeout') - 60)],
@@ -203,6 +290,13 @@ class ServerTools
     /** @return array{0: bool, 1: string} */
     private static function copyPublicFolders(): array
     {
+        if (!self::canCopyPublic()) {
+            $site = self::site();
+
+            throw new RuntimeException("Copy public folders is for PROD only. This is {$site['name']}"
+                . ($site['url'] ? " ({$site['url']})" : '') . ', which serves its own public folder.');
+        }
+
         $source = rtrim((string) config('server_tools.public_source'), '/\\');
         $target = rtrim((string) config('server_tools.public_target'), '/\\');
 

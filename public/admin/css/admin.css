@@ -8732,3 +8732,14 @@ a.cd-chip:hover {
     white-space: pre-wrap;
     word-break: break-word;
 }
+.server-log {
+    max-height: 560px;
+}
+
+.server-log .log-error {
+    color: #fca5a5;
+}
+
+.server-log .log-warning {
+    color: #fcd34d;
+}

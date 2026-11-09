@@ -792,6 +792,16 @@ class AdminService
         return $this->adminRepository->runServerTool($action);
     }
 
+    public function getServerLog(): array
+    {
+        return $this->adminRepository->getServerLog();
+    }
+
+    public function clearServerLog(): array
+    {
+        return $this->adminRepository->clearServerLog();
+    }
+
     public function getDatabaseBackupPath(string $name): ?string
     {
         return $this->adminRepository->getDatabaseBackupPath($name);

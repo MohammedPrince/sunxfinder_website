@@ -266,7 +266,7 @@ return [
                 '<strong>Activity Logs</strong>: كل دخول وتعديل وحذف من المشرفين والشركات والعملاء، مع القيمة القديمة ← الجديدة.',
                 '<strong>Background Jobs</strong>: الرسائل والإشعارات المنتظرة أو الفاشلة. أصلح السبب الموضح في التلميح ثم اضغط <strong>Retry</strong>. قسم Automatic notifications يعرض كل إرسال مجدول بحالة Done أو Partly delivered أو Failed.',
                 '<strong>Database Backups</strong>: أنشئ نسخة قبل أي تغيير كبير، ونزّلها واحتفظ بنسخة خارج الخادم.',
-                '<strong>Server Tools</strong> (على الاستضافة فقط): بعد رفع كود جديد شغّل <strong>Composer install</strong> (إذا تغيّرت الحزم)، ثم <strong>Clear caches</strong> و<strong>Run migrations</strong> و<strong>Optimize</strong> و<strong>Copy public folders</strong>. أما <strong>Run waiting jobs</strong> فيرسل الرسائل والإشعارات العالقة.',
+                '<strong>Server Tools</strong> (على الاستضافة فقط): بعد رفع كود جديد شغّل <strong>Composer install</strong> (إذا تغيّرت الحزم)، ثم <strong>Clear caches</strong> و<strong>Run migrations</strong> و<strong>Optimize</strong> و<strong>Copy public folders</strong> (في PROD فقط). إذا غيّرت ملف .env فقط فاستخدم <strong>Clear config cache</strong> ثم <strong>Cache config</strong>. أما <strong>Run waiting jobs</strong> فيرسل الرسائل والإشعارات العالقة. وفي أسفل الصفحة يظهر <strong>laravel.log</strong> بالأحدث أولاً، مع التنزيل والمسح.',
                 '<strong>Archives</strong>: السجلات المحذوفة من الموقع أو التطبيق تُحفظ هنا، حسب النوع والمصدر والتاريخ.',
             ],
             'tips' => [

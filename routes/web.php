@@ -333,6 +333,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::prefix('server-tools')->name('server-tools.')->group(function () {
                 Route::get('/', 'serverTools')->name('index');
                 Route::post('/run', 'runServerTool')->middleware('throttle:10,1')->name('run');
+                // storage/logs/laravel.log
+                Route::get('/log/download', 'downloadServerLog')->name('log.download');
+                Route::delete('/log', 'clearServerLog')->name('log.clear');
             });
 
             // Privacy Policy and Terms text, section by section, in English and Arabic
