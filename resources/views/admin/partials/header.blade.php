@@ -182,6 +182,7 @@
                 </svg>
             </span>
             <span>Projects</span>
+            <span class="nav-count warm">{{ $projectsCount ?? 0 }}</span>
         </a>
         <a class="nav-link {{ request()->routeIs('admin.complaints.*') ? 'active' : '' }}"
             href="{{ route('admin.complaints.index') }}">
@@ -192,6 +193,7 @@
                 </svg>
             </span>
             <span>Complaints</span>
+            <span class="nav-count warm">{{ $complaintsCount ?? 0 }}</span>
         </a>
         <a class="nav-link {{ request()->routeIs('admin.notifications.*') ? 'active' : '' }}"
             href="{{ route('admin.notifications.index') }}">

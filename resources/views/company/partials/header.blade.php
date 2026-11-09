@@ -111,6 +111,7 @@
                 </svg>
             </span>
             <span>{{ __('company/messages.navigation.package_offers') }}</span>
+            <span class="nav-count warm">{{ $packageOffersCount ?? 0 }}</span>
         </a>
         <a class="nav-link {{ request()->routeIs('company.projects.*') ? 'active' : '' }}"
             href="{{ route('company.projects.index') }}">
