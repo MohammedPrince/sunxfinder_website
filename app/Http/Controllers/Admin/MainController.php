@@ -2139,6 +2139,33 @@ class MainController extends Controller
 
     //Database Backups End
 
+    //Server Tools Start (hosting only: clear/optimize, migrate, queue, composer, copy public folders)
+
+    public function serverTools()
+    {
+        $status = $this->adminService->getServerToolsStatus();
+        $actions = \App\Support\ServerTools::ACTIONS;
+
+        return view('admin.server-tools.index', compact('status', 'actions'));
+    }
+
+    public function runServerTool(Request $request)
+    {
+        $data = $request->validate([
+            'action' => ['required', Rule::in(array_keys(\App\Support\ServerTools::ACTIONS))],
+        ]);
+
+        $result = $this->adminService->runServerTool($data['action']);
+
+        return redirect()
+            ->route('admin.server-tools.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message'])
+            ->with('tool_output', $result['output'])
+            ->with('tool_action', $data['action']);
+    }
+
+    //Server Tools End
+
     //Archives Start
 
     public function archives(Request $request)

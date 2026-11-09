@@ -5406,6 +5406,41 @@ class AdminRepository
         }
     }
 
+    /** Admin → System → Server Tools: what can run here, and the paths it uses. */
+    public function getServerToolsStatus(): array
+    {
+        return \App\Support\ServerTools::status();
+    }
+
+    /** Runs one deploy action on the hosting and writes it to the activity log. */
+    public function runServerTool(string $action): array
+    {
+        $title = \App\Support\ServerTools::ACTIONS[$action]['title'] ?? $action;
+
+        try {
+            $result = \App\Support\ServerTools::run($action);
+        } catch (Throwable $e) {
+            return ['success' => false, 'message' => $title . ': ' . $e->getMessage(), 'output' => null];
+        }
+
+        ActivityLogger::log(
+            $result['success'] ? 'server_tool_run' : 'server_tool_failed',
+            "Admin ran server tool \"{$title}\"" . ($result['success'] ? '' : ' (failed)'),
+            null,
+            ['action' => $action, 'seconds' => $result['seconds'], 'output' => mb_substr($result['output'], -4000)],
+            null,
+            'system'
+        );
+
+        return [
+            'success' => $result['success'],
+            'message' => $result['success']
+                ? "{$title} finished in {$result['seconds']}s."
+                : "{$title} failed after {$result['seconds']}s. See the output below.",
+            'output' => $result['output'],
+        ];
+    }
+
     public function getDatabaseBackupPath(string $name): ?string
     {
         return DatabaseBackup::path($name);

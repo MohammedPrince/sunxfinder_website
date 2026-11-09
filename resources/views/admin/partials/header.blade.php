@@ -236,7 +236,7 @@
         </a>
         @endcomponent
 
-        @component('partials.nav-group', ['key' => 'system', 'label' => 'System', 'icon' => 'gear', 'routes' => ['admin.manual', 'admin.send-email.*', 'admin.logs.*', 'admin.queue.*', 'admin.settings.*', 'admin.backups.*', 'admin.legal.*', 'admin.terms-acceptances.*', 'admin.archives.*']])
+        @component('partials.nav-group', ['key' => 'system', 'label' => 'System', 'icon' => 'gear', 'routes' => ['admin.manual', 'admin.send-email.*', 'admin.logs.*', 'admin.queue.*', 'admin.settings.*', 'admin.backups.*', 'admin.server-tools.*', 'admin.legal.*', 'admin.terms-acceptances.*', 'admin.archives.*']])
         <a class="nav-link {{ request()->routeIs('admin.manual') ? 'active' : '' }}"
             href="{{ route('admin.manual') }}">
             <span class="nav-icon">
@@ -314,6 +314,17 @@
                 </svg>
             </span>
             <span>Database Backups</span>
+        </a>
+        <a class="nav-link {{ request()->routeIs('admin.server-tools.*') ? 'active' : '' }}"
+            href="{{ route('admin.server-tools.index') }}">
+            <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="16" rx="2" />
+                    <path d="m7 9 3 3-3 3M12 15h5" />
+                </svg>
+            </span>
+            <span>Server Tools</span>
         </a>
         <a class="nav-link {{ request()->routeIs('admin.legal.*') ? 'active' : '' }}"
             href="{{ route('admin.legal.index') }}">

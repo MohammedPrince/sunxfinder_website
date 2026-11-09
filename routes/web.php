@@ -329,6 +329,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::delete('/{file}', 'deleteDatabaseBackup')->where('file', '[A-Za-z0-9_\-]+\.sql')->name('destroy');
             });
 
+            // Server Tools (hosting only): clear/optimize caches, migrate, run jobs, composer, copy public folders
+            Route::prefix('server-tools')->name('server-tools.')->group(function () {
+                Route::get('/', 'serverTools')->name('index');
+                Route::post('/run', 'runServerTool')->middleware('throttle:10,1')->name('run');
+            });
+
             // Privacy Policy and Terms text, section by section, in English and Arabic
             Route::prefix('legal-pages')->name('legal.')->group(function () {
                 Route::get('/', 'legalPages')->name('index');

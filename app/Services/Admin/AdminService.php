@@ -782,6 +782,16 @@ class AdminService
         return $this->adminRepository->createDatabaseBackup();
     }
 
+    public function getServerToolsStatus(): array
+    {
+        return $this->adminRepository->getServerToolsStatus();
+    }
+
+    public function runServerTool(string $action): array
+    {
+        return $this->adminRepository->runServerTool($action);
+    }
+
     public function getDatabaseBackupPath(string $name): ?string
     {
         return $this->adminRepository->getDatabaseBackupPath($name);
