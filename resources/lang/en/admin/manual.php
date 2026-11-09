@@ -266,7 +266,7 @@ return [
                 '<strong>Activity Logs</strong>: every sign-in, change and deletion by admins, companies and customers, with old → new values.',
                 '<strong>Background Jobs</strong>: emails and pushes waiting or failed. Fix the cause shown in the hint, then <strong>Retry</strong>. The Automatic notifications section shows each scheduled send as Done, Partly delivered or Failed.',
                 '<strong>Database Backups</strong>: create a backup before big changes, download it and keep a copy off the server.',
-                '<strong>Server Tools</strong> (hosting only): after uploading new code, run <strong>Composer install</strong> (if packages changed), <strong>Clear caches</strong>, <strong>Run migrations</strong>, <strong>Optimize</strong> and <strong>Copy public folders</strong>. <strong>Run waiting jobs</strong> sends stuck emails and pushes.',
+                '<strong>Server Tools</strong> (hosting only): after uploading new code, run <strong>Composer install</strong> (if packages changed), <strong>Clear caches</strong>, <strong>Run migrations</strong>, <strong>Optimize</strong> and <strong>Copy public folders</strong> (PROD only). After changing only .env, use <strong>Clear config cache</strong> then <strong>Cache config</strong>. <strong>Run waiting jobs</strong> sends stuck emails and pushes. The bottom of the page shows <strong>laravel.log</strong>, newest first, with Download and Clear.',
                 '<strong>Archives</strong>: records deleted in the website or app are kept here, by type, source and date.',
             ],
             'tips' => [

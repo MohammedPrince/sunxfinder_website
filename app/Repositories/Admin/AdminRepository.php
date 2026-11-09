@@ -5412,6 +5412,23 @@ class AdminRepository
         return \App\Support\ServerTools::status();
     }
 
+    /** The newest lines of storage/logs/laravel.log. */
+    public function getServerLog(): array
+    {
+        return \App\Support\ServerTools::logTail();
+    }
+
+    public function clearServerLog(): array
+    {
+        if (!\App\Support\ServerTools::clearLog()) {
+            return ['success' => false, 'message' => 'Could not empty laravel.log (check the file permissions).'];
+        }
+
+        ActivityLogger::log('server_log_cleared', 'Admin emptied storage/logs/laravel.log', null, [], null, 'system');
+
+        return ['success' => true, 'message' => 'laravel.log was emptied.'];
+    }
+
     /** Runs one deploy action on the hosting and writes it to the activity log. */
     public function runServerTool(string $action): array
     {
