@@ -1620,6 +1620,20 @@ class MainController extends Controller
         return back()->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
+    /**
+     * Admin Manual: static help text from resources/lang/{en,ar}/admin/manual.php.
+     * The admin panel is English; ?lang=ar shows the manual in Arabic (remembered in the session).
+     */
+    public function manual(Request $request)
+    {
+        $lang = $request->validate(['lang' => ['nullable', Rule::in(['en', 'ar'])]])['lang']
+            ?? $request->session()->get('admin_manual_lang', 'en');
+
+        $request->session()->put('admin_manual_lang', $lang);
+
+        return view('admin.manual', compact('lang'));
+    }
+
     //Background Jobs Start
 
     public function backgroundJobs(Request $request)

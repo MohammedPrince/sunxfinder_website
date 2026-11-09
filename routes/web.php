@@ -99,6 +99,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
             Route::get('/dashboard', 'dashboard')->name('dashboard.page');
 
+            // Admin Manual (System menu), ?lang=en|ar
+            Route::get('/manual', 'manual')->name('manual');
+
             // Reports (date range via ?preset=30d or ?preset=custom&from=&to=)
             Route::prefix('reports')->name('reports.')->group(function () {
                 Route::get('/', 'reports')->name('index');
