@@ -463,6 +463,9 @@ Route::prefix('company')->name('company.')->middleware(CompanyValidationLines::c
 
             // Ratings customers gave this company
             Route::get('/ratings', 'ratings')->name('ratings.index');
+
+            // Company Manual (System menu): how to use the panel
+            Route::get('/manual', 'manual')->name('manual');
         });
 
         // Projects (offers accepted by customers)

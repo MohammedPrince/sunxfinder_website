@@ -804,6 +804,21 @@ class AdminService
         return $this->adminRepository->getFailedJobs($filters);
     }
 
+    public function deleteOldNotifications(): int
+    {
+        return $this->adminRepository->deleteOldNotifications();
+    }
+
+    public function getNotificationScheduleRuns(array $filters = []): array
+    {
+        return $this->adminRepository->getNotificationScheduleRuns($filters);
+    }
+
+    public function stampSchedulerHeartbeat(): void
+    {
+        $this->adminRepository->stampSchedulerHeartbeat();
+    }
+
     public function getFailedJob(string $uuid): ?object
     {
         return $this->adminRepository->getFailedJob($uuid);

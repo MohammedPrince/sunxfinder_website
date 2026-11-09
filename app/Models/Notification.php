@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\LogsActivity;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -19,6 +20,31 @@ class Notification extends Model
         'new_company' => 'New company',
         'promotion' => 'Promotion / news',
     ];
+
+    /** Plain notifications are deleted (soft) this many days after they were sent. */
+    public const AUTO_DELETE_DAYS = 5;
+
+    /**
+     * Plain notifications older than AUTO_DELETE_DAYS, sent by admin or by a company.
+     * Kept for good: campaigns (the same rule as isCampaign()), sponsored sends and package
+     * offers. The monthly sponsored-send limit counts with withTrashed(), so it is unaffected.
+     */
+    public function scopeAutoDeletable(Builder $query): Builder
+    {
+        $cutoff = now()->subDays(self::AUTO_DELETE_DAYS);
+
+        return $query
+            ->where(fn(Builder $q) => $q
+                ->where('published_at', '<', $cutoff)
+                ->orWhere(fn(Builder $q) => $q->whereNull('published_at')->where('created_at', '<', $cutoff)))
+            ->where(fn(Builder $q) => $q->whereNull('is_sponsored')->orWhere('is_sponsored', false))
+            ->whereNull('company_id')
+            ->whereNull('package_offer_id')
+            ->where(fn(Builder $q) => $q->whereNull('image_path')->orWhere('image_path', ''))
+            ->where(fn(Builder $q) => $q->whereNull('link_url')->orWhere('link_url', ''))
+            ->where(fn(Builder $q) => $q->whereNull('format')->orWhere('format', '<>', 'html'))
+            ->whereNotIn('type', array_keys(self::CAMPAIGN_TYPES));
+    }
 
     protected $fillable = [
         'sender_type',

@@ -2415,7 +2415,7 @@ class CompanyRepository
         $recipients = CustomerNotification::query()
             ->with([
                 'customer:id,full_name,phone',
-                'customer.deviceTokens:id,customer_id,fcm_token,lang,platform',
+                'customer.deviceTokens:id,customer_id,lang,platform,is_active',
             ])
             ->where('notification_id', $id)
             ->latest('created_at')

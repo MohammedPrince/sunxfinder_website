@@ -47,7 +47,10 @@
         <div class="panel-heading table-toolbar">
             <div>
                 <h2>{{ __('company/messages.notifications.history') }}</h2>
-                <p>{{ __('company/messages.notifications.history_sub') }}</p>
+                <p>
+                    {{ __('company/messages.notifications.history_sub') }}
+                    {{ __('company/messages.notifications.auto_delete_note', ['days' => \App\Models\Notification::AUTO_DELETE_DAYS]) }}
+                </p>
             </div>
             <form method="GET" action="{{ route('company.notifications.index') }}" class="table-filters">
                 <select class="select-control" name="type" aria-label="{{ __('company/messages.notifications.filter_type') }}">

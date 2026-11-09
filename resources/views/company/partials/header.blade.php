@@ -192,7 +192,19 @@
         </a>
         @endcomponent
 
-        @component('partials.nav-group', ['key' => 'system', 'label' => __('company/messages.navigation.system'), 'icon' => 'gear', 'routes' => []])
+        @component('partials.nav-group', ['key' => 'system', 'label' => __('company/messages.navigation.system'), 'icon' => 'gear', 'routes' => ['company.manual']])
+        <a class="nav-link {{ request()->routeIs('company.manual') ? 'active' : '' }}"
+            href="{{ route('company.manual') }}">
+            <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5Z" />
+                    <path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5" />
+                    <path d="M8 7h8M8 11h6" />
+                </svg>
+            </span>
+            <span>{{ __('company/manual.title') }}</span>
+        </a>
         @if ($isPubliclyVisible)
             <a class="nav-link" href="{{ $publicPageUrl }}" target="_blank" rel="noopener"
                 title="{{ __('company/messages.navigation.public_page_title') }}">

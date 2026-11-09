@@ -69,53 +69,44 @@
                         <tr>
                             <th>{{ __('company/messages.notifications.customer_name') }}</th>
                             <th>{{ __('company/messages.common.phone') }}</th>
-                            <th>{{ __('company/messages.notifications.fcm_token') }}</th>
+                            <th>{{ __('company/messages.notifications.devices') }}</th>
                             <th>{{ __('company/messages.notifications.language') }}</th>
                             <th>{{ __('company/messages.notifications.read_status') }}</th>
                             <th>{{ __('company/messages.notifications.read_at') }}</th>
                         </tr>
                     </thead>
                     <tbody>
+                        {{-- One row per customer; the read status belongs to the customer, not to each device. --}}
                         @forelse ($recipients as $recipient)
                             @php
                                 $customer = $recipient->customer;
                                 $devices = $customer?->deviceTokens ?? collect();
+                                $activeDevices = $devices->where('is_active', true);
+                                $platforms = $devices->pluck('platform')->filter()->map(fn ($p) => ucfirst($p))->unique()->implode(', ');
+                                $languages = ($activeDevices->isNotEmpty() ? $activeDevices : $devices)
+                                    ->map(fn ($d) => strtoupper($d->lang ?: 'en'))->unique()->implode(', ');
                             @endphp
-
-                            @if ($devices->isNotEmpty())
-                                @foreach ($devices as $device)
-                                    <tr>
-                                        <td>{{ $customer?->full_name ?? '-' }}</td>
-                                        <td>{{ $customer?->phone ?? '-' }}</td>
-                                        <td>
-                                            <span title="{{ $device->fcm_token }}">
-                                                {{ $device->fcm_token }}
-                                            </span>
-                                        </td>
-                                        <td>{{ strtoupper($device->lang ?? 'en') }}</td>
-                                        <td>
-                                            <span class="pill {{ $recipient->read_at ? 'pill-green' : 'pill-yellow' }}">
-                                                {{ $recipient->read_at ? __('company/messages.notifications.read') : __('company/messages.notifications.unread') }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            {{ $recipient->read_at?->translatedFormat('M d, Y H:i') ?? '—' }}
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            @else
-                                <tr>
-                                    <td>{{ $customer?->full_name ?? '-' }}</td>
-                                    <td>{{ $customer?->phone ?? '-' }}</td>
-                                    <td colspan="2">{{ __('company/messages.notifications.no_device') }}</td>
+                            <tr>
+                                <td>{{ $customer?->full_name ?? '-' }}</td>
+                                <td>{{ $customer?->phone ?? '-' }}</td>
+                                @if ($devices->isNotEmpty())
                                     <td>
-                                        <span class="pill {{ $recipient->read_at ? 'pill-green' : 'pill-yellow' }}">
-                                            {{ $recipient->read_at ? __('company/messages.notifications.read') : __('company/messages.notifications.unread') }}
-                                        </span>
+                                        {{ __('company/messages.notifications.devices_summary', ['active' => $activeDevices->count(), 'total' => $devices->count()]) }}
+                                        @if ($platforms)
+                                            <small class="cell-note">{{ $platforms }}</small>
+                                        @endif
                                     </td>
-                                    <td>{{ $recipient->read_at?->translatedFormat('M d, Y H:i') ?? '—' }}</td>
-                                </tr>
-                            @endif
+                                    <td>{{ $languages }}</td>
+                                @else
+                                    <td colspan="2">{{ __('company/messages.notifications.no_device') }}</td>
+                                @endif
+                                <td>
+                                    <span class="pill {{ $recipient->read_at ? 'pill-green' : 'pill-yellow' }}">
+                                        {{ $recipient->read_at ? __('company/messages.notifications.read') : __('company/messages.notifications.unread') }}
+                                    </span>
+                                </td>
+                                <td>{{ $recipient->read_at?->translatedFormat('M d, Y H:i') ?? '—' }}</td>
+                            </tr>
                         @empty
                             <tr>
                                 <td colspan="6" class="text-center">

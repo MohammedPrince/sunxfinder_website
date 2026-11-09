@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\PackageOffer;
 use App\Models\Product;
 use App\Models\RatingValue;
+use App\Models\Setting;
 use App\Services\Company\CompanyService;
 use App\Support\InvoicePdf;
 use App\Support\ReportPeriod;
@@ -809,6 +810,14 @@ class MainController extends Controller
         $valueLabels = RatingValue::labels(app()->getLocale());
 
         return view('company.ratings.index', compact('ratings', 'summary', 'valueLabels'));
+    }
+
+    /** Company Manual: static help text from resources/lang/{en,ar}/company/manual.php. */
+    public function manual()
+    {
+        $hasAdvertising = Setting::companyAdsEnabled((int) auth('company')->id());
+
+        return view('company.manual', compact('hasAdvertising'));
     }
 
     //Ratings End

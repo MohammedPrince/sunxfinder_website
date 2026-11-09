@@ -49,7 +49,11 @@
         <div class="panel-heading table-toolbar">
             <div>
                 <h2>Notification history</h2>
-                <p>Review announcements, audiences, and delivery/read statistics.</p>
+                <p>
+                    Review announcements, audiences, and delivery/read statistics.
+                    Plain notifications are deleted automatically after {{ \App\Models\Notification::AUTO_DELETE_DAYS }} days
+                    (also from the customers' app), including company ones. Campaigns, sponsored sends and package offers are kept.
+                </p>
             </div>
             <form method="GET" action="{{ route('admin.notifications.index') }}" class="table-filters">
                 <select class="select-control" name="type" aria-label="Filter by notification type">

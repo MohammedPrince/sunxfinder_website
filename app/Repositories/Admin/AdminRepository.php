@@ -32,6 +32,7 @@ use App\Models\Project;
 use App\Models\CustomerNotification;
 use App\Models\Notification;
 use App\Models\NotificationSchedule;
+use App\Models\NotificationScheduleRun;
 use App\Models\NotificationScheduleMessage;
 use App\Models\PackageOffer;
 use App\Repositories\PackageOfferRepository;
@@ -3325,6 +3326,59 @@ class AdminRepository
         ];
     }
 
+    /** Cache key the "notifications:send-scheduled" command stamps each minute it runs. */
+    public const SCHEDULER_HEARTBEAT_KEY = 'notifications:scheduler-heartbeat';
+
+    /** Automatic notification sends for Background jobs: health, today's counts and the run log. */
+    public function getNotificationScheduleRuns(array $filters = []): array
+    {
+        $heartbeat = Cache::get(self::SCHEDULER_HEARTBEAT_KEY);
+        $lastTick = $heartbeat ? Carbon::parse($heartbeat) : null;
+        $activeSchedules = NotificationSchedule::query()->where('is_active', true)->count();
+        $today = NotificationScheduleRun::query()->where('created_at', '>=', now()->startOfDay());
+
+        $runs = NotificationScheduleRun::query()
+            ->with('schedule:id,name,is_active,last_message_id,last_message_order,after_last')
+            ->when(
+                !empty($filters['run_status']),
+                fn(Builder $q) => $q->where('status', $filters['run_status'])
+            )
+            ->latest('id')
+            ->paginate(15, ['*'], 'runs_page')
+            ->withQueryString();
+
+        // Only the newest attempt of a schedule can be retried ("Send next message now").
+        $latestIds = NotificationScheduleRun::query()
+            ->whereIn('schedule_id', $runs->pluck('schedule_id')->unique())
+            ->selectRaw('MAX(id) as id')
+            ->groupBy('schedule_id')
+            ->pluck('id')
+            ->all();
+
+        return [
+            'runs' => $runs,
+            'retryableIds' => $latestIds,
+            'overview' => [
+                'scheduler_last_run' => $lastTick,
+                // The cron runs every minute; a few minutes of silence means it is not set up.
+                'scheduler_down' => $activeSchedules > 0 && (!$lastTick || $lastTick->lt(now()->subMinutes(5))),
+                'active_schedules' => $activeSchedules,
+                'done_today' => (clone $today)->where('status', 'done')->count(),
+                'partial_today' => (clone $today)->where('status', 'partial')->count(),
+                'failed_today' => (clone $today)->where('status', 'failed')->count(),
+                'failed_week' => NotificationScheduleRun::query()
+                    ->where('status', 'failed')
+                    ->where('created_at', '>=', now()->subDays(7))
+                    ->count(),
+            ],
+        ];
+    }
+
+    public function stampSchedulerHeartbeat(): void
+    {
+        Cache::forever(self::SCHEDULER_HEARTBEAT_KEY, now()->toIso8601String());
+    }
+
     public function getFailedJobs(array $filters = []): LengthAwarePaginator
     {
         $paginator = DB::table('failed_jobs')
@@ -3461,9 +3515,13 @@ class AdminRepository
 
     //Notifications Start
 
+    /** Push delivery counts of the last publishNotification() call (read by automatic notifications). */
+    private array $lastPushReport = ['devices' => 0, 'delivered' => 0, 'failed' => 0];
+
     public function publishNotification(array $data): Notification
     {
         $startedAt = microtime(true);
+        $this->lastPushReport = ['devices' => 0, 'delivered' => 0, 'failed' => 0];
 
         $context = [
             'sender_type' => $data['sender_type'] ?? 'admin',
@@ -3787,6 +3845,12 @@ class AdminRepository
             'duration_ms' => round((microtime(true) - $startedAt) * 1000),
         ]);
 
+        $this->lastPushReport = [
+            'devices' => $devices->pluck('fcm_token')->unique()->count(),
+            'delivered' => $successCount,
+            'failed' => $failureCount,
+        ];
+
         return $notification;
     }
 
@@ -3989,7 +4053,7 @@ class AdminRepository
         $today = $schedule->localNow()->toDateString();
         NotificationSchedule::whereKey($id)->update(['last_run_on' => $today]);
 
-        return $this->sendScheduledMessage($schedule->fresh(), $today);
+        return $this->sendScheduledMessage($schedule->fresh(), $today, 'manual');
     }
 
     /**
@@ -4028,15 +4092,30 @@ class AdminRepository
         return $summary;
     }
 
-    private function sendScheduledMessage(NotificationSchedule $schedule, string $today): array
+    private function sendScheduledMessage(NotificationSchedule $schedule, string $today, string $trigger = 'auto'): array
     {
+        $startedAt = microtime(true);
         $message = $schedule->nextMessage();
+
+        // Every attempt is logged for Admin → Background jobs.
+        $logRun = fn(string $status, array $values = []) => NotificationScheduleRun::create([
+            'schedule_id' => $schedule->id,
+            'schedule_name' => Str::limit($schedule->name, 145),
+            'message_id' => $message?->id,
+            'message_order' => $message?->sort_order,
+            'message_title' => $message ? Str::limit($message->title_en, 175) : null,
+            'trigger' => $trigger,
+            'status' => $status,
+            'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+        ] + $values);
 
         if (!$message) {
             NotificationSchedule::whereKey($schedule->id)->update([
                 'is_active' => false,
                 'last_error' => 'No message left to send.',
             ]);
+
+            $logRun('failed', ['error' => 'No message left to send.']);
 
             return ['success' => false, 'message' => 'No message left to send. Restart the schedule or add messages.'];
         }
@@ -4069,9 +4148,28 @@ class AdminRepository
 
         if (isset($error)) {
             NotificationSchedule::whereKey($schedule->id)->update(['last_error' => Str::limit($error, 250)]);
+            $logRun('failed', ['error' => Str::limit($error, 250)]);
 
             return ['success' => false, 'message' => $error];
         }
+
+        // The notification is saved (customers see it in the app inbox); the status is about the push.
+        $push = $this->lastPushReport;
+        [$status, $note] = match (true) {
+            $push['devices'] === 0 => ['failed', 'Saved in the app inbox, but no device was found to push to.'],
+            $push['delivered'] === 0 => ['failed', "Push not delivered to any of the {$push['devices']} devices. Check the Firebase settings and the log."],
+            $push['failed'] > 0 => ['partial', "{$push['failed']} of {$push['devices']} devices not reached (usually old or uninstalled apps)."],
+            default => ['done', null],
+        };
+
+        $logRun($status, [
+            'notification_id' => $notification->id,
+            'recipients' => $notification->recipients()->count(),
+            'devices' => $push['devices'],
+            'delivered' => $push['delivered'],
+            'failed_devices' => $push['failed'],
+            'error' => $note,
+        ]);
 
         $now = now();
 
@@ -4185,6 +4283,36 @@ class AdminRepository
         }
 
         return ['success' => true, 'message' => 'Notification deleted. Customers no longer see it in the app.'];
+    }
+
+    /**
+     * Soft-deletes plain notifications older than Notification::AUTO_DELETE_DAYS, with their
+     * customer rows, so they leave the history and the customers' inbox. Run daily by
+     * "notifications:delete-old". Query-level deletes: no activity-log row per notification.
+     */
+    public function deleteOldNotifications(): int
+    {
+        $deleted = 0;
+
+        Notification::query()->autoDeletable()->select('id')->chunkById(500, function ($rows) use (&$deleted) {
+            $ids = $rows->pluck('id')->all();
+
+            DB::transaction(function () use ($ids) {
+                CustomerNotification::query()->whereIn('notification_id', $ids)->delete();
+                Notification::query()->whereIn('id', $ids)->delete();
+            });
+
+            $deleted += count($ids);
+        });
+
+        if ($deleted > 0) {
+            Log::info('SunXFinder notification: old notifications deleted', [
+                'count' => $deleted,
+                'older_than_days' => Notification::AUTO_DELETE_DAYS,
+            ]);
+        }
+
+        return $deleted;
     }
 
     public function getNotificationFormData(): array
@@ -4380,7 +4508,7 @@ class AdminRepository
         $recipients = CustomerNotification::query()
             ->with([
                 'customer:id,full_name,phone',
-                'customer.deviceTokens:id,customer_id,fcm_token,lang,platform',
+                'customer.deviceTokens:id,customer_id,lang,platform,is_active',
             ])
             ->where('notification_id', $id)
             ->latest('created_at')

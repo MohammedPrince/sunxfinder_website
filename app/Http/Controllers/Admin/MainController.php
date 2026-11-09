@@ -27,6 +27,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use App\Models\NotificationScheduleRun;
 
 class MainController extends Controller
 {
@@ -1625,12 +1626,14 @@ class MainController extends Controller
     {
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
+            'run_status' => ['nullable', Rule::in(array_keys(NotificationScheduleRun::STATUSES))],
         ]);
 
         $overview = $this->adminService->getQueueOverview();
         $failedJobs = $this->adminService->getFailedJobs($filters);
+        $automatic = $this->adminService->getNotificationScheduleRuns($filters);
 
-        return view('admin.queue.index', compact('overview', 'failedJobs'));
+        return view('admin.queue.index', compact('overview', 'failedJobs', 'automatic'));
     }
 
     public function showFailedJob(string $uuid)
