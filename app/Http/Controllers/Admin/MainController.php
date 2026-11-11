@@ -326,9 +326,16 @@ class MainController extends Controller
 
     public function updateCompany(Request $request, int $id)
     {
+        // "RE Energy " → "re-energy": spaces and capitals are forgiven, other characters are not.
+        if ($request->filled('slug')) {
+            $request->merge(['slug' => preg_replace('/[\s_]+/', '-', strtolower(trim((string) $request->input('slug'))))]);
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'username' => ['required', 'string', 'max:100'],
+            // Public profile link /companies/{slug}; uniqueness is checked in the repository.
+            'slug' => ['sometimes', 'required', 'string', 'max:191', 'regex:/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/'],
             'email' => ['nullable', 'email', 'max:50'],
             'phone' => ['nullable', 'string', 'max:30'],
             'city' => ['nullable', 'string', 'max:100'],

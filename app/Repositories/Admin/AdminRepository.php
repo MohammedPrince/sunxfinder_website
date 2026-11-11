@@ -1075,6 +1075,14 @@ class AdminRepository
                         Rule::unique('tbl_solar_companies', 'email')
                             ->ignore($company->id),
                     ],
+                    'slug' => [
+                        'sometimes',
+                        'required',
+                        Rule::unique('tbl_solar_companies', 'slug')
+                            ->ignore($company->id),
+                    ],
+                ], [
+                    'slug.unique' => 'Another company already uses this profile link (slug).',
                 ]);
 
                 if ($validator->fails()) {
@@ -1086,6 +1094,9 @@ class AdminRepository
 
                 $company->name = $data['name'];
                 $company->username = $data['username'];
+                if (!empty($data['slug'])) {
+                    $company->slug = $data['slug'];
+                }
                 $company->email = $data['email'] ?? null;
                 $company->phone = $data['phone'] ?? null;
                 $company->city = $data['city'] ?? null;
