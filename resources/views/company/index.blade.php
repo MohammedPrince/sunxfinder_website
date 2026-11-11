@@ -226,9 +226,10 @@
                             <label for="city">{{ __('company/messages.common.city') }} <b class="required-mark">*</b></label>
                             <select class="select-control" id="city" name="city" required>
                                 <option value="">{{ __('company/messages.profile.select_city') }}</option>
-                                @foreach ([__('company/messages.common.city_khartoum'), __('company/messages.common.city_port_sudan'), __('company/messages.common.city_atbara'), __('company/messages.common.city_wad_madani'), __('company/messages.common.city_merowe'), __('company/messages.common.city_kassala'), __('company/messages.common.city_al_qadarif'), __('company/messages.common.city_dongola'), __('company/messages.common.city_halfa')] as $city)
-                                    <option value="{{ $city }}" @selected(old('city', $company->city) === $city)>{{ __('company/messages.common.city_' . \Illuminate\Support\Str::snake(strtolower($city))) }}
-                                    </option>
+                                {{-- The value is always the English name (that is what is saved and validated);
+                                     only the label is translated. --}}
+                                @foreach (['Khartoum', 'Port Sudan', 'Atbara', 'Wad Madani', 'Merowe', 'Kassala', 'Al Qadarif', 'Dongola', 'Halfa'] as $city)
+                                    <option value="{{ $city }}" @selected(old('city', $company->city) === $city)>{{ __('company/messages.common.city_' . \Illuminate\Support\Str::snake(strtolower($city))) }}</option>
                                 @endforeach
                             </select>
                             @error('city')
