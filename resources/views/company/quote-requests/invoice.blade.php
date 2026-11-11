@@ -71,6 +71,13 @@
             </table>
         </div>
 
+        @if ($invoice->quotation?->termLines())
+            <section class="company-invoice-terms">
+                <span>{{ __('company/messages.offer_terms.title') }}</span>
+                @include('partials.offer-terms-list', ['offer' => $invoice->quotation])
+            </section>
+        @endif
+
         <section class="company-invoice-footer">
             <div class="company-invoice-notes">
                 @if ($invoice->payment_instructions)

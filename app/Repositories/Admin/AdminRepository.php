@@ -708,9 +708,9 @@ class AdminRepository
             ->selectRaw('company_id')
             // A company's customers: everyone who accepted one of its offers (= has a project with it).
             ->selectRaw('COUNT(DISTINCT customer_id) as customers')
-            ->selectRaw("SUM(status IN ('accepted', 'in_progress')) as active_projects")
+            ->selectRaw("SUM(status IN ('accepted', 'in_progress', 'handover_pending')) as active_projects")
             ->selectRaw("SUM(status = 'completed') as completed_projects")
-            ->selectRaw("AVG(CASE WHEN status IN ('accepted', 'in_progress') THEN progress_percent END) as avg_progress")
+            ->selectRaw("AVG(CASE WHEN status IN ('accepted', 'in_progress', 'handover_pending') THEN progress_percent END) as avg_progress")
             ->groupBy('company_id');
 
         $products = DB::table('tbl_products')
@@ -808,7 +808,7 @@ class AdminRepository
             'started_in_period' => DB::table('tbl_projects')->whereNull('deleted_at')->whereBetween('created_at', [$from, $to])->count(),
             'completed_in_period' => (clone $completedInPeriod)->count(),
             'avg_completion_days' => $avgCompletionHours !== null ? round($avgCompletionHours / 24, 1) : null,
-            'avg_active_progress' => (int) round((float) (clone $current)->whereIn('status', ['accepted', 'in_progress'])->avg('progress_percent')),
+            'avg_active_progress' => (int) round((float) (clone $current)->whereIn('status', Project::ACTIVE_STATUSES)->avg('progress_percent')),
             'milestones' => DB::table('tbl_project_milestones as m')
                 ->join('tbl_projects as p', 'p.id', '=', 'm.project_id')
                 ->whereNull('m.deleted_at')
@@ -2973,6 +2973,7 @@ class AdminRepository
             'total' => (clone $query)->count(),
             'accepted' => (clone $query)->where('status', 'accepted')->count(),
             'in_progress' => (clone $query)->where('status', 'in_progress')->count(),
+            'handover_pending' => (clone $query)->where('status', Project::HANDOVER_PENDING)->count(),
             'completed' => (clone $query)->where('status', 'completed')->count(),
             'stalled' => (clone $query)
                 ->whereIn('status', ['accepted', 'in_progress'])

@@ -676,6 +676,29 @@ class Helper
                     'body' => 'تم إلغاء طلب عرض السعر :price من قبل فريق SunXFinder، وتم سحب العروض المنتظرة. يمكنك إرسال طلب جديد من التطبيق في أي وقت، أو التواصل معنا إذا كان لديك أي استفسار.',
                 ],
             ],
+            // The company finished; the customer confirms the handover in the app (or reports a problem).
+            // :price carries the auto-confirm period in days here.
+            'handover_requested' => [
+                'en' => [
+                    'title' => 'Please confirm the handover',
+                    'body' => 'Your installation is finished. Please confirm the handover in the app, or report a problem. If you do neither within :price days, the handover is confirmed automatically.',
+                ],
+                'ar' => [
+                    'title' => 'يرجى تأكيد الاستلام',
+                    'body' => 'اكتمل تركيب منظومتك. يرجى تأكيد الاستلام من التطبيق أو الإبلاغ عن مشكلة. إذا لم تفعل خلال :price أيام، يتم تأكيد الاستلام تلقائياً.',
+                ],
+            ],
+            // Nobody answered within the period: confirmed automatically. :price = the period in days.
+            'handover_auto_confirmed' => [
+                'en' => [
+                    'title' => 'Handover confirmed',
+                    'body' => 'We did not hear from you within :price days, so the handover of your solar system was confirmed automatically. You can now rate the company in the app.',
+                ],
+                'ar' => [
+                    'title' => 'تم تأكيد الاستلام',
+                    'body' => 'لم يصلنا ردّك خلال :price أيام، لذلك تم تأكيد استلام منظومتك تلقائياً. يمكنك الآن تقييم الشركة من التطبيق.',
+                ],
+            ],
             'project_completed' => [
                 'en' => [
                     'title' => 'Your solar system is ready',
@@ -723,9 +746,9 @@ class Helper
     }
 
     /**
-     * Push notification to the customer about their project:
-     * start_installation (installation started) or project_completed (handed over).
-     * Skipped when the customer has no device token registered.
+     * Push and in-app notification to the customer about their project, with its quote_id:
+     * start_installation (installation started) or handover_requested (company finished,
+     * the customer must confirm the handover). Saved to the inbox even without a device token.
      */
     public function notifyCustomerAboutProject(Project $project, string $type): void
     {
@@ -733,15 +756,10 @@ class Helper
             return;
         }
 
-        $hasToken = CustomerDeviceToken::query()
-            ->where('customer_id', $project->customer_id)
-            ->exists();
+        // The handover texts name the auto-confirm period.
+        $detail = in_array($type, ['handover_requested', 'handover_auto_confirmed'], true) ? Project::AUTO_CONFIRM_DAYS : null;
 
-        if (!$hasToken) {
-            return;
-        }
-
-        $this->notifyCustomer((int) $project->customer_id, $type);
+        $this->notifyCustomer((int) $project->customer_id, $type, $detail, 'company', $project->quote_id ? (int) $project->quote_id : null);
     }
 
     /**

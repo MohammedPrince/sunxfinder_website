@@ -47,7 +47,7 @@
         @php
             $company = $notification->company;
             $discount = $notification->offerDiscountPercent();
-            $badges = ['offer' => ['Offer', 'عرض'], 'new_company' => ['New company', 'شركة جديدة'], 'promotion' => ['News', 'أخبار']];
+            $badges = ['offer' => ['Special offer', 'عرض خاص'], 'new_company' => ['New company', 'شركة جديدة'], 'promotion' => ['News', 'أخبار']];
         @endphp
         <section class="panel">
             <div class="panel-heading">

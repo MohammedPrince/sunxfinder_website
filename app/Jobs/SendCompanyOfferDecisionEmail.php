@@ -23,9 +23,11 @@ class SendCompanyOfferDecisionEmail implements ShouldQueue
 
     public array $backoff = [30, 120, 300];
 
+    /** @param array $extra more email fields, e.g. ['problemMessage' => '...'] for a reported problem */
     public function __construct(
         public int $offerId,
         public string $decision,
+        public array $extra = [],
     ) {
         // Only send once the accept/reject transaction has committed.
         $this->afterCommit();
@@ -57,8 +59,8 @@ class SendCompanyOfferDecisionEmail implements ShouldQueue
             return;
         }
 
-        // Accepted and completed both link to the project.
-        $isAccepted = in_array($this->decision, [CompanyOfferDecisionMail::ACCEPTED, CompanyOfferDecisionMail::COMPLETED], true);
+        // Accepted and the handover emails link to the project.
+        $isAccepted = in_array($this->decision, [CompanyOfferDecisionMail::ACCEPTED, ...CompanyOfferDecisionMail::PROJECT_DECISIONS], true);
         $customer = $offer->quote?->customer;
 
         $projectId = $isAccepted
@@ -74,7 +76,7 @@ class SendCompanyOfferDecisionEmail implements ShouldQueue
             'actionUrl' => $projectId
                 ? route('company.projects.show', $projectId)
                 : route('company.quote-requests.show', $offer->quote_id),
-        ];
+        ] + $this->extra;
 
         try {
             Mail::mailer('offer')

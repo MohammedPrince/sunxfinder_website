@@ -1,0 +1,686 @@
+/* SunXFinder company brochure. A4 pages, printed to PDF with build.sh.
+   Colours and fonts follow public/visitors/css/home.css. */
+
+@page {
+    size: A4;
+    margin: 0;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+body {
+    background: #fff;
+}
+
+ul,
+ol {
+    list-style: none;
+}
+
+main {
+    --navy: #0b2d5c;
+    --ink: #132b49;
+    --orange: #fc5202;
+    --orange-soft: #fff0e6;
+    --sun: #ffb31a;
+    --blue: #1565c0;
+    --blue-soft: #e8f1fc;
+    --green: #2e9d3a;
+    --green-soft: #e8f6ea;
+    --muted: #5f7189;
+    --line: #e6edf5;
+    --soft: #f6f9fc;
+    --font-head: Manrope, "DM Sans", "Segoe UI", sans-serif;
+    --font-body: "DM Sans", "Segoe UI", Arial, sans-serif;
+    --tracking: 0.14em;
+
+    display: block;
+    font-family: var(--font-body);
+    font-size: 10.2pt;
+    line-height: 1.5;
+    color: var(--ink);
+}
+
+/* Arabic: Cairo, more line height, and no letter spacing (it breaks joined letters). */
+main[lang="ar"] {
+    --font-head: Cairo, Tahoma, sans-serif;
+    --font-body: Cairo, Tahoma, sans-serif;
+    --tracking: 0;
+    font-size: 10.4pt;
+    line-height: 1.7;
+}
+
+.ico {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* ---------- Page frame ---------- */
+
+.page {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 210mm;
+    height: 297mm;
+    --gap: 8mm;
+    padding: 14mm 16mm 11mm;
+    overflow: hidden;
+    break-after: page;
+}
+
+/* Fuller pages (2 and 4) use tighter spacing. */
+.page.tight {
+    --gap: 5.5mm;
+}
+
+/* Keep clear space above the footer even on a full page. */
+.page > :nth-last-child(2) {
+    margin-bottom: 5mm;
+}
+
+main:last-of-type .page:last-child {
+    break-after: auto;
+}
+
+.page-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 4mm;
+    margin-bottom: 6.5mm;
+    border-bottom: 0.3mm solid var(--line);
+}
+
+.page-head img {
+    height: 13mm;
+}
+
+.page-head span,
+.kicker {
+    font-family: var(--font-head);
+    font-size: 8.4pt;
+    font-weight: 800;
+    letter-spacing: var(--tracking);
+    text-transform: uppercase;
+}
+
+.page-head span {
+    color: var(--muted);
+}
+
+.kicker {
+    display: block;
+    color: var(--orange);
+}
+
+main[lang="ar"] .page-head span,
+main[lang="ar"] .kicker {
+    font-size: 10pt;
+}
+
+.page-foot {
+    display: flex;
+    justify-content: space-between;
+    margin-top: auto;
+    padding-top: 3.5mm;
+    border-top: 0.3mm solid var(--line);
+    font-size: 8.6pt;
+    color: var(--muted);
+}
+
+.page-foot strong {
+    color: var(--navy);
+}
+
+h1,
+h2,
+h3,
+h4 {
+    font-family: var(--font-head);
+    font-weight: 800;
+    color: var(--navy);
+    line-height: 1.25;
+}
+
+main[lang="ar"] :is(h1, h2, h3, h4) {
+    line-height: 1.45;
+}
+
+h2 {
+    margin: 1mm 0 4mm;
+    font-size: 22pt;
+}
+
+h3 {
+    margin-bottom: 3.2mm;
+    font-size: 13.5pt;
+}
+
+h4 {
+    font-size: 10.8pt;
+}
+
+/* Space between blocks only, so the last one does not push the footer down. */
+.block + .block,
+.block + .callout,
+.block + .cta {
+    margin-top: var(--gap);
+}
+
+.muted {
+    color: var(--muted);
+}
+
+/* ---------- Cover ---------- */
+
+.cover {
+    padding: 0;
+}
+
+.cover-top {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 122mm;
+    padding-top: 6mm;
+}
+
+.cover-top img {
+    width: 104mm;
+}
+
+.tagline {
+    margin-top: 1mm;
+    font-family: var(--font-head);
+    font-size: 10.5pt;
+    font-weight: 700;
+    letter-spacing: var(--tracking);
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+main[lang="ar"] .tagline {
+    font-size: 13pt;
+}
+
+.cover-bottom {
+    position: relative;
+    display: flex;
+    flex: 1;
+}
+
+/* Orange edge behind the navy panel, like the X in the logo. */
+.cover-bottom::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--orange);
+    clip-path: polygon(0 16mm, 100% 0, 100% 100%, 0 100%);
+}
+
+.cover-main {
+    position: relative;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    padding: 36mm 18mm 12mm;
+    overflow: hidden;
+    color: #fff;
+    background: var(--navy);
+    clip-path: polygon(0 20mm, 100% 4mm, 100% 100%, 0 100%);
+}
+
+main[lang="ar"] .cover-bottom::before {
+    clip-path: polygon(0 0, 100% 16mm, 100% 100%, 0 100%);
+}
+
+main[lang="ar"] .cover-main {
+    clip-path: polygon(0 4mm, 100% 20mm, 100% 100%, 0 100%);
+}
+
+/* Soft sun glow in the corner. */
+.cover-main::after {
+    content: "";
+    position: absolute;
+    inset-inline-end: -38mm;
+    bottom: -38mm;
+    width: 130mm;
+    height: 130mm;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 179, 26, 0.3), rgba(255, 179, 26, 0) 68%);
+}
+
+.cover-main > * {
+    position: relative;
+    z-index: 1;
+}
+
+.cover-main .kicker {
+    color: var(--sun);
+}
+
+.cover h1 {
+    margin: 3mm 0 6mm;
+    font-size: 32pt;
+    line-height: 1.16;
+    color: #fff;
+    text-wrap: balance;
+}
+
+main[lang="ar"] .cover h1 {
+    font-size: 29pt;
+    line-height: 1.5;
+}
+
+.cover h1 em {
+    font-style: normal;
+    color: var(--sun);
+}
+
+.cover .lead {
+    max-width: 150mm;
+    font-size: 12.5pt;
+    line-height: 1.6;
+    color: #d5e1f1;
+}
+
+main[lang="ar"] .cover .lead {
+    line-height: 1.85;
+}
+
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3mm;
+    margin-top: 8mm;
+}
+
+.chips li {
+    display: flex;
+    align-items: center;
+    gap: 2mm;
+    padding: 2mm 4.5mm;
+    font-size: 10pt;
+    font-weight: 600;
+    border: 0.35mm solid rgba(255, 255, 255, 0.35);
+    border-radius: 10mm;
+}
+
+.chips .ico {
+    width: 4mm;
+    height: 4mm;
+    stroke-width: 2.6;
+    color: var(--sun);
+}
+
+.cover-foot {
+    display: flex;
+    justify-content: space-between;
+    margin-top: auto;
+    padding-top: 4mm;
+    border-top: 0.3mm solid rgba(255, 255, 255, 0.2);
+    font-size: 10pt;
+    color: #d5e1f1;
+}
+
+.cover-foot strong {
+    color: #fff;
+}
+
+/* ---------- Page 2: the platform ---------- */
+
+.intro {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 8mm;
+    align-items: start;
+}
+
+.intro p + p {
+    margin-top: 3mm;
+}
+
+.intro p {
+    font-size: 10.4pt;
+}
+
+.navy-card {
+    padding: 5.5mm 6mm;
+    color: #fff;
+    background: var(--navy);
+    border-radius: 4mm;
+}
+
+.navy-card h3 {
+    margin-bottom: 3mm;
+    font-size: 12.5pt;
+    color: #fff;
+}
+
+.navy-card li {
+    display: flex;
+    gap: 2.5mm;
+    align-items: flex-start;
+    color: #e3ecf7;
+}
+
+.navy-card li + li {
+    margin-top: 2.2mm;
+}
+
+.navy-card .ico {
+    flex: none;
+    width: 4.2mm;
+    height: 4.2mm;
+    margin-top: 0.9mm;
+    stroke-width: 2.6;
+    color: var(--sun);
+}
+
+main[lang="ar"] .navy-card .ico {
+    margin-top: 1.6mm;
+}
+
+.panel {
+    padding: 4.6mm 6mm;
+    background: var(--soft);
+    border-radius: 4mm;
+}
+
+.flow {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4mm;
+}
+
+.flow li {
+    position: relative;
+}
+
+.flow li:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 4.3mm;
+    inset-inline: 11mm -3mm;
+    height: 0.45mm;
+    background: #c9d8ea;
+}
+
+.flow b {
+    display: grid;
+    place-items: center;
+    width: 9mm;
+    height: 9mm;
+    margin-bottom: 2.5mm;
+    font-family: var(--font-head);
+    font-size: 11pt;
+    color: #fff;
+    background: var(--orange);
+    border-radius: 50%;
+}
+
+.flow p,
+.cards p,
+.steps p,
+.tools p,
+.channels p {
+    font-size: 9.3pt;
+    color: var(--muted);
+}
+
+.flow h4 {
+    margin-bottom: 1mm;
+}
+
+.cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 3.6mm;
+}
+
+.cards li {
+    padding: 3.6mm 4.5mm;
+    border: 0.3mm solid var(--line);
+    border-radius: 3.5mm;
+}
+
+.cards i {
+    display: grid;
+    place-items: center;
+    width: 9mm;
+    height: 9mm;
+    margin-bottom: 2.4mm;
+    border-radius: 2.4mm;
+}
+
+.cards .ico {
+    width: 5mm;
+    height: 5mm;
+}
+
+.tone-orange {
+    color: var(--orange);
+    background: var(--orange-soft);
+}
+
+.tone-blue {
+    color: var(--blue);
+    background: var(--blue-soft);
+}
+
+.tone-green {
+    color: var(--green);
+    background: var(--green-soft);
+}
+
+.cards h4 {
+    margin-bottom: 1.2mm;
+}
+
+/* ---------- Page 3: how to use it ---------- */
+
+.steps {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4.5mm;
+}
+
+.steps li {
+    display: flex;
+    gap: 4.5mm;
+    padding: 5mm;
+    background: var(--soft);
+    border-radius: 3.5mm;
+}
+
+.steps b {
+    flex: none;
+    font-family: var(--font-head);
+    font-size: 24pt;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--orange);
+}
+
+.steps h4 {
+    margin-bottom: 1.2mm;
+    font-size: 11.5pt;
+}
+
+.tools {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 9mm;
+}
+
+.tools li {
+    display: flex;
+    gap: 3mm;
+    align-items: flex-start;
+    padding: 2.8mm 0;
+    border-bottom: 0.3mm solid var(--line);
+}
+
+.tools i {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 6mm;
+    height: 6mm;
+    margin-top: 0.4mm;
+    border-radius: 50%;
+}
+
+.tools .ico {
+    width: 3.5mm;
+    height: 3.5mm;
+    stroke-width: 2.8;
+}
+
+.callout {
+    display: flex;
+    gap: 4.5mm;
+    align-items: center;
+    padding: 5mm 6mm;
+    background: var(--blue-soft);
+    border-radius: 3.5mm;
+}
+
+.callout > .ico {
+    flex: none;
+    width: 9mm;
+    height: 9mm;
+    color: var(--blue);
+}
+
+.callout p {
+    font-size: 10pt;
+}
+
+/* ---------- Page 4: winning customers ---------- */
+
+.grow {
+    display: grid;
+    grid-template-columns: 1.45fr 1fr;
+    gap: 8mm;
+    align-items: start;
+}
+
+.channels li {
+    display: flex;
+    gap: 4mm;
+    align-items: flex-start;
+}
+
+.channels li + li {
+    margin-top: 3mm;
+    padding-top: 3mm;
+    border-top: 0.3mm solid var(--line);
+}
+
+.channels b {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 8mm;
+    height: 8mm;
+    font-family: var(--font-head);
+    font-size: 10pt;
+    color: var(--orange);
+    background: var(--orange-soft);
+    border-radius: 2.2mm;
+}
+
+.channels h4 {
+    margin-bottom: 0.6mm;
+}
+
+.cost {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6mm;
+    padding: 5mm 6mm;
+    background: var(--orange-soft);
+    border-radius: 4mm;
+}
+
+.cost h4 {
+    margin-bottom: 1mm;
+}
+
+.cost p {
+    font-size: 9.3pt;
+    color: #5a4a40;
+}
+
+.cta {
+    display: flex;
+    gap: 8mm;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6mm 8mm;
+    color: #fff;
+    background: var(--navy);
+    border-radius: 4mm;
+}
+
+.cta h2 {
+    margin: 0 0 1.5mm;
+    font-size: 18pt;
+    color: #fff;
+}
+
+.cta p {
+    color: #d5e1f1;
+}
+
+.cta-box {
+    flex: none;
+    text-align: center;
+}
+
+.cta-box strong {
+    display: block;
+    padding: 2.6mm 7mm;
+    font-family: var(--font-head);
+    font-size: 13pt;
+    font-weight: 800;
+    color: #fff;
+    background: var(--orange);
+    border-radius: 10mm;
+}
+
+.cta-box span {
+    display: block;
+    margin-top: 2.2mm;
+    font-size: 9.6pt;
+    color: #d5e1f1;
+}
+
+/* ---------- On-screen preview only ---------- */
+
+@media screen {
+    body {
+        background: #dfe6ee;
+    }
+
+    .page {
+        margin: 8mm auto;
+        background: #fff;
+        box-shadow: 0 2mm 8mm rgba(11, 45, 92, 0.18);
+    }
+}

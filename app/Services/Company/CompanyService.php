@@ -185,6 +185,11 @@ class CompanyService
         return $this->companyRepository->getCompanyQuotationForQuote($quoteId);
     }
 
+    public function getLastOfferTerms(): ?array
+    {
+        return $this->companyRepository->getLastOfferTerms();
+    }
+
     public function getQuoteInvoice(int $quoteId): ?Invoice
     {
         return $this->companyRepository->getQuoteInvoice($quoteId);

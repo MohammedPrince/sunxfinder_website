@@ -19,7 +19,7 @@ class ProjectController extends Controller
         $filters = $request->validate([
             'status' => [
                 'nullable',
-                Rule::in(['accepted', 'in_progress', 'completed']),
+                Rule::in(['accepted', 'in_progress', 'handover_pending', 'completed']),
             ],
             'search' => ['nullable', 'string', 'max:100'],
         ]);
@@ -43,6 +43,8 @@ class ProjectController extends Controller
     public function updateProgress(Request $request, int $id)
     {
         $validated = $request->validate([
+            // "completed" here means "the company finished": the project becomes
+            // handover_pending and only the customer's confirmation completes it.
             'status' => [
                 'required',
                 Rule::in(['accepted', 'in_progress', 'completed']),

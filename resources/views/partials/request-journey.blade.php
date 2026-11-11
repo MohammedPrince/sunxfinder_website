@@ -14,6 +14,7 @@
 
     $installationDetail = match (true) {
         $project?->status === 'completed' => company_text('shared.journey.finished', 'Finished'),
+        $project?->status === 'handover_pending' => company_text('shared.journey.handover_pending', 'Waiting for customer confirmation'),
         $project?->status === 'in_progress' => company_text('shared.journey.percent_done', $project->progress_percent . '% done', ['percent' => $project->progress_percent]),
         $project !== null => company_text('shared.journey.not_started_yet', 'Not started yet'),
         default => company_text('shared.journey.after_acceptance', 'After acceptance'),

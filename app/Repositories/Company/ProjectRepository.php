@@ -6,9 +6,8 @@ use App\Helpers\Helper;
 use App\Models\Project;
 use App\Models\ProjectMilestone;
 use App\Models\ProjectUpdate;
-use App\Models\Quote;
-use App\Models\SolarCompany;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -79,6 +78,7 @@ class ProjectRepository
             'total' => (clone $query)->count(),
             'accepted' => (clone $query)->where('status', 'accepted')->count(),
             'in_progress' => (clone $query)->where('status', 'in_progress')->count(),
+            'handover_pending' => (clone $query)->where('status', Project::HANDOVER_PENDING)->count(),
             'completed' => (clone $query)->where('status', 'completed')->count(),
         ];
     }
@@ -125,10 +125,18 @@ class ProjectRepository
             };
 
             // A completed project is permanently locked.
-            if ($oldStatus === 'completed') {
+            if ($oldStatus === Project::COMPLETED) {
                 $fail(
                     'status',
                     __('company/messages.projects.err_locked')
+                );
+            }
+
+            // Finished by the company: only the customer's confirmation in the app completes it.
+            if ($oldStatus === Project::HANDOVER_PENDING) {
+                $fail(
+                    'status',
+                    __('company/messages.projects.err_waiting_customer')
                 );
             }
 
@@ -289,7 +297,7 @@ class ProjectRepository
 
                     if ($newMilestoneStatus === 'completed') {
                         $milestone->started_at ??= now();
-                        $milestone->completed_at ??= now();
+                        $milestone->completed_at ??= Carbon::now();
                     } else {
                         $milestone->completed_at = null;
                     }
@@ -326,8 +334,9 @@ class ProjectRepository
                     );
 
                 /*
-                 * Completing handover automatically completes and locks
-                 * the project in the same transaction.
+                 * Completing the handover step finishes the company's work and locks the
+                 * project, but does not complete it: it waits for the customer to confirm
+                 * the handover in the app (CustomerRepository::completeQuote).
                  */
                 if ($handover && $handover->status === 'completed') {
                     if (!$installationComplete) {
@@ -337,7 +346,7 @@ class ProjectRepository
                         );
                     }
 
-                    $newStatus = 'completed';
+                    $newStatus = Project::HANDOVER_PENDING;
                     $progress = 100;
                 } elseif ($requestedStatus === 'completed') {
                     $fail(
@@ -375,25 +384,14 @@ class ProjectRepository
                 $project->started_at = now();
             }
 
-            if ($newStatus === 'completed') {
-                $project->completed_at ??= now();
+            // The project, the request and the company's project count are completed
+            // only when the customer confirms the handover (CustomerRepository::completeQuote).
+            if ($newStatus === Project::HANDOVER_PENDING) {
+                $project->handover_requested_at ??= Carbon::now();
                 $project->progress_percent = 100;
             }
 
             $project->save();
-
-            // Completed projects are locked, so this runs once per project.
-            if ($oldStatus !== 'completed' && $newStatus === 'completed') {
-                SolarCompany::query()
-                    ->whereKey($companyId)
-                    ->update(['number_of_projects' => DB::raw('COALESCE(number_of_projects, 0) + 1')]);
-
-                // The request is finished too (same as when the customer confirms in the app).
-                Quote::query()
-                    ->whereKey($project->quote_id)
-                    ->where('status', 'accepted')
-                    ->update(['status' => 'completed']);
-            }
 
             ProjectUpdate::query()->create([
                 'project_id' => $project->id,
@@ -419,9 +417,9 @@ class ProjectRepository
         if ($oldStatus === 'accepted' && $project->status === 'in_progress') {
             // "Start Installation" pressed.
             $this->helper->notifyCustomerAboutProject($project, 'start_installation');
-        } elseif ($oldStatus !== 'completed' && $project->status === 'completed') {
-            // Customer handover confirmed: the project is completed and locked.
-            $this->helper->notifyCustomerAboutProject($project, 'project_completed');
+        } elseif ($oldStatus !== Project::HANDOVER_PENDING && $project->status === Project::HANDOVER_PENDING) {
+            // The company finished: ask the customer to confirm the handover.
+            $this->helper->notifyCustomerAboutProject($project, 'handover_requested');
         }
 
         return $project;

@@ -2629,3 +2629,222 @@
         position: static;
     }
 }
+
+/* ---------- Offer: warranty and terms (partials/offer-terms) ---------- */
+.offer-terms-card {
+    overflow: hidden;
+    border: 1px solid #dce5ef;
+    border-radius: 12px;
+    background: #fbfcfe;
+}
+
+/* Inside the invoice card: a white sub-block between the totals and the remarks. */
+.offer-invoice-terms {
+    padding: 0 18px;
+}
+
+.offer-invoice-terms .offer-terms-card {
+    background: #fff;
+}
+
+/* The invoice parts around the terms share their padding with it. */
+#invoiceBuilder:not([hidden]) {
+    padding-bottom: 16px;
+}
+
+#invoiceBuilder[hidden] + .offer-invoice-terms {
+    padding-top: 18px;
+    padding-bottom: 18px;
+}
+
+.offer-invoice-notes {
+    padding-top: 16px;
+}
+
+.offer-terms-card .offer-invoice-heading p {
+    max-width: 560px;
+}
+
+.offer-terms-body {
+    display: grid;
+    gap: 18px;
+    padding: 18px;
+}
+
+.offer-terms-prefilled {
+    padding: 8px 11px;
+    border-radius: 8px;
+    background: #eff6ff;
+    color: #1e40af;
+    font-size: 11px;
+}
+
+.offer-terms-group {
+    display: grid;
+    gap: 10px;
+}
+
+.offer-terms-group h4 {
+    margin: 0;
+    color: #172b4d;
+    font-size: 13px;
+}
+
+.offer-terms-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 14px;
+}
+
+.offer-terms-card .form-control {
+    width: 100%;
+    min-width: 0;
+    min-height: 39px;
+    box-sizing: border-box;
+    padding: 9px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    outline: none;
+    background: #fff;
+    color: #172b4d;
+    font: inherit;
+    font-size: 12px;
+}
+
+.offer-terms-card .form-control:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgb(59 130 246 / 12%);
+}
+
+/* Number + unit (years / months) side by side. */
+.offer-terms-duration {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(90px, .8fr);
+    gap: 8px;
+}
+
+/* Number with a fixed unit after it ("days", "months"). */
+.offer-terms-suffix {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.offer-terms-suffix span {
+    flex-shrink: 0;
+    color: #64748b;
+    font-size: 12px;
+}
+
+.offer-terms-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.offer-terms-chip {
+    position: relative;
+    cursor: pointer;
+}
+
+.offer-terms-chip input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.offer-terms-chip span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: #fff;
+    color: #334155;
+    font-size: 12px;
+    transition: border-color .15s, background-color .15s, color .15s;
+}
+
+.offer-terms-chip span::before {
+    content: "+";
+    font-weight: 700;
+}
+
+.offer-terms-chip input:checked + span {
+    border-color: #f4510b;
+    background: #fff4ee;
+    color: #c2410c;
+    font-weight: 700;
+}
+
+.offer-terms-chip input:checked + span::before {
+    content: "✓";
+}
+
+.offer-terms-chip input:focus-visible + span {
+    box-shadow: 0 0 0 3px rgb(59 130 246 / 25%);
+}
+
+.offer-terms-extras-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.offer-terms-extras-head small {
+    display: block;
+    margin-top: 4px;
+    color: #64748b;
+    font-size: 11px;
+}
+
+.offer-terms-extras {
+    display: grid;
+    gap: 8px;
+}
+
+.offer-terms-extras:empty {
+    display: none;
+}
+
+.offer-terms-extra {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 32px;
+    gap: 8px;
+    align-items: center;
+}
+
+@media (max-width: 700px) {
+    .offer-terms-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .offer-terms-extras-head {
+        flex-direction: column;
+    }
+
+    .offer-terms-extra {
+        grid-template-columns: minmax(0, 1fr) 32px;
+    }
+
+    .offer-terms-extra input[dir="rtl"] {
+        grid-row: 2;
+    }
+}
+
+/* Saved terms under the offer and on the invoice page. */
+.company-invoice-terms {
+    display: grid;
+    gap: 10px;
+    padding-top: 22px;
+}
+
+.company-invoice-terms > span {
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}

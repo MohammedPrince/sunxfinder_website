@@ -36,6 +36,7 @@ use Kreait\Firebase\Contract\Messaging;
 use Kreait\Firebase\Messaging\CloudMessage;
 use Kreait\Firebase\Messaging\Notification as FcmNotification;
 use Illuminate\Support\Facades\Log;
+use App\Support\OfferTerms;
 
 
 class CompanyRepository
@@ -338,12 +339,13 @@ class CompanyRepository
         $projects = [
             'accepted' => (int) ($projectCounts['accepted'] ?? 0),
             'in_progress' => (int) ($projectCounts['in_progress'] ?? 0),
+            'handover_pending' => (int) ($projectCounts[Project::HANDOVER_PENDING] ?? 0),
             'completed' => (int) ($projectCounts['completed'] ?? 0),
         ];
-        $projects['active'] = $projects['accepted'] + $projects['in_progress'];
+        $projects['active'] = $projects['accepted'] + $projects['in_progress'] + $projects['handover_pending'];
         $projects['average_progress'] = (int) round((float) Project::query()
             ->where('company_id', $companyId)
-            ->whereIn('status', ['accepted', 'in_progress'])
+            ->whereIn('status', Project::ACTIVE_STATUSES)
             ->avg('progress_percent'));
 
         $products = [
@@ -854,7 +856,7 @@ class CompanyRepository
             ->leftJoin('tbl_quote_requests as q', 'q.id', '=', 'p.quote_id')
             ->whereNull('p.deleted_at')
             ->where('p.company_id', $companyId)
-            ->whereIn('p.status', ['accepted', 'in_progress'])
+            ->whereIn('p.status', Project::ACTIVE_STATUSES)
             ->orderBy('p.progress_percent')
             ->orderBy('p.created_at')
             ->limit(15)
@@ -880,7 +882,7 @@ class CompanyRepository
             'started_in_period' => $this->companyProjects($companyId)->whereBetween('created_at', [$from, $to])->count(),
             'completed_in_period' => (clone $completedInPeriod)->count(),
             'avg_completion_days' => $avgCompletionHours !== null ? round($avgCompletionHours / 24, 1) : null,
-            'avg_active_progress' => (int) round((float) $this->companyProjects($companyId)->whereIn('status', ['accepted', 'in_progress'])->avg('progress_percent')),
+            'avg_active_progress' => (int) round((float) $this->companyProjects($companyId)->whereIn('status', Project::ACTIVE_STATUSES)->avg('progress_percent')),
             'milestones' => DB::table('tbl_project_milestones as m')
                 ->join('tbl_projects as p', 'p.id', '=', 'm.project_id')
                 ->whereNull('m.deleted_at')
@@ -1131,6 +1133,18 @@ class CompanyRepository
             ->first();
     }
 
+    /** Warranty and terms of this company's most recently saved offer that had any. */
+    public function getLastOfferTerms(): ?array
+    {
+        return CompanyQuotation::query()
+            ->where('company_id', $this->authenticatedCompanyId())
+            ->whereNotNull('terms')
+            ->latest('updated_at')
+            ->latest('id')
+            ->first(['id', 'terms', 'updated_at'])
+            ?->terms;
+    }
+
     public function getQuoteRequestCount(): int
     {
         $companyId = $this->authenticatedCompanyId();
@@ -1219,6 +1233,7 @@ class CompanyRepository
                 $quotation->applyCommission($companyRate);
                 $quotation->message = $data['message'] ?? null;
                 $quotation->ar_message = $data['ar_message'] ?? null;
+                $quotation->terms = OfferTerms::normalize($data['terms'] ?? null);
                 $quotation->save();
 
                 $this->saveOfferInvoice($quotation, $invoiceData);
@@ -1237,6 +1252,7 @@ class CompanyRepository
             $quotation->applyCommission($companyRate);
             $quotation->message = $data['message'] ?? null;
             $quotation->ar_message = $data['ar_message'] ?? null;
+            $quotation->terms = OfferTerms::normalize($data['terms'] ?? null);
             $quotation->status = 'submitted';
             $quotation->save();
 
@@ -1280,7 +1296,10 @@ class CompanyRepository
             'customer_id' => $quote->customer_id,
             'invoice_number' => trim((string) $data['invoice_number']),
             'invoice_date' => $data['invoice_date'],
-            'payment_terms' => 'Due upon acceptance',
+            // The payment terms picked in "Warranty and terms", else the default.
+            'payment_terms' => in_array($data['terms']['payment_terms'] ?? null, OfferTerms::PAYMENT_TERMS, true)
+                ? __('company/messages.offer_terms.payment_' . $data['terms']['payment_terms'], [], 'en')
+                : 'Due upon acceptance',
             'payment_instructions' => trim((string) ($data['invoice_notes'] ?? '')) ?: null,
             'currency' => $data['currency'],
             'company_details' => [
@@ -1698,18 +1717,19 @@ class CompanyRepository
         $price = number_format((float) $offer->price) . ' ' . $offer->currency;
         $load = $offer->maxLoadLabel();
 
+        // Called "Special offer" / "عرض خاص" in the app, so the push says the same.
         $notification = $this->publishNotification([
             'type' => 'offer',
             'audience_type' => 'selected',
             'customer_ids' => $data['customer_ids'],
-            'title_en' => $offer->title_en,
-            'title_ar' => $offer->title_ar,
+            'title_en' => Str::limit('Special offer: ' . $offer->title_en, 150, ''),
+            'title_ar' => Str::limit('عرض خاص: ' . ($offer->title_ar ?: $offer->title_en), 150, ''),
             'message_en' => filled($data['message_en'] ?? null)
                 ? trim($data['message_en'])
-                : "A ready solar system for loads up to {$load} kW, for {$price}. Open the offer, add your devices and accept it.",
+                : "A special offer: a ready solar system for loads up to {$load} kW, for {$price}. Open the offer, add your devices and accept it.",
             'message_ar' => filled($data['message_ar'] ?? null)
                 ? trim($data['message_ar'])
-                : "منظومة طاقة شمسية جاهزة لأحمال حتى {$load} كيلوواط، بسعر {$price}. افتح العرض وأضف أجهزتك واقبله.",
+                : "عرض خاص: منظومة طاقة شمسية جاهزة لأحمال حتى {$load} كيلوواط، بسعر {$price}. افتح العرض وأضف أجهزتك واقبله.",
             'all_app_customers' => true,
         ] + Notification::offerCardFields($offer));
 
@@ -2457,7 +2477,7 @@ class CompanyRepository
             ->groupBy('c.id', 'c.full_name', 'c.username', 'c.phone', 'c.email', 'c.city')
             ->select('c.id', 'c.full_name', 'c.username', 'c.phone', 'c.email', 'c.city')
             ->selectRaw('COUNT(*) as projects')
-            ->selectRaw("SUM(p.status IN ('accepted', 'in_progress')) as active_projects")
+            ->selectRaw("SUM(p.status IN ('accepted', 'in_progress', 'handover_pending')) as active_projects")
             ->selectRaw("SUM(p.status = 'completed') as completed_projects")
             ->selectRaw('MIN(p.created_at) as first_project_at')
             ->selectRaw('MAX(p.created_at) as last_project_at')
@@ -2487,7 +2507,7 @@ class CompanyRepository
             'customers' => (clone $projects)->distinct()->count('customer_id'),
             'repeat' => (clone $projects)->select('customer_id')->groupBy('customer_id')
                 ->havingRaw('COUNT(*) > 1')->get()->count(),
-            'active' => (clone $projects)->whereIn('status', ['accepted', 'in_progress'])->distinct()->count('customer_id'),
+            'active' => (clone $projects)->whereIn('status', Project::ACTIVE_STATUSES)->distinct()->count('customer_id'),
             'this_month' => (clone $projects)->where('created_at', '>=', now()->startOfMonth())->distinct()->count('customer_id'),
         ];
     }

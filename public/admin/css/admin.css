@@ -8743,3 +8743,51 @@ a.cd-chip:hover {
 .server-log .log-warning {
     color: #fcd34d;
 }
+/* Warranty and terms of an offer (partials/offer-terms-list): company and admin pages. */
+.offer-terms-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 8px;
+    margin: 12px 0 0;
+}
+
+.offer-terms-list > div {
+    padding: 8px 10px;
+    border: 1px solid #e5edf7;
+    border-radius: 9px;
+    background: #fbfcfe;
+}
+
+.offer-terms-list dt {
+    color: #64748b;
+    font-size: 11px;
+}
+
+.offer-terms-list dd {
+    margin: 3px 0 0;
+    color: #172b4d;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.offer-terms-list .offer-terms-list-validity {
+    border-style: dashed;
+}
+
+.offer-terms-list .offer-terms-list-validity dd {
+    margin: 0;
+    color: #b45309;
+}
+
+.offer-terms-list.is-compact {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+}
+
+.offer-terms-list.is-compact > div {
+    padding: 5px 8px;
+}
+
+.offer-terms-list.is-compact dd {
+    font-size: 12px;
+}

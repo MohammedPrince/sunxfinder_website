@@ -172,6 +172,7 @@ class Quote extends Model
             $this->status === 'cancelled' => ['key' => 'cancelled', 'label' => 'Cancelled by customer', 'class' => 'pill-purple'],
             $this->status === 'rejected' => ['key' => 'rejected', 'label' => 'Rejected', 'class' => 'pill-red'],
             $this->status === 'completed' || $project?->status === 'completed' => ['key' => 'completed', 'label' => 'Completed', 'class' => 'pill-green'],
+            $project?->status === Project::HANDOVER_PENDING => ['key' => 'handover_pending', 'label' => 'Waiting for customer to confirm handover', 'class' => 'pill-purple'],
             $project?->status === 'in_progress' => ['key' => 'installing', 'label' => 'Installation in progress', 'class' => 'pill-blue'],
             $this->status === 'accepted' || $project !== null => ['key' => 'accepted', 'label' => 'Offer accepted · not started', 'class' => 'pill-orange'],
             $offersCount > 0 => ['key' => 'comparing', 'label' => 'Customer comparing offers', 'class' => 'pill-yellow'],

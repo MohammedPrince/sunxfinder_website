@@ -17,8 +17,8 @@
 @section('content')
     @php
         $filterKeys = ['status', 'company_id', 'customer', 'search', 'last_activity_from', 'last_activity_to', 'stalled'];
-        $statusLabels = ['accepted' => 'Accepted', 'in_progress' => 'In progress', 'completed' => 'Completed'];
-        $statusClasses = ['accepted' => 'pill-orange', 'in_progress' => 'pill-blue', 'completed' => 'pill-green'];
+        $statusLabels = ['accepted' => 'Accepted', 'in_progress' => 'In progress', 'handover_pending' => 'Waiting for customer confirmation', 'completed' => 'Completed'];
+        $statusClasses = ['accepted' => 'pill-orange', 'in_progress' => 'pill-blue', 'handover_pending' => 'pill-purple', 'completed' => 'pill-green'];
     @endphp
 
     @include('partials.page-guide', [
@@ -38,6 +38,7 @@
         <div><small>All projects</small><strong>{{ number_format($metrics['total']) }}</strong></div>
         <div><small>Accepted</small><strong>{{ number_format($metrics['accepted']) }}</strong></div>
         <div><small>In progress</small><strong>{{ number_format($metrics['in_progress']) }}</strong></div>
+        <div><small>Waiting for customer</small><strong>{{ number_format($metrics['handover_pending']) }}</strong></div>
         <div><small>Completed</small><strong>{{ number_format($metrics['completed']) }}</strong></div>
         <div>
             <small>Stalled ({{ $stalledDays }}+ days)</small>
@@ -160,6 +161,9 @@
                                     <span class="pill pill-orange">Waiting to start</span>
                                 @elseif ($project->status === 'in_progress')
                                     <span class="pill pill-blue">In progress</span>
+                                @elseif ($project->status === 'handover_pending')
+                                    <span class="pill pill-purple">Waiting for customer</span>
+                                    <small class="cell-note">Customer confirms the handover in the app</small>
                                 @else
                                     <span class="pill pill-green">Closed</span>
                                 @endif

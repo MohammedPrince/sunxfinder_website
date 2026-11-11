@@ -68,7 +68,7 @@ return [
                 'Use the edit and delete buttons in the list to keep your catalog up to date.',
             ],
             'tips' => [
-                'Your products are also used to build package offers quickly.',
+                'Your products are also used to build special offers quickly.',
                 'Hide a product you no longer sell instead of leaving wrong information visible.',
             ],
         ],
@@ -94,10 +94,10 @@ return [
             ],
         ],
         'package_offers' => [
-            'title' => 'Package offers',
+            'title' => 'Special offers',
             'intro' => 'A ready system (panels, inverter, batteries, installation) that you push to your customers.',
             'steps' => [
-                'Open <strong>Quotes & Projects → Package offers</strong> and press <strong>+ New package offer</strong>.',
+                'Open <strong>Quotes & Projects → Special offers</strong> and press <strong>+ New special offer</strong>.',
                 'Write the <strong>title and description</strong> in English and Arabic.',
                 'Set the <strong>maximum load</strong> (kW) the system can power, and optionally a <strong>Valid until</strong> date.',
                 'Add the <strong>system items</strong> from your products, or type custom lines such as installation. The price the customer pays is shown at the bottom.',
@@ -165,7 +165,7 @@ return [
             'tips' => [
                 'You can send only to your own customers (those who accepted your offer). If SunXFinder opened all customers for your company, sends beyond your own customers are sponsored and count toward a monthly limit.',
                 'Customers who are not signed in to the app cannot receive pushes and are not listed.',
-                'Notifications are deleted automatically after 5 days, also from the customers\' app. Sponsored sends and package offers are kept.',
+                'Notifications are deleted automatically after 5 days, also from the customers\' app. Sponsored sends and special offers are kept.',
             ],
         ],
         'advertising' => [
@@ -200,9 +200,9 @@ return [
             'title' => 'Dashboard and reports',
             'intro' => 'How your company is doing, at a glance and for any period.',
             'steps' => [
-                'The <strong>Dashboard</strong> shows requests waiting for your offer, your win rate, active projects, ratings, ads and package offers.',
+                'The <strong>Dashboard</strong> shows requests waiting for your offer, your win rate, active projects, ratings, ads and special offers.',
                 'Open <strong>Overview → Reports</strong> and choose a period (last 7 days, this month, a custom range…). Each number is compared with the previous period.',
-                'Read the sections: requests and response time, offers and pricing compared with other companies, projects, customers, products, push notifications, package offers and advertising.',
+                'Read the sections: requests and response time, offers and pricing compared with other companies, projects, customers, products, push notifications, special offers and advertising.',
                 'Use <strong>Print / PDF</strong> to save the report, or export a section as a spreadsheet file.',
             ],
             'tips' => [

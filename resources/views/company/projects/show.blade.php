@@ -34,16 +34,18 @@
         $statusLabels = [
             'accepted' => __('company/messages.common.accepted'),
             'in_progress' => __('company/messages.common.in_progress'),
+            'handover_pending' => __('company/messages.common.handover_pending'),
             'completed' => __('company/messages.common.completed'),
         ];
 
         $statusClasses = [
             'accepted' => 'pill-orange',
             'in_progress' => 'pill-blue',
+            'handover_pending' => 'pill-purple',
             'completed' => 'pill-green',
         ];
 
-        $stages = ['accepted', 'in_progress', 'completed'];
+        $stages = ['accepted', 'in_progress', 'handover_pending', 'completed'];
 
         $currentStage = array_search($project->status, $stages, true);
         $currentStage = $currentStage === false ? 0 : $currentStage;
@@ -82,6 +84,8 @@
         $isAccepted = $project->status === 'accepted';
         $isInProgress = $project->status === 'in_progress';
         $isCompleted = $project->status === 'completed';
+        // The company finished; locked until the customer confirms the handover in the app.
+        $isHandoverPending = $project->status === 'handover_pending';
 
         $currentMilestone = $installationMilestones->first(
             fn ($milestone) => $milestone->status !== 'completed'
@@ -103,6 +107,9 @@
         if ($isCompleted) {
             $progress = 100;
             $progressLabel = __('company/messages.projects.project_completed');
+        } elseif ($isHandoverPending) {
+            $progress = 100;
+            $progressLabel = __('company/messages.common.handover_pending');
         } elseif ($isAccepted) {
             $progress = 0;
             $progressLabel = __('company/messages.projects.waiting_to_start');
@@ -134,6 +141,15 @@
             'completed' => 'pill-green',
         ];
     @endphp
+
+    {{-- The customer reported a problem instead of confirming the handover --}}
+    @if ($isInProgress && $project->handover_problem_at)
+        <div class="alert alert-danger" role="alert">
+            <strong>{{ __('company/messages.projects.problem_title', ['date' => $project->handover_problem_at->translatedFormat('d M Y, H:i')]) }}</strong>
+            <p style="margin:6px 0">“{{ $project->handover_problem_message }}”</p>
+            <small>{{ __('company/messages.projects.problem_body') }}</small>
+        </div>
+    @endif
 
     {{-- Flash messages --}}
     @if (session('success'))
@@ -269,6 +285,8 @@
                                 {{ __('company/messages.projects.stage_accepted') }}
                             @elseif ($stage === 'in_progress')
                                 {{ __('company/messages.projects.stage_progress') }}
+                            @elseif ($stage === 'handover_pending')
+                                {{ __('company/messages.projects.stage_handover_pending') }}
                             @else
                                 {{ __('company/messages.projects.stage_completed') }}
                             @endif
@@ -279,6 +297,8 @@
                                 {{ $project->accepted_at?->translatedFormat('d M Y, H:i') ?? '—' }}
                             @elseif ($stage === 'in_progress')
                                 {{ $project->started_at?->translatedFormat('d M Y, H:i') ?? '—' }}
+                            @elseif ($stage === 'handover_pending')
+                                {{ $project->handover_requested_at?->translatedFormat('d M Y, H:i') ?? '—' }}
                             @else
                                 {{ $project->completed_at?->translatedFormat('d M Y, H:i') ?? '—' }}
                             @endif
@@ -308,7 +328,7 @@
                     <p>
                         @if ($isAccepted)
                             {{ __('company/messages.projects.checklist_accepted') }}
-                        @elseif ($isCompleted)
+                        @elseif ($isCompleted || $isHandoverPending)
                             {{ __('company/messages.projects.checklist_completed') }}
                         @elseif ($canUpdateHandover)
                             {{ __('company/messages.projects.checklist_handover') }}
@@ -341,7 +361,7 @@
                                     <td>{{ $milestone->sort_order ?: $loop->iteration }}</td>
 
                                     <td>
-                                        <strong>{{ $milestone->title }}</strong>
+                                        <strong>{{ $milestone->displayTitle() }}</strong>
 
                                         @if ($isHandoverMilestone && !$installationComplete)
                                             <small style="display:block;margin-top:4px">
@@ -350,7 +370,7 @@
                                         @endif
                                     </td>
 
-                                    <td>{{ $milestone->description ?: '—' }}</td>
+                                    <td>{{ $milestone->displayDescription() ?: '—' }}</td>
 
                                     <td>
                                         <span class="pill {{ $milestoneClasses[$milestone->status] ?? 'pill-blue' }}">
@@ -431,6 +451,8 @@
                             {{ __('company/messages.projects.prepare_project') }}
                         @elseif ($isCompleted)
                             {{ __('company/messages.projects.project_completed') }}
+                        @elseif ($isHandoverPending)
+                            {{ __('company/messages.common.handover_pending') }}
                         @elseif ($canUpdateHandover)
                             {{ __('company/messages.projects.customer_handover') }}
                         @else
@@ -443,6 +465,8 @@
                             {{ __('company/messages.projects.side_accepted') }}
                         @elseif ($isCompleted)
                             {{ __('company/messages.projects.side_completed') }}
+                        @elseif ($isHandoverPending)
+                            {{ __('company/messages.projects.side_handover_pending') }}
                         @elseif ($canUpdateHandover)
                             {{ __('company/messages.projects.side_handover') }}
                         @else
@@ -484,6 +508,27 @@
                         <span class="pill pill-green">{{ __('company/messages.projects.complete_100') }}</span>
                     </div>
 
+                {{-- HANDOVER PENDING: the company is done; the customer confirms in the app --}}
+                @elseif ($isHandoverPending)
+                    <div class="project-next-action">
+                        <strong>{{ __('company/messages.projects.waiting_customer_title') }}</strong>
+
+                        <p>
+                            {{ __('company/messages.projects.waiting_customer_body') }}
+                        </p>
+
+                        @if ($autoConfirmAt = $project->handoverAutoConfirmAt())
+                            <p>
+                                {{ __('company/messages.projects.waiting_customer_auto', [
+                                    'days' => \App\Models\Project::AUTO_CONFIRM_DAYS,
+                                    'date' => $autoConfirmAt->translatedFormat('d M Y, H:i'),
+                                ]) }}
+                            </p>
+                        @endif
+
+                        <span class="pill pill-purple">{{ __('company/messages.common.handover_pending') }}</span>
+                    </div>
+
                 {{-- IN PROGRESS: installation or handover --}}
                 @elseif ($isInProgress)
 
@@ -506,10 +551,10 @@
                     @elseif ($currentMilestone)
                         <div class="project-next-action">
                             <small>{{ __('company/messages.projects.current_phase_caps') }}</small>
-                            <strong>{{ $currentMilestone->title }}</strong>
+                            <strong>{{ $currentMilestone->displayTitle() }}</strong>
 
                             <p>
-                                {{ $currentMilestone->description
+                                {{ $currentMilestone->displayDescription()
                                     ?: __('company/messages.projects.milestone_default') }}
                             </p>
                         </div>
@@ -574,10 +619,10 @@
                                 @endphp
 
                                 <div class="project-milestone-field">
-                                    <strong>{{ $milestone->title }}</strong>
+                                    <strong>{{ $milestone->displayTitle() }}</strong>
 
                                     @if ($milestone->description)
-                                        <small>{{ $milestone->description }}</small>
+                                        <small>{{ $milestone->displayDescription() }}</small>
                                     @endif
 
                                     @if ($isHandoverLocked)

@@ -66,6 +66,7 @@
         $projectStatusLabels = [
             'accepted' => 'Accepted · not started',
             'in_progress' => 'Installation in progress',
+            'handover_pending' => 'Waiting for customer to confirm handover',
             'completed' => 'Completed',
         ];
 
@@ -236,7 +237,15 @@
                                     <small
                                         class="cell-note">{{ $offer->created_at && $quote->created_at ? $quote->created_at->diffForHumans($offer->created_at, true) . ' after the request' : '' }}</small>
                                 </td>
-                                <td class="cell-wrap">{{ \Illuminate\Support\Str::limit($offer->message ?: '—', 140) }}</td>
+                                <td class="cell-wrap">
+                                    {{ \Illuminate\Support\Str::limit($offer->message ?: '—', 140) }}
+                                    @if ($offer->termLines())
+                                        <details style="margin-top:6px">
+                                            <summary style="cursor:pointer;font-size:12px">Warranty and terms ({{ count($offer->termLines()) }})</summary>
+                                            @include('partials.offer-terms-list', ['offer' => $offer, 'class' => 'is-compact'])
+                                        </details>
+                                    @endif
+                                </td>
                             </tr>
                         @empty
                             <tr>
@@ -263,7 +272,7 @@
                 </div>
                 @if ($project)
                     <span
-                        class="pill {{ $project->status === 'completed' ? 'pill-green' : ($project->status === 'in_progress' ? 'pill-blue' : 'pill-orange') }}">
+                        class="pill {{ match ($project->status) { 'completed' => 'pill-green', 'in_progress' => 'pill-blue', 'handover_pending' => 'pill-purple', default => 'pill-orange' } }}">
                         {{ $projectStatusLabels[$project->status] ?? ucfirst($project->status) }}
                     </span>
                 @endif

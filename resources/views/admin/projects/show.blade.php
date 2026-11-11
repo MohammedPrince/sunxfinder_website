@@ -20,8 +20,8 @@
         $quote = $project->quote;
         $offer = $project->companyQuotation;
         $progress = max(0, min(100, (int) $project->progress_percent));
-        $statusLabels = ['accepted' => 'Accepted', 'in_progress' => 'In progress', 'completed' => 'Completed'];
-        $statusClasses = ['accepted' => 'pill-orange', 'in_progress' => 'pill-blue', 'completed' => 'pill-green'];
+        $statusLabels = ['accepted' => 'Accepted', 'in_progress' => 'In progress', 'handover_pending' => 'Waiting for customer confirmation', 'completed' => 'Completed'];
+        $statusClasses = ['accepted' => 'pill-orange', 'in_progress' => 'pill-blue', 'handover_pending' => 'pill-purple', 'completed' => 'pill-green'];
         $milestoneLabels = ['pending' => 'Not started', 'in_progress' => 'In progress', 'completed' => 'Completed'];
         $milestoneClasses = ['pending' => 'pill-blue', 'in_progress' => 'pill-yellow', 'completed' => 'pill-green'];
         $customerName = $customer?->full_name ?: $customer?->username ?: 'Customer #' . $project->customer_id;

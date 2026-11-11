@@ -144,6 +144,7 @@
                             [$nextLabel, $nextClass, $nextUrl] = match (true) {
                                 $project !== null && $project->status === 'accepted' => [__('company/messages.quote_requests.start_project'), 'pill-green', route('company.projects.show', $project->id)],
                                 $project !== null && $project->status === 'in_progress' => [__('company/messages.quote_requests.update_progress_percent', ['percent' => $project->progress_percent]), 'pill-blue', route('company.projects.show', $project->id)],
+                                $project !== null && $project->status === 'handover_pending' => [__('company/messages.common.handover_pending'), 'pill-purple', route('company.projects.show', $project->id)],
                                 $project !== null => [__('company/messages.quote_requests.project_completed'), 'pill-green', route('company.projects.show', $project->id)],
                                 $lostToAnother => [__('company/messages.quote_requests.closed_another'), 'pill-red', route('company.quote-requests.show', $quote->id)],
                                 in_array($quote->status, ['cancelled', 'rejected'], true) => [__('company/messages.quote_requests.closed_customer'), 'pill-purple', route('company.quote-requests.show', $quote->id)],

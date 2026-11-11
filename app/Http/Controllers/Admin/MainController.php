@@ -1461,7 +1461,7 @@ class MainController extends Controller
     public function projects(Request $request)
     {
         $filters = $request->validate([
-            'status' => ['nullable', Rule::in(['accepted', 'in_progress', 'completed'])],
+            'status' => ['nullable', Rule::in(['accepted', 'in_progress', 'handover_pending', 'completed'])],
             'company_id' => ['nullable', 'integer', 'min:1'],
             'customer' => ['nullable', 'string', 'max:100'],
             'search' => ['nullable', 'string', 'max:100'],

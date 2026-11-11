@@ -18,12 +18,19 @@ class CompanyOfferDecisionMail extends Mailable
     public const REJECTED = 'rejected';
     // The customer confirmed the handover in the app: the project is completed.
     public const COMPLETED = 'completed';
+    // Nobody answered within Project::AUTO_CONFIRM_DAYS, so the handover was confirmed automatically.
+    public const AUTO_COMPLETED = 'auto_completed';
+    // The customer reported a problem instead of confirming: the project is back in progress.
+    public const HANDOVER_PROBLEM = 'handover_problem';
+
+    /** Decisions about a project (the email links to it), not about the offer. */
+    public const PROJECT_DECISIONS = [self::COMPLETED, self::AUTO_COMPLETED, self::HANDOVER_PROBLEM];
 
     public function __construct(
         public string $decision,
         public array $details
     ) {
-        $this->decision = in_array($decision, [self::ACCEPTED, self::COMPLETED], true) ? $decision : self::REJECTED;
+        $this->decision = in_array($decision, [self::ACCEPTED, ...self::PROJECT_DECISIONS], true) ? $decision : self::REJECTED;
     }
 
     public function build(): self
@@ -39,16 +46,24 @@ class CompanyOfferDecisionMail extends Mailable
             ->subject(match ($this->decision) {
                 self::ACCEPTED => "Your offer was accepted - Request #{$quoteId} | تم قبول عرضك",
                 self::COMPLETED => "Customer confirmed the handover - Request #{$quoteId} | أكّد العميل الاستلام",
+                self::AUTO_COMPLETED => "Handover confirmed automatically - Request #{$quoteId} | تم تأكيد الاستلام تلقائياً",
+                self::HANDOVER_PROBLEM => "Customer reported a problem - Request #{$quoteId} | أبلغ العميل عن مشكلة",
                 default => "Your offer was not selected - Request #{$quoteId} | لم يتم اختيار عرضك",
             })
             ->view(match ($this->decision) {
                 self::ACCEPTED => 'emails.company.customer-accept-offer',
-                self::COMPLETED => 'emails.company.customer-confirm-handover',
+                self::COMPLETED, self::AUTO_COMPLETED, self::HANDOVER_PROBLEM => 'emails.company.customer-confirm-handover',
                 default => 'emails.company.customer-reject-offer',
             })
             ->with($this->details + [
                 'homeUrl' => $baseUrl,
                 'supportEmail' => config('mail.from.address'),
+                // Which text the handover email shows.
+                'variant' => match ($this->decision) {
+                    self::AUTO_COMPLETED => 'auto_completed',
+                    self::HANDOVER_PROBLEM => 'problem',
+                    default => 'completed',
+                },
             ])
             // Mark as automated so mail clients don't send auto-replies to the no-reply box.
             ->withSymfonyMessage(function ($message) {

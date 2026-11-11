@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\LogsActivity;
+use App\Support\OfferTerms;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -15,6 +16,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|float $commission_rate
  * @property string|float $commission_amount
  * @property string|null $commission_type
+ * @property array|null $terms Warranty and terms, shape in App\Support\OfferTerms
+ * @property \Illuminate\Support\Carbon|null $updated_at
  */
 class CompanyQuotation extends Model
 {
@@ -28,6 +31,7 @@ class CompanyQuotation extends Model
         'currency',
         'message',
         'ar_message',
+        'terms',
         'status',
     ];
 
@@ -50,7 +54,27 @@ class CompanyQuotation extends Model
             'price' => 'decimal:2',
             'commission_rate' => 'decimal:2',
             'commission_amount' => 'decimal:2',
+            'terms' => 'array',
         ];
+    }
+
+    /** Warranty and terms as label/value lines in English and Arabic (see OfferTerms). */
+    public function termLines(): array
+    {
+        return OfferTerms::lines($this->terms);
+    }
+
+    /**
+     * Last day the offer is valid, when the company set a validity. Counted from the
+     * last save, so editing the offer starts the period again.
+     */
+    public function validUntil(): ?\Illuminate\Support\Carbon
+    {
+        $days = (int) ($this->terms['validity_days'] ?? 0);
+
+        return $days > 0 && $this->updated_at
+            ? $this->updated_at->copy()->addDays($days)->startOfDay()
+            : null;
     }
 
     /**
