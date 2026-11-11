@@ -200,6 +200,8 @@
                             <small>{{ __('company/messages.products.show_on_profile_sub') }}</small>
                         </span>
 
+                        {{-- An unchecked box sends nothing; the hidden 0 makes "hide" actually save. --}}
+                        <input type="hidden" name="is_active" value="0">
                         <input type="checkbox" name="is_active" value="1" id="is_active" @checked((bool) old('is_active', $product?->is_active ?? true))>
                     </label>
                 </section>
