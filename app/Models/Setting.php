@@ -99,6 +99,23 @@ class Setting extends Model
         });
     }
 
+    /** Cache key for the website design choice (read on every public page). */
+    public const SITE_DESIGN_CACHE_KEY = 'site-design';
+
+    /** Website designs an admin can choose between (Admin → Settings). */
+    public const SITE_DESIGNS = ['new', 'classic'];
+
+    /**
+     * Which design the public website uses: "new" (navy header, phone hero) or "classic"
+     * (the earlier light design). Cached for a minute; cleared when an admin saves the settings.
+     */
+    public static function siteDesign(): string
+    {
+        $design = cache()->remember(self::SITE_DESIGN_CACHE_KEY, 60, fn() => (string) static::get('site_design', 'new'));
+
+        return in_array($design, self::SITE_DESIGNS, true) ? $design : 'new';
+    }
+
     /** Cache key for who sees Advertising in the company portal; cleared when settings are saved. */
     public const COMPANY_ADS_CACHE_KEY = 'company-ads-access';
 

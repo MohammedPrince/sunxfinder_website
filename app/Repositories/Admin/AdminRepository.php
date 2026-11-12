@@ -4976,9 +4976,11 @@ class AdminRepository
     {
         cache()->forget(Setting::MAINTENANCE_CACHE_KEY);
         cache()->forget(Setting::APP_OFFLINE_CACHE_KEY);
+        cache()->forget(Setting::SITE_DESIGN_CACHE_KEY);
 
         return [
             'max_open_quotes' => Setting::maxOpenQuotes(),
+            'site_design' => Setting::siteDesign(),
             'maintenance' => Setting::maintenance(),
             'app_offline' => Setting::appOffline(),
             'company_ads' => Setting::companyAdsAccess(),
@@ -5347,6 +5349,9 @@ class AdminRepository
             $wasOffline = Setting::appOffline()['enabled'];
 
             Setting::set('max_open_quotes', (int) $data['max_open_quotes']);
+
+            Setting::set('site_design', $data['site_design']);
+            cache()->forget(Setting::SITE_DESIGN_CACHE_KEY);
 
             Setting::set('company_ads_audience', $data['company_ads_audience']);
             Setting::set('company_ads_company_ids', json_encode(array_values(array_map('intval', $data['company_ads_company_ids'] ?? []))));

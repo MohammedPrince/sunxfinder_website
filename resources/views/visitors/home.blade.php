@@ -51,17 +51,87 @@
                     <li>{{ __('messages.No obligation') }}</li>
                 </ul>
 
+                @if (!empty($appLinks))
+                <div class="hx-hero-stores">
+                    @isset($appLinks['android'])
+                        <a class="hx-store" href="{{ $appLinks['android'] }}" target="_blank" rel="noopener">
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+                                <path
+                                    d="M4 3.5v17l9.5-8.5L4 3.5Zm11 7L6.5 2.3l10.3 5.9L15 10.5Zm0 3 1.8 2.3L6.5 21.7 15 13.5Zm1.4-1.5L19.7 10l2.3 1.3c.6.4.6 1.1 0 1.4L19.7 14l-3.3-2Z" />
+                            </svg>
+                            <span><small>{{ __('messages.Get it on') }}</small>Google Play</span>
+                        </a>
+                    @endisset
+                    @isset($appLinks['ios'])
+                        <a class="hx-store" href="{{ $appLinks['ios'] }}" target="_blank" rel="noopener">
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+                                <path
+                                    d="M16.4 12.6c0-2.5 2-3.6 2.1-3.7-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.9-1.1-2.9-4.2ZM13.9 5c.7-.8 1.2-2 1-3.2-1 .1-2.2.7-3 1.5-.6.7-1.2 1.9-1 3.1 1.1.1 2.3-.6 3-1.4Z" />
+                            </svg>
+                            <span><small>{{ __('messages.Download on the') }}</small>App Store</span>
+                        </a>
+                    @endisset
+                </div>
+                @endif
+
                 <p class="hx-company-link">
                     {{ __('messages.Are you a solar company?') }}
                     <a href="{{ $companyRegisterUrl }}">{{ __('messages.Join SunXFinder') }}</a>
                 </p>
             </div>
 
-            {{-- Logo with the three steps around it --}}
+            {{-- Phone showing what the customer gets: several offers to compare (sample figures) --}}
+            @php
+                $heroText = $isArabic
+                    ? [
+                        'small' => 'طلب عرض سعر', 'title' => 'العروض المستلمة', 'need' => 'احتياجك اليومي',
+                        'needValue' => '12.4 ك.و.س', 'peak' => 'أقصى حمل 3.2 ك.و', 'best' => 'أفضل سعر',
+                        'verified' => 'موثّقة', 'warranty' => 'ضمان :years سنوات', 'company' => 'شركة :letter',
+                        'letters' => ['أ', 'ب', 'ج'], 'button' => 'قارن العروض واختر الأنسب',
+                        'project' => 'مشروعك · التركيب جارٍ',
+                    ]
+                    : [
+                        'small' => 'Quote request', 'title' => 'Offers received', 'need' => 'Your daily need',
+                        'needValue' => '12.4 kWh', 'peak' => 'Peak load 3.2 kW', 'best' => 'Best price',
+                        'verified' => 'Verified', 'warranty' => ':years-year warranty', 'company' => 'Company :letter',
+                        'letters' => ['A', 'B', 'C'], 'button' => 'Compare offers and choose',
+                        'project' => 'Your project · installing',
+                    ];
+                $heroOffers = [['A', '$2,450', 10, '4.9'], ['B', '$2,680', 8, '4.7'], ['C', '$2,790', 5, '4.6']];
+            @endphp
             <div class="hx-hero-art" aria-hidden="true">
-                <div class="hx-logo-disc">
-                    <img src="{{ asset_v('visitors/images/sunxfinder-solar-badge.webp') }}" alt="SunXFinder Logo"
-                        width="512" height="512" fetchpriority="high" decoding="async">
+                <div class="hx-hero-ring"></div>
+                <div class="hx-hero-sun"></div>
+
+                <div class="hx-phone">
+                    <div class="hx-phone-screen">
+                        <div class="hx-phone-notch"></div>
+                        <div class="hx-phone-head">
+                            <small>{{ $heroText['small'] }}</small>
+                            <strong>{{ $heroText['title'] }} (3)</strong>
+                        </div>
+                        <div class="hx-phone-need">
+                            <span><small>{{ $heroText['need'] }}</small><b>{{ $heroText['needValue'] }}</b></span>
+                            <i>{{ $heroText['peak'] }}</i>
+                        </div>
+                        @foreach ($heroOffers as $index => [$letter, $price, $years, $stars])
+                            <div class="hx-phone-offer {{ $index === 0 ? 'is-best' : '' }}">
+                                <span class="hx-phone-avatar hx-phone-avatar-{{ $index + 1 }}">{{ $letter }}</span>
+                                <span class="hx-phone-offer-copy">
+                                    <b>{{ str_replace(':letter', $heroText['letters'][$index], $heroText['company']) }}
+                                        @if ($index === 0)<em>{{ $heroText['best'] }}</em>@endif
+                                    </b>
+                                    <small>★ {{ $stars }} · {{ str_replace(':years', $years, $heroText['warranty']) }}</small>
+                                </span>
+                                <span class="hx-phone-price"><b dir="ltr">{{ $price }}</b><small>{{ $heroText['verified'] }} ✓</small></span>
+                            </div>
+                        @endforeach
+                        <div class="hx-phone-button">{{ $heroText['button'] }}</div>
+                        <div class="hx-phone-progress">
+                            <span><small>{{ $heroText['project'] }}</small><b>75%</b></span>
+                            <i><u></u></i>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="hx-chip hx-chip-find">
@@ -119,7 +189,7 @@
 
             <ol class="hx-steps">
                 <li class="hx-step hx-step-find">
-                    <span class="hx-step-no">1</span>
+                    <span class="hx-step-no">01</span>
                     <span class="hx-step-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8"
                             stroke-linecap="round">
@@ -133,7 +203,7 @@
                 </li>
 
                 <li class="hx-step hx-step-compare">
-                    <span class="hx-step-no">2</span>
+                    <span class="hx-step-no">02</span>
                     <span class="hx-step-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8"
                             stroke-linecap="round" stroke-linejoin="round">
@@ -146,7 +216,7 @@
                 </li>
 
                 <li class="hx-step hx-step-connect">
-                    <span class="hx-step-no">3</span>
+                    <span class="hx-step-no">03</span>
                     <span class="hx-step-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8"
                             stroke-linecap="round" stroke-linejoin="round">
@@ -164,71 +234,47 @@
                     href="{{ $customerRegisterUrl }}">{{ __('messages.Start with step 1') }}</a>
                 <small class="hx-note">{{ __('messages.It is free and takes about 2 minutes.') }}</small>
             </div>
+        </div>
+    </section>
 
+    {{-- ============ The app: real screens with what it does around them ============ --}}
+    @php
+        $appFeatures = $isArabic
+            ? [
+                ['calc', 'احسب احتياجك بدقة', 'أضف أجهزتك واعرف عدد الألواح وحجم المحوّل والبطاريات.'],
+                ['shield', 'شركات موثّقة فقط', 'يراجع فريقنا كل شركة ويوافق عليها قبل ظهورها لك.'],
+                ['track', 'تابع مشروعك خطوة بخطوة', 'تحديثات من الشركة عند كل مرحلة حتى التسليم.'],
+                ['star', 'قيّم تجربتك', 'رأيك يساعد غيرك على اختيار الشركة الأفضل.'],
+            ]
+            : [
+                ['calc', 'Know what you need', 'Add your appliances and see the panels, inverter and batteries you need.'],
+                ['shield', 'Verified companies only', 'Our team reviews and approves every company before you see it.'],
+                ['track', 'Follow your project', 'Updates from the company at every stage until handover.'],
+                ['star', 'Rate your experience', 'Your review helps others choose the best company.'],
+            ];
+        $appIcons = [
+            'calc' => '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8.5 7.5h7M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 16h.01M12 16h.01M15.5 16h.01"/>',
+            'shield' => '<path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/>',
+            'track' => '<path d="M4 19h16M7 16v-4M12 16V8M17 16V5"/>',
+            'star' => '<path d="m12 3 2.7 5.5 6 .9-4.4 4.2 1 6L12 16.8 6.7 19.6l1-6L3.3 9.4l6-.9L12 3Z"/>',
+        ];
+    @endphp
+    <section class="hx-section hx-section-soft" id="app">
+        <div class="container">
+            <div class="hx-heading">
+                <span class="hx-kicker">{{ $isArabic ? 'تطبيق SunXFinder' : 'The SunXFinder app' }}</span>
+                <h2>{{ $isArabic ? 'كل ما تحتاجه للطاقة الشمسية في تطبيق واحد' : 'Your solar project, made simple' }}</h2>
+                <p>{{ $isArabic
+                    ? 'اكتشف الشركات الموثوقة، وقارن العروض، وتابع مشروعك بسهولة من هاتفك.'
+                    : 'Find trusted companies, compare offers, and follow your project, all from your phone.' }}</p>
+            </div>
 
-            <div class="hx-app-walkthrough">
-                {{-- App description --}}
-                <div class="hx-app-copy">
-                    <span class="hx-kicker">
-                        {{ $isArabic ? 'تطبيق SunXFinder' : 'THE SUNXFINDER APP' }}
-                    </span>
-
-                    <h2>
-                        {{ $isArabic
-        ? 'كل ما تحتاجه للطاقة الشمسية في تطبيق واحد'
-        : 'Your solar project, made simple' }}
-                    </h2>
-
-                    <p>
-                        {{ $isArabic
-        ? 'اكتشف الشركات الموثوقة، وقارن العروض، وتابع مشروعك بسهولة من هاتفك.'
-        : 'Find trusted companies, compare offers, and follow your project, all from your phone.' }}
-                    </p>
-
-                    <ul class="hx-app-highlights">
-                        <li>
-                            {{ $isArabic ? 'اطلب عروضاً تناسب احتياجاتك' : 'Request offers for your needs' }}
-                        </li>
-                        <li>
-                            {{ $isArabic ? 'قارن الأسعار والتفاصيل بسهولة' : 'Compare prices and details' }}
-                        </li>
-                        <li>
-                            {{ $isArabic ? 'تابع مشروعك خطوة بخطوة' : 'Follow your project step by step' }}
-                        </li>
-                    </ul>
-
-                    <div class="hx-actions hx-app-actions">
-                        <a class="hx-btn hx-btn-primary" href="{{ $customerRegisterUrl }}">
-                            {{ $isArabic ? 'ابدأ الآن' : 'Get started' }}
-                            <span aria-hidden="true">
-                                {{ $isArabic ? '←' : '→' }}
-                            </span>
-                        </a>
-
-                        {{-- Shown only while the admin has it switched on (Admin → App Versions) --}}
-                        @if (!empty($apkDownloadUrl))
-                            <a class="hx-btn hx-btn-outline" href="{{ $apkDownloadUrl }}" download rel="nofollow">
-                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
-                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <path d="M12 3v12" />
-                                    <path d="m7 10 5 5 5-5" />
-                                    <path d="M5 21h14" />
-                                </svg>
-                                {{ $isArabic ? 'تحميل' : 'Direct Download' }}
-                            </a>
-                        @endif
-
-                        @if (!empty($playStoreUrl))
-                            <a class="hx-store" href="{{ $playStoreUrl }}" target="_blank" rel="noopener">
-                                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
-                                    <path
-                                        d="M4 3.5v17l9.5-8.5L4 3.5Zm11 7L6.5 2.3l10.3 5.9L15 10.5Zm0 3 1.8 2.3L6.5 21.7 15 13.5Zm1.4-1.5L19.7 10l2.3 1.3c.6.4.6 1.1 0 1.4L19.7 14l-3.3-2Z" />
-                                </svg>
-                                <span><small>{{ __('messages.Get it on') }}</small>Google Play</span>
-                            </a>
-                        @endif
-                    </div>
-                </div>
+            <div class="hx-bento">
+                <div class="hx-bento-phone">
+                    <h3>{{ $isArabic ? 'قارن العروض جنباً إلى جنب' : 'Compare offers side by side' }}</h3>
+                    <p>{{ $isArabic
+                        ? 'اطلب مرة واحدة، واستلم أسعاراً من عدة شركات موثّقة.'
+                        : 'Ask once and receive prices from several verified companies.' }}</p>
 
                 {{-- App screenshots slider --}}
                 @php
@@ -284,11 +330,51 @@
                         </div>
                     </div>
                 </div>
+                </div>
+
+                @foreach ($appFeatures as [$icon, $title, $text])
+                    <article class="hx-bento-cell hx-bento-{{ $icon }}">
+                        <span class="hx-bento-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8"
+                                stroke-linecap="round" stroke-linejoin="round">{!! $appIcons[$icon] !!}</svg>
+                        </span>
+                        <h3>{{ $title }}</h3>
+                        <p>{{ $text }}</p>
+                    </article>
+                @endforeach
             </div>
 
+                    <div class="hx-actions hx-actions-center hx-app-actions">
+                        <a class="hx-btn hx-btn-primary" href="{{ $customerRegisterUrl }}">
+                            {{ $isArabic ? 'ابدأ الآن' : 'Get started' }}
+                            <span aria-hidden="true">
+                                {{ $isArabic ? '←' : '→' }}
+                            </span>
+                        </a>
 
+                        {{-- Shown only while the admin has it switched on (Admin → App Versions) --}}
+                        @if (!empty($apkDownloadUrl))
+                            <a class="hx-btn hx-btn-outline" href="{{ $apkDownloadUrl }}" download rel="nofollow">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M12 3v12" />
+                                    <path d="m7 10 5 5 5-5" />
+                                    <path d="M5 21h14" />
+                                </svg>
+                                {{ $isArabic ? 'تحميل' : 'Direct Download' }}
+                            </a>
+                        @endif
 
-
+                        @if (!empty($playStoreUrl))
+                            <a class="hx-store" href="{{ $playStoreUrl }}" target="_blank" rel="noopener">
+                                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+                                    <path
+                                        d="M4 3.5v17l9.5-8.5L4 3.5Zm11 7L6.5 2.3l10.3 5.9L15 10.5Zm0 3 1.8 2.3L6.5 21.7 15 13.5Zm1.4-1.5L19.7 10l2.3 1.3c.6.4.6 1.1 0 1.4L19.7 14l-3.3-2Z" />
+                                </svg>
+                                <span><small>{{ __('messages.Get it on') }}</small>Google Play</span>
+                            </a>
+                        @endif
+                    </div>
         </div>
     </section>
 
@@ -617,76 +703,81 @@
                         $filledStars = $rating !== null ? max(0, min(5, (int) round($rating))) : 0;
                     @endphp
 
-                    <article class="company-card" data-interval="{{ $carouselEntry->interval_seconds }}">
-                        <div class="company-card-top">
-                            <div class="company-logo-placeholder {{ $logoUrl ? 'has-logo' : '' }}">
-                                @if ($logoUrl)
-                                    <img src="{{ $logoUrl }}" alt="{{ $company->name }}" width="56" height="56" loading="lazy"
-                                        decoding="async"
-                                        onerror="this.parentElement.classList.remove('has-logo');this.replaceWith(document.createTextNode({{ json_encode(name_initials($company->name)) }}))">
-                                @else
-                                    {{ name_initials($company->name) }}
-                                @endif
-                            </div>
-
-                            <div class="company-main-info">
-                                <h3>{{ $company->name }}</h3>
-                                <span class="company-location">
-                                    <span aria-hidden="true">⌖</span>
-                                    {{ $company->city ? $company->city . ', ' : '' }}{{ __('messages.Sudan') }}
-                                </span>
-
-                                <div class="hx-company-rating" dir="ltr">
-                                    @if ($rating !== null)
-                                        <span class="hx-stars"
-                                            aria-label="{{ $rating }} out of 5 stars">{{ str_repeat('★', $filledStars) }}<span
-                                                class="hx-stars-off">{{ str_repeat('★', 5 - $filledStars) }}</span></span>
-                                        <strong>{{ number_format($rating, 1) }}</strong>
-                                        <span class="hx-rating-count">({{ number_format($reviewCount) }}
-                                            {{ __('messages.customer reviews') }})</span>
-                                    @else
-                                        <span class="hx-rating-empty">{{ __('messages.Not rated yet') }}</span>
-                                    @endif
-                                </div>
-                            </div>
-
+                    {{-- Card: coloured cover with the logo and "Verified", then name, rating, city, services --}}
+                    <article class="company-card hx-co hx-co-tone-{{ ($loop->index % 3) + 1 }}"
+                        data-interval="{{ $carouselEntry->interval_seconds }}">
+                        <div class="hx-co-cover">
                             @if ($company->is_verified)
                                 <span class="verification-badge">
                                     <span aria-hidden="true">✓</span>
                                     {{ __('messages.Verified') }}
                                 </span>
                             @endif
-                        </div>
-
-                        @if ($company->year_of_exp || $company->number_of_projects)
-                            <div class="hx-company-facts">
-                                @if ($company->year_of_exp)
-                                    <span>{{ __('messages.Years of experience') }}: <strong>{{ $company->year_of_exp }}</strong></span>
-                                @endif
-                                @if ($company->number_of_projects)
-                                    <span>{{ __('messages.Projects done') }}: <strong>{{ $company->number_of_projects }}</strong></span>
-                                @endif
-                            </div>
-                        @endif
-
-                        @if ($description)
-                            <p class="company-description" dir="auto" title="{{ $description }}">{{ $description }}</p>
-                        @endif
-
-                        @if ($serviceList->isNotEmpty())
-                            <div class="company-specialties">
-                                @foreach ($serviceList as $service)
-                                    <span>{{ $service }}</span>
-                                @endforeach
-                            </div>
-                        @endif
-
-                        <div class="company-card-footer">
                             @if ($carouselEntry->is_sponsored)
                                 <span class="ad-sponsored-label">{{ __('messages.Sponsored') }}</span>
                             @endif
+
+                            <div class="company-logo-placeholder {{ $logoUrl ? 'has-logo' : '' }}">
+                                @if ($logoUrl)
+                                    <img src="{{ $logoUrl }}" alt="{{ $company->name }}" width="72" height="72" loading="lazy"
+                                        decoding="async"
+                                        onerror="this.parentElement.classList.remove('has-logo');this.replaceWith(document.createTextNode({{ json_encode(name_initials($company->name)) }}))">
+                                @else
+                                    {{ name_initials($company->name) }}
+                                @endif
+                            </div>
+                        </div>
+
+                        <div class="hx-co-body">
+                            <h3 dir="auto">{{ $company->name }}</h3>
+
+                            <div class="hx-co-meta">
+                                <span class="hx-company-rating">
+                                    @if ($rating !== null)
+                                        <span class="hx-stars" aria-label="{{ $rating }} out of 5 stars">★</span>
+                                        <strong>{{ number_format($rating, 1) }}</strong>
+                                        <span class="hx-rating-count">({{ number_format($reviewCount) }}
+                                            {{ __('messages.customer reviews') }})</span>
+                                    @else
+                                        <span class="hx-stars hx-stars-off" aria-hidden="true">★</span>
+                                        <span class="hx-rating-empty">{{ __('messages.Not rated yet') }}</span>
+                                    @endif
+                                </span>
+                                <span class="company-location">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M12 21s7-6.2 7-11.5a7 7 0 0 0-14 0C5 14.8 12 21 12 21Z" />
+                                        <circle cx="12" cy="9.5" r="2.5" />
+                                    </svg>
+                                    {{ $company->city ? $company->city . ', ' : '' }}{{ __('messages.Sudan') }}
+                                </span>
+                            </div>
+
+                            @if ($company->year_of_exp || $company->number_of_projects)
+                                <div class="hx-company-facts">
+                                    @if ($company->year_of_exp)
+                                        <span>{{ __('messages.Years of experience') }}: <strong>{{ $company->year_of_exp }}</strong></span>
+                                    @endif
+                                    @if ($company->number_of_projects)
+                                        <span>{{ __('messages.Projects done') }}: <strong>{{ $company->number_of_projects }}</strong></span>
+                                    @endif
+                                </div>
+                            @endif
+
+                            @if ($description)
+                                <p class="company-description" dir="auto" title="{{ $description }}">{{ $description }}</p>
+                            @endif
+
+                            @if ($serviceList->isNotEmpty())
+                                <div class="company-specialties">
+                                    @foreach ($serviceList as $service)
+                                        <span>{{ $service }}</span>
+                                    @endforeach
+                                </div>
+                            @endif
+
                             <a href="{{ route('ad.click', ['type' => 'carousel', 'id' => $carouselEntry->id, 'platform' => 'website']) }}"
-                                class="hx-btn hx-btn-outline hx-btn-sm">
+                                class="hx-btn hx-btn-outline hx-btn-sm hx-co-button">
                                 {{ __('messages.View company') }}
                             </a>
                         </div>

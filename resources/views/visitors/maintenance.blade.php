@@ -14,11 +14,11 @@
     <meta name="robots" content="noindex">
     <title>{{ $title ?: 'SunXFinder' }} · SunXFinder</title>
     <link rel="icon" type="image/png" href="{{ asset_v('visitors/images/logo-128.png') }}">
-    {{-- Same fonts as the home page (layouts/app.blade.php): DM Sans + Manrope, plus Cairo for Arabic --}}
+    {{-- Same fonts as the site (layouts/app.blade.php): Alexandria headings, DM Sans or IBM Plex Sans Arabic body --}}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800{{ $isArabic ? '&family=Cairo:wght@400;600;700;800' : '' }}&display=swap">
+        href="https://fonts.googleapis.com/css2?family=Alexandria:wght@500;600;700;800{{ $isArabic ? '&family=IBM+Plex+Sans+Arabic:wght@400;500;600' : '&family=DM+Sans:wght@400;500;600;700' }}&display=swap">
     <style>
         :root {
             --navy: #0b2d5c;
@@ -37,15 +37,16 @@
             display: grid;
             place-items: center;
             padding: 24px 16px;
-            /* Home page body: "DM Sans", Arial (sunxfinder.css); Arabic pages: Cairo first */
+            /* Same fonts as the site (visitors/css/theme.css) */
             font-family:
-                {!! $isArabic ? 'Cairo, "DM Sans", Tahoma, Arial, sans-serif' : '"DM Sans", Arial, sans-serif' !!}
+                {!! $isArabic ? '"IBM Plex Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif' : '"DM Sans", "Segoe UI", Arial, sans-serif' !!}
             ;
             color: var(--navy);
+            /* Navy with a sun glow, like the home page hero */
             background:
-                radial-gradient(circle at 85% 10%, rgba(255, 179, 26, .28), transparent 40%),
-                radial-gradient(circle at 10% 95%, rgba(21, 101, 192, .08), transparent 45%),
-                linear-gradient(180deg, #fffaf4 0%, #fff 100%);
+                radial-gradient(900px 620px at 12% 0%, rgba(255, 140, 20, .32), transparent 62%),
+                radial-gradient(700px 520px at 92% 100%, rgba(22, 167, 237, .26), transparent 60%),
+                linear-gradient(160deg, #081c3d 0%, #0b2d5c 55%, #0a2347 100%);
         }
 
         .card {
@@ -93,11 +94,11 @@
             letter-spacing: .05em;
         }
 
-        /* Home page headings: Manrope, "DM Sans" with -0.02em (home.css); Arabic: Cairo, no spacing */
+        /* Same heading font as the site (Alexandria, in both languages) */
         h1 {
             margin: 14px 0 12px;
             font-family:
-                {!! $isArabic ? 'Cairo, Tahoma, sans-serif' : 'Manrope, "DM Sans", sans-serif' !!}
+                Alexandria, "Segoe UI", Tahoma, sans-serif
             ;
             font-size: clamp(28px, 3.4vw, 40px);
             font-weight: 800;

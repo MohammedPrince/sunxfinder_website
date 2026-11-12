@@ -56,6 +56,10 @@ return [
         'android_sha256' => env('ANDROID_SHA256_FINGERPRINTS'),
         // iOS Universal Links (/.well-known/apple-app-site-association): "TEAMID.bundle.id"
         'ios_app_id' => env('IOS_APP_ID'),
+        // Company profile: hide the "request a quote" button on Android phones without the app.
+        // Turn on only after the Android app declares this website (asset_statements), otherwise
+        // Chrome reports "not installed" for everyone.
+        'detect_installed' => (bool) env('APP_DETECT_INSTALLED', false),
     ],
 
     // Push notification sound. The file must be bundled in the mobile app:

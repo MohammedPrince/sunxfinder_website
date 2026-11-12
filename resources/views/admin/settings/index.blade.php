@@ -88,6 +88,37 @@
             </div>
         </section>
 
+        {{-- Website design: new or classic --}}
+        @php $siteDesign = old('site_design', $settings['site_design']); @endphp
+        <section class="panel" id="site-design">
+            <div class="panel-heading">
+                <div>
+                    <h2>
+                        Website design
+                        <span class="pill pill-green">{{ $settings['site_design'] === 'classic' ? 'Classic design is live' : 'New design is live' }}</span>
+                    </h2>
+                    <p>Choose the look of the public website: home page, company profiles, sign-up, terms and the maintenance page.
+                        Content and links stay the same. Visitors see the change within a minute.</p>
+                </div>
+            </div>
+
+            <div class="panel-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="site_design">Design</label>
+                        <select class="select-control" id="site_design" name="site_design" required>
+                            <option value="new" @selected($siteDesign === 'new')>New design (navy header, phone preview)</option>
+                            <option value="classic" @selected($siteDesign === 'classic')>Classic design (the earlier light look)</option>
+                        </select>
+                        <small class="form-hint">After saving, open <a href="{{ url('/') }}" target="_blank" rel="noopener">the website</a> to check it.</small>
+                        @error('site_design')<small class="field-error">{{ $message }}</small>@enderror
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Save Settings</button>
+            </div>
+        </section>
+
         <section class="panel">
             @php
                 $companyAds = $settings['company_ads'];

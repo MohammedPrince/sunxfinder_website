@@ -1872,6 +1872,7 @@ class MainController extends Controller
     {
         $data = $request->validate([
             'max_open_quotes' => ['required', 'integer', 'min:1', 'max:50'],
+            'site_design' => ['required', \Illuminate\Validation\Rule::in(\App\Models\Setting::SITE_DESIGNS)],
             'app_offline_enabled' => ['nullable', 'boolean'],
             'app_offline_message_en' => ['nullable', 'required_if:app_offline_enabled,1', 'string', 'max:1000'],
             'app_offline_message_ar' => ['nullable', 'required_if:app_offline_enabled,1', 'string', 'max:1000'],

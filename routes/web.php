@@ -40,6 +40,8 @@ Route::controller(WebsiteController::class)->middleware(['site.maintenance', 'si
     // Domain verification files for Android App Links and iOS Universal Links
     Route::get('/.well-known/assetlinks.json', 'androidAssetLinks')->name('app.assetlinks');
     Route::get('/.well-known/apple-app-site-association', 'appleAppSiteAssociation')->name('app.aasa');
+    // Names the Android app, so Chrome can tell a page whether it is installed
+    Route::get('/manifest.webmanifest', 'webManifest')->name('app.manifest');
 
     // Android APK "Direct download" (404 while the admin has it hidden)
     Route::get('/download/android', 'downloadApk')->middleware('throttle:20,1')->name('app.download');

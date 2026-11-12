@@ -38,7 +38,7 @@ class SiteMaintenance
         $visitorCount = app(MainService::class)->countVisit();
 
         return response()
-            ->view('visitors.maintenance', [
+            ->view(Setting::siteDesign() === 'classic' ? 'visitors.maintenance-classic' : 'visitors.maintenance', [
                 'isArabic' => $isArabic,
                 'visitorCount' => $visitorCount,
                 'title' => $isArabic

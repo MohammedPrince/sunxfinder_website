@@ -4,6 +4,8 @@
     $homeUrl = url('/') . '?lang=' . app()->getLocale();
     $isHome = $currentRoute === 'home';
     $needsEditor = $currentRoute === 'company.register';
+    // Admin → Settings → Website design: "classic" keeps the earlier fonts and skips theme.css.
+    $classicDesign = \App\Models\Setting::siteDesign() === 'classic';
 @endphp
 
 <!doctype html>
@@ -12,7 +14,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#0b2d5c">
+    <meta name="theme-color" content="{{ $classicDesign ? '#0b2d5c' : '#071a36' }}">
     <meta name="description" content="{{ trans('messages.Find, compare, and connect with trusted solar companies.') }}">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ request()->url() }}">
@@ -28,17 +30,27 @@
 
     <link rel="icon" type="image/svg+xml" href="{{ asset_v('favicon.svg') }}">
     <link rel="icon" type="image/png" sizes="64x64" href="{{ asset_v('visitors/images/favicon-64.png') }}">
+    @if (config('services.mobile_app.detect_installed') && config('services.mobile_app.android_package'))
+        <link rel="manifest" href="{{ route('app.manifest') }}">
+    @endif
 
     {{-- Logo is above the fold: start downloading it immediately --}}
     <link rel="preload" as="image" href="{{ asset_v($isHome ? 'visitors/images/sunxfinder-logo-home-128.webp' : 'visitors/images/logo-128.webp') }}"
         fetchpriority="high">
 
     {{-- Google Fonts loaded without blocking first render (display=swap shows fallback text meanwhile).
-         Arabic pages also load Cairo, since DM Sans has no Arabic letters. --}}
+         Alexandria is the heading font in both languages; body text is DM Sans (English)
+         or IBM Plex Sans Arabic (Arabic). The classic design uses DM Sans + Manrope, plus Cairo for Arabic. --}}
     @php
-        $fontsUrl = 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800'
-            . (app()->getLocale() === 'ar' ? '&family=Cairo:wght@400;600;700;800' : '')
-            . '&display=swap';
+        $fontsUrl = $classicDesign
+            ? 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800'
+                . (app()->getLocale() === 'ar' ? '&family=Cairo:wght@400;600;700;800' : '')
+                . '&display=swap'
+            : 'https://fonts.googleapis.com/css2?family=Alexandria:wght@500;600;700;800'
+                . (app()->getLocale() === 'ar'
+                    ? '&family=IBM+Plex+Sans+Arabic:wght@400;500;600'
+                    : '&family=DM+Sans:wght@400;500;600;700')
+                . '&display=swap';
     @endphp
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -75,6 +87,12 @@
     @endif
 
     @stack('styles')
+
+    {{-- Shared look of every visitor page (header, footer, buttons, type). Last, so it wins.
+         Not loaded for the classic design. --}}
+    @unless ($classicDesign)
+        <link rel="stylesheet" href="{{ asset_v('visitors/css/theme.css') }}">
+    @endunless
 </head>
 
 <body>

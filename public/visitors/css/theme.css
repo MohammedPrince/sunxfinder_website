@@ -1,0 +1,493 @@
+/* SunXFinder visitor theme.
+   Loaded last on every page that uses visitors/layouts/app.blade.php, so the header, footer,
+   buttons, type and form fields look the same on the home page, sign-up, company profile and legal pages.
+   Page layouts stay in their own files (home.css, company-profile.css, ...). */
+
+:root {
+   --sx-navy: #0b2d5c;
+   --sx-deep: #06162f;
+   --sx-ink: #132b49;
+   --sx-muted: #64768d;
+   --sx-line: #e6ecf3;
+   --sx-pale: #f5f8fc;
+   --sx-orange: #ff5a0a;
+   --sx-amber: #ff9a1f;
+   --sx-yellow: #ffc928;
+   --sx-sky: #16a7ed;
+   --sx-green: #35b36b;
+   --sx-grad: linear-gradient(135deg, #ff4d00 0%, #ff8b12 60%, #ffc928 100%);
+   --sx-radius: 22px;
+   --sx-shadow: 0 30px 60px -40px rgba(11, 45, 92, .4);
+   --sx-display: "Alexandria", "Segoe UI", Tahoma, Arial, sans-serif;
+   --sx-body: "DM Sans", "Segoe UI", Tahoma, Arial, sans-serif;
+
+   /* Older page styles read these */
+   --navy: #0b2d5c;
+   --ink: #132b49;
+   --muted: #64768d;
+   --line: #e6ecf3;
+   --pale: #f5f8fc;
+}
+
+html[lang="ar"] {
+   --sx-body: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+}
+
+html {
+   scroll-padding-top: 96px;
+}
+
+html body,
+html[lang="ar"] body,
+html[dir="rtl"] body {
+   font-family: var(--sx-body);
+   color: var(--sx-ink);
+   line-height: 1.7;
+}
+
+h1, h2, h3, h4, h5,
+.btn, .hx-btn, .brand-fallback, .language-trigger {
+   font-family: var(--sx-display) !important;
+}
+
+input, select, textarea, button {
+   font-family: inherit;
+}
+
+::selection {
+   background: #ffd9bd;
+   color: var(--sx-navy);
+}
+
+.container {
+   width: min(1200px, calc(100% - 48px));
+}
+
+/* ---------- Announcement ---------- */
+.announcement {
+   min-height: 40px;
+   padding: 8px 16px;
+   background: #071a36;
+   border-bottom: 1px solid rgba(255, 255, 255, .08);
+   color: #dbe7f7;
+   font-size: 13.5px;
+   font-weight: 500;
+   letter-spacing: 0;
+   text-align: center;
+}
+
+.announcement i {
+   flex: none;
+   width: 8px;
+   height: 8px;
+   border-radius: 50%;
+   background: var(--sx-yellow);
+   box-shadow: 0 0 0 4px rgba(255, 201, 40, .2);
+}
+
+/* ---------- Header: navy on every page ---------- */
+.header {
+   background: rgba(8, 28, 61, .92);
+   backdrop-filter: blur(16px);
+   -webkit-backdrop-filter: blur(16px);
+   border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+
+.nav {
+   height: 78px;
+   gap: 20px;
+}
+
+.header .brand img.brand-logo {
+   width: 52px;
+   height: 52px;
+   padding: 4px;
+   border-radius: 14px;
+   background: #fff;
+}
+
+.brand-tagline {
+   border-inline-start-color: rgba(255, 255, 255, .18);
+   color: #fff;
+   font-family: var(--sx-display);
+   font-weight: 600;
+}
+
+.brand-tagline .slogan-compare {
+   color: var(--sx-amber);
+}
+
+.header .brand-fallback {
+   color: #fff;
+}
+
+.nav-links {
+   gap: 4px;
+   font-size: 14.5px;
+   font-weight: 500;
+   color: #d5e1f2;
+}
+
+.nav-links>a:not(.btn) {
+   padding: 9px 14px;
+   border-radius: 999px;
+   transition: background .2s, color .2s;
+}
+
+.nav-links a:not(.btn):hover,
+.nav-links>a:not(.btn):hover {
+   background: rgba(255, 255, 255, .1);
+   color: #fff;
+}
+
+.nav-links a.active:not(.btn),
+.nav-links a.active:not(.btn):hover {
+   background: #fff;
+   color: var(--sx-navy);
+   font-weight: 600;
+   text-decoration: none;
+}
+
+.language-trigger {
+   margin-inline-start: 6px;
+   padding: 9px 14px;
+   border: 1px solid rgba(255, 255, 255, .22);
+   border-radius: 12px;
+   background: transparent;
+   color: #d5e1f2;
+   font-size: 13.5px;
+   font-weight: 500;
+   cursor: pointer;
+}
+
+.language-trigger:hover {
+   border-color: rgba(255, 255, 255, .5);
+   background: rgba(255, 255, 255, .08);
+   color: #fff;
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+   border-radius: 13px;
+   padding: 13px 22px;
+   font-size: 14.5px;
+   font-weight: 700;
+}
+
+.btn-primary,
+.btn-primary:hover {
+   background: var(--sx-grad);
+   color: #fff;
+   box-shadow: 0 14px 30px -12px rgba(255, 90, 10, .75);
+}
+
+.btn-primary:hover {
+   filter: brightness(1.05);
+}
+
+.nav-cta {
+   margin-inline-start: 8px;
+   padding: 12px 20px;
+}
+
+/* ---------- Form fields (sign-up, contact, delete account) ---------- */
+main input[type="text"],
+main input[type="email"],
+main input[type="tel"],
+main input[type="password"],
+main input[type="number"],
+main input[type="search"],
+main input[type="url"],
+main select,
+main textarea {
+   border-radius: 14px;
+   border-color: var(--sx-line);
+   transition: border-color .2s, box-shadow .2s;
+}
+
+main input:focus,
+main select:focus,
+main textarea:focus {
+   outline: none;
+   border-color: var(--sx-orange);
+   box-shadow: 0 0 0 4px rgba(255, 90, 10, .12);
+}
+
+/* ---------- FAQ ---------- */
+.faq-container {
+   max-width: 860px;
+}
+
+.faq-item {
+   margin-bottom: 12px;
+   border: 1px solid var(--sx-line);
+   border-radius: 20px;
+   background: #fff;
+   box-shadow: none;
+   overflow: hidden;
+   transition: border-color .2s, background .2s;
+}
+
+.faq-question {
+   padding: 20px 24px;
+   gap: 16px;
+}
+
+.faq-question h3 {
+   font-size: 16.5px;
+   font-weight: 600;
+   color: var(--sx-navy);
+   line-height: 1.5;
+}
+
+.faq-toggle {
+   flex: none;
+   display: grid;
+   place-items: center;
+   width: 34px;
+   height: 34px;
+   border: 0;
+   border-radius: 50%;
+   background: var(--sx-pale);
+   color: var(--sx-orange);
+   font-size: 20px;
+   line-height: 1;
+}
+
+.faq-item.active {
+   border-color: #ffc9a6;
+   background: #fff8f3;
+}
+
+.faq-item.active .faq-question {
+   background: transparent;
+}
+
+.faq-item.active .faq-toggle {
+   background: var(--sx-orange);
+   color: #fff;
+}
+
+.faq-answer {
+   padding-inline: 24px;
+   color: var(--sx-muted);
+}
+
+/* ---------- Company cards (home carousel) ---------- */
+.company-card {
+   border: 1px solid var(--sx-line);
+   border-radius: 26px;
+   background: #fff;
+   box-shadow: var(--sx-shadow);
+}
+
+.company-card:hover {
+   border-color: #ffc9a6;
+   transform: translateY(-4px);
+}
+
+.company-logo-placeholder {
+   border-radius: 18px;
+}
+
+.company-main-info h3 {
+   color: var(--sx-navy);
+   font-weight: 700;
+}
+
+.verification-badge {
+   border-radius: 999px;
+   background: #eaf8f0;
+   color: #1d8a4e;
+}
+
+.company-specialties span {
+   border-radius: 999px;
+   background: var(--sx-pale);
+   color: var(--sx-ink);
+}
+
+.company-slider-btn {
+   width: 46px;
+   height: 46px;
+   border: 1px solid var(--sx-line);
+   border-radius: 50%;
+   background: #fff;
+   color: var(--sx-navy);
+}
+
+.company-slider-btn:hover:not(:disabled) {
+   border-color: var(--sx-orange);
+   background: var(--sx-orange);
+   color: #fff;
+}
+
+/* ---------- Footer ---------- */
+.footer {
+   margin-top: 0;
+   padding: 72px 0 28px;
+   border-top: 0;
+   background: var(--sx-deep);
+   color: #b9c7da;
+}
+
+.footer-grid {
+   padding-bottom: 44px;
+   border-bottom: 1px solid rgba(255, 255, 255, .1);
+}
+
+.footer-brand img {
+   width: 64px;
+   height: 64px;
+   padding: 5px;
+   border-radius: 16px;
+   background: #fff;
+}
+
+.footer-slogan {
+   color: #fff !important;
+   font-family: var(--sx-display);
+}
+
+.footer-slogan .slogan-compare {
+   color: var(--sx-amber);
+}
+
+.footer-grid p {
+   color: #b9c7da;
+}
+
+.footer-grid strong {
+   color: #fff;
+   font-family: var(--sx-display);
+   font-size: 15.5px;
+}
+
+.footer-grid a:not(.brand),
+.footer-bottom a {
+   color: #b9c7da;
+   transition: color .2s;
+}
+
+.footer a:hover {
+   color: var(--sx-amber);
+}
+
+.footer-bottom {
+   border-top: 0;
+   padding-top: 24px;
+   color: #8fa1b8;
+}
+
+.visitor-counter__count {
+   color: #fff;
+}
+
+/* ---------- Language picker ---------- */
+.language-modal-overlay {
+   background: rgba(6, 22, 47, .7);
+   backdrop-filter: blur(6px);
+}
+
+.language-modal-overlay .language-modal {
+   border-radius: 28px;
+}
+
+.language-option {
+   border-radius: 18px;
+}
+
+.language-option:hover,
+.language-option.is-current {
+   border-color: var(--sx-orange);
+}
+
+/* ---------- Company profile banner: same navy and sun glow as the home hero ---------- */
+.company-cover {
+   background:
+      radial-gradient(700px 420px at 12% 0%, rgba(255, 140, 20, .3), transparent 62%),
+      radial-gradient(600px 420px at 92% 100%, rgba(22, 167, 237, .26), transparent 60%),
+      linear-gradient(160deg, #081c3d 0%, #0b2d5c 55%, #0a2347 100%);
+}
+
+/* ---------- Inner pages: back links and page headings ---------- */
+main a:focus-visible,
+main button:focus-visible {
+   outline: 2px solid var(--sx-orange);
+   outline-offset: 3px;
+}
+
+/* ---------- Phones ---------- */
+@media (max-width: 1000px) {
+   .nav-links {
+      gap: 2px;
+   }
+
+   .nav {
+      gap: 10px;
+   }
+
+   .nav-links>a:not(.btn) {
+      padding: 7px 6px;
+      font-size: 12.5px;
+   }
+
+   .nav-cta {
+      margin-inline-start: 4px;
+      padding: 10px 12px;
+      font-size: 12.5px;
+   }
+
+   .language-trigger {
+      margin-inline-start: 2px;
+      padding: 8px 9px;
+      font-size: 12.5px;
+   }
+}
+
+@media (max-width: 760px) {
+   .nav {
+      height: 70px;
+   }
+
+   .header .brand img.brand-logo {
+      width: 46px;
+      height: 46px;
+   }
+
+   .menu-toggle {
+      border-color: rgba(255, 255, 255, .22);
+      background: rgba(255, 255, 255, .06);
+   }
+
+   .menu-toggle span {
+      background: #fff;
+   }
+
+   .nav-links {
+      top: 70px;
+      padding: 14px 18px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, .1);
+      background: #081c3d;
+      box-shadow: 0 24px 40px rgba(0, 0, 0, .35);
+   }
+
+   .nav-links>a:not(.btn) {
+      padding: 12px 14px;
+      font-size: 15px;
+   }
+
+   .language-trigger {
+      margin: 8px 0 0;
+      padding: 12px 14px;
+      text-align: start;
+   }
+
+   .nav-cta {
+      margin: 8px 0 0;
+   }
+
+   .footer {
+      padding-top: 52px;
+   }
+}

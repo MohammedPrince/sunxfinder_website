@@ -200,6 +200,20 @@
             $batteryCount = $matches[1];
         }
 
+        // The app also writes the word first: "battery 5.0 kWh" / "بطارية 5.0 كيلوواط ساعة".
+        if ($batteryCount === '—') {
+            $batteryUnit = fn(?string $unit) => $unit === null || $unit === '' ? '' : (stripos($unit, 'ah') !== false ? ' Ah' : ' kWh');
+
+            if (preg_match('/batter(?:y|ies)\s*:?\s*(\d+(?:\.\d+)?)\s*(kWh|Ah)?/i', $loadSummary, $matches)) {
+                $batteryCount = $matches[1] . $batteryUnit($matches[2] ?? null);
+            } elseif (preg_match('/بطاري(?:ة|ات)\s*:?\s*(\d+(?:\.\d+)?)\s*(kWh|Ah|كيلوواط\s*ساعة|أمبير\s*ساعة)?/u', $loadSummary, $matches)) {
+                $unit = $matches[2] ?? '';
+                $batteryCount = $matches[1] . ($unit === '' ? '' : (str_contains($unit, 'أمبير') || stripos($unit, 'ah') !== false ? ' Ah' : ' kWh'));
+            } elseif (preg_match('/(\d+(?:\.\d+)?)\s*(كيلوواط\s*ساعة|أمبير\s*ساعة)\s*بطاري(?:ة|ات)/u', $loadSummary, $matches)) {
+                $batteryCount = $matches[1] . (str_contains($matches[2], 'أمبير') ? ' Ah' : ' kWh');
+            }
+        }
+
         /*
         |--------------------------------------------------------------------------
         | System type
