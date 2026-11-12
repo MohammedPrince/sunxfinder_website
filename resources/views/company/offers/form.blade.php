@@ -30,6 +30,8 @@
         </div>
     @endif
 
+    @include('company.partials.guide', ['page' => 'package_offer_form'])
+
     <form method="POST" id="packageOfferForm" enctype="multipart/form-data"
         action="{{ $offer ? route('company.offers.update', $offer->id) : route('company.offers.store') }}">
         @csrf

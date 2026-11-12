@@ -227,6 +227,23 @@ class CompanyRepository
     //Company profile END
 
 
+    /**
+     * True only on the company's first sign-in: the panel then opens the "how to use the system" journey.
+     * Saved quietly so it does not touch updated_at or the activity log.
+     */
+    public function markJourneySeen(SolarCompany $company): bool
+    {
+        if ($company->journey_seen_at) {
+            return false;
+        }
+
+        $company->timestamps = false;
+        $company->forceFill(['journey_seen_at' => now()])->saveQuietly();
+        $company->timestamps = true;
+
+        return true;
+    }
+
     //Password Recovery Start
 
     public function companyEmailExists(string $email): bool

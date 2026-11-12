@@ -35,6 +35,10 @@
         </main>
     </div>
 
+    @if (session()->pull('company_show_journey'))
+        @include('company.partials.journey')
+    @endif
+
     @include('company.partials.js-lang')
     <script src="{{ asset_v('admin/js/admin.js') }}" defer></script>
     <script src="{{ asset('main/js/quill.js') }}"></script>

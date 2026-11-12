@@ -88,7 +88,12 @@ class AuthController extends Controller
             $request->session()->forget('admin_company_impersonation');
             $request->session()->put('company_id', $company->id);
 
-            ActivityLogger::log('login', 'Signed in to the company panel', $company, [], ActivityLogger::actorFor($company), 'auth');
+            // First sign-in: the next panel page opens the "how to use the system" journey.
+            if ($this->companyService->markJourneySeen($company)) {
+                $request->session()->put('company_show_journey', true);
+            }
+
+            ActivityLogger::log('login','Signed in to the company panel', $company, [], ActivityLogger::actorFor($company), 'auth');
 
             // Redirect to the company dashboard.
             return redirect()->intended(

@@ -68,6 +68,7 @@ class SolarCompany extends Authenticatable
             'commission_rate' => 'decimal:2',
             'show_email_in_app' => 'boolean',
             'show_phone_in_app' => 'boolean',
+            'journey_seen_at' => 'datetime',
         ];
     }
 

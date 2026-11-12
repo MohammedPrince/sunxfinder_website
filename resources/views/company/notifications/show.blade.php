@@ -18,6 +18,8 @@
         </div>
     @endif
 
+    @include('company.partials.guide', ['page' => 'notification_show'])
+
     <div class="metrics-strip">
         <div><small>{{ __('company/messages.notifications.total_recipients') }}</small><strong>{{ number_format($notification->recipients_count ?? $notification->recipients()->count()) }}</strong></div>
         <div><small>{{ __('company/messages.notifications.read') }}</small><strong>{{ number_format($readCount ?? 0) }}</strong></div>

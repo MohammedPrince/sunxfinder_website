@@ -23,6 +23,18 @@ return [
         ['Customer rates you', 'The customer rates your work. Good ratings bring more customers.'],
     ],
 
+    // "How to use the system" dialog shown on the company's first sign-in.
+    'journey_title' => 'How to use the system',
+    'journey_start_title' => 'Start with these steps',
+    'journey_start' => [
+        ['Complete your company profile', 'Add your logo, description and contact details so SunXFinder can approve your company.', 'company.profile'],
+        ['Add your products', 'The panels, inverters and batteries you sell. They show on your page and you use them in invoices.', 'company.products.index'],
+        ['Send your first offer', 'Open Quote Requests and send your price to customers.', 'company.quote-requests.index'],
+    ],
+    'journey_manual' => 'Open the full manual',
+    'journey_done' => 'Get started',
+    'journey_note' => 'You can find this guide any time under "Help & Guide" in the top bar.',
+
     'sections' => [
         'start' => [
             'title' => 'Getting started',

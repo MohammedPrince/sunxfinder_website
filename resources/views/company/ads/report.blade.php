@@ -12,6 +12,8 @@
 @endsection
 
 @section('content')
+    @include('company.partials.guide', ['page' => 'ad_report'])
+
     <section class="panel report-filters no-print">
         <form method="GET" action="{{ route('company.ads.report') }}" class="report-filter-form">
             <div class="form-group">

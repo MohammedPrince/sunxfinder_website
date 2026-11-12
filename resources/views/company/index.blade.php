@@ -26,6 +26,8 @@
         );
     @endphp
 
+    @include('company.partials.guide', ['page' => 'profile'])
+
     <div class="company-profile-admin-style">
 
         @if (session('success'))

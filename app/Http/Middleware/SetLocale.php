@@ -18,7 +18,9 @@ class SetLocale
         if (in_array($requested, $allowed, true)) {
             $locale = $requested;
         } else {
-            $locale = in_array($cookieLocale, $allowed, true) ? $cookieLocale : 'en';
+            // No saved choice: the company portal (login + panel) opens in Arabic, the rest in English.
+            $default = $request->is('company', 'company/*') ? 'ar' : 'en';
+            $locale = in_array($cookieLocale, $allowed, true) ? $cookieLocale : $default;
         }
 
         App::setLocale($locale);

@@ -68,6 +68,8 @@
         </div>
     @endif
 
+    @include('company.partials.guide', ['page' => 'dashboard'])
+
     <section class="stats-grid">
         <article class="stat-card">
             <div class="stat-top">

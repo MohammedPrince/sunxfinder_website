@@ -44,6 +44,7 @@ return [
         'send_notification' => 'Send a notification',
         'send_notification_hint' => 'Message your customers',
         'switch_language' => 'العربية',
+        'help_guide' => 'Help & Guide',
     ],
     'common' => [
         'search' => 'Search',

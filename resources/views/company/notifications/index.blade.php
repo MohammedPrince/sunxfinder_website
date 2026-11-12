@@ -36,6 +36,8 @@
         </div>
     @endif
 
+    @include('company.partials.guide', ['page' => 'notifications'])
+
     <div class="metrics-strip">
         <div><small>{{ __('company/messages.notifications.total') }}</small><strong>{{ $notifications->total() }}</strong></div>
         <div><small>{{ __('company/messages.notifications.published') }}</small><strong>{{ $publishedCount ?? '—' }}</strong></div>

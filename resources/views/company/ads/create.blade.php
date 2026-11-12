@@ -18,6 +18,8 @@
         </div>
     @endif
 
+    @include('company.partials.guide', ['page' => 'ad_form'])
+
     <form method="POST" action="{{ route('company.ads.store') }}">
         @csrf
 

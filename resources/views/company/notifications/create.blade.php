@@ -24,6 +24,8 @@
         </div>
     @endif
 
+    @include('company.partials.guide', ['page' => 'notification_form'])
+
     <form method="POST" action="{{ route('company.notifications.store') }}">
         @csrf
         <section class="panel">

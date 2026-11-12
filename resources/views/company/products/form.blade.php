@@ -46,6 +46,8 @@
         }
     @endphp
 
+    @include('company.partials.guide', ['page' => 'product_form'])
+
     <form method="POST"
         action="{{ $product ? route('company.products.update', $product->id) : route('company.products.store') }}">
         @csrf

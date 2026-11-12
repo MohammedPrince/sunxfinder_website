@@ -44,6 +44,7 @@ return [
         'send_notification' => 'إرسال إشعار',
         'send_notification_hint' => 'راسل عملاءك',
         'switch_language' => 'English',
+        'help_guide' => 'المساعدة والإرشاد',
     ],
     'common' => [
         'search' => 'بحث',
