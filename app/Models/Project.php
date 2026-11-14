@@ -7,6 +7,7 @@ use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Project extends Model
@@ -54,6 +55,11 @@ class Project extends Model
     public const IN_PROGRESS = 'in_progress';
     public const HANDOVER_PENDING = 'handover_pending';
     public const COMPLETED = 'completed';
+    /**
+     * The deal ended before completion (App\Support\OfferWithdrawal). Set just before the
+     * project is soft-deleted; the history is in tbl_project_cancellations.
+     */
+    public const CANCELLED = 'cancelled';
 
     /** Not completed yet: still counts as an active job. */
     public const ACTIVE_STATUSES = [self::ACCEPTED, self::IN_PROGRESS, self::HANDOVER_PENDING];
@@ -117,5 +123,26 @@ class Project extends Model
     {
         return $this->hasMany(ProjectUpdate::class, 'project_id')
             ->latest();
+    }
+
+    /** The company's price change waiting for the customer (one at a time). */
+    public function pendingPriceChange(): HasOne
+    {
+        // The status filter goes inside ofMany, so it picks the latest *pending* row.
+        return $this->hasOne(OfferPriceChange::class, 'project_id')
+            ->ofMany(['id' => 'max'], fn($query) => $query->where('status', OfferPriceChange::PENDING));
+    }
+
+    /** The company's cancellation request waiting for an admin, if any. */
+    public function openCancellationRequest(): HasOne
+    {
+        return $this->hasOne(ProjectCancellation::class, 'project_id')
+            ->ofMany(['id' => 'max'], fn($query) => $query->where('status', ProjectCancellation::REQUESTED));
+    }
+
+    /** The most recent cancellation request or withdrawal, whatever became of it. */
+    public function latestCancellation(): HasOne
+    {
+        return $this->hasOne(ProjectCancellation::class, 'project_id')->latestOfMany();
     }
 }

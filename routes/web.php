@@ -234,6 +234,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::get('/{id}', 'projectDetails')->whereNumber('id')->name('show');
             });
 
+            // Companies backing out of accepted deals: withdrawals and cancellation requests.
+            Route::prefix('cancellations')->name('cancellations.')->group(function () {
+                Route::get('/', 'cancellations')->name('index');
+                Route::get('/{id}', 'cancellationDetails')->whereNumber('id')->name('show');
+                Route::post('/{id}/approve', 'approveCancellation')->whereNumber('id')->name('approve');
+                Route::post('/{id}/reject', 'rejectCancellation')->whereNumber('id')->name('reject');
+                Route::post('/{id}/count', 'toggleCancellationCount')->whereNumber('id')->name('count');
+            });
+
             // Customer complaints and company follow-up.
             Route::prefix('complaints')->name('complaints.')->group(function () {
                 Route::get('/', 'complaints')->name('index');
@@ -487,6 +496,11 @@ Route::prefix('company')->name('company.')->middleware(CompanyValidationLines::c
             Route::get('/', 'index')->name('index');
             Route::get('/{id}', 'show')->whereNumber('id')->name('show');
             Route::post('/{id}/progress', 'updateProgress')->whereNumber('id')->name('progress.update');
+            // Backing out of an accepted deal, or asking the customer for a new price
+            Route::post('/{id}/withdraw', 'withdraw')->whereNumber('id')->middleware('throttle:10,1')->name('withdraw');
+            Route::post('/{id}/withdraw/cancel', 'cancelWithdrawRequest')->whereNumber('id')->name('withdraw.cancel');
+            Route::post('/{id}/price-change', 'proposePriceChange')->whereNumber('id')->middleware('throttle:10,1')->name('price-change');
+            Route::post('/{id}/price-change/cancel', 'cancelPriceChange')->whereNumber('id')->name('price-change.cancel');
         });
     });
 });

@@ -1134,6 +1134,38 @@ class MainController extends Controller
         ], $httpCode);
     }
 
+    /** The customer agrees to the company's new price on the accepted offer. */
+    public function acceptPriceChange(int $changeId)
+    {
+        return $this->priceChangeResponse($this->customerService->acceptPriceChange($changeId));
+    }
+
+    /** The customer declines the new price: the deal ends and the request opens again. */
+    public function declinePriceChange(int $changeId)
+    {
+        return $this->priceChangeResponse($this->customerService->declinePriceChange($changeId));
+    }
+
+    private function priceChangeResponse(array $result)
+    {
+        $httpCode = $result['code'] ?? 500;
+
+        if ($result['success'] ?? false) {
+            return response()->json([
+                'status' => 'success',
+                'message' => $result['message'],
+                'data' => $result['data'],
+            ], 200);
+        }
+
+        return response()->json(array_filter([
+            'status' => 'error',
+            'code' => $httpCode,
+            'message' => $result['message'] ?? 'Unable to save your answer.',
+            'reason' => $result['reason'] ?? null,
+        ], fn($value) => $value !== null), $httpCode);
+    }
+
 
     public function submitRating(Request $request)
     {

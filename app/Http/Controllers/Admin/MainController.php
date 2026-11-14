@@ -27,6 +27,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use App\Models\NotificationScheduleRun;
 
 class MainController extends Controller
@@ -228,9 +229,11 @@ class MainController extends Controller
         $ratingCount = (clone $ratingBase)->count();
         $customerCount = (clone $customersBase)->distinct()->count('id');
         $commissionSummary = $this->adminService->getCompanyCommissionSummary($companyId);
+        $withdrawalSummary = $this->adminService->getCompanyWithdrawalSummary($companyId);
 
         return view('admin.companies.company-details', compact(
             'commissionSummary',
+            'withdrawalSummary',
             'company',
             'quotes',
             'customers',
@@ -1518,6 +1521,78 @@ class MainController extends Controller
         }
         $complaints = $query->latest()->paginate(20)->withQueryString();
         return view('admin.complaints.index', compact('complaints', 'filters'));
+    }
+
+    /** Companies backing out of accepted deals: requests to decide, and history. */
+    public function cancellations(Request $request)
+    {
+        $filters = $request->validate([
+            'status' => ['nullable', Rule::in([
+                \App\Models\ProjectCancellation::WITHDRAWN, \App\Models\ProjectCancellation::REQUESTED, \App\Models\ProjectCancellation::APPROVED,
+                \App\Models\ProjectCancellation::REJECTED, \App\Models\ProjectCancellation::CANCELLED,
+            ])],
+            'company_id' => ['nullable', 'integer', 'min:1'],
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $cancellations = $this->adminService->getProjectCancellations($filters);
+        $metrics = $this->adminService->getProjectCancellationMetrics();
+
+        return view('admin.cancellations.index', compact('cancellations', 'metrics', 'filters'));
+    }
+
+    public function cancellationDetails(int $id)
+    {
+        $cancellation = $this->adminService->getProjectCancellation($id);
+        $standing = $this->adminService->getCompanyWithdrawalSummary((int) $cancellation->company_id);
+
+        return view('admin.cancellations.show', compact('cancellation', 'standing'));
+    }
+
+    public function approveCancellation(Request $request, int $id)
+    {
+        $data = $request->validate([
+            'counts_against_company' => ['nullable', 'boolean'],
+            'admin_note' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        try {
+            $this->adminService->approveProjectCancellation($id, $request->boolean('counts_against_company'), trim((string) ($data['admin_note'] ?? '')) ?: null);
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors());
+        }
+
+        return redirect()->route('admin.cancellations.show', $id)
+            ->with('success', 'Cancellation approved. The customer was told and the request is open again.');
+    }
+
+    public function rejectCancellation(Request $request, int $id)
+    {
+        $data = $request->validate([
+            'admin_note' => ['required', 'string', 'min:5', 'max:2000'],
+        ]);
+
+        try {
+            $this->adminService->rejectProjectCancellation($id, trim($data['admin_note']));
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors());
+        }
+
+        return redirect()->route('admin.cancellations.show', $id)
+            ->with('success', 'Request rejected. The company was emailed and the project carries on.');
+    }
+
+    public function toggleCancellationCount(Request $request, int $id)
+    {
+        $data = $request->validate(['counts_against_company' => ['required', 'boolean']]);
+
+        try {
+            $this->adminService->setProjectCancellationCounts($id, (bool) $data['counts_against_company']);
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors());
+        }
+
+        return back()->with('success', $data['counts_against_company'] ? 'The withdrawal now counts against the company.' : 'The withdrawal was waived.');
     }
 
     public function complaintDetails(int $id)

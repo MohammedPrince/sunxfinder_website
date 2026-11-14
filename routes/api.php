@@ -65,6 +65,9 @@ Route::prefix('v1/customer')->middleware('json.res')->group(function () {
 
         Route::post('/offer-accept', [MainController::class, 'acceptOffer'])->middleware('throttle:60,1')->name('offer-accept');
         Route::post('/offer-reject', [MainController::class, 'rejectOffer'])->middleware('throttle:60,1')->name('offer-reject');
+        // The company asks for a new price on the accepted offer (docs/api/customer-offer-withdrawal.md)
+        Route::post('/price-changes/{id}/accept', [MainController::class, 'acceptPriceChange'])->whereNumber('id')->middleware('throttle:20,1')->name('price-change.accept');
+        Route::post('/price-changes/{id}/decline', [MainController::class, 'declinePriceChange'])->whereNumber('id')->middleware('throttle:20,1')->name('price-change.decline');
 
         // Company package offers pushed in notifications (docs/api/customer-package-offers.md)
         Route::get('/package-offers/{id}', [MainController::class, 'getPackageOffer'])->whereNumber('id')->middleware('throttle:60,1');

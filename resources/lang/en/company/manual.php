@@ -131,12 +131,30 @@ return [
                 'Open the project and use the <strong>customer contact details</strong> to arrange the site visit.',
                 'Press <strong>Start Installation</strong> when your team is ready.',
                 'Complete each <strong>milestone</strong> in order and write a short message for the customer (up to 500 characters). Progress is calculated automatically.',
-                'When everything is installed and explained, press <strong>Confirm Customer Handover</strong>. The project closes at 100%.',
+                'When everything is installed and explained, press <strong>Confirm Customer Handover</strong>. The customer then confirms the handover in the app, which completes the project (automatically after 7 days if they do not answer).',
             ],
             'tips' => [
                 'Handover cannot be undone: the project is locked after it. Check the installation first.',
                 'Projects without an update for several days are flagged. Post a short update so the customer knows what is happening.',
                 'Finishing on time and keeping customers informed is the best way to get good ratings.',
+            ],
+        ],
+        'withdrawals' => [
+            'title' => 'Withdrawing or changing the price',
+            'intro' => 'When you cannot do an accepted job at the agreed price, tell the customer early. They keep their request and can choose another company.',
+            'steps' => [
+                'Open the project in <strong>Active Projects</strong>. Use the <strong>Problem with this job?</strong> box under the project workflow.',
+                '<strong>Change the price</strong> (only before you start): enter the new price, pick a reason and add a note for the customer. The customer accepts or declines in the app. You cannot start the installation until they answer.',
+                'If the customer <strong>accepts</strong>, your offer shows the new price and you can start. If they <strong>decline</strong>, the job ends and the request opens again for other companies. A declined price does not count against you.',
+                '<strong>Withdraw from this job</strong> before you start: pick a reason and confirm. The job is cancelled right away, the customer is told, and other companies\' offers can be chosen again.',
+                'After you started (or while waiting for the customer to confirm the handover), you can only <strong>Send cancellation request</strong>. Explain what happened in at least 10 characters. The SunXFinder team contacts you and the customer, then approves or rejects it. You can keep working, or take the request back, while you wait.',
+                'You get an email with the decision. If it is rejected, the reason shows on the project page and the job carries on.',
+            ],
+            'tips' => [
+                'Each withdrawal counts against your company for 30 days. At 3 withdrawals in 30 days, every new withdrawal needs SunXFinder\'s approval and your company is listed lower in the app.',
+                'Asking for a new price is better than withdrawing: the customer can still say yes, and a decline is never counted.',
+                'Your note is seen by the SunXFinder team only. The customer sees the reason you picked.',
+                'When another company withdraws, you may get an email that a request is <strong>open again</strong> and your offer can be chosen. Check that your price and validity are still right, and update the offer if needed.',
             ],
         ],
         'invoices' => [

@@ -909,6 +909,43 @@ class AdminService
         $this->adminRepository->deleteArchivedItem($item);
     }
 
+    //Deal withdrawals Start
+    public function getProjectCancellations(array $filters = []): LengthAwarePaginator
+    {
+        return $this->adminRepository->getProjectCancellations($filters);
+    }
+
+    public function getProjectCancellationMetrics(): array
+    {
+        return $this->adminRepository->getProjectCancellationMetrics();
+    }
+
+    public function getProjectCancellation(int $id): \App\Models\ProjectCancellation
+    {
+        return $this->adminRepository->getProjectCancellation($id);
+    }
+
+    public function getCompanyWithdrawalSummary(int $companyId): array
+    {
+        return $this->adminRepository->getCompanyWithdrawalSummary($companyId);
+    }
+
+    public function approveProjectCancellation(int $id, bool $countsAgainst, ?string $note): \App\Models\ProjectCancellation
+    {
+        return $this->adminRepository->approveProjectCancellation($id, $countsAgainst, $note);
+    }
+
+    public function rejectProjectCancellation(int $id, string $note): \App\Models\ProjectCancellation
+    {
+        return $this->adminRepository->rejectProjectCancellation($id, $note);
+    }
+
+    public function setProjectCancellationCounts(int $id, bool $counts): \App\Models\ProjectCancellation
+    {
+        return $this->adminRepository->setProjectCancellationCounts($id, $counts);
+    }
+    //Deal withdrawals End
+
 
 
 

@@ -29,6 +29,9 @@ use App\Models\ApiEndpoint;
 use App\Models\Customer;
 use App\Models\CustomerTermsAcceptance;
 use App\Models\Project;
+use App\Models\ProjectCancellation;
+use App\Mail\CompanyOfferDecisionMail;
+use App\Support\OfferWithdrawal;
 use App\Models\CustomerNotification;
 use App\Models\Notification;
 use App\Models\NotificationSchedule;
@@ -282,6 +285,13 @@ class AdminRepository
                 'count' => SolarCompany::query()->where('status', 'pending')->count(),
                 'url' => route('admin.companies.index'),
                 'tone' => 'orange',
+            ],
+            [
+                'label' => 'Companies asking to cancel a job',
+                'hint' => 'Work already started, or the company withdrew too often. Approve or reject.',
+                'count' => ProjectCancellation::query()->where('status', ProjectCancellation::REQUESTED)->count(),
+                'url' => route('admin.cancellations.index', ['status' => ProjectCancellation::REQUESTED]),
+                'tone' => 'red',
             ],
             [
                 'label' => 'Requests with no offers yet',
@@ -5605,4 +5615,172 @@ class AdminRepository
     {
         $item->delete();
     }
+
+    //Deal withdrawals Start
+
+    /** Companies backing out of accepted deals: requests to decide first, then history. */
+    public function getProjectCancellations(array $filters = []): LengthAwarePaginator
+    {
+        $search = trim((string) ($filters['search'] ?? ''));
+
+        return ProjectCancellation::query()
+            ->with(['company:id,name', 'customer:id,full_name,username,phone', 'quote:id,quote_name'])
+            ->when(!empty($filters['status']), fn($query) => $query->where('status', $filters['status']))
+            ->when(!empty($filters['company_id']), fn($query) => $query->where('company_id', (int) $filters['company_id']))
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('note', 'like', "%{$search}%")
+                        ->orWhereHas('company', fn($company) => $company->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('customer', fn($customer) => $customer->where('full_name', 'like', "%{$search}%")->orWhere('username', 'like', "%{$search}%"));
+
+                    $id = (int) ltrim(preg_replace('/\D/', '', $search), '0');
+                    if ($id > 0) {
+                        $q->orWhere('quote_id', $id)->orWhere('project_id', $id);
+                    }
+                });
+            })
+            // Waiting requests first, then newest.
+            ->orderByRaw('status = ? DESC', [ProjectCancellation::REQUESTED])
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(20)
+            ->withQueryString();
+    }
+
+    public function getProjectCancellationMetrics(): array
+    {
+        $recent = now()->subDays(ProjectCancellation::WINDOW_DAYS);
+
+        return [
+            'requested' => ProjectCancellation::query()->where('status', ProjectCancellation::REQUESTED)->count(),
+            'done_recent' => ProjectCancellation::query()->whereIn('status', ProjectCancellation::DONE_STATUSES)->where('created_at', '>=', $recent)->count(),
+            'reopened_recent' => (int) ProjectCancellation::query()->whereIn('status', ProjectCancellation::DONE_STATUSES)->where('created_at', '>=', $recent)->sum('reopened_offers'),
+            // Companies at or over the limit right now.
+            'flagged_companies' => ProjectCancellation::query()
+                ->countedRecently()
+                ->select('company_id')
+                ->groupBy('company_id')
+                ->havingRaw('COUNT(*) >= ?', [ProjectCancellation::FLAG_THRESHOLD])
+                ->get()
+                ->count(),
+        ];
+    }
+
+    public function getProjectCancellation(int $id): ProjectCancellation
+    {
+        return ProjectCancellation::query()
+            ->with(['company', 'customer', 'quote', 'offer', 'admin:id,username', 'project.updates'])
+            ->findOrFail($id);
+    }
+
+    /** Withdrawal counts for the company details page. */
+    public function getCompanyWithdrawalSummary(int $companyId): array
+    {
+        $recent = ProjectCancellation::recentCountFor($companyId);
+
+        return [
+            'recent' => $recent,
+            'total' => ProjectCancellation::query()->where('company_id', $companyId)->whereIn('status', ProjectCancellation::DONE_STATUSES)->count(),
+            'requested' => ProjectCancellation::query()->where('company_id', $companyId)->where('status', ProjectCancellation::REQUESTED)->count(),
+            'flagged' => $recent >= ProjectCancellation::FLAG_THRESHOLD,
+            'threshold' => ProjectCancellation::FLAG_THRESHOLD,
+            'window_days' => ProjectCancellation::WINDOW_DAYS,
+        ];
+    }
+
+    /**
+     * The admin agrees to the company's request: the project is cancelled and the request
+     * reopens, as for a withdrawal. $countsAgainst = false waives it (e.g. a real emergency).
+     */
+    public function approveProjectCancellation(int $id, bool $countsAgainst, ?string $note): ProjectCancellation
+    {
+        $adminId = auth('admin')->id();
+        $reopenedIds = [];
+
+        $cancellation = DB::transaction(function () use ($id, $countsAgainst, $note, $adminId, &$reopenedIds) {
+            $cancellation = ProjectCancellation::query()->whereKey($id)->lockForUpdate()->firstOrFail();
+
+            if ($cancellation->status !== ProjectCancellation::REQUESTED) {
+                throw ValidationException::withMessages(['status' => 'This request was already decided.']);
+            }
+
+            $project = Project::query()->whereKey($cancellation->project_id)->lockForUpdate()->first();
+
+            if (!$project || $project->status === Project::COMPLETED) {
+                throw ValidationException::withMessages(['status' => 'The project is completed or no longer exists, so it cannot be cancelled. Reject the request instead.']);
+            }
+
+            $cancellation->fill([
+                'status' => ProjectCancellation::APPROVED,
+                'counts_against_company' => $countsAgainst,
+                'admin_id' => $adminId,
+                'admin_note' => $note,
+                'decided_at' => now(),
+            ]);
+
+            $reopenedIds = OfferWithdrawal::endDeal($project, $cancellation, 'admin', $adminId ? (int) $adminId : null);
+
+            return $cancellation;
+        });
+
+        OfferWithdrawal::notifyDealEnded($cancellation, $reopenedIds, true, CompanyOfferDecisionMail::CANCEL_APPROVED, [
+            'adminNote' => $note,
+        ]);
+
+        return $cancellation;
+    }
+
+    /** The admin says no: the project carries on, and the company is told why. */
+    public function rejectProjectCancellation(int $id, string $note): ProjectCancellation
+    {
+        $cancellation = ProjectCancellation::query()->findOrFail($id);
+
+        if ($cancellation->status !== ProjectCancellation::REQUESTED) {
+            throw ValidationException::withMessages(['status' => 'This request was already decided.']);
+        }
+
+        $cancellation->fill([
+            'status' => ProjectCancellation::REJECTED,
+            'admin_id' => auth('admin')->id(),
+            'admin_note' => $note,
+            'decided_at' => now(),
+        ])->save();
+
+        if ($cancellation->company_quotation_id) {
+            \App\Jobs\SendCompanyOfferDecisionEmail::dispatch((int) $cancellation->company_quotation_id, CompanyOfferDecisionMail::CANCEL_REJECTED, [
+                'adminNote' => $note,
+                'reasonText' => $cancellation->reasonText('en'),
+            ]);
+        }
+
+        ActivityLogger::log('cancellation_rejected', 'Cancellation request rejected on request ' . OfferWithdrawal::reference((int) $cancellation->quote_id), null, [
+            'quote_id' => (int) $cancellation->quote_id,
+            'cancellation_id' => (int) $cancellation->id,
+        ], null, 'projects');
+
+        return $cancellation;
+    }
+
+    /** Count a finished withdrawal against the company, or waive it. */
+    public function setProjectCancellationCounts(int $id, bool $counts): ProjectCancellation
+    {
+        $cancellation = ProjectCancellation::query()->findOrFail($id);
+
+        if (!$cancellation->isDone()) {
+            throw ValidationException::withMessages(['status' => 'Only a finished withdrawal can be counted or waived.']);
+        }
+
+        $cancellation->counts_against_company = $counts;
+        $cancellation->save();
+
+        ActivityLogger::log($counts ? 'withdrawal_counted' : 'withdrawal_waived', ($counts ? 'Withdrawal counted' : 'Withdrawal waived')
+            . ' on request ' . OfferWithdrawal::reference((int) $cancellation->quote_id), null, [
+            'cancellation_id' => (int) $cancellation->id,
+            'company_id' => (int) $cancellation->company_id,
+        ], null, 'companies');
+
+        return $cancellation;
+    }
+
+    //Deal withdrawals End
 }

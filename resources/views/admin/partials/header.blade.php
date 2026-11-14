@@ -195,6 +195,17 @@
             <span>Complaints</span>
             <span class="nav-count warm">{{ $complaintsCount ?? 0 }}</span>
         </a>
+        <a class="nav-link {{ request()->routeIs('admin.cancellations.*') ? 'active' : '' }}"
+            href="{{ route('admin.cancellations.index') }}">
+            <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M9 14 4 9l5-5" />
+                    <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+                </svg>
+            </span>
+            <span>Withdrawals</span>
+            <span class="nav-count warm">{{ $cancellationRequestsCount ?? 0 }}</span>
+        </a>
         <a class="nav-link {{ request()->routeIs('admin.notifications.*') ? 'active' : '' }}"
             href="{{ route('admin.notifications.index') }}">
             <span class="nav-icon">

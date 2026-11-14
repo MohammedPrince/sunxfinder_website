@@ -59,6 +59,15 @@
         </div>
     </div>
 
+    {{-- Recent withdrawals from accepted jobs, and what happens at the limit --}}
+    @if (($withdrawals['count'] ?? 0) > 0)
+        <div class="alert {{ $withdrawals['flagged'] ? 'alert-danger' : 'alert-warning' }}" role="alert">
+            {{ $withdrawals['flagged']
+                ? __('company/messages.deal.standing_flagged', ['count' => $withdrawals['count'], 'days' => $withdrawals['window_days']])
+                : __('company/messages.deal.standing_index', ['count' => $withdrawals['count'], 'threshold' => $withdrawals['threshold'], 'days' => $withdrawals['window_days']]) }}
+        </div>
+    @endif
+
     @if (session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif

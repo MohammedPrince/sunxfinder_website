@@ -66,6 +66,20 @@ class Quote extends Model
         return $this->hasOne(Project::class, 'quote_id', 'id');
     }
 
+    /** The last time a company left this request after the customer accepted its offer. */
+    public function latestWithdrawal(): HasOne
+    {
+        return $this->hasOne(ProjectCancellation::class, 'quote_id')
+            ->ofMany(['id' => 'max'], fn($query) => $query->whereIn('status', ProjectCancellation::DONE_STATUSES));
+    }
+
+    /** A price change on the accepted offer, waiting for the customer. */
+    public function pendingPriceChange(): HasOne
+    {
+        return $this->hasOne(OfferPriceChange::class, 'quote_id')
+            ->ofMany(['id' => 'max'], fn($query) => $query->where('status', OfferPriceChange::PENDING));
+    }
+
     public function rating(): HasOne
     {
         return $this->hasOne(Rating::class, 'quote_id', 'id');

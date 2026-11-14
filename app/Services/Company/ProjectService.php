@@ -4,7 +4,9 @@ namespace App\Services\Company;
 
 use App\Repositories\Company\ProjectRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use App\Models\OfferPriceChange;
 use App\Models\Project;
+use App\Models\ProjectCancellation;
 
 class ProjectService
 {
@@ -35,6 +37,31 @@ class ProjectService
         abort_if(!$project, 404, 'Project not found.');
 
         return $this->projectRepository->updateProgress($projectId, $data);
+    }
+
+    public function getWithdrawalStanding(): array
+    {
+        return $this->projectRepository->getWithdrawalStanding();
+    }
+
+    public function withdraw(int $projectId, array $data): ProjectCancellation
+    {
+        return $this->projectRepository->withdraw($projectId, $data);
+    }
+
+    public function cancelWithdrawRequest(int $projectId): void
+    {
+        $this->projectRepository->cancelWithdrawRequest($projectId);
+    }
+
+    public function proposePriceChange(int $projectId, array $data): OfferPriceChange
+    {
+        return $this->projectRepository->proposePriceChange($projectId, $data);
+    }
+
+    public function cancelPriceChange(int $projectId): void
+    {
+        $this->projectRepository->cancelPriceChange($projectId);
     }
 
 
