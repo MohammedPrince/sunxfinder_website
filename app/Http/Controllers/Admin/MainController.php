@@ -1484,8 +1484,39 @@ class MainController extends Controller
         $metrics = $this->adminService->getAdminProjectMetrics();
         $companies = $this->adminService->getAdminProjectCompanies();
         $stalledDays = \App\Support\ReportPeriod::STALLED_DAYS;
+        $remindedAt = $this->adminService->getProjectsRemindedAt(collect($projects->items())->pluck('id')->all());
 
-        return view('admin.projects.index', compact('projects', 'metrics', 'companies', 'filters', 'stalledDays'));
+        return view('admin.projects.index', compact('projects', 'metrics', 'companies', 'filters', 'stalledDays', 'remindedAt'));
+    }
+
+    /** Email the company of one stalled project, with an optional message from the admin. */
+    public function remindStalledProject(Request $request, int $id)
+    {
+        $data = $request->validate(['note' => ['nullable', 'string', 'max:1000']]);
+
+        $result = $this->adminService->remindStalledProjects([$id], $data['note'] ?? null);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    /** Opens WhatsApp to the company of a stalled project with the reminder message filled in. */
+    public function whatsappStalledProject(Request $request, int $id)
+    {
+        $data = $request->validate(['note' => ['nullable', 'string', 'max:1000']]);
+
+        $result = $this->adminService->whatsappStalledProject($id, $data['note'] ?? null);
+
+        return $result['success']
+            ? redirect()->away($result['url'])
+            : redirect()->route('admin.projects.show', $id)->with('error', $result['message']);
+    }
+
+    /** Email the companies of every stalled project (those reminded recently are skipped). */
+    public function remindStalledProjects()
+    {
+        $result = $this->adminService->remindStalledProjects();
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
     public function projectDetails(int $id)
@@ -1498,8 +1529,9 @@ class MainController extends Controller
         $lastActivity = $project->updates->first()?->created_at ?? $project->updated_at;
         $isStalled = in_array($project->status, ['accepted', 'in_progress'], true)
             && $lastActivity?->lt(now()->subDays($stalledDays));
+        $remindedAt = $this->adminService->getProjectRemindedAt($project->id);
 
-        return view('admin.projects.show', compact('project', 'stalledDays', 'lastActivity', 'isStalled'));
+        return view('admin.projects.show', compact('project', 'stalledDays', 'lastActivity', 'isStalled', 'remindedAt'));
     }
 
     public function complaints(Request $request)

@@ -8791,3 +8791,37 @@ a.cd-chip:hover {
 .offer-terms-list.is-compact dd {
     font-size: 12px;
 }
+
+/* Stalled projects: "Email company" reminder button in the follow-up column */
+.project-remind-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.project-remind-actions:empty {
+    display: none;
+}
+
+.project-remind-actions .btn-sm,
+.btn-whatsapp.btn-sm {
+    padding: 4px 10px;
+    font-size: 12px;
+    min-height: 0;
+    white-space: nowrap;
+}
+
+.btn-whatsapp {
+    background: #25d366;
+    border-color: #25d366;
+    color: #fff;
+    text-decoration: none;
+}
+
+.btn-whatsapp:hover,
+.btn-whatsapp:focus-visible {
+    background: #1ebe5b;
+    border-color: #1ebe5b;
+    color: #fff;
+}

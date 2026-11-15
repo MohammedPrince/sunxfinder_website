@@ -232,6 +232,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::prefix('projects')->name('projects.')->group(function () {
                 Route::get('/', 'projects')->name('index');
                 Route::get('/{id}', 'projectDetails')->whereNumber('id')->name('show');
+                // Email the company of a stalled project (one, or every stalled project) asking for an update
+                Route::post('/remind-stalled', 'remindStalledProjects')->middleware('throttle:10,1')->name('remind-stalled');
+                Route::post('/{id}/remind', 'remindStalledProject')->whereNumber('id')->middleware('throttle:10,1')->name('remind');
+                // Opens wa.me to the company with the reminder message filled in (logged first)
+                Route::get('/{id}/whatsapp', 'whatsappStalledProject')->whereNumber('id')->middleware('throttle:30,1')->name('whatsapp');
             });
 
             // Companies backing out of accepted deals: withdrawals and cancellation requests.

@@ -159,11 +159,14 @@ return [
             'steps' => [
                 'افتح <strong>Quotes ← Projects</strong>. الحالات: <strong>Accepted</strong> (لم يبدأ)، <strong>In progress</strong>، <strong>Completed</strong>.',
                 'استخدم <strong>Stalled projects</strong> للعثور على المشاريع التي لم تُحدَّث منذ عدة أيام.',
+                'اضغط <strong>Email company</strong> على المشروع المتعثر، أو <strong>Email all stalled companies</strong>، لإرسال تذكير بالبريد للشركة بالعربية والإنجليزية مع رابط المشروع. ويمكنك من صفحة المشروع إضافة رسالة خاصة منك.',
+                'اضغط زر <strong>WhatsApp</strong> الأخضر لفتح واتساب على رقم الشركة مع رسالة التذكير جاهزة للإرسال. أرسلها من رقم واتساب SunXFinder.',
                 'افتح المشروع لترى المراحل وكل تحديثات الشركة وبيانات تواصل الشركة والعميل، ثم تابع معهم.',
                 'استخدم <strong>Open quote request</strong> لتغيير الشركة أو اتخاذ إجراء على الطلب الأصلي.',
             ],
             'tips' => [
                 'التحديثات المعلّمة "Internal note" مخفية عن العميل.',
+                'يمكن مراسلة الشركة عن المشروع نفسه مرة كل 24 ساعة، وكل تذكير يُسجَّل في سجل النشاط.',
             ],
         ],
         'complaints' => [

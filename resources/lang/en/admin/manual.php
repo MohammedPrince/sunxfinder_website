@@ -159,11 +159,14 @@ return [
             'steps' => [
                 'Open <strong>Quotes → Projects</strong>. Status: <strong>Accepted</strong> (not started), <strong>In progress</strong>, <strong>Completed</strong>.',
                 'Use <strong>Stalled projects</strong> to find projects with no update for several days.',
+                'Press <strong>Email company</strong> on a stalled project, or <strong>Email all stalled companies</strong>, to email the company a reminder in English and Arabic with a link to the project. On the project page you can add your own message.',
+                'Press the green <strong>WhatsApp</strong> button to open WhatsApp to the company with the same reminder ready to send. Send it from the SunXFinder WhatsApp number.',
                 'Open a project to see milestones, every company update and the contact details of the company and customer, then follow up.',
                 'Use <strong>Open quote request</strong> to reassign the company or act on the original request.',
             ],
             'tips' => [
                 'Updates marked "Internal note" are hidden from the customer.',
+                'The same project can be emailed once every 24 hours. Every reminder is saved in the Activity log.',
             ],
         ],
         'complaints' => [

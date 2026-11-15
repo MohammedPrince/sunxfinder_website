@@ -509,6 +509,26 @@ class AdminService
         return $this->adminRepository->nudgeCompaniesForQuote($id);
     }
 
+    public function getProjectRemindedAt(int $projectId)
+    {
+        return $this->adminRepository->getProjectRemindedAt($projectId);
+    }
+
+    public function getProjectsRemindedAt(array $projectIds): array
+    {
+        return $this->adminRepository->getProjectsRemindedAt($projectIds);
+    }
+
+    public function whatsappStalledProject(int $id, ?string $note = null): array
+    {
+        return $this->adminRepository->whatsappStalledProject($id, $note);
+    }
+
+    public function remindStalledProjects(?array $projectIds = null, ?string $note = null): array
+    {
+        return $this->adminRepository->remindStalledProjects($projectIds, $note);
+    }
+
     //Quote Requests End
 
     //Notifications Start

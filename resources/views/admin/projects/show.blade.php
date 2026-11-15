@@ -70,8 +70,74 @@
         <div class="alert alert-danger">
             <strong>Stalled project.</strong>
             No update has been recorded for {{ (int) $lastActivity->diffInDays(now()) }} days
-            (the threshold is {{ $stalledDays }} days). Contact the company or customer below, or review the related quote request.
+            (the threshold is {{ $stalledDays }} days). Email the company below, contact the company or customer, or review the related quote request.
         </div>
+
+        <section class="panel no-print">
+            <div class="panel-heading">
+                <div>
+                    <h2>Remind the company</h2>
+                    <p>Email or WhatsApp {{ $companyName }} in English and Arabic, asking for a progress update, with a link to this project in their panel.</p>
+                </div>
+                @if ($remindedAt)
+                    <span class="pill pill-purple">Emailed {{ $remindedAt->diffForHumans() }}</span>
+                @endif
+            </div>
+
+            @if ($remindedAt)
+                <p class="cell-note" style="padding:0 20px 18px;margin:0">
+                    The company was reminded on {{ $remindedAt->format('M d, H:i') }}. You can email it again after
+                    {{ $remindedAt->copy()->addHours(\App\Repositories\Admin\AdminRepository::PROJECT_REMINDER_COOLDOWN_HOURS)->format('M d, H:i') }}.
+                </p>
+            @elseif (!$company || $company->trashed() || blank($company->email))
+                <p class="cell-note" style="padding:0 20px 18px;margin:0">This company has no email address. Use the phone number in the contact card.</p>
+            @else
+                <form method="POST" action="{{ route('admin.projects.remind', $project->id) }}" class="form-grid" style="padding:0 20px 20px">
+                    @csrf
+                    <div class="form-group full-width">
+                        <label for="remind-note">Message to the company (optional, sent as written, in English or Arabic)</label>
+                        <textarea id="remind-note" name="note" rows="3" maxlength="1000" dir="auto"
+                            placeholder="e.g. The customer called us about the delay. Please share the new installation date.">{{ old('note') }}</textarea>
+                        @error('note')
+                            <small class="field-error">{{ $message }}</small>
+                        @enderror
+                    </div>
+                    <div class="form-actions full-width">
+                        <button type="submit" class="btn btn-primary">✉️ Email {{ $company->email }}</button>
+                    </div>
+                </form>
+            @endif
+
+            @php
+                $companyWhatsApp = $company && !$company->trashed() ? \App\Support\WhatsApp::companyNumber($company) : null;
+            @endphp
+            <div style="padding:0 20px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:10px">
+                @if ($companyWhatsApp)
+                    <a href="{{ route('admin.projects.whatsapp', $project->id) }}" id="project-whatsapp" target="_blank" rel="noopener"
+                        class="btn btn-whatsapp">
+                        @include('admin.partials.whatsapp-icon', ['size' => 18]) WhatsApp +{{ $companyWhatsApp }}
+                    </a>
+                    <small class="cell-note">Opens WhatsApp with an Arabic and English reminder ready to send{{ !$remindedAt && filled($company->email) ? ', plus your message above if you typed one' : '' }}. Send it from the SunXFinder WhatsApp {{ \App\Support\WhatsApp::supportNumberLabel() }}.</small>
+                @else
+                    <small class="cell-note">No valid phone or WhatsApp number for this company, so WhatsApp is not available.</small>
+                @endif
+            </div>
+        </section>
+
+        @if ($companyWhatsApp)
+            <script>
+                // Adds the typed message (if any) to the WhatsApp text.
+                document.getElementById('project-whatsapp')?.addEventListener('click', function () {
+                    var note = document.getElementById('remind-note');
+                    var url = new URL(this.href);
+                    url.searchParams.delete('note');
+                    if (note && note.value.trim() !== '') {
+                        url.searchParams.set('note', note.value.trim().slice(0, 1000));
+                    }
+                    this.href = url.toString();
+                });
+            </script>
+        @endif
     @endif
 
     <section class="panel admin-project-hero">

@@ -5,6 +5,7 @@ namespace App\Repositories\Admin;
 use App\Jobs\SendCustomerAccountStatusEmail;
 use App\Mail\CompanyJoinRequestMail;
 use App\Mail\CompanyRequestWaitingMail;
+use App\Mail\CompanyProjectStalledMail;
 use App\Models\ActivityLog;
 use App\Models\ArchivedItem;
 use App\Models\Admin;
@@ -32,6 +33,7 @@ use App\Models\Project;
 use App\Models\ProjectCancellation;
 use App\Mail\CompanyOfferDecisionMail;
 use App\Support\OfferWithdrawal;
+use App\Support\WhatsApp;
 use App\Models\CustomerNotification;
 use App\Models\Notification;
 use App\Models\NotificationSchedule;
@@ -3057,6 +3059,192 @@ class AdminRepository
     private function projectLastActivitySql(): string
     {
         return 'COALESCE((SELECT MAX(pu.created_at) FROM tbl_project_updates pu WHERE pu.project_id = tbl_projects.id AND pu.deleted_at IS NULL), tbl_projects.updated_at)';
+    }
+
+    /** Hours before the company of the same stalled project can be emailed again. */
+    public const PROJECT_REMINDER_COOLDOWN_HOURS = 24;
+
+    /** Most stalled projects one "Email all" press will handle. */
+    public const PROJECT_REMINDER_BATCH_LIMIT = 200;
+
+    /** When the company was last reminded about this project (null if never or the cooldown has passed). */
+    public function getProjectRemindedAt(int $projectId): ?Carbon
+    {
+        $at = Cache::get("project-reminded:{$projectId}");
+
+        return $at ? Carbon::parse($at) : null;
+    }
+
+    /** Same as getProjectRemindedAt for a page of projects: [project id => Carbon]. */
+    public function getProjectsRemindedAt(array $projectIds): array
+    {
+        $remindedAt = [];
+
+        foreach (array_unique(array_map('intval', $projectIds)) as $id) {
+            if ($at = $this->getProjectRemindedAt($id)) {
+                $remindedAt[$id] = $at;
+            }
+        }
+
+        return $remindedAt;
+    }
+
+    /**
+     * wa.me link to the company of a stalled project, with an Arabic + English message ready to send
+     * from SunXFinder's WhatsApp. Logged in the Activity log when the admin opens it.
+     */
+    public function whatsappStalledProject(int $id, ?string $note = null): array
+    {
+        $project = $this->adminProjectsQuery(['stalled' => 1])
+            ->with(['company' => fn($q) => $q->withTrashed(), 'quote'])
+            ->select('tbl_projects.*')
+            ->selectRaw($this->projectLastActivitySql() . ' as last_activity_at')
+            ->where('tbl_projects.id', $id)
+            ->first();
+
+        if (!$project) {
+            return ['success' => false, 'message' => 'This project is not stalled any more, so no WhatsApp message is needed.'];
+        }
+
+        $company = $project->company;
+        $number = WhatsApp::companyNumber($company);
+
+        if (!$number) {
+            return ['success' => false, 'message' => 'This company has no valid phone or WhatsApp number.'];
+        }
+
+        $note = trim((string) $note) ?: null;
+        $idleDays = (int) Carbon::parse($project->last_activity_at)->diffInDays(now());
+        $progress = max(0, min(100, (int) $project->progress_percent));
+        $reference = OfferWithdrawal::reference((int) $project->quote_id);
+        $name = $project->quote?->quote_name ? " ({$project->quote->quote_name})" : '';
+        $url = route('company.projects.show', $project->id);
+        $support = WhatsApp::supportNumberLabel();
+
+        $text = implode("\n", array_filter([
+            "السلام عليكم {$company->name}،",
+            "معكم فريق SunXFinder. لم يُسجَّل أي تحديث على المشروع رقم {$project->id}{$name} الخاص بالطلب {$reference} منذ {$idleDays} يوماً (نسبة الإنجاز {$progress}%).",
+            'نرجو إضافة تحديث للتقدم من لوحة الشركة اليوم، فالعميل يتابع التركيب من التطبيق:',
+            $url,
+            'وإن كان هناك ما يؤخر العمل، يُرجى الرد على هذه الرسالة.',
+            '',
+            "Hello {$company->name},",
+            "This is the SunXFinder team. Project #{$project->id}{$name} for request {$reference} has had no update for {$idleDays} days (progress {$progress}%).",
+            'Please post a progress update in your company panel today. The customer follows the installation in the app:',
+            $url,
+            'If something is holding the work up, just reply to this message.',
+            $note ? "\nرسالة / Message:\n{$note}" : null,
+            '',
+            '— SunXFinder' . ($support ? " {$support}" : ''),
+        ], fn($line) => $line !== null));
+
+        ActivityLogger::log('whatsapp_opened', "Admin opened WhatsApp to {$company->name} about stalled project #{$project->id} ({$reference})", $project, [
+            'company_id' => $company->id,
+            'whatsapp' => '+' . $number,
+            'idle_days' => $idleDays,
+            'note' => $note,
+        ], null, 'projects');
+
+        return ['success' => true, 'url' => WhatsApp::link($number, $text)];
+    }
+
+    /**
+     * Emails the company of each stalled project (bilingual EN/AR) asking for a progress update.
+     * $projectIds null = every stalled project. Projects that are not stalled, were reminded in the
+     * last PROJECT_REMINDER_COOLDOWN_HOURS, or whose company has no email are skipped.
+     */
+    public function remindStalledProjects(?array $projectIds = null, ?string $note = null): array
+    {
+        try {
+            $note = trim((string) $note) ?: null;
+
+            $projects = $this->adminProjectsQuery(['stalled' => 1])
+                ->when($projectIds !== null, fn($q) => $q->whereIn('tbl_projects.id', array_map('intval', $projectIds)))
+                ->with(['company', 'customer' => fn($q) => $q->withTrashed(), 'quote'])
+                ->select('tbl_projects.*')
+                ->selectRaw($this->projectLastActivitySql() . ' as last_activity_at')
+                ->orderBy('tbl_projects.id')
+                ->limit(self::PROJECT_REMINDER_BATCH_LIMIT)
+                ->get();
+
+            if ($projects->isEmpty()) {
+                return [
+                    'success' => false,
+                    'message' => $projectIds !== null && count($projectIds) === 1
+                        ? 'This project is not stalled any more, so no reminder was sent.'
+                        : 'There are no stalled projects to remind.',
+                ];
+            }
+
+            $sent = 0;
+            $skipped = ['cooldown' => 0, 'no_email' => 0];
+            $cooldownUntil = null;
+
+            foreach ($projects as $project) {
+                if ($remindedAt = $this->getProjectRemindedAt($project->id)) {
+                    $skipped['cooldown']++;
+                    $cooldownUntil = $remindedAt->copy()->addHours(self::PROJECT_REMINDER_COOLDOWN_HOURS);
+                    continue;
+                }
+
+                $company = $project->company;
+
+                if (!$company || blank($company->email)) {
+                    $skipped['no_email']++;
+                    continue;
+                }
+
+                $lastActivity = Carbon::parse($project->last_activity_at);
+                $reference = OfferWithdrawal::reference((int) $project->quote_id);
+
+                Mail::mailer('offer')->to($company->email)->queue(new CompanyProjectStalledMail([
+                    'companyName' => $company->name,
+                    'projectId' => $project->id,
+                    'reference' => $reference,
+                    'quoteName' => $project->quote?->quote_name,
+                    'customerName' => $project->customer?->full_name ?: $project->customer?->username,
+                    'status' => $project->status,
+                    'progress' => max(0, min(100, (int) $project->progress_percent)),
+                    'idleDays' => (int) $lastActivity->diffInDays(now()),
+                    'lastActivity' => $lastActivity->format('M d, Y'),
+                    'note' => $note,
+                    'actionUrl' => route('company.projects.show', $project->id),
+                ]));
+
+                Cache::put("project-reminded:{$project->id}", now()->toIso8601String(), now()->addHours(self::PROJECT_REMINDER_COOLDOWN_HOURS));
+
+                ActivityLogger::log('nudged', "Admin emailed {$company->name} about stalled project #{$project->id} ({$reference})", $project, [
+                    'company_id' => $company->id,
+                    'idle_days' => (int) $lastActivity->diffInDays(now()),
+                    'note' => $note,
+                ], null, 'projects');
+
+                $sent++;
+            }
+
+            $skippedText = collect([
+                $skipped['cooldown'] ? $skipped['cooldown'] . ' already reminded in the last ' . self::PROJECT_REMINDER_COOLDOWN_HOURS . ' hours' : null,
+                $skipped['no_email'] ? $skipped['no_email'] . ' with no company email' : null,
+            ])->filter()->implode(', ');
+
+            if ($sent === 0) {
+                $message = $projects->count() === 1 && $skipped['cooldown']
+                    ? 'The company was already reminded. You can email it again after ' . $cooldownUntil->format('M d, H:i') . '.'
+                    : ($projects->count() === 1 ? 'The company has no email address.' : 'No reminder sent: ' . $skippedText . '.');
+
+                return ['success' => false, 'message' => $message];
+            }
+
+            return [
+                'success' => true,
+                'message' => "Reminder emailed to {$sent} " . Str::plural('company', $sent) . '.'
+                    . ($skippedText ? " Skipped: {$skippedText}." : ''),
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to send the reminders. Please try again.'];
+        }
     }
 
     /** Hours before the same request can be nudged again. */
