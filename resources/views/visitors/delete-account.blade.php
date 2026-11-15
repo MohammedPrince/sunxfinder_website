@@ -72,7 +72,8 @@
 @endphp
 
 @extends('visitors.layouts.app')
-@section('title', 'SunXFinder - ' . $t['page_title'])
+@section('title', __('seo.delete_account_title'))
+@section('meta_description', __('seo.delete_account_description'))
 @section('content')
     @push('styles')
         <style>

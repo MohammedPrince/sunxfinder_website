@@ -1,5 +1,9 @@
 @extends('visitors.layouts.app')
-@section('title', __('messages.SunXFinder - Find. Compare. Connect.'))
+@section('title', __('seo.home_title'))
+@section('meta_description', __('seo.home_description'))
+@push('structured-data')
+    @include('visitors.partials.seo-app', ['playStoreUrl' => $playStoreUrl ?? null])
+@endpush
 
 @push('styles')
     <link rel="stylesheet" href="{{ asset_v('visitors/css/home.css') }}">
@@ -896,6 +900,10 @@
             </div>
         </div>
     </section>
+
+    @push('structured-data')
+        @include('visitors.partials.seo-faq', ['faqs' => $faqs])
+    @endpush
 
     {{-- ============ Contact us ============ --}}
     @php

@@ -1,5 +1,5 @@
 @extends('visitors.layouts.app')
-@section('title', app()->getLocale() === 'ar' ? 'SunXFinder - بروفايل الشركة' : 'SunXFinder - Company Profile')
+@include('visitors.partials.seo-company')
 @section('content')
 
     <div class="company-profile-page">

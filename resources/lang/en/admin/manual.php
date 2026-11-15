@@ -49,6 +49,7 @@ return [
                 'Set the <strong>SunXFinder Commission (%)</strong>: the share of each offer price that is due when a customer accepts the offer. Use 0 for none.',
                 'Use <strong>Email in the App</strong> and <strong>Phone in the App</strong> (Show / Hide) to choose whether customers see the company\'s email and phone on its page in the app. Hiding the phone also hides WhatsApp. The directory marks hidden ones with "Hidden in app".',
                 'Use <strong>Log in as company</strong> to see the company panel exactly as the company sees it, for support.',
+                'If a company forgot its password, press <strong>Reset password</strong> (the key button). The new password is the company username followed by <strong>@SUNX09*#</strong> (for example <strong>reenergy@SUNX09*#</strong>). It is shown after the reset. Send it to the company and ask them to change it from their profile.',
                 'Add a company yourself with <strong>+ Add New Company</strong>, or delete one with the delete button.',
             ],
             'tips' => [

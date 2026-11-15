@@ -372,6 +372,14 @@ class MainController extends Controller
             ->with('success', $result['message']);
     }
 
+    /** Reset a company's password to "{username}@SUNX09*#" (the company forgot it). */
+    public function resetCompanyPassword(int $id)
+    {
+        $result = $this->adminService->resetCompanyPassword($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
     public function deleteCompany(int $id)
     {
         $result = $this->adminService->deleteCompany($id);

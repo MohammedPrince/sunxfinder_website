@@ -1,5 +1,6 @@
 @extends('visitors.layouts.app')
-@section('title', 'SunXFinder - ' . $header->text('title', $lang))
+@section('title', $header->text('title', $lang) . ' | SunXFinder')
+@section('meta_description', __(request()->routeIs('terms') ? 'seo.terms_description' : 'seo.privacy_description', [], $lang))
 @section('content')
     @push('styles')
         <style>

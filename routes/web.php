@@ -17,6 +17,11 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
+// Search engines: live robots.txt (blocks everything when SEO_INDEXABLE=false) and sitemap.xml
+// with every public page and company profile in English and Arabic.
+Route::get('/robots.txt', [\App\Http\Controllers\SeoController::class, 'robots'])->name('seo.robots');
+Route::get('/sitemap.xml', [\App\Http\Controllers\SeoController::class, 'sitemap'])->middleware('throttle:60,1')->name('seo.sitemap');
+
 // site.maintenance: shows the maintenance page on every page below when it is on (Admin → Settings).
 // site.visitors: counts the visit for the footer "Total visitors" counter.
 Route::controller(WebsiteController::class)->middleware(['site.maintenance', 'site.visitors'])->group(function () {
@@ -117,6 +122,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::post('/', 'addNewCompany')->name('store');
                 Route::get('/{id}', 'companyDetails')->whereNumber('id')->name('details');
                 Route::post('/{id}/login', 'loginAsCompany')->whereNumber('id')->name('login');
+                Route::post('/{id}/reset-password', 'resetCompanyPassword')->whereNumber('id')->middleware('throttle:10,1')->name('reset-password');
                 Route::get('/{id}/edit', 'editCompany')->whereNumber('id')->name('edit');
                 Route::put('/{id}', 'updateCompany')->whereNumber('id')->name('update');
                 Route::delete('/{id}', 'deleteCompany')->whereNumber('id')->name('destroy');

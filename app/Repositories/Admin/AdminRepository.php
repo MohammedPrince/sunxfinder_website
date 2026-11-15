@@ -1154,6 +1154,56 @@ class AdminRepository
             ];
         }
     }
+    /** The password a company gets when the admin resets it: "{username}@SUNX09*#". */
+    public static function defaultCompanyPassword(SolarCompany $company): string
+    {
+        return trim((string) $company->username) . '@SUNX09*#';
+    }
+
+    /**
+     * Reset a company's password to the default (when the company forgot it).
+     * Also signs the company out of devices where it chose "remember me".
+     */
+    public function resetCompanyPassword(int $id): array
+    {
+        $company = SolarCompany::find($id);
+
+        if (!$company) {
+            return ['success' => false, 'message' => 'Company not found.'];
+        }
+
+        if (trim((string) $company->username) === '') {
+            return ['success' => false, 'message' => "{$company->name} has no username. Set one in Update company first."];
+        }
+
+        try {
+            $password = self::defaultCompanyPassword($company);
+
+            $company->forceFill([
+                'password' => Hash::make($password),
+                'remember_token' => Str::random(60),
+            ])->save();
+
+            ActivityLogger::log(
+                'password_reset',
+                "Admin reset the password of company {$company->name} to the default",
+                $company,
+                ['company_id' => $company->id],
+                ActivityLogger::actorFor(auth()->guard('admin')->user()),
+                'auth'
+            );
+
+            return [
+                'success' => true,
+                'message' => "Password of {$company->name} reset. Username: {$company->username} | New password: {$password}",
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to reset the password. Please try again.'];
+        }
+    }
+
     public function deleteCompany(int $id): array
     {
         try {

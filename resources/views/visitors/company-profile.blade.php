@@ -1,5 +1,5 @@
 @extends('visitors.layouts.app')
-@section('title', app()->getLocale() === 'ar' ? 'SunXFinder - بروفايل الشركة' : 'SunXFinder - Company Profile')
+@include('visitors.partials.seo-company')
 
 {{-- New design of the company profile. The classic design is company-profile-classic.blade.php
      (Admin → Settings → Website design chooses between them). --}}

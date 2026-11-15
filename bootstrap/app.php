@@ -4,6 +4,7 @@ use App\Http\Middleware\EnsureAdminAuthenticated;
 use App\Http\Middleware\EnsureCompanyAuthenticated;
 use App\Http\Middleware\JsonRes;
 use App\Http\Middleware\RecordVisitor;
+use App\Http\Middleware\SearchEngineHeaders;
 use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\SiteMaintenance;
 use Illuminate\Foundation\Application;
@@ -37,6 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Apply locale handling to web routes only.
         $middleware->web(append: [
             SetLocale::class,
+            SearchEngineHeaders::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

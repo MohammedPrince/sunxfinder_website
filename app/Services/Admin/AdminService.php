@@ -98,6 +98,11 @@ class AdminService
         return $this->adminRepository->getCompanyCommissionSummary($companyId);
     }
 
+    public function resetCompanyPassword(int $id): array
+    {
+        return $this->adminRepository->resetCompanyPassword($id);
+    }
+
     public function deleteCompany($id)
     {
         return $this->adminRepository->deleteCompany($id);

@@ -1,6 +1,7 @@
 @extends('visitors.layouts.app')
 
-@section('title', 'SunXFinder - Terms and Conditions')
+@section('title', __('seo.terms_title', [], 'en'))
+@section('meta_description', __('seo.terms_description', [], 'en'))
 
 @section('content')
     <style>
