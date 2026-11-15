@@ -67,6 +67,7 @@ return [
                 'Press <strong>Edit customer</strong> to change their details or <strong>Account Status</strong>. The <strong>App access</strong> box shows the last login and whether they are signed in.',
                 'Use the <strong>App access</strong> menu in the list (Active / Stopped) to stop a customer using the app, with a message in English and Arabic.',
                 'Press <strong>Send offer or news</strong> to send that customer a notification.',
+                'If a customer forgot their password, press <strong>Reset password</strong> (the key button). The new password is the customer username followed by <strong>@SUNX09*#</strong> (for example <strong>mohamed@SUNX09*#</strong>). It is shown after the reset. The customer is signed out of the app on every device. Send them the password. They can set their own later with <strong>Forgot password</strong> in the app.',
                 '<strong>Force logout all customers</strong> signs every customer out of the app. Use it only after a security issue or a major app change.',
             ],
             'tips' => [

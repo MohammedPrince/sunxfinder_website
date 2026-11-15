@@ -1342,6 +1342,57 @@ class AdminRepository
         ];
     }
 
+    /** The password a customer gets when the admin resets it: "{username}@SUNX09*#". */
+    public static function defaultCustomerPassword(Customer $customer): string
+    {
+        return trim((string) $customer->username) . '@SUNX09*#';
+    }
+
+    /**
+     * Reset a customer's password to the default (when the customer forgot it).
+     * Also signs the customer out of the app on every device.
+     */
+    public function resetCustomerPassword(int $id): array
+    {
+        $customer = Customer::query()->find($id);
+
+        if (!$customer) {
+            return ['success' => false, 'message' => 'Customer not found.'];
+        }
+
+        $name = $customer->full_name ?: $customer->username;
+
+        if (trim((string) $customer->username) === '') {
+            return ['success' => false, 'message' => "{$name} has no username. Set one in Edit customer first."];
+        }
+
+        try {
+            $password = self::defaultCustomerPassword($customer);
+
+            $customer->forceFill(['password' => Hash::make($password)])->save();
+
+            $this->revokeCustomerSessions($customer->id);
+
+            ActivityLogger::log(
+                'password_reset',
+                "Admin reset the password of customer {$name} to the default",
+                $customer,
+                ['customer_id' => $customer->id],
+                ActivityLogger::actorFor(auth()->guard('admin')->user()),
+                'auth'
+            );
+
+            return [
+                'success' => true,
+                'message' => "Password of {$name} reset. Username: {$customer->username} | New password: {$password}",
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to reset the password. Please try again.'];
+        }
+    }
+
     /** Signs every customer out of the app. They must log in again. */
     public function forceLogoutAllCustomers(): array
     {

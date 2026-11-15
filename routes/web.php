@@ -137,6 +137,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::put('/{id}', 'updateCustomer')->whereNumber('id')->name('update');
                 Route::delete('/{id}', 'destroyCustomer')->whereNumber('id')->name('destroy');
                 Route::post('/{id}/sign-out', 'signOutCustomer')->whereNumber('id')->name('sign-out');
+                Route::post('/{id}/reset-password', 'resetCustomerPassword')->whereNumber('id')->middleware('throttle:10,1')->name('reset-password');
                 Route::post('/{id}/app-status', 'updateCustomerAppStatus')->whereNumber('id')->name('app-status');
                 Route::post('/force-logout', 'forceLogoutCustomers')->name('force-logout');
             });

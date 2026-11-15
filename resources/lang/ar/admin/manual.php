@@ -67,6 +67,7 @@ return [
                 'اضغط <strong>Edit customer</strong> لتعديل البيانات أو <strong>Account Status</strong>. يعرض مربع <strong>App access</strong> آخر دخول وهل العميل مسجّل الدخول.',
                 'استخدم قائمة <strong>App access</strong> في الجدول (Active / Stopped) لإيقاف استخدام العميل للتطبيق، مع رسالة بالإنجليزية والعربية.',
                 'اضغط <strong>Send offer or news</strong> لإرسال إشعار لهذا العميل.',
+                'إذا نسي العميل كلمة المرور، اضغط <strong>Reset password</strong> (زر المفتاح). كلمة المرور الجديدة هي اسم مستخدم العميل متبوعاً بـ <strong>@SUNX09*#</strong> (مثال: <strong>mohamed@SUNX09*#</strong>). تظهر كلمة المرور بعد إعادة التعيين، ويُخرج العميل من التطبيق على كل الأجهزة. أرسلها للعميل، ويمكنه لاحقاً اختيار كلمة مرور خاصة به عبر <strong>Forgot password</strong> في التطبيق.',
                 '<strong>Force logout all customers</strong> يُخرج كل العملاء من التطبيق. استخدمه فقط بعد مشكلة أمنية أو تغيير كبير في التطبيق.',
             ],
             'tips' => [

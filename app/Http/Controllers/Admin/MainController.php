@@ -520,6 +520,14 @@ class MainController extends Controller
         return $redirect->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
+    /** Reset a customer's password to "{username}@SUNX09*#" (the customer forgot it). */
+    public function resetCustomerPassword(int $id)
+    {
+        $result = $this->adminService->resetCustomerPassword($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
     // Sign every customer out of the app
     public function forceLogoutCustomers()
     {

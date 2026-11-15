@@ -241,6 +241,28 @@
                                         </a>
                                     @endif
 
+                                    {{-- Reset password (customer forgot it) to "{username}@SUNX09*#" --}}
+                                    @php
+                                        $defaultPassword = \App\Repositories\Admin\AdminRepository::defaultCustomerPassword($customer);
+                                    @endphp
+                                    <form action="{{ route('admin.customers.reset-password', $customer->id) }}" method="POST"
+                                        class="customer-reset-password-form"
+                                        onsubmit="return confirm({{ \Illuminate\Support\Js::from('Reset the password of ' . ($customer->full_name ?: $customer->username) . "?\n\nNew password: " . $defaultPassword . "\n\nThe customer will be signed out of the app on every device.") }});">
+                                        @csrf
+                                        <button type="submit" class="row-action row-action-icon"
+                                            title="Reset password to {{ $defaultPassword }}"
+                                            aria-label="Reset password of {{ $customer->full_name ?: $customer->username }}">
+                                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+                                                stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                                                stroke-linejoin="round" aria-hidden="true">
+                                                <circle cx="7.5" cy="15.5" r="4.5" />
+                                                <path d="m10.7 12.3 9.8-9.8" />
+                                                <path d="m15.5 7.5 3 3" />
+                                                <path d="m18 5 2.5 2.5" />
+                                            </svg>
+                                        </button>
+                                    </form>
+
                                     {{-- Delete customer --}}
                                     <form action="{{ route('admin.customers.destroy', $customer->id) }}" method="POST"
                                         class="company-delete-form"

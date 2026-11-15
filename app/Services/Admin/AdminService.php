@@ -173,6 +173,11 @@ class AdminService
         return $this->adminRepository->signOutCustomer($id);
     }
 
+    public function resetCustomerPassword(int $id): array
+    {
+        return $this->adminRepository->resetCustomerPassword($id);
+    }
+
     public function forceLogoutAllCustomers(): array
     {
         return $this->adminRepository->forceLogoutAllCustomers();
