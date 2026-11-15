@@ -157,7 +157,7 @@
         </a>
         @endcomponent
 
-        @component('partials.nav-group', ['key' => 'quotes', 'label' => 'Quotes', 'icon' => 'file', 'routes' => ['admin.quote-requests.*', 'admin.projects.*', 'admin.complaints.*', 'admin.notifications.*']])
+        @component('partials.nav-group', ['key' => 'quotes', 'label' => 'Quotes', 'icon' => 'file', 'routes' => ['admin.quote-requests.*', 'admin.projects.*', 'admin.complaints.*', 'admin.cancellations.*', 'admin.notifications.*']])
         <a class="nav-link {{ request()->routeIs('admin.quote-requests.*') ? 'active' : '' }}"
             href="{{ route('admin.quote-requests.index') }}">
             <span class="nav-icon">
