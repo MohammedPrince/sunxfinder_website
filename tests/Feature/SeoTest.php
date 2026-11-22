@@ -247,6 +247,13 @@ class SeoTest extends TestCase
             ->assertDontSee('localhost');
     }
 
+    public function test_files_for_crawlers_set_no_cookies(): void
+    {
+        foreach (['/robots.txt', '/sitemap.xml', '/googleafbc0ccb2ebc472f.html'] as $path) {
+            $this->assertSame([], $this->get($path)->assertOk()->headers->getCookies(), $path);
+        }
+    }
+
     private function maintenance(bool $prelaunch): void
     {
         Setting::set('maintenance_enabled', '1');
@@ -261,7 +268,8 @@ class SeoTest extends TestCase
         $this->get('/')
             ->assertStatus(503)
             ->assertHeader('Retry-After', '3600')
-            ->assertSee('<meta name="robots" content="noindex">', false);
+            ->assertSee('<meta name="robots" content="noindex">', false)
+            ->assertSee('<meta name="description"', false);
         $this->get('/sitemap.xml')->assertOk()->assertSee('/terms');
     }
 
