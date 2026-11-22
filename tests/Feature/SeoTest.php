@@ -292,5 +292,13 @@ class SeoTest extends TestCase
         $file = 'googleafbc0ccb2ebc472f.html';
 
         $this->assertSame("google-site-verification: {$file}", trim(file_get_contents(public_path($file))));
+
+        // Answered by Laravel too (PROD is served from public_html), with no redirect, also in maintenance.
+        $this->maintenance(false);
+        foreach (['https', 'http'] as $scheme) {
+            $response = $this->get("{$scheme}://sunxfinder.com/{$file}")->assertOk();
+            $this->assertSame("google-site-verification: {$file}", trim($response->getContent()));
+        }
+        $this->get('https://sunxfinder.com/google0000000000000000.html')->assertNotFound();
     }
 }

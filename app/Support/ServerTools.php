@@ -69,8 +69,8 @@ class ServerTools
         ],
         'copy_public' => [
             'title' => 'Copy public folders',
-            'command' => 'copy public/{main,admin,company,visitors,sounds,css} → public_html',
-            'help' => 'Copies the CSS, JS, images and sounds from the project\'s public folder to public_html, where the website reads them. Run it after uploading new design or sound files.',
+            'command' => 'copy public/{main,admin,company,visitors,sounds,css} + favicon, google*.html → public_html',
+            'help' => 'Copies the CSS, JS, images, sounds, favicon and Google verification file from the project\'s public folder to public_html, where the website reads them. Run it after uploading new design or sound files.',
             'confirm' => 'Copy the public folders to public_html? Files with the same name are replaced.',
         ],
     ];
@@ -327,6 +327,19 @@ class ServerTools
             } else {
                 $lines[] = "✗ {$folder}: copy failed (check folder permissions)";
                 $success = false;
+            }
+        }
+
+        foreach (config('server_tools.public_files', []) as $pattern) {
+            foreach (File::glob($source . '/' . $pattern) as $from) {
+                $name = basename($from);
+
+                if (File::copy($from, $target . '/' . $name)) {
+                    $lines[] = "✓ {$name}: copied";
+                } else {
+                    $lines[] = "✗ {$name}: copy failed (check folder permissions)";
+                    $success = false;
+                }
             }
         }
 

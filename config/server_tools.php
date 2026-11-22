@@ -27,6 +27,8 @@ return [
     'public_source' => env('SERVER_TOOLS_PUBLIC_SOURCE', base_path('public')),
     'public_target' => env('SERVER_TOOLS_PUBLIC_TARGET', dirname(base_path(), 2)),
     'public_folders' => ['main', 'admin', 'company', 'visitors', 'sounds', 'css'],
+    // Single files copied with them (patterns). Never index.php or .htaccess: public_html has its own.
+    'public_files' => ['favicon.ico', 'favicon.svg', 'google*.html'],
 
     // Seconds a command may run (composer install is the slowest).
     'timeout' => (int) env('SERVER_TOOLS_TIMEOUT', 600),

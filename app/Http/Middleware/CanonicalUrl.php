@@ -9,13 +9,13 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * One address per page: http://, www. and /index.php copies of the live site move permanently (301)
  * to https://sunxfinder.com/..., so search engines don't see duplicate pages. Other hosts (local,
- * staging) keep their scheme. App-link verification files must never redirect.
+ * staging) keep their scheme. Verification files (app links, Search Console) never redirect.
  */
 class CanonicalUrl
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (!$request->isMethodSafe() || $request->is('.well-known/*')) {
+        if (!$request->isMethodSafe() || $request->is('.well-known/*', 'google*.html')) {
             return $next($request);
         }
 

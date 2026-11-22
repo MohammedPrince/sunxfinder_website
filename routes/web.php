@@ -21,6 +21,10 @@ use Illuminate\Support\Facades\Route;
 // with every public page and company profile in English and Arabic.
 Route::get('/robots.txt', [\App\Http\Controllers\SeoController::class, 'robots'])->name('seo.robots');
 Route::get('/sitemap.xml', [\App\Http\Controllers\SeoController::class, 'sitemap'])->middleware('throttle:60,1')->name('seo.sitemap');
+// Search Console ownership file (public/google….html). PROD is served from public_html, not from the
+// project's public folder, so Laravel answers it too.
+Route::get('/google{code}.html', [\App\Http\Controllers\SeoController::class, 'googleVerification'])
+    ->where('code', '[a-f0-9]{8,32}')->middleware('throttle:60,1')->name('seo.google-verification');
 
 // site.maintenance: shows the maintenance page on every page below when it is on (Admin → Settings).
 // site.visitors: counts the visit for the footer "Total visitors" counter.
