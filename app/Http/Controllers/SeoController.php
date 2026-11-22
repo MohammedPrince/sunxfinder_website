@@ -8,7 +8,7 @@ use App\Support\Seo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 
-/** robots.txt and sitemap.xml for search engines. */
+/** robots.txt, sitemap.xml and the Search Console file for search engines. */
 class SeoController extends Controller
 {
     public const SITEMAP_CACHE_KEY = 'seo:sitemap';
@@ -56,6 +56,15 @@ class SeoController extends Controller
             'Content-Type' => 'application/xml; charset=UTF-8',
             'Cache-Control' => 'public, max-age=3600',
         ]);
+    }
+
+    /** Search Console ownership file, read from the project whatever folder the domain is served from. */
+    public function googleVerification(string $code)
+    {
+        $file = base_path("public/google{$code}.html");
+        abort_unless(is_file($file), 404);
+
+        return response(file_get_contents($file), 200, ['Content-Type' => 'text/html; charset=UTF-8']);
     }
 
     /** [url (English), lastmod, changefreq, priority] for every public page, each also in Arabic. */

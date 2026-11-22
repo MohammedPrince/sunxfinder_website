@@ -232,6 +232,9 @@ class AdminServerToolsTest extends TestCase
         File::put($this->tmp . '/project/public/sounds/ding.wav', 'wav');
         File::put($this->tmp . '/public_html/css/site.css', 'old');
         File::put($this->tmp . '/public_html/css/keep.css', 'only in public_html');
+        File::put($this->tmp . '/project/public/google0123456789abcdef.html', 'verify');
+        File::put($this->tmp . '/project/public/index.php', 'project');
+        File::put($this->tmp . '/public_html/index.php', 'hosting');
 
         config([
             'server_tools.public_source' => $this->tmp . '/project/public',
@@ -244,6 +247,9 @@ class AdminServerToolsTest extends TestCase
 
         $this->assertSame('new', File::get($this->tmp . '/public_html/css/site.css'));
         $this->assertSame('wav', File::get($this->tmp . '/public_html/sounds/ding.wav'));
+        $this->assertSame('verify', File::get($this->tmp . '/public_html/google0123456789abcdef.html'));
+        // public_html has its own index.php.
+        $this->assertSame('hosting', File::get($this->tmp . '/public_html/index.php'));
         // Files only in public_html are kept.
         $this->assertSame('only in public_html', File::get($this->tmp . '/public_html/css/keep.css'));
     }
