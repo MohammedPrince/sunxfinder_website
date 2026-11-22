@@ -16,18 +16,25 @@
         @include('visitors.partials.seo-head')
     @else
         <meta name="robots" content="noindex">
+        <meta name="description" content="{{ \App\Support\Seo::description($message) ?: __('seo.home_description') }}">
         <title>{{ $title ?: 'SunXFinder' }} · SunXFinder</title>
     @endif
     <link rel="icon" type="image/png" href="{{ asset_v('visitors/images/logo-128.png') }}">
     {{-- Same fonts as the home page (layouts/app.blade.php): DM Sans + Manrope, plus Cairo for Arabic --}}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet"
+    {{-- Loaded without blocking the first render --}}
+    <link rel="stylesheet" media="print" onload="this.media='all'"
         href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800{{ $isArabic ? '&family=Cairo:wght@400;600;700;800' : '' }}&display=swap">
+    <noscript>
+        <link rel="stylesheet"
+            href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800{{ $isArabic ? '&family=Cairo:wght@400;600;700;800' : '' }}&display=swap">
+    </noscript>
     <style>
         :root {
             --navy: #0b2d5c;
             --orange: #fc5202;
+            --orange-text: #b83a00; /* small text: AA contrast */
             --sun: #ffb31a;
             --muted: #5f7189;
         }
@@ -92,7 +99,7 @@
             padding: 5px 12px;
             border-radius: 999px;
             background: #fff0e6;
-            color: var(--orange);
+            color: var(--orange-text);
             font-size: 12px;
             font-weight: 700;
             letter-spacing: .05em;
@@ -140,7 +147,7 @@
         }
 
         .contact a {
-            color: var(--orange);
+            color: var(--orange-text);
             font-weight: 700;
         }
 
@@ -168,7 +175,7 @@
 
         footer {
             margin-top: 22px;
-            color: #8a96a8;
+            color: var(--muted);
             font-size: 12px;
         }
 
@@ -182,7 +189,7 @@
 
 <body>
     <main class="card">
-        <img class="logo" src="{{ asset_v('visitors/images/logo-128.webp') }}" alt="SunXFinder" width="72" height="72">
+        <img class="logo" src="{{ asset_v('visitors/images/logo-128.webp') }}" alt="SunXFinder" width="72" height="72" fetchpriority="high">
         <div><span class="sun" aria-hidden="true">☀️</span></div>
 
         <span class="kicker">{{ $isArabic ? 'نجهّز لك تجربة أكثر إشراقاً' : 'Something brighter is coming' }}</span>
@@ -215,7 +222,7 @@
         </p>
         <footer>
             <span aria-hidden="true"> </span>
-            Sun<b style="color: #fc5202;">X</b>Finder
+            Sun<b style="color: var(--orange-text);">X</b>Finder
         </footer>
     </main>
 </body>
