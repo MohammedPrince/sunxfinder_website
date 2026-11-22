@@ -250,6 +250,28 @@
                                         </button>
                                     @endif
 
+                                    {{-- Reset password (company forgot it) to "{username}@SUNX09*#" --}}
+                                    @php
+                                        $defaultPassword = \App\Repositories\Admin\AdminRepository::defaultCompanyPassword($company);
+                                    @endphp
+                                    <form action="{{ route('admin.companies.reset-password', $company->id) }}" method="POST"
+                                        class="company-reset-password-form"
+                                        onsubmit="return confirm({{ \Illuminate\Support\Js::from('Reset the password of ' . $company->name . "?\n\nNew password: " . $defaultPassword . "\n\nThe company will be signed out of remembered devices.") }});">
+                                        @csrf
+                                        <button type="submit" class="row-action row-action-icon"
+                                            title="Reset password to {{ $defaultPassword }}"
+                                            aria-label="Reset password of {{ $company->name }}">
+                                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+                                                stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                                                stroke-linejoin="round" aria-hidden="true">
+                                                <circle cx="7.5" cy="15.5" r="4.5" />
+                                                <path d="m10.7 12.3 9.8-9.8" />
+                                                <path d="m15.5 7.5 3 3" />
+                                                <path d="m18 5 2.5 2.5" />
+                                            </svg>
+                                        </button>
+                                    </form>
+
                                     {{-- Delete company --}}
                                     <form action="{{ route('admin.companies.destroy', $company->id) }}" method="POST"
                                         class="company-delete-form"

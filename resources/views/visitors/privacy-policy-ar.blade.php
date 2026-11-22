@@ -1,5 +1,6 @@
 @extends('visitors.layouts.app')
-@section('title', 'SunXFinder - سياسة الخصوصية')
+@section('title', __('seo.privacy_title', [], 'ar'))
+@section('meta_description', __('seo.privacy_description', [], 'ar'))
 @section('content')
 
     <main class="legal-page" dir="rtl" lang="ar">

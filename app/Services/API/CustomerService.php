@@ -134,6 +134,11 @@ class CustomerService
         return $this->customerRepository->archiveQuote($data);
     }
 
+    public function reportHandoverProblem(array $data): array
+    {
+        return $this->customerRepository->reportHandoverProblem($data);
+    }
+
     public function completeQuote(array $data): array
     {
         return $this->customerRepository->completeQuote($data);
@@ -164,6 +169,16 @@ class CustomerService
         return $this->customerRepository->rejectOffer($data);
     }
 
+    public function acceptPriceChange(int $changeId): array
+    {
+        return $this->customerRepository->acceptPriceChange($changeId);
+    }
+
+    public function declinePriceChange(int $changeId): array
+    {
+        return $this->customerRepository->declinePriceChange($changeId);
+    }
+
     public function submitRating(array $data): array
     {
         return $this->customerRepository->submitRating($data);
@@ -179,9 +194,9 @@ class CustomerService
         return $this->customerRepository->deleteRating($ratingId);
     }
 
-    public function getRatingForm(): array
+    public function getRatingForm(?int $quoteId = null): array
     {
-        return $this->customerRepository->getRatingForm();
+        return $this->customerRepository->getRatingForm($quoteId);
     }
 
     public function getProjectProgress(int $projectId)

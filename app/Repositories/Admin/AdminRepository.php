@@ -5,6 +5,7 @@ namespace App\Repositories\Admin;
 use App\Jobs\SendCustomerAccountStatusEmail;
 use App\Mail\CompanyJoinRequestMail;
 use App\Mail\CompanyRequestWaitingMail;
+use App\Mail\CompanyProjectStalledMail;
 use App\Models\ActivityLog;
 use App\Models\ArchivedItem;
 use App\Models\Admin;
@@ -29,6 +30,10 @@ use App\Models\ApiEndpoint;
 use App\Models\Customer;
 use App\Models\CustomerTermsAcceptance;
 use App\Models\Project;
+use App\Models\ProjectCancellation;
+use App\Mail\CompanyOfferDecisionMail;
+use App\Support\OfferWithdrawal;
+use App\Support\WhatsApp;
 use App\Models\CustomerNotification;
 use App\Models\Notification;
 use App\Models\NotificationSchedule;
@@ -282,6 +287,13 @@ class AdminRepository
                 'count' => SolarCompany::query()->where('status', 'pending')->count(),
                 'url' => route('admin.companies.index'),
                 'tone' => 'orange',
+            ],
+            [
+                'label' => 'Companies asking to cancel a job',
+                'hint' => 'Work already started, or the company withdrew too often. Approve or reject.',
+                'count' => ProjectCancellation::query()->where('status', ProjectCancellation::REQUESTED)->count(),
+                'url' => route('admin.cancellations.index', ['status' => ProjectCancellation::REQUESTED]),
+                'tone' => 'red',
             ],
             [
                 'label' => 'Requests with no offers yet',
@@ -708,9 +720,9 @@ class AdminRepository
             ->selectRaw('company_id')
             // A company's customers: everyone who accepted one of its offers (= has a project with it).
             ->selectRaw('COUNT(DISTINCT customer_id) as customers')
-            ->selectRaw("SUM(status IN ('accepted', 'in_progress')) as active_projects")
+            ->selectRaw("SUM(status IN ('accepted', 'in_progress', 'handover_pending')) as active_projects")
             ->selectRaw("SUM(status = 'completed') as completed_projects")
-            ->selectRaw("AVG(CASE WHEN status IN ('accepted', 'in_progress') THEN progress_percent END) as avg_progress")
+            ->selectRaw("AVG(CASE WHEN status IN ('accepted', 'in_progress', 'handover_pending') THEN progress_percent END) as avg_progress")
             ->groupBy('company_id');
 
         $products = DB::table('tbl_products')
@@ -808,7 +820,7 @@ class AdminRepository
             'started_in_period' => DB::table('tbl_projects')->whereNull('deleted_at')->whereBetween('created_at', [$from, $to])->count(),
             'completed_in_period' => (clone $completedInPeriod)->count(),
             'avg_completion_days' => $avgCompletionHours !== null ? round($avgCompletionHours / 24, 1) : null,
-            'avg_active_progress' => (int) round((float) (clone $current)->whereIn('status', ['accepted', 'in_progress'])->avg('progress_percent')),
+            'avg_active_progress' => (int) round((float) (clone $current)->whereIn('status', Project::ACTIVE_STATUSES)->avg('progress_percent')),
             'milestones' => DB::table('tbl_project_milestones as m')
                 ->join('tbl_projects as p', 'p.id', '=', 'm.project_id')
                 ->whereNull('m.deleted_at')
@@ -1075,6 +1087,14 @@ class AdminRepository
                         Rule::unique('tbl_solar_companies', 'email')
                             ->ignore($company->id),
                     ],
+                    'slug' => [
+                        'sometimes',
+                        'required',
+                        Rule::unique('tbl_solar_companies', 'slug')
+                            ->ignore($company->id),
+                    ],
+                ], [
+                    'slug.unique' => 'Another company already uses this profile link (slug).',
                 ]);
 
                 if ($validator->fails()) {
@@ -1086,6 +1106,9 @@ class AdminRepository
 
                 $company->name = $data['name'];
                 $company->username = $data['username'];
+                if (!empty($data['slug'])) {
+                    $company->slug = $data['slug'];
+                }
                 $company->email = $data['email'] ?? null;
                 $company->phone = $data['phone'] ?? null;
                 $company->city = $data['city'] ?? null;
@@ -1131,6 +1154,56 @@ class AdminRepository
             ];
         }
     }
+    /** The password a company gets when the admin resets it: "{username}@SUNX09*#". */
+    public static function defaultCompanyPassword(SolarCompany $company): string
+    {
+        return trim((string) $company->username) . '@SUNX09*#';
+    }
+
+    /**
+     * Reset a company's password to the default (when the company forgot it).
+     * Also signs the company out of devices where it chose "remember me".
+     */
+    public function resetCompanyPassword(int $id): array
+    {
+        $company = SolarCompany::find($id);
+
+        if (!$company) {
+            return ['success' => false, 'message' => 'Company not found.'];
+        }
+
+        if (trim((string) $company->username) === '') {
+            return ['success' => false, 'message' => "{$company->name} has no username. Set one in Update company first."];
+        }
+
+        try {
+            $password = self::defaultCompanyPassword($company);
+
+            $company->forceFill([
+                'password' => Hash::make($password),
+                'remember_token' => Str::random(60),
+            ])->save();
+
+            ActivityLogger::log(
+                'password_reset',
+                "Admin reset the password of company {$company->name} to the default",
+                $company,
+                ['company_id' => $company->id],
+                ActivityLogger::actorFor(auth()->guard('admin')->user()),
+                'auth'
+            );
+
+            return [
+                'success' => true,
+                'message' => "Password of {$company->name} reset. Username: {$company->username} | New password: {$password}",
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to reset the password. Please try again.'];
+        }
+    }
+
     public function deleteCompany(int $id): array
     {
         try {
@@ -1267,6 +1340,57 @@ class AdminRepository
                 ? "{$name} was signed out of the app."
                 : "{$name} was not signed in on any device.",
         ];
+    }
+
+    /** The password a customer gets when the admin resets it: "{username}@SUNX09*#". */
+    public static function defaultCustomerPassword(Customer $customer): string
+    {
+        return trim((string) $customer->username) . '@SUNX09*#';
+    }
+
+    /**
+     * Reset a customer's password to the default (when the customer forgot it).
+     * Also signs the customer out of the app on every device.
+     */
+    public function resetCustomerPassword(int $id): array
+    {
+        $customer = Customer::query()->find($id);
+
+        if (!$customer) {
+            return ['success' => false, 'message' => 'Customer not found.'];
+        }
+
+        $name = $customer->full_name ?: $customer->username;
+
+        if (trim((string) $customer->username) === '') {
+            return ['success' => false, 'message' => "{$name} has no username. Set one in Edit customer first."];
+        }
+
+        try {
+            $password = self::defaultCustomerPassword($customer);
+
+            $customer->forceFill(['password' => Hash::make($password)])->save();
+
+            $this->revokeCustomerSessions($customer->id);
+
+            ActivityLogger::log(
+                'password_reset',
+                "Admin reset the password of customer {$name} to the default",
+                $customer,
+                ['customer_id' => $customer->id],
+                ActivityLogger::actorFor(auth()->guard('admin')->user()),
+                'auth'
+            );
+
+            return [
+                'success' => true,
+                'message' => "Password of {$name} reset. Username: {$customer->username} | New password: {$password}",
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to reset the password. Please try again.'];
+        }
     }
 
     /** Signs every customer out of the app. They must log in again. */
@@ -2973,6 +3097,7 @@ class AdminRepository
             'total' => (clone $query)->count(),
             'accepted' => (clone $query)->where('status', 'accepted')->count(),
             'in_progress' => (clone $query)->where('status', 'in_progress')->count(),
+            'handover_pending' => (clone $query)->where('status', Project::HANDOVER_PENDING)->count(),
             'completed' => (clone $query)->where('status', 'completed')->count(),
             'stalled' => (clone $query)
                 ->whereIn('status', ['accepted', 'in_progress'])
@@ -3035,6 +3160,192 @@ class AdminRepository
     private function projectLastActivitySql(): string
     {
         return 'COALESCE((SELECT MAX(pu.created_at) FROM tbl_project_updates pu WHERE pu.project_id = tbl_projects.id AND pu.deleted_at IS NULL), tbl_projects.updated_at)';
+    }
+
+    /** Hours before the company of the same stalled project can be emailed again. */
+    public const PROJECT_REMINDER_COOLDOWN_HOURS = 24;
+
+    /** Most stalled projects one "Email all" press will handle. */
+    public const PROJECT_REMINDER_BATCH_LIMIT = 200;
+
+    /** When the company was last reminded about this project (null if never or the cooldown has passed). */
+    public function getProjectRemindedAt(int $projectId): ?Carbon
+    {
+        $at = Cache::get("project-reminded:{$projectId}");
+
+        return $at ? Carbon::parse($at) : null;
+    }
+
+    /** Same as getProjectRemindedAt for a page of projects: [project id => Carbon]. */
+    public function getProjectsRemindedAt(array $projectIds): array
+    {
+        $remindedAt = [];
+
+        foreach (array_unique(array_map('intval', $projectIds)) as $id) {
+            if ($at = $this->getProjectRemindedAt($id)) {
+                $remindedAt[$id] = $at;
+            }
+        }
+
+        return $remindedAt;
+    }
+
+    /**
+     * wa.me link to the company of a stalled project, with an Arabic + English message ready to send
+     * from SunXFinder's WhatsApp. Logged in the Activity log when the admin opens it.
+     */
+    public function whatsappStalledProject(int $id, ?string $note = null): array
+    {
+        $project = $this->adminProjectsQuery(['stalled' => 1])
+            ->with(['company' => fn($q) => $q->withTrashed(), 'quote'])
+            ->select('tbl_projects.*')
+            ->selectRaw($this->projectLastActivitySql() . ' as last_activity_at')
+            ->where('tbl_projects.id', $id)
+            ->first();
+
+        if (!$project) {
+            return ['success' => false, 'message' => 'This project is not stalled any more, so no WhatsApp message is needed.'];
+        }
+
+        $company = $project->company;
+        $number = WhatsApp::companyNumber($company);
+
+        if (!$number) {
+            return ['success' => false, 'message' => 'This company has no valid phone or WhatsApp number.'];
+        }
+
+        $note = trim((string) $note) ?: null;
+        $idleDays = (int) Carbon::parse($project->last_activity_at)->diffInDays(now());
+        $progress = max(0, min(100, (int) $project->progress_percent));
+        $reference = OfferWithdrawal::reference((int) $project->quote_id);
+        $name = $project->quote?->quote_name ? " ({$project->quote->quote_name})" : '';
+        $url = route('company.projects.show', $project->id);
+        $support = WhatsApp::supportNumberLabel();
+
+        $text = implode("\n", array_filter([
+            "السلام عليكم {$company->name}،",
+            "معكم فريق SunXFinder. لم يُسجَّل أي تحديث على المشروع رقم {$project->id}{$name} الخاص بالطلب {$reference} منذ {$idleDays} يوماً (نسبة الإنجاز {$progress}%).",
+            'نرجو إضافة تحديث للتقدم من لوحة الشركة اليوم، فالعميل يتابع التركيب من التطبيق:',
+            $url,
+            'وإن كان هناك ما يؤخر العمل، يُرجى الرد على هذه الرسالة.',
+            '',
+            "Hello {$company->name},",
+            "This is the SunXFinder team. Project #{$project->id}{$name} for request {$reference} has had no update for {$idleDays} days (progress {$progress}%).",
+            'Please post a progress update in your company panel today. The customer follows the installation in the app:',
+            $url,
+            'If something is holding the work up, just reply to this message.',
+            $note ? "\nرسالة / Message:\n{$note}" : null,
+            '',
+            '— SunXFinder' . ($support ? " {$support}" : ''),
+        ], fn($line) => $line !== null));
+
+        ActivityLogger::log('whatsapp_opened', "Admin opened WhatsApp to {$company->name} about stalled project #{$project->id} ({$reference})", $project, [
+            'company_id' => $company->id,
+            'whatsapp' => '+' . $number,
+            'idle_days' => $idleDays,
+            'note' => $note,
+        ], null, 'projects');
+
+        return ['success' => true, 'url' => WhatsApp::link($number, $text)];
+    }
+
+    /**
+     * Emails the company of each stalled project (bilingual EN/AR) asking for a progress update.
+     * $projectIds null = every stalled project. Projects that are not stalled, were reminded in the
+     * last PROJECT_REMINDER_COOLDOWN_HOURS, or whose company has no email are skipped.
+     */
+    public function remindStalledProjects(?array $projectIds = null, ?string $note = null): array
+    {
+        try {
+            $note = trim((string) $note) ?: null;
+
+            $projects = $this->adminProjectsQuery(['stalled' => 1])
+                ->when($projectIds !== null, fn($q) => $q->whereIn('tbl_projects.id', array_map('intval', $projectIds)))
+                ->with(['company', 'customer' => fn($q) => $q->withTrashed(), 'quote'])
+                ->select('tbl_projects.*')
+                ->selectRaw($this->projectLastActivitySql() . ' as last_activity_at')
+                ->orderBy('tbl_projects.id')
+                ->limit(self::PROJECT_REMINDER_BATCH_LIMIT)
+                ->get();
+
+            if ($projects->isEmpty()) {
+                return [
+                    'success' => false,
+                    'message' => $projectIds !== null && count($projectIds) === 1
+                        ? 'This project is not stalled any more, so no reminder was sent.'
+                        : 'There are no stalled projects to remind.',
+                ];
+            }
+
+            $sent = 0;
+            $skipped = ['cooldown' => 0, 'no_email' => 0];
+            $cooldownUntil = null;
+
+            foreach ($projects as $project) {
+                if ($remindedAt = $this->getProjectRemindedAt($project->id)) {
+                    $skipped['cooldown']++;
+                    $cooldownUntil = $remindedAt->copy()->addHours(self::PROJECT_REMINDER_COOLDOWN_HOURS);
+                    continue;
+                }
+
+                $company = $project->company;
+
+                if (!$company || blank($company->email)) {
+                    $skipped['no_email']++;
+                    continue;
+                }
+
+                $lastActivity = Carbon::parse($project->last_activity_at);
+                $reference = OfferWithdrawal::reference((int) $project->quote_id);
+
+                Mail::mailer('offer')->to($company->email)->queue(new CompanyProjectStalledMail([
+                    'companyName' => $company->name,
+                    'projectId' => $project->id,
+                    'reference' => $reference,
+                    'quoteName' => $project->quote?->quote_name,
+                    'customerName' => $project->customer?->full_name ?: $project->customer?->username,
+                    'status' => $project->status,
+                    'progress' => max(0, min(100, (int) $project->progress_percent)),
+                    'idleDays' => (int) $lastActivity->diffInDays(now()),
+                    'lastActivity' => $lastActivity->format('M d, Y'),
+                    'note' => $note,
+                    'actionUrl' => route('company.projects.show', $project->id),
+                ]));
+
+                Cache::put("project-reminded:{$project->id}", now()->toIso8601String(), now()->addHours(self::PROJECT_REMINDER_COOLDOWN_HOURS));
+
+                ActivityLogger::log('nudged', "Admin emailed {$company->name} about stalled project #{$project->id} ({$reference})", $project, [
+                    'company_id' => $company->id,
+                    'idle_days' => (int) $lastActivity->diffInDays(now()),
+                    'note' => $note,
+                ], null, 'projects');
+
+                $sent++;
+            }
+
+            $skippedText = collect([
+                $skipped['cooldown'] ? $skipped['cooldown'] . ' already reminded in the last ' . self::PROJECT_REMINDER_COOLDOWN_HOURS . ' hours' : null,
+                $skipped['no_email'] ? $skipped['no_email'] . ' with no company email' : null,
+            ])->filter()->implode(', ');
+
+            if ($sent === 0) {
+                $message = $projects->count() === 1 && $skipped['cooldown']
+                    ? 'The company was already reminded. You can email it again after ' . $cooldownUntil->format('M d, H:i') . '.'
+                    : ($projects->count() === 1 ? 'The company has no email address.' : 'No reminder sent: ' . $skippedText . '.');
+
+                return ['success' => false, 'message' => $message];
+            }
+
+            return [
+                'success' => true,
+                'message' => "Reminder emailed to {$sent} " . Str::plural('company', $sent) . '.'
+                    . ($skippedText ? " Skipped: {$skippedText}." : ''),
+            ];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => 'Unable to send the reminders. Please try again.'];
+        }
     }
 
     /** Hours before the same request can be nudged again. */
@@ -4964,9 +5275,11 @@ class AdminRepository
     {
         cache()->forget(Setting::MAINTENANCE_CACHE_KEY);
         cache()->forget(Setting::APP_OFFLINE_CACHE_KEY);
+        cache()->forget(Setting::SITE_DESIGN_CACHE_KEY);
 
         return [
             'max_open_quotes' => Setting::maxOpenQuotes(),
+            'site_design' => Setting::siteDesign(),
             'maintenance' => Setting::maintenance(),
             'app_offline' => Setting::appOffline(),
             'company_ads' => Setting::companyAdsAccess(),
@@ -5336,6 +5649,9 @@ class AdminRepository
 
             Setting::set('max_open_quotes', (int) $data['max_open_quotes']);
 
+            Setting::set('site_design', $data['site_design']);
+            cache()->forget(Setting::SITE_DESIGN_CACHE_KEY);
+
             Setting::set('company_ads_audience', $data['company_ads_audience']);
             Setting::set('company_ads_company_ids', json_encode(array_values(array_map('intval', $data['company_ads_company_ids'] ?? []))));
             cache()->forget(Setting::COMPANY_ADS_CACHE_KEY);
@@ -5345,6 +5661,7 @@ class AdminRepository
             }
 
             Setting::set('maintenance_enabled', !empty($data['maintenance_enabled']) ? '1' : '0');
+            Setting::set('maintenance_prelaunch', !empty($data['maintenance_prelaunch']) ? '1' : '0');
             foreach (['title_en', 'title_ar', 'message_en', 'message_ar', 'until'] as $field) {
                 Setting::set("maintenance_{$field}", $data["maintenance_{$field}"] ?? null);
             }
@@ -5588,4 +5905,172 @@ class AdminRepository
     {
         $item->delete();
     }
+
+    //Deal withdrawals Start
+
+    /** Companies backing out of accepted deals: requests to decide first, then history. */
+    public function getProjectCancellations(array $filters = []): LengthAwarePaginator
+    {
+        $search = trim((string) ($filters['search'] ?? ''));
+
+        return ProjectCancellation::query()
+            ->with(['company:id,name', 'customer:id,full_name,username,phone', 'quote:id,quote_name'])
+            ->when(!empty($filters['status']), fn($query) => $query->where('status', $filters['status']))
+            ->when(!empty($filters['company_id']), fn($query) => $query->where('company_id', (int) $filters['company_id']))
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('note', 'like', "%{$search}%")
+                        ->orWhereHas('company', fn($company) => $company->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('customer', fn($customer) => $customer->where('full_name', 'like', "%{$search}%")->orWhere('username', 'like', "%{$search}%"));
+
+                    $id = (int) ltrim(preg_replace('/\D/', '', $search), '0');
+                    if ($id > 0) {
+                        $q->orWhere('quote_id', $id)->orWhere('project_id', $id);
+                    }
+                });
+            })
+            // Waiting requests first, then newest.
+            ->orderByRaw('status = ? DESC', [ProjectCancellation::REQUESTED])
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(20)
+            ->withQueryString();
+    }
+
+    public function getProjectCancellationMetrics(): array
+    {
+        $recent = now()->subDays(ProjectCancellation::WINDOW_DAYS);
+
+        return [
+            'requested' => ProjectCancellation::query()->where('status', ProjectCancellation::REQUESTED)->count(),
+            'done_recent' => ProjectCancellation::query()->whereIn('status', ProjectCancellation::DONE_STATUSES)->where('created_at', '>=', $recent)->count(),
+            'reopened_recent' => (int) ProjectCancellation::query()->whereIn('status', ProjectCancellation::DONE_STATUSES)->where('created_at', '>=', $recent)->sum('reopened_offers'),
+            // Companies at or over the limit right now.
+            'flagged_companies' => ProjectCancellation::query()
+                ->countedRecently()
+                ->select('company_id')
+                ->groupBy('company_id')
+                ->havingRaw('COUNT(*) >= ?', [ProjectCancellation::FLAG_THRESHOLD])
+                ->get()
+                ->count(),
+        ];
+    }
+
+    public function getProjectCancellation(int $id): ProjectCancellation
+    {
+        return ProjectCancellation::query()
+            ->with(['company', 'customer', 'quote', 'offer', 'admin:id,username', 'project.updates'])
+            ->findOrFail($id);
+    }
+
+    /** Withdrawal counts for the company details page. */
+    public function getCompanyWithdrawalSummary(int $companyId): array
+    {
+        $recent = ProjectCancellation::recentCountFor($companyId);
+
+        return [
+            'recent' => $recent,
+            'total' => ProjectCancellation::query()->where('company_id', $companyId)->whereIn('status', ProjectCancellation::DONE_STATUSES)->count(),
+            'requested' => ProjectCancellation::query()->where('company_id', $companyId)->where('status', ProjectCancellation::REQUESTED)->count(),
+            'flagged' => $recent >= ProjectCancellation::FLAG_THRESHOLD,
+            'threshold' => ProjectCancellation::FLAG_THRESHOLD,
+            'window_days' => ProjectCancellation::WINDOW_DAYS,
+        ];
+    }
+
+    /**
+     * The admin agrees to the company's request: the project is cancelled and the request
+     * reopens, as for a withdrawal. $countsAgainst = false waives it (e.g. a real emergency).
+     */
+    public function approveProjectCancellation(int $id, bool $countsAgainst, ?string $note): ProjectCancellation
+    {
+        $adminId = auth('admin')->id();
+        $reopenedIds = [];
+
+        $cancellation = DB::transaction(function () use ($id, $countsAgainst, $note, $adminId, &$reopenedIds) {
+            $cancellation = ProjectCancellation::query()->whereKey($id)->lockForUpdate()->firstOrFail();
+
+            if ($cancellation->status !== ProjectCancellation::REQUESTED) {
+                throw ValidationException::withMessages(['status' => 'This request was already decided.']);
+            }
+
+            $project = Project::query()->whereKey($cancellation->project_id)->lockForUpdate()->first();
+
+            if (!$project || $project->status === Project::COMPLETED) {
+                throw ValidationException::withMessages(['status' => 'The project is completed or no longer exists, so it cannot be cancelled. Reject the request instead.']);
+            }
+
+            $cancellation->fill([
+                'status' => ProjectCancellation::APPROVED,
+                'counts_against_company' => $countsAgainst,
+                'admin_id' => $adminId,
+                'admin_note' => $note,
+                'decided_at' => now(),
+            ]);
+
+            $reopenedIds = OfferWithdrawal::endDeal($project, $cancellation, 'admin', $adminId ? (int) $adminId : null);
+
+            return $cancellation;
+        });
+
+        OfferWithdrawal::notifyDealEnded($cancellation, $reopenedIds, true, CompanyOfferDecisionMail::CANCEL_APPROVED, [
+            'adminNote' => $note,
+        ]);
+
+        return $cancellation;
+    }
+
+    /** The admin says no: the project carries on, and the company is told why. */
+    public function rejectProjectCancellation(int $id, string $note): ProjectCancellation
+    {
+        $cancellation = ProjectCancellation::query()->findOrFail($id);
+
+        if ($cancellation->status !== ProjectCancellation::REQUESTED) {
+            throw ValidationException::withMessages(['status' => 'This request was already decided.']);
+        }
+
+        $cancellation->fill([
+            'status' => ProjectCancellation::REJECTED,
+            'admin_id' => auth('admin')->id(),
+            'admin_note' => $note,
+            'decided_at' => now(),
+        ])->save();
+
+        if ($cancellation->company_quotation_id) {
+            \App\Jobs\SendCompanyOfferDecisionEmail::dispatch((int) $cancellation->company_quotation_id, CompanyOfferDecisionMail::CANCEL_REJECTED, [
+                'adminNote' => $note,
+                'reasonText' => $cancellation->reasonText('en'),
+            ]);
+        }
+
+        ActivityLogger::log('cancellation_rejected', 'Cancellation request rejected on request ' . OfferWithdrawal::reference((int) $cancellation->quote_id), null, [
+            'quote_id' => (int) $cancellation->quote_id,
+            'cancellation_id' => (int) $cancellation->id,
+        ], null, 'projects');
+
+        return $cancellation;
+    }
+
+    /** Count a finished withdrawal against the company, or waive it. */
+    public function setProjectCancellationCounts(int $id, bool $counts): ProjectCancellation
+    {
+        $cancellation = ProjectCancellation::query()->findOrFail($id);
+
+        if (!$cancellation->isDone()) {
+            throw ValidationException::withMessages(['status' => 'Only a finished withdrawal can be counted or waived.']);
+        }
+
+        $cancellation->counts_against_company = $counts;
+        $cancellation->save();
+
+        ActivityLogger::log($counts ? 'withdrawal_counted' : 'withdrawal_waived', ($counts ? 'Withdrawal counted' : 'Withdrawal waived')
+            . ' on request ' . OfferWithdrawal::reference((int) $cancellation->quote_id), null, [
+            'cancellation_id' => (int) $cancellation->id,
+            'company_id' => (int) $cancellation->company_id,
+        ], null, 'companies');
+
+        return $cancellation;
+    }
+
+    //Deal withdrawals End
 }

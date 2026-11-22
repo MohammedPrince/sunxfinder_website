@@ -49,6 +49,7 @@ return [
                 'Set the <strong>SunXFinder Commission (%)</strong>: the share of each offer price that is due when a customer accepts the offer. Use 0 for none.',
                 'Use <strong>Email in the App</strong> and <strong>Phone in the App</strong> (Show / Hide) to choose whether customers see the company\'s email and phone on its page in the app. Hiding the phone also hides WhatsApp. The directory marks hidden ones with "Hidden in app".',
                 'Use <strong>Log in as company</strong> to see the company panel exactly as the company sees it, for support.',
+                'If a company forgot its password, press <strong>Reset password</strong> (the key button). The new password is the company username followed by <strong>@SUNX09*#</strong> (for example <strong>reenergy@SUNX09*#</strong>). It is shown after the reset. Send it to the company and ask them to change it from their profile.',
                 'Add a company yourself with <strong>+ Add New Company</strong>, or delete one with the delete button.',
             ],
             'tips' => [
@@ -66,6 +67,7 @@ return [
                 'Press <strong>Edit customer</strong> to change their details or <strong>Account Status</strong>. The <strong>App access</strong> box shows the last login and whether they are signed in.',
                 'Use the <strong>App access</strong> menu in the list (Active / Stopped) to stop a customer using the app, with a message in English and Arabic.',
                 'Press <strong>Send offer or news</strong> to send that customer a notification.',
+                'If a customer forgot their password, press <strong>Reset password</strong> (the key button). The new password is the customer username followed by <strong>@SUNX09*#</strong> (for example <strong>mohamed@SUNX09*#</strong>). It is shown after the reset. The customer is signed out of the app on every device. Send them the password. They can set their own later with <strong>Forgot password</strong> in the app.',
                 '<strong>Force logout all customers</strong> signs every customer out of the app. Use it only after a security issue or a major app change.',
             ],
             'tips' => [
@@ -159,11 +161,14 @@ return [
             'steps' => [
                 'Open <strong>Quotes → Projects</strong>. Status: <strong>Accepted</strong> (not started), <strong>In progress</strong>, <strong>Completed</strong>.',
                 'Use <strong>Stalled projects</strong> to find projects with no update for several days.',
+                'Press <strong>Email company</strong> on a stalled project, or <strong>Email all stalled companies</strong>, to email the company a reminder in English and Arabic with a link to the project. On the project page you can add your own message.',
+                'Press the green <strong>WhatsApp</strong> button to open WhatsApp to the company with the same reminder ready to send. Send it from the SunXFinder WhatsApp number.',
                 'Open a project to see milestones, every company update and the contact details of the company and customer, then follow up.',
                 'Use <strong>Open quote request</strong> to reassign the company or act on the original request.',
             ],
             'tips' => [
                 'Updates marked "Internal note" are hidden from the customer.',
+                'The same project can be emailed once every 24 hours. Every reminder is saved in the Activity log.',
             ],
         ],
         'complaints' => [

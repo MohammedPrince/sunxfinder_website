@@ -47,6 +47,8 @@
         }
     @endphp
 
+    @include('company.partials.guide', ['page' => 'reports'])
+
     {{-- Period filter --}}
     <section class="panel report-filters no-print">
         <form method="GET" action="{{ route('company.reports.index') }}" class="report-filter-form" data-report-filters>

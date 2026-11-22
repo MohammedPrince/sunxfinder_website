@@ -90,6 +90,29 @@
                         @enderror
                     </div>
 
+                    @if ($isEditing)
+                        {{-- Public profile address: /companies/{slug}. New companies get one from their name. --}}
+                        <div class="form-group">
+                            <label for="slug">Profile Link (slug) <b style="color: red">*</b></label>
+                            <input class="form-control" type="text" id="slug" name="slug" maxlength="191"
+                                value="{{ old('slug', $company->slug ?? '') }}" placeholder="e.g. re-energy"
+                                pattern="[a-z0-9]+(-[a-z0-9]+)*" autocomplete="off" dir="ltr" required>
+                            <small>
+                                {{ url('/companies') }}/<b id="slugPreview">{{ old('slug', $company->slug ?? '') }}</b>
+                                · lowercase letters, numbers and hyphens. Changing it breaks links already shared.
+                            </small>
+                            @error('slug')
+                                <small class="field-error">{{ $message }}</small>
+                            @enderror
+                            <script>
+                                document.getElementById('slug').addEventListener('input', function () {
+                                    this.value = this.value.toLowerCase().replace(/[\s_]+/g, '-');
+                                    document.getElementById('slugPreview').textContent = this.value;
+                                });
+                            </script>
+                        </div>
+                    @endif
+
                     <div class="form-group">
                         <label for="email">Email Address <b style="color: red">*</b></label>
                         <input class="form-control" type="email" id="email" name="email" maxlength="191" required

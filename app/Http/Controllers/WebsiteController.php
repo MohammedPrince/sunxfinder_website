@@ -101,7 +101,8 @@ class WebsiteController extends Controller
         // Appliance catalogue for the load calculator (same one the app uses).
         $calculatorGroups = $this->mainService->getCalculatorCatalogue();
 
-        return view('visitors.home', compact(
+        // Admin → Settings chooses the website design; the classic home page is its own view.
+        return view(Setting::siteDesign() === 'classic' ? 'visitors.home-classic' : 'visitors.home', compact(
             'calculatorGroups',
             'companies',
             'adBanners',
@@ -208,6 +209,24 @@ class WebsiteController extends Controller
     }
 
     /** Android App Links verification. Empty until ANDROID_PACKAGE_NAME is set. */
+    /**
+     * Web app manifest. Its only job is to name the Android app (related_applications), which
+     * lets Chrome answer navigator.getInstalledRelatedApps() on the company profile page.
+     */
+    public function webManifest()
+    {
+        $package = config('services.mobile_app.android_package');
+
+        return response()->json([
+            'name' => 'SunXFinder',
+            'short_name' => 'SunXFinder',
+            'start_url' => '/',
+            'display' => 'browser',
+            'prefer_related_applications' => (bool) $package,
+            'related_applications' => $package ? [['platform' => 'play', 'id' => $package]] : [],
+        ], 200, ['Content-Type' => 'application/manifest+json'], JSON_UNESCAPED_SLASHES);
+    }
+
     public function androidAssetLinks()
     {
         $app = config('services.mobile_app');
@@ -459,7 +478,8 @@ class WebsiteController extends Controller
         $companyPhone = $company->phone;
         $companyWebsite = $company->website ?? null;
 
-        return view('visitors.company-profile', compact(
+        // Admin → Settings chooses the website design; each design has its own profile view.
+        return view(Setting::siteDesign() === 'classic' ? 'visitors.company-profile-classic' : 'visitors.company-profile', compact(
             'company',
             'companyName',
             'companyCity',

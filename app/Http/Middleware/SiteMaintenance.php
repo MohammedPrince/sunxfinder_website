@@ -34,12 +34,15 @@ class SiteMaintenance
         }
 
         $isArabic = app()->getLocale() === 'ar';
+        // Before launch the home page is a normal, indexable "coming soon" page.
+        $comingSoon = Setting::isPrelaunch() && $request->routeIs('home');
         // Same counter as the website footer.
         $visitorCount = app(MainService::class)->countVisit();
 
-        return response()
-            ->view('visitors.maintenance', [
+        $response = response()
+            ->view(Setting::siteDesign() === 'classic' ? 'visitors.maintenance-classic' : 'visitors.maintenance', [
                 'isArabic' => $isArabic,
+                'comingSoon' => $comingSoon,
                 'visitorCount' => $visitorCount,
                 'title' => $isArabic
                     ? ($maintenance['title_ar'] ?: $maintenance['title_en'])
@@ -48,8 +51,9 @@ class SiteMaintenance
                     ? ($maintenance['message_ar'] ?: $maintenance['message_en'])
                     : ($maintenance['message_en'] ?: $maintenance['message_ar']),
                 'until' => $maintenance['until'] ? \Illuminate\Support\Carbon::parse($maintenance['until']) : null,
-            ], 503)
-            // Tells search engines the outage is temporary.
-            ->header('Retry-After', '3600');
+            ], $comingSoon ? 200 : 503);
+
+        // 503 + Retry-After tells search engines the outage is temporary.
+        return $comingSoon ? $response : $response->header('Retry-After', '3600');
     }
 }

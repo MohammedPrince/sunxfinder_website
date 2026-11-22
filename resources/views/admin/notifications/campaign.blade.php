@@ -74,7 +74,7 @@
 
                     <div class="campaign-choice-grid" role="radiogroup" aria-label="Campaign topic">
                         @foreach ([
-                            'offer' => ['Company offer', 'A ready system from one company that customers can accept in the app.'],
+                            'offer' => ['Special offer', 'A ready system from one company that customers can accept in the app.'],
                             'new_company' => ['New company', 'Introduce a company that just joined.'],
                             'promotion' => ['News / promotion', 'SunXFinder news, tips or a general offer.'],
                         ] as $value => [$label, $hint])

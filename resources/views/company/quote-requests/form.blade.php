@@ -200,6 +200,20 @@
             $batteryCount = $matches[1];
         }
 
+        // The app also writes the word first: "battery 5.0 kWh" / "بطارية 5.0 كيلوواط ساعة".
+        if ($batteryCount === '—') {
+            $batteryUnit = fn(?string $unit) => $unit === null || $unit === '' ? '' : (stripos($unit, 'ah') !== false ? ' Ah' : ' kWh');
+
+            if (preg_match('/batter(?:y|ies)\s*:?\s*(\d+(?:\.\d+)?)\s*(kWh|Ah)?/i', $loadSummary, $matches)) {
+                $batteryCount = $matches[1] . $batteryUnit($matches[2] ?? null);
+            } elseif (preg_match('/بطاري(?:ة|ات)\s*:?\s*(\d+(?:\.\d+)?)\s*(kWh|Ah|كيلوواط\s*ساعة|أمبير\s*ساعة)?/u', $loadSummary, $matches)) {
+                $unit = $matches[2] ?? '';
+                $batteryCount = $matches[1] . ($unit === '' ? '' : (str_contains($unit, 'أمبير') || stripos($unit, 'ah') !== false ? ' Ah' : ' kWh'));
+            } elseif (preg_match('/(\d+(?:\.\d+)?)\s*(كيلوواط\s*ساعة|أمبير\s*ساعة)\s*بطاري(?:ة|ات)/u', $loadSummary, $matches)) {
+                $batteryCount = $matches[1] . (str_contains($matches[2], 'أمبير') ? ' Ah' : ' kWh');
+            }
+        }
+
         /*
         |--------------------------------------------------------------------------
         | System type
@@ -554,6 +568,8 @@
                             </p>
                         @endif
 
+                        @include('partials.offer-terms-list', ['offer' => $companyQuotation])
+
                         <span class="offer-submitted-label">
                             <b>{{ __('company/messages.quote.offer_status') }}</b>
                             {{ $statusLabels[$status] ?? ucfirst(str_replace('_', ' ', $companyQuotation->status)) }}
@@ -596,7 +612,7 @@
                                                     <div class="selected-offer-actions">
                                                         <a href="{{ route('company.projects.show', $project->id) }}" class="btn btn-primary">
                                                             {{ match ($project->status) {
-                                        'completed' => __('company/messages.quote.view_project'),
+                                        'completed', 'handover_pending' => __('company/messages.quote.view_project'),
                                         'in_progress' => __('company/messages.quote.update_project'),
                                         default => __('company/messages.quote.start_project'),
                                     } }} →
@@ -740,7 +756,7 @@
                                         {{ __('company/messages.quote.invoice_removal') }}
                                     </small>
 
-                                    <div id="invoiceBuilder" class="offer-invoice-content">
+                                    <div id="invoiceBuilder" class="offer-invoice-content" data-invoice-part>
                                         <div class="offer-invoice-meta">
                                             <div class="offer-form-group">
                                                 <label for="invoice_number">{{ __('company/messages.quote.invoice_number') }} <span>*</span></label>
@@ -791,7 +807,18 @@
                                             <div class="offer-form-group"><label for="invoice_tax_rate">{{ __('company/messages.quote.tax_rate') }}</label><input class="form-control" id="invoice_tax_rate" name="invoice_tax_rate" type="number" min="0" max="100" step="0.01" value="{{ old('invoice_tax_rate', $invoice?->tax_rate ?? 0) }}"></div>
                                             <div class="offer-form-group"><label for="invoice_shipping">{{ __('company/messages.quote.shipping') }}</label><input class="form-control" id="invoice_shipping" name="invoice_shipping" type="number" min="0" step="0.01" value="{{ old('invoice_shipping', $invoice?->shipping ?? 0) }}"></div>
                                         </div>
+                                    </div>
 
+                                    {{-- Warranty and terms sit between the totals and the remarks, but stay
+                                         visible (and submitted) when the invoice is switched off. --}}
+                                    <div class="offer-invoice-terms">
+                                        @include('company.quote-requests.partials.offer-terms', [
+                                            'terms' => $companyQuotation ? ($companyQuotation->terms ?? []) : ($lastOfferTerms ?? []),
+                                            'prefilled' => !$companyQuotation && !empty($lastOfferTerms),
+                                        ])
+                                    </div>
+
+                                    <div class="offer-invoice-content offer-invoice-notes" data-invoice-part>
                                         <div class="offer-form-group">
                                             <label for="invoice_notes">{{ __('company/messages.quote.payment_notes') }}</label>
                                             <textarea class="form-control" id="invoice_notes" name="invoice_notes" rows="3" maxlength="2000" placeholder="{{ __('company/messages.quote.notes_placeholder') }}">{{ old('invoice_notes', $invoice?->payment_instructions) }}</textarea>
@@ -1205,13 +1232,16 @@
 
             function updateInvoiceState() {
                 const enabled = invoiceToggle.checked;
-                invoiceBuilder.hidden = !enabled;
                 offerPrice.readOnly = enabled;
                 document.getElementById('offerPriceSource').hidden = !enabled;
                 document.getElementById('offerSummaryLines').hidden = !enabled;
                 document.getElementById('invoiceRemovalNote').hidden = enabled || invoiceToggle.dataset.hadInvoice !== '1';
-                invoiceBuilder.querySelectorAll('input, textarea, select, button').forEach(function (field) {
-                    field.disabled = !enabled;
+                // The invoice is split around the warranty/terms block, which is never switched off.
+                document.querySelectorAll('[data-invoice-part]').forEach(function (part) {
+                    part.hidden = !enabled;
+                    part.querySelectorAll('input, textarea, select, button').forEach(function (field) {
+                        field.disabled = !enabled;
+                    });
                 });
                 invoiceBuilder.querySelectorAll('[data-invoice-required]').forEach(function (field) {
                     field.required = enabled;

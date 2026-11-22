@@ -43,6 +43,8 @@
 @section('content')
     @include('company.offers.partials.alerts')
 
+    @include('company.partials.guide', ['page' => 'package_offer_show'])
+
     <div class="metrics-strip">
         <div><small>{{ __('company/messages.common.status') }}</small><strong>@include('company.offers.partials.status-pill', ['status' => $status])</strong></div>
         <div><small>{{ __('company/messages.package_offers.sent_to') }}</small><strong>{{ number_format($sentCount) }}</strong></div>

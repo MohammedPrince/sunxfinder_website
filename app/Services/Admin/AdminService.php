@@ -98,6 +98,11 @@ class AdminService
         return $this->adminRepository->getCompanyCommissionSummary($companyId);
     }
 
+    public function resetCompanyPassword(int $id): array
+    {
+        return $this->adminRepository->resetCompanyPassword($id);
+    }
+
     public function deleteCompany($id)
     {
         return $this->adminRepository->deleteCompany($id);
@@ -166,6 +171,11 @@ class AdminService
     public function signOutCustomer(int $id): array
     {
         return $this->adminRepository->signOutCustomer($id);
+    }
+
+    public function resetCustomerPassword(int $id): array
+    {
+        return $this->adminRepository->resetCustomerPassword($id);
     }
 
     public function forceLogoutAllCustomers(): array
@@ -507,6 +517,26 @@ class AdminService
     public function nudgeCompaniesForQuote(int $id): array
     {
         return $this->adminRepository->nudgeCompaniesForQuote($id);
+    }
+
+    public function getProjectRemindedAt(int $projectId)
+    {
+        return $this->adminRepository->getProjectRemindedAt($projectId);
+    }
+
+    public function getProjectsRemindedAt(array $projectIds): array
+    {
+        return $this->adminRepository->getProjectsRemindedAt($projectIds);
+    }
+
+    public function whatsappStalledProject(int $id, ?string $note = null): array
+    {
+        return $this->adminRepository->whatsappStalledProject($id, $note);
+    }
+
+    public function remindStalledProjects(?array $projectIds = null, ?string $note = null): array
+    {
+        return $this->adminRepository->remindStalledProjects($projectIds, $note);
     }
 
     //Quote Requests End
@@ -908,6 +938,43 @@ class AdminService
     {
         $this->adminRepository->deleteArchivedItem($item);
     }
+
+    //Deal withdrawals Start
+    public function getProjectCancellations(array $filters = []): LengthAwarePaginator
+    {
+        return $this->adminRepository->getProjectCancellations($filters);
+    }
+
+    public function getProjectCancellationMetrics(): array
+    {
+        return $this->adminRepository->getProjectCancellationMetrics();
+    }
+
+    public function getProjectCancellation(int $id): \App\Models\ProjectCancellation
+    {
+        return $this->adminRepository->getProjectCancellation($id);
+    }
+
+    public function getCompanyWithdrawalSummary(int $companyId): array
+    {
+        return $this->adminRepository->getCompanyWithdrawalSummary($companyId);
+    }
+
+    public function approveProjectCancellation(int $id, bool $countsAgainst, ?string $note): \App\Models\ProjectCancellation
+    {
+        return $this->adminRepository->approveProjectCancellation($id, $countsAgainst, $note);
+    }
+
+    public function rejectProjectCancellation(int $id, string $note): \App\Models\ProjectCancellation
+    {
+        return $this->adminRepository->rejectProjectCancellation($id, $note);
+    }
+
+    public function setProjectCancellationCounts(int $id, bool $counts): \App\Models\ProjectCancellation
+    {
+        return $this->adminRepository->setProjectCancellationCounts($id, $counts);
+    }
+    //Deal withdrawals End
 
 
 

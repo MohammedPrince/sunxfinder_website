@@ -9,6 +9,7 @@ use App\Models\RatingValue;
 use App\Models\Setting;
 use App\Services\Company\CompanyService;
 use App\Support\InvoicePdf;
+use App\Support\OfferTerms;
 use App\Support\ReportPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -405,6 +406,9 @@ class MainController extends Controller
         $packageOffer = $this->companyService->getPackageOfferForQuote($quote);
         $products = $this->companyService->getCompanyProductOptions();
 
+        // A new offer starts from the warranty and terms of the company's last offer.
+        $lastOfferTerms = $companyQuotation ? null : $this->companyService->getLastOfferTerms();
+
         return view('company.quote-requests.form', compact(
             'quote',
             'companyQuotation',
@@ -412,7 +416,8 @@ class MainController extends Controller
             'project',
             'invoiceNumber',
             'packageOffer',
-            'products'
+            'products',
+            'lastOfferTerms'
         ));
     }
 
@@ -456,11 +461,13 @@ class MainController extends Controller
             // Picked from the company's products (checked against the company in the repository).
             'invoice_items.*.product_id' => ['exclude_unless:include_invoice,1', 'nullable', 'integer', 'min:1'],
             'invoice_items.*.type' => ['exclude_unless:include_invoice,1', 'nullable', Rule::in(array_keys(Product::TYPES))],
+            // Warranty and terms (all optional).
+            ...OfferTerms::rules(),
         ], [
             'price.required' => __('company/messages.quote.price_required'),
             'price.numeric' => __('company/messages.quote.price_numeric'),
             'price.min' => __('company/messages.quote.price_min'),
-        ]);
+        ], OfferTerms::attributes());
 
         $this->companyService->submitQuoteOffer($id, $validated);
 

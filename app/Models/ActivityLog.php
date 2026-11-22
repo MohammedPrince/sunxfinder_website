@@ -38,11 +38,13 @@ class ActivityLog extends Model
         'restored' => 'Restored',
         'force_deleted' => 'Permanently deleted',
         'password_changed' => 'Password changed',
+        'password_reset' => 'Password reset',
         'account_deleted' => 'Account deleted',
         'cancelled' => 'Cancelled',
         'reassigned' => 'Reassigned',
         'nudged' => 'Reminder sent',
         'email_sent' => 'Email sent',
+        'whatsapp_opened' => 'WhatsApp opened',
         'job_retried' => 'Job retried',
         'job_deleted' => 'Job deleted',
     ];
@@ -98,7 +100,7 @@ class ActivityLog extends Model
         return match ($this->action) {
             'login', 'registered', 'created', 'restored' => 'pill-green',
             'login_failed', 'login_blocked', 'deleted', 'force_deleted', 'account_deleted', 'cancelled', 'job_deleted' => 'pill-red',
-            'password_changed', 'nudged', 'reassigned', 'job_retried' => 'pill-orange',
+            'password_changed', 'password_reset', 'nudged', 'reassigned', 'job_retried', 'whatsapp_opened' => 'pill-orange',
             'logout' => 'pill-purple',
             default => 'pill-blue',
         };

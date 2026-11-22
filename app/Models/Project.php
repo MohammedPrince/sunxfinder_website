@@ -7,6 +7,7 @@ use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Project extends Model
@@ -25,7 +26,43 @@ class Project extends Model
         'accepted_at',
         'started_at',
         'completed_at',
+        'handover_requested_at',
+        'handover_confirmed_at',
+        'handover_confirmed_by',
+        'handover_problem_at',
+        'handover_problem_message',
     ];
+
+    /**
+     * A finished project the customer neither confirms nor reports a problem on is
+     * confirmed automatically this many days after the company finished it
+     * (command projects:auto-confirm-handovers, hourly).
+     */
+    public const AUTO_CONFIRM_DAYS = 7;
+
+    public const CONFIRMED_BY_CUSTOMER = 'customer';
+    public const CONFIRMED_BY_AUTO = 'auto';
+
+    /** Sent with the project in the customer API. */
+    protected $appends = ['handover_auto_confirm_at'];
+
+    /**
+     * Lifecycle: accepted → in_progress → handover_pending → completed.
+     * handover_pending: the company finished the job and the customer still has to
+     * confirm the handover in the app (POST /quote-complete). Only that completes it.
+     */
+    public const ACCEPTED = 'accepted';
+    public const IN_PROGRESS = 'in_progress';
+    public const HANDOVER_PENDING = 'handover_pending';
+    public const COMPLETED = 'completed';
+    /**
+     * The deal ended before completion (App\Support\OfferWithdrawal). Set just before the
+     * project is soft-deleted; the history is in tbl_project_cancellations.
+     */
+    public const CANCELLED = 'cancelled';
+
+    /** Not completed yet: still counts as an active job. */
+    public const ACTIVE_STATUSES = [self::ACCEPTED, self::IN_PROGRESS, self::HANDOVER_PENDING];
 
     protected function casts(): array
     {
@@ -34,7 +71,23 @@ class Project extends Model
             'accepted_at' => 'datetime',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
+            'handover_requested_at' => 'datetime',
+            'handover_confirmed_at' => 'datetime',
+            'handover_problem_at' => 'datetime',
         ];
+    }
+
+    /** When a waiting handover is confirmed automatically; null unless handover_pending. */
+    public function handoverAutoConfirmAt(): ?\Illuminate\Support\Carbon
+    {
+        return $this->status === self::HANDOVER_PENDING && $this->handover_requested_at
+            ? $this->handover_requested_at->copy()->addDays(self::AUTO_CONFIRM_DAYS)
+            : null;
+    }
+
+    public function getHandoverAutoConfirmAtAttribute(): ?string
+    {
+        return $this->handoverAutoConfirmAt()?->toISOString();
     }
 
     public function quote(): BelongsTo
@@ -70,5 +123,26 @@ class Project extends Model
     {
         return $this->hasMany(ProjectUpdate::class, 'project_id')
             ->latest();
+    }
+
+    /** The company's price change waiting for the customer (one at a time). */
+    public function pendingPriceChange(): HasOne
+    {
+        // The status filter goes inside ofMany, so it picks the latest *pending* row.
+        return $this->hasOne(OfferPriceChange::class, 'project_id')
+            ->ofMany(['id' => 'max'], fn($query) => $query->where('status', OfferPriceChange::PENDING));
+    }
+
+    /** The company's cancellation request waiting for an admin, if any. */
+    public function openCancellationRequest(): HasOne
+    {
+        return $this->hasOne(ProjectCancellation::class, 'project_id')
+            ->ofMany(['id' => 'max'], fn($query) => $query->where('status', ProjectCancellation::REQUESTED));
+    }
+
+    /** The most recent cancellation request or withdrawal, whatever became of it. */
+    public function latestCancellation(): HasOne
+    {
+        return $this->hasOne(ProjectCancellation::class, 'project_id')->latestOfMany();
     }
 }

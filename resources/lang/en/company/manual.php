@@ -23,6 +23,18 @@ return [
         ['Customer rates you', 'The customer rates your work. Good ratings bring more customers.'],
     ],
 
+    // "How to use the system" dialog shown on the company's first sign-in.
+    'journey_title' => 'How to use the system',
+    'journey_start_title' => 'Start with these steps',
+    'journey_start' => [
+        ['Complete your company profile', 'Add your logo, description and contact details so SunXFinder can approve your company.', 'company.profile'],
+        ['Add your products', 'The panels, inverters and batteries you sell. They show on your page and you use them in invoices.', 'company.products.index'],
+        ['Send your first offer', 'Open Quote Requests and send your price to customers.', 'company.quote-requests.index'],
+    ],
+    'journey_manual' => 'Open the full manual',
+    'journey_done' => 'Get started',
+    'journey_note' => 'You can find this guide any time under "Help & Guide" in the top bar.',
+
     'sections' => [
         'start' => [
             'title' => 'Getting started',
@@ -68,7 +80,7 @@ return [
                 'Use the edit and delete buttons in the list to keep your catalog up to date.',
             ],
             'tips' => [
-                'Your products are also used to build package offers quickly.',
+                'Your products are also used to build special offers quickly.',
                 'Hide a product you no longer sell instead of leaving wrong information visible.',
             ],
         ],
@@ -94,10 +106,10 @@ return [
             ],
         ],
         'package_offers' => [
-            'title' => 'Package offers',
+            'title' => 'Special offers',
             'intro' => 'A ready system (panels, inverter, batteries, installation) that you push to your customers.',
             'steps' => [
-                'Open <strong>Quotes & Projects → Package offers</strong> and press <strong>+ New package offer</strong>.',
+                'Open <strong>Quotes & Projects → Special offers</strong> and press <strong>+ New special offer</strong>.',
                 'Write the <strong>title and description</strong> in English and Arabic.',
                 'Set the <strong>maximum load</strong> (kW) the system can power, and optionally a <strong>Valid until</strong> date.',
                 'Add the <strong>system items</strong> from your products, or type custom lines such as installation. The price the customer pays is shown at the bottom.',
@@ -119,12 +131,30 @@ return [
                 'Open the project and use the <strong>customer contact details</strong> to arrange the site visit.',
                 'Press <strong>Start Installation</strong> when your team is ready.',
                 'Complete each <strong>milestone</strong> in order and write a short message for the customer (up to 500 characters). Progress is calculated automatically.',
-                'When everything is installed and explained, press <strong>Confirm Customer Handover</strong>. The project closes at 100%.',
+                'When everything is installed and explained, press <strong>Confirm Customer Handover</strong>. The customer then confirms the handover in the app, which completes the project (automatically after 7 days if they do not answer).',
             ],
             'tips' => [
                 'Handover cannot be undone: the project is locked after it. Check the installation first.',
                 'Projects without an update for several days are flagged. Post a short update so the customer knows what is happening.',
                 'Finishing on time and keeping customers informed is the best way to get good ratings.',
+            ],
+        ],
+        'withdrawals' => [
+            'title' => 'Withdrawing or changing the price',
+            'intro' => 'When you cannot do an accepted job at the agreed price, tell the customer early. They keep their request and can choose another company.',
+            'steps' => [
+                'Open the project in <strong>Active Projects</strong>. Use the <strong>Problem with this job?</strong> box under the project workflow.',
+                '<strong>Change the price</strong> (only before you start): enter the new price, pick a reason and add a note for the customer. The customer accepts or declines in the app. You cannot start the installation until they answer.',
+                'If the customer <strong>accepts</strong>, your offer shows the new price and you can start. If they <strong>decline</strong>, the job ends and the request opens again for other companies. A declined price does not count against you.',
+                '<strong>Withdraw from this job</strong> before you start: pick a reason and confirm. The job is cancelled right away, the customer is told, and other companies\' offers can be chosen again.',
+                'After you started (or while waiting for the customer to confirm the handover), you can only <strong>Send cancellation request</strong>. Explain what happened in at least 10 characters. The SunXFinder team contacts you and the customer, then approves or rejects it. You can keep working, or take the request back, while you wait.',
+                'You get an email with the decision. If it is rejected, the reason shows on the project page and the job carries on.',
+            ],
+            'tips' => [
+                'Each withdrawal counts against your company for 30 days. At 3 withdrawals in 30 days, every new withdrawal needs SunXFinder\'s approval and your company is listed lower in the app.',
+                'Asking for a new price is better than withdrawing: the customer can still say yes, and a decline is never counted.',
+                'Your note is seen by the SunXFinder team only. The customer sees the reason you picked.',
+                'When another company withdraws, you may get an email that a request is <strong>open again</strong> and your offer can be chosen. Check that your price and validity are still right, and update the offer if needed.',
             ],
         ],
         'invoices' => [
@@ -165,7 +195,7 @@ return [
             'tips' => [
                 'You can send only to your own customers (those who accepted your offer). If SunXFinder opened all customers for your company, sends beyond your own customers are sponsored and count toward a monthly limit.',
                 'Customers who are not signed in to the app cannot receive pushes and are not listed.',
-                'Notifications are deleted automatically after 5 days, also from the customers\' app. Sponsored sends and package offers are kept.',
+                'Notifications are deleted automatically after 5 days, also from the customers\' app. Sponsored sends and special offers are kept.',
             ],
         ],
         'advertising' => [
@@ -200,9 +230,9 @@ return [
             'title' => 'Dashboard and reports',
             'intro' => 'How your company is doing, at a glance and for any period.',
             'steps' => [
-                'The <strong>Dashboard</strong> shows requests waiting for your offer, your win rate, active projects, ratings, ads and package offers.',
+                'The <strong>Dashboard</strong> shows requests waiting for your offer, your win rate, active projects, ratings, ads and special offers.',
                 'Open <strong>Overview → Reports</strong> and choose a period (last 7 days, this month, a custom range…). Each number is compared with the previous period.',
-                'Read the sections: requests and response time, offers and pricing compared with other companies, projects, customers, products, push notifications, package offers and advertising.',
+                'Read the sections: requests and response time, offers and pricing compared with other companies, projects, customers, products, push notifications, special offers and advertising.',
                 'Use <strong>Print / PDF</strong> to save the report, or export a section as a spreadsheet file.',
             ],
             'tips' => [

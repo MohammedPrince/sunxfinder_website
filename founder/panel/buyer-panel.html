@@ -1,0 +1,810 @@
+<title>SunXFinder Buyer Panel</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Readex+Pro:wght@400;600;700&display=swap">
+<style>
+  /* Layout: one reading column; a midday-sky palette, sun-amber marks the buyers who said yes. */
+  :root {
+    --bg: #f3f6fa;
+    --surface: #ffffff;
+    --ink: #14213a;
+    --muted: #56637a;
+    --line: #d9e0ea;
+    --sun: #e8900c;
+    --sun-soft: #fbe7c6;
+    --pass: #9aa6b8;
+    --pass-soft: #e6eaf0;
+    --good: #1f8a5b;
+    --display: "Readex Pro", "IBM Plex Sans Arabic", system-ui, sans-serif;
+    --body: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, system-ui, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1526;
+      --surface: #152038;
+      --ink: #e7ecf4;
+      --muted: #9aa7bd;
+      --line: #26334d;
+      --sun: #f4a62a;
+      --sun-soft: #3a2c12;
+      --pass: #5d6b84;
+      --pass-soft: #1d2a44;
+      --good: #4cc08a;
+      color-scheme: dark
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0d1526;
+    --surface: #152038;
+    --ink: #e7ecf4;
+    --muted: #9aa7bd;
+    --line: #26334d;
+    --sun: #f4a62a;
+    --sun-soft: #3a2c12;
+    --pass: #5d6b84;
+    --pass-soft: #1d2a44;
+    --good: #4cc08a;
+    color-scheme: dark
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.6
+  }
+
+  .wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    padding-block: 28px 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 40px
+  }
+
+  #app[data-lang="en"] .ar,
+  #app[data-lang="ar"] .en {
+    display: none
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--display);
+    text-wrap: balance;
+    margin: 0;
+    line-height: 1.25
+  }
+
+  h1 {
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem);
+    font-weight: 700
+  }
+
+  h2 {
+    font-size: 1.35rem;
+    font-weight: 600
+  }
+
+  h3 {
+    font-size: 1rem;
+    font-weight: 600
+  }
+
+  p {
+    margin: 0
+  }
+
+  .eyebrow {
+    font-size: .78rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600
+  }
+
+  #app[data-lang="ar"] .eyebrow {
+    letter-spacing: 0
+  }
+
+  .muted {
+    color: var(--muted)
+  }
+
+  .num {
+    font-variant-numeric: tabular-nums
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap
+  }
+
+  .toggle {
+    display: inline-flex;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 3px;
+    background: var(--surface)
+  }
+
+  .toggle button {
+    font: inherit;
+    font-size: .9rem;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    padding: 6px 14px;
+    border-radius: 999px;
+    cursor: pointer
+  }
+
+  .toggle button[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--bg)
+  }
+
+  .toggle button:focus-visible {
+    outline: 2px solid var(--sun);
+    outline-offset: 2px
+  }
+
+  .hero {
+    display: flex;
+    flex-direction: column;
+    gap: 18px
+  }
+
+  .score {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap
+  }
+
+  .score .big {
+    font-family: var(--display);
+    font-size: clamp(3rem, 10vw, 4.5rem);
+    font-weight: 700;
+    color: var(--sun);
+    line-height: 1
+  }
+
+  .score .of {
+    font-size: 1.15rem
+  }
+
+  .people {
+    display: grid;
+    grid-template-columns: repeat(20, 1fr);
+    gap: 6px;
+    max-width: 560px
+  }
+
+  .p {
+    aspect-ratio: 1/1;
+    max-width: 100%;
+    border-radius: 50% 50% 40% 40%;
+    background: var(--pass-soft);
+    border: 2px solid var(--pass)
+  }
+
+  .p.yes {
+    background: var(--sun);
+    border-color: var(--sun)
+  }
+
+  .legend {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-size: .9rem;
+    color: var(--muted)
+  }
+
+  .legend i {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    vertical-align: -1px;
+    margin-inline-end: 6px
+  }
+
+  .note {
+    font-size: .92rem;
+    color: var(--muted);
+    border-inline-start: 3px solid var(--line);
+    padding-inline-start: 12px;
+    max-width: 65ch
+  }
+
+  section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px
+  }
+
+  .lede {
+    max-width: 65ch
+  }
+
+  .bars {
+    display: flex;
+    flex-direction: column;
+    gap: 12px
+  }
+
+  .bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 92px;
+    gap: 6px 12px;
+    align-items: center
+  }
+
+  .bar .label {
+    min-width: 0;
+    font-size: .95rem
+  }
+
+  .bar .val {
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600
+  }
+
+  .bar .val small {
+    font-weight: 400;
+    color: var(--muted)
+  }
+
+  .track {
+    grid-column: 1/-1;
+    height: 10px;
+    background: var(--pass-soft);
+    border-radius: 6px;
+    overflow: hidden
+  }
+
+  .fill {
+    height: 100%;
+    background: var(--sun);
+    border-radius: 6px
+  }
+
+  .fill.zero {
+    background: transparent
+  }
+
+  .thin {
+    font-size: .75rem;
+    color: var(--muted);
+    margin-inline-start: 6px
+  }
+
+  .split {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 28px
+  }
+
+  .split>div {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px
+  }
+
+  .reasons {
+    display: flex;
+    flex-direction: column;
+    gap: 14px
+  }
+
+  .reason {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px
+  }
+
+  .reason .top {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: baseline
+  }
+
+  .count {
+    font-family: var(--display);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap
+  }
+
+  .dots {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap
+  }
+
+  .dots span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--pass)
+  }
+
+  blockquote {
+    margin: 0;
+    font-size: .95rem;
+    color: var(--ink);
+    border-inline-start: 3px solid var(--sun);
+    padding-inline-start: 12px
+  }
+
+  blockquote cite {
+    display: block;
+    font-style: normal;
+    font-size: .8rem;
+    color: var(--muted);
+    margin-top: 4px
+  }
+
+  .flips {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 12px
+  }
+
+  .flip {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0
+  }
+
+  .flip .n {
+    font-family: var(--display);
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--sun);
+    line-height: 1
+  }
+
+  .flip.lead {
+    border-color: var(--sun);
+    background: var(--sun-soft)
+  }
+
+  .scale {
+    position: relative;
+    margin-top: 8px;
+    overflow-x: auto
+  }
+
+  .scale svg {
+    display: block;
+    width: 100%;
+    min-width: 480px;
+    height: auto
+  }
+
+  .scale text {
+    fill: var(--ink);
+    font-family: var(--body);
+    font-size: 13px
+  }
+
+  .scale .sub {
+    fill: var(--muted);
+    font-size: 12px
+  }
+
+  .actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    counter-reset: a
+  }
+
+  .action {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 12px;
+    align-items: start
+  }
+
+  .action::before {
+    counter-increment: a;
+    content: counter(a);
+    font-family: var(--display);
+    font-weight: 700;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--bg);
+    display: grid;
+    place-items: center;
+    font-size: .95rem
+  }
+
+  .action div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px
+  }
+
+  footer {
+    font-size: .88rem;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+    padding-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px
+  }
+
+  footer code {
+    font-size: .85em
+  }
+</style>
+
+<div id="app" data-lang="en" dir="ltr" lang="en">
+  <div class="wrap">
+
+    <header>
+      <div>
+        <p class="eyebrow"><span class="en">SunXFinder · Buyer panel · 19 Nov 2026</span><span class="ar">SunXFinder ·
+            لجنة المشترين · 19 نوفمبر 2026</span></p>
+      </div>
+      <div class="toggle" role="group" aria-label="Language">
+        <button type="button" id="btn-en" data-set="en" aria-pressed="true">English</button>
+        <button type="button" id="btn-ar" data-set="ar" aria-pressed="false">عربي</button>
+      </div>
+    </header>
+
+    <section class="hero">
+      <h1><span class="en">Would people in Sudan use SunXFinder to ask for solar quotes?</span><span class="ar">هل الناس
+          في السودان حيستخدموا SunXFinder عشان يطلبوا عروض أسعار للطاقة الشمسية؟</span></h1>
+      <div class="score">
+        <span class="big num">7</span>
+        <span class="of"><span class="en">of 20 simulated buyers would send a quote request in the first month <strong
+              class="num">(35%)</strong></span><span class="ar">من 20 مشتري افتراضي حيرسلوا طلب عرض سعر في الشهر الأول
+            <strong class="num">(35%)</strong></span></span>
+      </div>
+      <div class="people" aria-hidden="true">
+        <span class="p yes"></span><span class="p yes"></span><span class="p yes"></span><span
+          class="p yes"></span><span class="p yes"></span><span class="p yes"></span><span class="p yes"></span>
+        <span class="p"></span><span class="p"></span><span class="p"></span><span class="p"></span><span
+          class="p"></span><span class="p"></span><span class="p"></span><span class="p"></span><span
+          class="p"></span><span class="p"></span><span class="p"></span><span class="p"></span><span class="p"></span>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--sun)"></i><span class="en">7 would send a request</span><span class="ar">7
+            حيرسلوا طلب</span></span>
+        <span><i style="background:var(--pass)"></i><span class="en">13 would pass</span><span class="ar">13 ما
+            حيستخدموه</span></span>
+      </div>
+      <p class="note"><span class="en">These are simulated buyers played by AI, not real customers. They are good at
+          showing objections and which groups respond, and bad at predicting real numbers, so treat 35% as the most you
+          could expect. Groups of 5 or fewer are marked "thin".</span><span class="ar">ديل مشترين افتراضيين بيمثّلهم
+          ذكاء اصطناعي، ما زبائن حقيقيين. مفيدين في كشف الاعتراضات ومعرفة الفئات المهتمة، لكن ما بيتنبأوا بالأرقام
+          الحقيقية، فاعتبر 35% هي الحد الأعلى المتوقع. الفئات الفيها 5 أشخاص أو أقل مكتوب جنبها «عيّنة صغيرة».</span>
+      </p>
+    </section>
+
+    <section>
+      <h2><span class="en">Who says yes</span><span class="ar">منو القال نعم</span></h2>
+      <p class="lede muted"><span class="en">Sudanese abroad and careful researchers respond. People who already trust
+          their own route (a relative's installer, a Facebook group, the market) don't.</span><span
+          class="ar">السودانيين في الخارج والناس البيدققوا قبل الشراء استجابوا. أما الناس الواثقين في طريقتهم (فني
+          قريبهم، قروب فيسبوك، السوق) فما استجابوا.</span></p>
+      <div class="split">
+        <div>
+          <h3><span class="en">By customer group</span><span class="ar">حسب فئة الزبون</span></h3>
+          <div class="bars">
+            <div class="bar"><span class="label"><span class="en">Sudanese abroad paying for family</span><span
+                  class="ar">سودانيين في الخارج بيدفعوا لأهلهم</span><span class="thin"><span
+                    class="en">thin</span><span class="ar">عيّنة صغيرة</span></span></span><span class="val num">4 / 5
+                <small>80%</small></span>
+              <div class="track">
+                <div class="fill" style="width:80%"></div>
+              </div>
+            </div>
+            <div class="bar"><span class="label"><span class="en">Homeowners in Khartoum / Port Sudan</span><span
+                  class="ar">أصحاب بيوت في الخرطوم / بورتسودان</span></span><span class="val num">2 / 10
+                <small>20%</small></span>
+              <div class="track">
+                <div class="fill" style="width:20%"></div>
+              </div>
+            </div>
+            <div class="bar"><span class="label"><span class="en">Small shop owners</span><span class="ar">أصحاب محلات
+                  صغيرة</span><span class="thin"><span class="en">thin</span><span class="ar">عيّنة
+                    صغيرة</span></span></span><span class="val num">1 / 5 <small>20%</small></span>
+              <div class="track">
+                <div class="fill" style="width:20%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h3><span class="en">By how they buy</span><span class="ar">حسب طريقة الشراء</span></h3>
+          <div class="bars">
+            <div class="bar"><span class="label"><span class="en">Careful researcher</span><span class="ar">بيبحث
+                  ويدقق</span></span><span class="val num">3 / 3 <small>100%</small></span>
+              <div class="track">
+                <div class="fill" style="width:100%"></div>
+              </div>
+            </div>
+            <div class="bar"><span class="label"><span class="en">Budget stretcher (start small)</span><span
+                  class="ar">ميزانية محدودة (يبدأ صغير)</span></span><span class="val num">3 / 3
+                <small>100%</small></span>
+              <div class="track">
+                <div class="fill" style="width:100%"></div>
+              </div>
+            </div>
+            <div class="bar"><span class="label"><span class="en">Asks family and friends first</span><span
+                  class="ar">بيسأل الأهل والأصحاب أول</span></span><span class="val num">1 / 5 <small>20%</small></span>
+              <div class="track">
+                <div class="fill" style="width:20%"></div>
+              </div>
+            </div>
+            <div class="bar"><span class="label"><span class="en">Asks in Facebook groups</span><span class="ar">بيسأل
+                  في قروبات فيسبوك</span></span><span class="val num">0 / 4 <small>0%</small></span>
+              <div class="track">
+                <div class="fill zero" style="width:0"></div>
+              </div>
+            </div>
+            <div class="bar"><span class="label"><span class="en">Haggles in the market</span><span class="ar">بيفاصل في
+                  السوق</span></span><span class="val num">0 / 3 <small>0%</small></span>
+              <div class="track">
+                <div class="fill zero" style="width:0"></div>
+              </div>
+            </div>
+            <div class="bar"><span class="label"><span class="en">Already has an installer</span><span class="ar">عنده
+                  فني تركيب أصلاً</span></span><span class="val num">0 / 2 <small>0%</small></span>
+              <div class="track">
+                <div class="fill zero" style="width:0"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2><span class="en">Why 13 would pass</span><span class="ar">ليه 13 ما حيستخدموه</span></h2>
+      <div class="reasons">
+        <div class="reason">
+          <div class="top">
+            <h3><span class="en">They don't trust strangers on an app</span><span class="ar">ما بيثقوا في شركات غريبة في
+                تطبيق</span></h3><span class="count num">7</span>
+          </div>
+          <div class="dots" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          <blockquote><span class="en">"A website with strangers' ratings means less to me than what my neighbours say,
+              and I don't want my number going to companies I don't know."</span><span class="ar">«موقع فيه تقييمات ناس
+              غرباء ما بيعني لي زي كلام جيراني، وما عايز رقمي يمشي لشركات ما بعرفها.»</span><cite><span
+                class="en">Simulated buyer P004, homeowner</span><span class="ar">مشترية افتراضية P004، صاحبة بيت
+                (مترجم)</span></cite></blockquote>
+          <blockquote><span class="en">"An app sending me offers from companies I don't know doesn't tell me whether the
+              panel is real or fake."</span><span class="ar">«تطبيق بيرسل لي عروض من شركات ما بعرفها ما بيقول لي اللوح
+              أصلي ولا مضروب.»</span><cite><span class="en">Simulated buyer P005, shop owner</span><span
+                class="ar">مشتري افتراضي P005، صاحب محل (مترجم)</span></cite></blockquote>
+        </div>
+        <div class="reason">
+          <div class="top">
+            <h3><span class="en">Habit: they buy their own way</span><span class="ar">العادة: بيشتروا بطريقتهم</span>
+            </h3><span class="count num">3</span>
+          </div>
+          <div class="dots" aria-hidden="true"><span></span><span></span><span></span></div>
+          <blockquote><span class="en">"I buy my panels and batteries myself in the market, shop by shop… They'll just
+              quote me shop prices plus their profit."</span><span class="ar">«بشتري ألواحي وبطارياتي براي في السوق، محل
+              محل… الشركات حتديني سعر السوق زائد ربحها.»</span><cite><span class="en">Simulated buyer P011, market
+                haggler</span><span class="ar">مشتري افتراضي P011، بيفاصل في السوق (مترجم)</span></cite></blockquote>
+        </div>
+        <div class="reason">
+          <div class="top">
+            <h3><span class="en">Timing: they already chose an installer</span><span class="ar">التوقيت: اختاروا فني
+                خلاص</span></h3><span class="count num">2</span>
+          </div>
+          <div class="dots" aria-hidden="true"><span></span><span></span></div>
+          <blockquote><span class="en">"Maybe I'd send you the quote I have to check, but I won't ask other companies to
+              start calling me."</span><span class="ar">«ممكن أرسل ليكم العرض العندي عشان تراجعوه، لكن ما حطلب من شركات
+              تانية يبدوا يتصلوا علي.»</span><cite><span class="en">Simulated buyer P015, shop owner</span><span
+                class="ar">مشتري افتراضي P015، صاحب محل (مترجم)</span></cite></blockquote>
+        </div>
+        <div class="reason">
+          <div class="top">
+            <h3><span class="en">Price: can't afford a system yet</span><span class="ar">السعر: لسه ما قادر على
+                منظومة</span></h3><span class="count num">1</span>
+          </div>
+          <div class="dots" aria-hidden="true"><span></span></div>
+        </div>
+      </div>
+      <p class="note"><span class="en">Even the 7 who said yes worry that nobody checks the listed companies and that
+          early ratings could be fake.</span><span class="ar">حتى الـ7 القالوا نعم عندهم قلق إنو ما في زول بيراجع
+          الشركات المسجلة، وإنو التقييمات الأولى ممكن تكون مزيفة.</span></p>
+    </section>
+
+    <section>
+      <h2><span class="en">What would change a no into a yes</span><span class="ar">شنو البيحوّل «لا» لـ«نعم»</span>
+      </h2>
+      <p class="lede muted"><span class="en">12 of the 13 who passed named something. Several named more than
+          one.</span><span class="ar">12 من الـ13 الرفضوا ذكروا حاجة، وبعضهم ذكر أكتر من حاجة.</span></p>
+      <div class="flips">
+        <div class="flip lead"><span class="n num">8</span>
+          <h3><span class="en">Someone they know says it worked</span><span class="ar">زول بيعرفوه يقول ليهم إنو
+              نفع</span></h3>
+          <p class="muted"><span class="en">A relative, neighbour, or a post in their city Facebook group naming the
+              companies that replied.</span><span class="ar">قريب أو جار، أو بوست في قروب فيسبوك المدينة بيذكر أسماء
+              الشركات الردّت.</span></p>
+        </div>
+        <div class="flip"><span class="n num">3</span>
+          <h3><span class="en">The free check finds a real problem</span><span class="ar">المراجعة المجانية تكشف مشكلة
+              حقيقية</span></h3>
+          <p class="muted"><span class="en">In the quote they already have. The only part of the pitch that reached
+              people who already chose.</span><span class="ar">في العرض الأصلاً عندهم. وهي الحاجة الوحيدة الوصلت للناس
+              الاختاروا خلاص.</span></p>
+        </div>
+        <div class="flip"><span class="n num">2</span>
+          <h3><span class="en">Their trusted installer is listed</span><span class="ar">الفني البيثقوا فيه موجود في
+              التطبيق</span></h3>
+          <p class="muted"><span class="en">So they can compare its price with others.</span><span class="ar">عشان
+              يقارنوا سعره بالباقين.</span></p>
+        </div>
+        <div class="flip"><span class="n num">2</span>
+          <h3><span class="en">Cheaper than the market, or parts only</span><span class="ar">أرخص من السوق، أو قطع
+              بس</span></h3>
+          <p class="muted"><span class="en">Proof of lower prices for the same brands, or a parts-only quote to use
+              their own electrician.</span><span class="ar">إثبات إنو السعر أقل لنفس الماركات، أو عرض للقطع بس عشان
+              يستخدموا كهربجيهم.</span></p>
+        </div>
+        <div class="flip"><span class="n num">1</span>
+          <h3><span class="en">Photo proof of the finished job</span><span class="ar">صور تثبت الشغل المكتمل</span></h3>
+          <p class="muted"><span class="en">Labels of the panels, battery and inverter matched to the quote, before
+              final payment. Asked by a buyer abroad.</span><span class="ar">ملصقات الألواح والبطارية والمحول مطابقة
+              للعرض، قبل الدفعة الأخيرة. طلبها مشتري في الخارج.</span></p>
+        </div>
+        <div class="flip"><span class="n num">1</span>
+          <h3><span class="en">Instalments or a starter price</span><span class="ar">أقساط أو سعر منظومة بداية</span>
+          </h3>
+          <p class="muted"><span class="en">A small system they can afford now.</span><span class="ar">منظومة صغيرة
+              يقدروا عليها هسي.</span></p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2><span class="en">What a paid quote check is worth</span><span class="ar">قيمة مراجعة العرض لو بقت
+          مدفوعة</span></h2>
+      <p class="lede muted"><span class="en">Median answers of all 20 buyers, in US dollars for one check. A small fee
+          is possible, but this is a way in, not an income.</span><span class="ar">متوسط (وسيط) إجابات الـ20 مشتري،
+          بالدولار لمراجعة واحدة. رسوم بسيطة ممكنة، لكنها مدخل للزبون، ما مصدر دخل.</span></p>
+      <div class="scale">
+        <svg viewBox="0 0 640 110" role="img"
+          aria-label="Price scale: too cheap $1, bargain $3, getting expensive $10, too expensive $20">
+          <rect x="20" y="44" width="600" height="10" rx="5" fill="var(--pass-soft)"></rect>
+          <rect x="80" y="44" width="230" height="10" fill="var(--sun)" opacity=".85"></rect>
+          <!-- scale: x = 20 + v*30, v in dollars 0..20 -->
+          <g>
+            <line x1="50" y1="34" x2="50" y2="64" stroke="var(--muted)" stroke-width="2"></line>
+            <text x="50" y="24" text-anchor="middle" class="num">$1</text>
+            <text x="50" y="84" text-anchor="middle" class="sub lbl" data-en="too cheap" data-ar="رخيص زيادة">too
+              cheap</text>
+          </g>
+          <g>
+            <line x1="110" y1="34" x2="110" y2="64" stroke="var(--sun)" stroke-width="3"></line>
+            <text x="110" y="24" text-anchor="middle" class="num" font-weight="600">$3</text>
+            <text x="110" y="84" text-anchor="middle" class="sub lbl" data-en="a bargain" data-ar="لقطة">a
+              bargain</text>
+          </g>
+          <g>
+            <line x1="320" y1="34" x2="320" y2="64" stroke="var(--sun)" stroke-width="3"></line>
+            <text x="320" y="24" text-anchor="middle" class="num" font-weight="600">$10</text>
+            <text x="320" y="84" text-anchor="middle" class="sub lbl" data-en="getting expensive"
+              data-ar="بدا يغلى">getting expensive</text>
+          </g>
+          <g>
+            <line x1="620" y1="34" x2="620" y2="64" stroke="var(--muted)" stroke-width="2"></line>
+            <text x="612" y="24" text-anchor="end" class="num">$20</text>
+            <text x="612" y="84" text-anchor="end" class="sub lbl" data-en="too expensive" data-ar="غالي، ما بشتري">too
+              expensive</text>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <section>
+      <h2><span class="en">What to change before spending on ads</span><span class="ar">شنو نغيّر قبل ما نصرف على
+          الإعلانات</span></h2>
+      <div class="actions">
+        <div class="action">
+          <div>
+            <h3><span class="en">Target Sudanese abroad first</span><span class="ar">استهدف السودانيين في الخارج
+                أول</span></h3>
+            <p class="muted"><span class="en">They said yes 4 times out of 5. The marketing plan currently ranks them
+                third.</span><span class="ar">قالوا نعم 4 مرات من 5، والخطة التسويقية الحالية حاطاهم في المرتبة
+                التالتة.</span></p>
+          </div>
+        </div>
+        <div class="action">
+          <div>
+            <h3><span class="en">Lead with the free quote check</span><span class="ar">ابدأ بمراجعة العرض
+                المجانية</span></h3>
+            <p class="muted"><span class="en">"Got a quote? Send it, we'll check it free." It reaches people who already
+                chose an installer.</span><span class="ar">«وصلك عرض سعر؟ رسلو لينا ونراجعو ليك مجاناً.» دي بتوصل حتى
+                للناس الاختاروا فني.</span></p>
+          </div>
+        </div>
+        <div class="action">
+          <div>
+            <h3><span class="en">Build two promises into the offer</span><span class="ar">ضيف وعدين للعرض</span></h3>
+            <p class="muted"><span class="en">No company sees the customer's number until the customer picks it, and
+                photo proof of the finished install before final payment.</span><span class="ar">ما في شركة تشوف رقم
+                الزبون لحدي ما يختارها، وصور تثبت التركيب قبل الدفعة الأخيرة.</span></p>
+          </div>
+        </div>
+        <div class="action">
+          <div>
+            <h3><span class="en">Earn real word of mouth in Facebook groups</span><span class="ar">ابني سمعة حقيقية في
+                قروبات فيسبوك</span></h3>
+            <p class="muted"><span class="en">Help people in city groups, and share real results with permission. Never
+                post simulated quotes as reviews.</span><span class="ar">ساعد الناس في قروبات المدينة، وشارك نتائج
+                حقيقية بإذن أصحابها. وما تنشر الأقوال الافتراضية دي كتقييمات أبداً.</span></p>
+          </div>
+        </div>
+      </div>
+      <p class="note"><span class="en">Cheap real-world check: boost one post for $20 to Sudanese abroad and one to
+          Khartoum homeowners, then compare messages per dollar.</span><span class="ar">اختبار حقيقي رخيص: موّل بوست
+          بـ20 دولار للسودانيين في الخارج وبوست تاني لأصحاب البيوت في الخرطوم، وقارن عدد الرسائل لكل دولار.</span></p>
+    </section>
+
+    <footer>
+      <p><span class="en">Method: 20 AI-simulated buyers (seed 315520), each shown the same pitch once. Groups were
+          drawn from a guessed customer profile, informed by public reporting on Sudan's solar market. "Buy" means
+          sending one quote request in the first month.</span><span class="ar">الطريقة: 20 مشتري افتراضي بالذكاء
+          الاصطناعي (seed 315520)، كل واحد شاف نفس العرض مرة واحدة. الفئات مبنية على ملف زبون تقديري، مستند على تقارير
+          منشورة عن سوق الطاقة الشمسية في السودان. «الشراء» معناه إرسال طلب عرض سعر واحد في الشهر الأول.</span></p>
+      <p><span class="en">Arabic quotes are translations of simulated answers, not real customer words.</span><span
+          class="ar">الأقوال بالعربي مترجمة من إجابات افتراضية، وما كلام زبائن حقيقيين.</span></p>
+    </footer>
+
+  </div>
+</div>
+
+<script>
+  (function () {
+    var app = document.getElementById('app');
+    function setLang(l) {
+      app.dataset.lang = l; app.lang = l; app.dir = (l === 'ar') ? 'rtl' : 'ltr';
+      document.getElementById('btn-en').setAttribute('aria-pressed', l === 'en');
+      document.getElementById('btn-ar').setAttribute('aria-pressed', l === 'ar');
+      document.querySelectorAll('svg .lbl').forEach(function (t) { t.textContent = t.dataset[l]; });
+      try { localStorage.setItem('sxf-lang', l); } catch (e) { }
+    }
+    document.querySelectorAll('.toggle button').forEach(function (b) { b.addEventListener('click', function () { setLang(b.dataset.set); }); });
+    var start = 'en';
+    try { start = localStorage.getItem('sxf-lang') || ((navigator.language || '').indexOf('ar') === 0 ? 'ar' : 'en'); } catch (e) { }
+    setLang(start);
+  })();
+</script>

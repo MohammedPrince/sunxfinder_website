@@ -88,6 +88,37 @@
             </div>
         </section>
 
+        {{-- Website design: new or classic --}}
+        @php $siteDesign = old('site_design', $settings['site_design']); @endphp
+        <section class="panel" id="site-design">
+            <div class="panel-heading">
+                <div>
+                    <h2>
+                        Website design
+                        <span class="pill pill-green">{{ $settings['site_design'] === 'classic' ? 'Classic design is live' : 'New design is live' }}</span>
+                    </h2>
+                    <p>Choose the look of the public website: home page, company profiles, sign-up, terms and the maintenance page.
+                        Content and links stay the same. Visitors see the change within a minute.</p>
+                </div>
+            </div>
+
+            <div class="panel-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="site_design">Design</label>
+                        <select class="select-control" id="site_design" name="site_design" required>
+                            <option value="new" @selected($siteDesign === 'new')>New design (navy header, phone preview)</option>
+                            <option value="classic" @selected($siteDesign === 'classic')>Classic design (the earlier light look)</option>
+                        </select>
+                        <small class="form-hint">After saving, open <a href="{{ url('/') }}" target="_blank" rel="noopener">the website</a> to check it.</small>
+                        @error('site_design')<small class="field-error">{{ $message }}</small>@enderror
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Save Settings</button>
+            </div>
+        </section>
+
         <section class="panel">
             @php
                 $companyAds = $settings['company_ads'];
@@ -362,6 +393,18 @@
                     <input type="hidden" name="maintenance_enabled" value="0">
                     <input class="toggle-input" type="checkbox" id="maintenance_enabled" name="maintenance_enabled"
                         value="1" @checked($maintenanceOn)>
+                    <span class="toggle-switch" aria-hidden="true"></span>
+                </label>
+
+                <label class="toggle-card" for="maintenance_prelaunch" style="margin-top:12px">
+                    <span class="toggle-card-copy">
+                        <strong>Coming soon: let Google index the home page</strong>
+                        <small>Only before the first launch. The home page shows this same page, but search engines
+                            can list it. Keep off for normal maintenance.</small>
+                    </span>
+                    <input type="hidden" name="maintenance_prelaunch" value="0">
+                    <input class="toggle-input" type="checkbox" id="maintenance_prelaunch" name="maintenance_prelaunch"
+                        value="1" @checked(old('maintenance_prelaunch', $maintenance['prelaunch'] ?? false))>
                     <span class="toggle-switch" aria-hidden="true"></span>
                 </label>
 

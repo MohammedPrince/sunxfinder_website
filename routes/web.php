@@ -17,6 +17,11 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
+// Search engines: live robots.txt (blocks everything when SEO_INDEXABLE=false) and sitemap.xml
+// with every public page and company profile in English and Arabic.
+Route::get('/robots.txt', [\App\Http\Controllers\SeoController::class, 'robots'])->name('seo.robots');
+Route::get('/sitemap.xml', [\App\Http\Controllers\SeoController::class, 'sitemap'])->middleware('throttle:60,1')->name('seo.sitemap');
+
 // site.maintenance: shows the maintenance page on every page below when it is on (Admin → Settings).
 // site.visitors: counts the visit for the footer "Total visitors" counter.
 Route::controller(WebsiteController::class)->middleware(['site.maintenance', 'site.visitors'])->group(function () {
@@ -40,6 +45,8 @@ Route::controller(WebsiteController::class)->middleware(['site.maintenance', 'si
     // Domain verification files for Android App Links and iOS Universal Links
     Route::get('/.well-known/assetlinks.json', 'androidAssetLinks')->name('app.assetlinks');
     Route::get('/.well-known/apple-app-site-association', 'appleAppSiteAssociation')->name('app.aasa');
+    // Names the Android app, so Chrome can tell a page whether it is installed
+    Route::get('/manifest.webmanifest', 'webManifest')->name('app.manifest');
 
     // Android APK "Direct download" (404 while the admin has it hidden)
     Route::get('/download/android', 'downloadApk')->middleware('throttle:20,1')->name('app.download');
@@ -115,6 +122,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::post('/', 'addNewCompany')->name('store');
                 Route::get('/{id}', 'companyDetails')->whereNumber('id')->name('details');
                 Route::post('/{id}/login', 'loginAsCompany')->whereNumber('id')->name('login');
+                Route::post('/{id}/reset-password', 'resetCompanyPassword')->whereNumber('id')->middleware('throttle:10,1')->name('reset-password');
                 Route::get('/{id}/edit', 'editCompany')->whereNumber('id')->name('edit');
                 Route::put('/{id}', 'updateCompany')->whereNumber('id')->name('update');
                 Route::delete('/{id}', 'deleteCompany')->whereNumber('id')->name('destroy');
@@ -129,6 +137,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::put('/{id}', 'updateCustomer')->whereNumber('id')->name('update');
                 Route::delete('/{id}', 'destroyCustomer')->whereNumber('id')->name('destroy');
                 Route::post('/{id}/sign-out', 'signOutCustomer')->whereNumber('id')->name('sign-out');
+                Route::post('/{id}/reset-password', 'resetCustomerPassword')->whereNumber('id')->middleware('throttle:10,1')->name('reset-password');
                 Route::post('/{id}/app-status', 'updateCustomerAppStatus')->whereNumber('id')->name('app-status');
                 Route::post('/force-logout', 'forceLogoutCustomers')->name('force-logout');
             });
@@ -230,6 +239,20 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::prefix('projects')->name('projects.')->group(function () {
                 Route::get('/', 'projects')->name('index');
                 Route::get('/{id}', 'projectDetails')->whereNumber('id')->name('show');
+                // Email the company of a stalled project (one, or every stalled project) asking for an update
+                Route::post('/remind-stalled', 'remindStalledProjects')->middleware('throttle:10,1')->name('remind-stalled');
+                Route::post('/{id}/remind', 'remindStalledProject')->whereNumber('id')->middleware('throttle:10,1')->name('remind');
+                // Opens wa.me to the company with the reminder message filled in (logged first)
+                Route::get('/{id}/whatsapp', 'whatsappStalledProject')->whereNumber('id')->middleware('throttle:30,1')->name('whatsapp');
+            });
+
+            // Companies backing out of accepted deals: withdrawals and cancellation requests.
+            Route::prefix('cancellations')->name('cancellations.')->group(function () {
+                Route::get('/', 'cancellations')->name('index');
+                Route::get('/{id}', 'cancellationDetails')->whereNumber('id')->name('show');
+                Route::post('/{id}/approve', 'approveCancellation')->whereNumber('id')->name('approve');
+                Route::post('/{id}/reject', 'rejectCancellation')->whereNumber('id')->name('reject');
+                Route::post('/{id}/count', 'toggleCancellationCount')->whereNumber('id')->name('count');
             });
 
             // Customer complaints and company follow-up.
@@ -485,6 +508,11 @@ Route::prefix('company')->name('company.')->middleware(CompanyValidationLines::c
             Route::get('/', 'index')->name('index');
             Route::get('/{id}', 'show')->whereNumber('id')->name('show');
             Route::post('/{id}/progress', 'updateProgress')->whereNumber('id')->name('progress.update');
+            // Backing out of an accepted deal, or asking the customer for a new price
+            Route::post('/{id}/withdraw', 'withdraw')->whereNumber('id')->middleware('throttle:10,1')->name('withdraw');
+            Route::post('/{id}/withdraw/cancel', 'cancelWithdrawRequest')->whereNumber('id')->name('withdraw.cancel');
+            Route::post('/{id}/price-change', 'proposePriceChange')->whereNumber('id')->middleware('throttle:10,1')->name('price-change');
+            Route::post('/{id}/price-change/cancel', 'cancelPriceChange')->whereNumber('id')->name('price-change.cancel');
         });
     });
 });

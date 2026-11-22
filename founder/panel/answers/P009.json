@@ -1,0 +1,13 @@
+{
+  "id": "P009",
+  "buys": false,
+  "purchases_first_month": 0,
+  "reason_code": "habit",
+  "reason": "When I buy solar I will ask my brother-in-law and the neighbours which installer they used, not send my request to companies I don't know through a phone app. And with the dollar moving every week, written offers from strangers will not hold until I am ready to pay.",
+  "objection": "Anyone can be listed on a website. My neighbour's system has had problems, and I want a man I can call at his shop and whose family I know, not a rating left by people I never met.",
+  "would_change_my_mind": "If someone I trust in my family or street used it and told me the company it found did good work and kept its price.",
+  "price_too_cheap": 1,
+  "price_cheap": 3,
+  "price_expensive": 10,
+  "price_too_expensive": 20
+}

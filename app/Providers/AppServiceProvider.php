@@ -87,6 +87,8 @@ class AppServiceProvider extends ServiceProvider
                 'quoteCount' => Quote::count(),
                 'projectsCount' => Project::count(),
                 'complaintsCount' => \App\Models\CustomerComplaint::count(),
+                // Waiting for an admin decision (shown as the sidebar badge).
+                'cancellationRequestsCount' => \App\Models\ProjectCancellation::query()->where('status', \App\Models\ProjectCancellation::REQUESTED)->count(),
                 'appVersionCount' => AppVersion::count(),
                 'notificationsCount' => Notification::count(),
                 'ratingsCount' => Rating::count(),

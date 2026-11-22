@@ -1,0 +1,13 @@
+{
+  "id": "P005",
+  "buys": false,
+  "purchases_first_month": 0,
+  "reason_code": "trust",
+  "reason": "I buy my parts in the market where I can hold the battery and argue the price, and my electrician wires it for me. An app sending me offers from companies I don't know doesn't tell me whether the panel is real or fake, so I'd rather walk the shops myself.",
+  "objection": "Half the batteries and panels in the market are fake or weaker than the label says. A written offer with a brand name on paper proves nothing, and the companies could just pay for good spots in the app.",
+  "would_change_my_mind": "If a shop owner I know in my area told me they got a system through it and it held up through the power cuts, or if the companies had to stand behind the warranty with SunXFinder holding them to it.",
+  "price_too_cheap": 0.5,
+  "price_cheap": 2,
+  "price_expensive": 5,
+  "price_too_expensive": 10
+}

@@ -1,0 +1,13 @@
+{
+  "id": "P008",
+  "buys": false,
+  "purchases_first_month": 0,
+  "reason_code": "trust",
+  "reason": "I lose customers every time the power goes, so I do need solar, but when I want an installer I ask in the Khartoum solar group and see who people name. A new app I never heard of, I'm not downloading it to find no companies inside.",
+  "objection": "Is this app even working? If no company answers, or the ones on it are just the same people posting ads in the group, then I wasted my time and gave my name to strangers.",
+  "would_change_my_mind": "Someone in my Facebook group posting that they got real quotes through it, with the company names and prices, and saying the installation went fine.",
+  "price_too_cheap": 0.5,
+  "price_cheap": 2,
+  "price_expensive": 5,
+  "price_too_expensive": 10
+}

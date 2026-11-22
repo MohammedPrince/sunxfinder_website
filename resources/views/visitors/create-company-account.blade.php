@@ -1,5 +1,6 @@
 @extends('visitors.layouts.app')
-@section('title', __('messages.SunXFinder - Create Company Account'))
+@section('title', __('seo.company_register_title'))
+@section('meta_description', __('seo.company_register_description'))
 
 @php
     $locale = app()->getLocale();

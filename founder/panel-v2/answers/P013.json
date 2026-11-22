@@ -1,0 +1,13 @@
+{
+  "id": "P013",
+  "buys": false,
+  "purchases_first_month": 0,
+  "reason_code": "price",
+  "reason": "The quotes are free, but I don't have the money for a full system this month and every bit goes on generator fuel, so getting offers now just shows me prices I can't pay. When I'm closer I'll ask in the Facebook group first, because there people tell me who they used and what they really paid.",
+  "objection": "Solar is simply too expensive for me right now, and I don't know these companies. A website asking for my appliances and my name feels like it will just bring sales calls for systems bigger than I can afford.",
+  "would_change_my_mind": "Seeing a small starter system (a few panels and one battery for lights, fans and a fridge) with a real price or monthly installments that comes in below what I spend on fuel each month, and people in my city's Facebook group saying they used SunXFinder and it was honest.",
+  "price_too_cheap": 0.5,
+  "price_cheap": 2,
+  "price_expensive": 5,
+  "price_too_expensive": 10
+}

@@ -1,0 +1,13 @@
+{
+  "id": "P003",
+  "buys": true,
+  "purchases_first_month": 1,
+  "reason_code": "need",
+  "reason": "I'm paying for this from abroad and I honestly don't know what size my family needs, so a free calculator plus written quotes I can compare from here is useful. Sending one request costs me nothing, but I'll still ask my uncle and the neighbours before I pay anyone.",
+  "objection": "I don't know these companies, and I'm not there to check the work. A website can't tell me if the installer will actually show up or just take my money. I trust the installer my relatives used more than any rating on an app.",
+  "would_change_my_mind": "",
+  "price_too_cheap": 2,
+  "price_cheap": 5,
+  "price_expensive": 15,
+  "price_too_expensive": 30
+}

@@ -34,16 +34,18 @@
         $statusLabels = [
             'accepted' => __('company/messages.common.accepted'),
             'in_progress' => __('company/messages.common.in_progress'),
+            'handover_pending' => __('company/messages.common.handover_pending'),
             'completed' => __('company/messages.common.completed'),
         ];
 
         $statusClasses = [
             'accepted' => 'pill-orange',
             'in_progress' => 'pill-blue',
+            'handover_pending' => 'pill-purple',
             'completed' => 'pill-green',
         ];
 
-        $stages = ['accepted', 'in_progress', 'completed'];
+        $stages = ['accepted', 'in_progress', 'handover_pending', 'completed'];
 
         $currentStage = array_search($project->status, $stages, true);
         $currentStage = $currentStage === false ? 0 : $currentStage;
@@ -82,6 +84,8 @@
         $isAccepted = $project->status === 'accepted';
         $isInProgress = $project->status === 'in_progress';
         $isCompleted = $project->status === 'completed';
+        // The company finished; locked until the customer confirms the handover in the app.
+        $isHandoverPending = $project->status === 'handover_pending';
 
         $currentMilestone = $installationMilestones->first(
             fn ($milestone) => $milestone->status !== 'completed'
@@ -103,6 +107,9 @@
         if ($isCompleted) {
             $progress = 100;
             $progressLabel = __('company/messages.projects.project_completed');
+        } elseif ($isHandoverPending) {
+            $progress = 100;
+            $progressLabel = __('company/messages.common.handover_pending');
         } elseif ($isAccepted) {
             $progress = 0;
             $progressLabel = __('company/messages.projects.waiting_to_start');
@@ -134,6 +141,15 @@
             'completed' => 'pill-green',
         ];
     @endphp
+
+    {{-- The customer reported a problem instead of confirming the handover --}}
+    @if ($isInProgress && $project->handover_problem_at)
+        <div class="alert alert-danger" role="alert">
+            <strong>{{ __('company/messages.projects.problem_title', ['date' => $project->handover_problem_at->translatedFormat('d M Y, H:i')]) }}</strong>
+            <p style="margin:6px 0">“{{ $project->handover_problem_message }}”</p>
+            <small>{{ __('company/messages.projects.problem_body') }}</small>
+        </div>
+    @endif
 
     {{-- Flash messages --}}
     @if (session('success'))
@@ -269,6 +285,8 @@
                                 {{ __('company/messages.projects.stage_accepted') }}
                             @elseif ($stage === 'in_progress')
                                 {{ __('company/messages.projects.stage_progress') }}
+                            @elseif ($stage === 'handover_pending')
+                                {{ __('company/messages.projects.stage_handover_pending') }}
                             @else
                                 {{ __('company/messages.projects.stage_completed') }}
                             @endif
@@ -279,6 +297,8 @@
                                 {{ $project->accepted_at?->translatedFormat('d M Y, H:i') ?? '—' }}
                             @elseif ($stage === 'in_progress')
                                 {{ $project->started_at?->translatedFormat('d M Y, H:i') ?? '—' }}
+                            @elseif ($stage === 'handover_pending')
+                                {{ $project->handover_requested_at?->translatedFormat('d M Y, H:i') ?? '—' }}
                             @else
                                 {{ $project->completed_at?->translatedFormat('d M Y, H:i') ?? '—' }}
                             @endif
@@ -308,7 +328,7 @@
                     <p>
                         @if ($isAccepted)
                             {{ __('company/messages.projects.checklist_accepted') }}
-                        @elseif ($isCompleted)
+                        @elseif ($isCompleted || $isHandoverPending)
                             {{ __('company/messages.projects.checklist_completed') }}
                         @elseif ($canUpdateHandover)
                             {{ __('company/messages.projects.checklist_handover') }}
@@ -341,7 +361,7 @@
                                     <td>{{ $milestone->sort_order ?: $loop->iteration }}</td>
 
                                     <td>
-                                        <strong>{{ $milestone->title }}</strong>
+                                        <strong>{{ $milestone->displayTitle() }}</strong>
 
                                         @if ($isHandoverMilestone && !$installationComplete)
                                             <small style="display:block;margin-top:4px">
@@ -350,7 +370,7 @@
                                         @endif
                                     </td>
 
-                                    <td>{{ $milestone->description ?: '—' }}</td>
+                                    <td>{{ $milestone->displayDescription() ?: '—' }}</td>
 
                                     <td>
                                         <span class="pill {{ $milestoneClasses[$milestone->status] ?? 'pill-blue' }}">
@@ -431,6 +451,8 @@
                             {{ __('company/messages.projects.prepare_project') }}
                         @elseif ($isCompleted)
                             {{ __('company/messages.projects.project_completed') }}
+                        @elseif ($isHandoverPending)
+                            {{ __('company/messages.common.handover_pending') }}
                         @elseif ($canUpdateHandover)
                             {{ __('company/messages.projects.customer_handover') }}
                         @else
@@ -443,6 +465,8 @@
                             {{ __('company/messages.projects.side_accepted') }}
                         @elseif ($isCompleted)
                             {{ __('company/messages.projects.side_completed') }}
+                        @elseif ($isHandoverPending)
+                            {{ __('company/messages.projects.side_handover_pending') }}
                         @elseif ($canUpdateHandover)
                             {{ __('company/messages.projects.side_handover') }}
                         @else
@@ -460,6 +484,10 @@
                         </p>
                     </div>
 
+                    @if ($project->pendingPriceChange)
+                        {{-- The price is not agreed until the customer answers the new price. --}}
+                        <p class="project-field-hint">{{ __('company/messages.deal.err_price_pending_start') }}</p>
+                    @else
                         <form method="POST"
                             action="{{ route('company.projects.progress.update', $project->id) }}">
                             @csrf
@@ -471,6 +499,7 @@
                                 {{ __('company/messages.projects.start_button') }}
                             </button>
                         </form>
+                    @endif
 
                 {{-- COMPLETED: permanently read-only --}}
                 @elseif ($isCompleted)
@@ -482,6 +511,27 @@
                         </p>
 
                         <span class="pill pill-green">{{ __('company/messages.projects.complete_100') }}</span>
+                    </div>
+
+                {{-- HANDOVER PENDING: the company is done; the customer confirms in the app --}}
+                @elseif ($isHandoverPending)
+                    <div class="project-next-action">
+                        <strong>{{ __('company/messages.projects.waiting_customer_title') }}</strong>
+
+                        <p>
+                            {{ __('company/messages.projects.waiting_customer_body') }}
+                        </p>
+
+                        @if ($autoConfirmAt = $project->handoverAutoConfirmAt())
+                            <p>
+                                {{ __('company/messages.projects.waiting_customer_auto', [
+                                    'days' => \App\Models\Project::AUTO_CONFIRM_DAYS,
+                                    'date' => $autoConfirmAt->translatedFormat('d M Y, H:i'),
+                                ]) }}
+                            </p>
+                        @endif
+
+                        <span class="pill pill-purple">{{ __('company/messages.common.handover_pending') }}</span>
                     </div>
 
                 {{-- IN PROGRESS: installation or handover --}}
@@ -506,10 +556,10 @@
                     @elseif ($currentMilestone)
                         <div class="project-next-action">
                             <small>{{ __('company/messages.projects.current_phase_caps') }}</small>
-                            <strong>{{ $currentMilestone->title }}</strong>
+                            <strong>{{ $currentMilestone->displayTitle() }}</strong>
 
                             <p>
-                                {{ $currentMilestone->description
+                                {{ $currentMilestone->displayDescription()
                                     ?: __('company/messages.projects.milestone_default') }}
                             </p>
                         </div>
@@ -574,10 +624,10 @@
                                 @endphp
 
                                 <div class="project-milestone-field">
-                                    <strong>{{ $milestone->title }}</strong>
+                                    <strong>{{ $milestone->displayTitle() }}</strong>
 
                                     @if ($milestone->description)
-                                        <small>{{ $milestone->description }}</small>
+                                        <small>{{ $milestone->displayDescription() }}</small>
                                     @endif
 
                                     @if ($isHandoverLocked)
@@ -675,6 +725,132 @@
                     </form>
                 @endif
             </section>
+
+            {{-- Backing out of the deal, or asking the customer for a new price --}}
+            @unless ($isCompleted)
+                @php
+                    $priceChange = $project->pendingPriceChange;
+                    $openRequest = $project->openCancellationRequest;
+                    $lastCancellation = $project->latestCancellation;
+                    $isFlagged = $withdrawals['flagged'] ?? false;
+                    $money = fn ($value) => number_format((float) $value) . ' ' . ($offer?->currency ?? 'SDG');
+                    $withdrawNow = $isAccepted && !$isFlagged;
+                @endphp
+
+                <section class="panel" style="margin-top:16px;padding:24px">
+                    <div class="panel-heading">
+                        <h2>{{ __('company/messages.deal.panel_title') }}</h2>
+                        <p>{{ __('company/messages.deal.panel_sub') }}</p>
+                    </div>
+
+                    <p class="project-field-hint" @if ($isFlagged) style="color:#c92a2a" @endif>
+                        {{ $isFlagged
+                            ? __('company/messages.deal.standing_flagged', ['count' => $withdrawals['count'], 'days' => $withdrawals['window_days']])
+                            : __('company/messages.deal.standing', ['count' => $withdrawals['count'], 'threshold' => $withdrawals['threshold'], 'days' => $withdrawals['window_days']]) }}
+                    </p>
+
+                    @if ($priceChange)
+                        <div class="project-next-action">
+                            <strong>{{ __('company/messages.deal.price_pending_title') }}</strong>
+                            <p>
+                                {{ __('company/messages.deal.price_pending_body', [
+                                    'date' => $priceChange->created_at?->translatedFormat('d M Y, H:i'),
+                                    'old' => $money($priceChange->old_price),
+                                    'new' => $money($priceChange->new_price),
+                                ]) }}
+                            </p>
+                            <form method="POST" action="{{ route('company.projects.price-change.cancel', $project->id) }}">
+                                @csrf
+                                <button type="submit" class="btn btn-light">{{ __('company/messages.deal.price_cancel_button') }}</button>
+                            </form>
+                        </div>
+                    @endif
+
+                    @if ($openRequest)
+                        <div class="project-next-action">
+                            <strong>{{ __('company/messages.deal.request_open_title', ['date' => $openRequest->created_at?->translatedFormat('d M Y, H:i')]) }}</strong>
+                            <p>{{ __('company/messages.deal.request_open_body', ['reason' => __('company/messages.deal.reasons.' . $openRequest->reason)]) }}</p>
+                            <form method="POST" action="{{ route('company.projects.withdraw.cancel', $project->id) }}">
+                                @csrf
+                                <button type="submit" class="btn btn-light">{{ __('company/messages.deal.request_cancel_button') }}</button>
+                            </form>
+                        </div>
+                    @else
+                        @if ($lastCancellation?->status === \App\Models\ProjectCancellation::REJECTED)
+                            <div class="alert alert-danger" role="alert">
+                                <strong>{{ __('company/messages.deal.request_rejected_title', ['date' => $lastCancellation->decided_at?->translatedFormat('d M Y, H:i')]) }}</strong>
+                                @if ($lastCancellation->admin_note)
+                                    <p style="margin:6px 0 0">{{ __('company/messages.deal.request_rejected_note', ['note' => $lastCancellation->admin_note]) }}</p>
+                                @endif
+                            </div>
+                        @endif
+
+                        {{-- Change the price: only before work starts, one at a time --}}
+                        @if ($isAccepted && !$priceChange && $offer)
+                            <details style="margin-top:12px" @if ($errors->has('new_price')) open @endif>
+                                <summary><strong>{{ __('company/messages.deal.price_title') }}</strong></summary>
+                                <p class="project-field-hint">{{ __('company/messages.deal.price_body') }}</p>
+                                <form method="POST" action="{{ route('company.projects.price-change', $project->id) }}">
+                                    @csrf
+                                    <p class="project-field-hint">{{ __('company/messages.deal.current_price', ['price' => $money($offer->price)]) }}</p>
+                                    <div class="form-group">
+                                        <label for="new_price">{{ __('company/messages.deal.new_price', ['currency' => $offer->currency]) }}</label>
+                                        <input type="number" name="new_price" id="new_price" class="form-control" min="1000" step="0.01"
+                                            value="{{ old('new_price') }}" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="price_reason">{{ __('company/messages.deal.reason') }}</label>
+                                        <select name="reason" id="price_reason" class="form-control" required>
+                                            <option value="">{{ __('company/messages.deal.choose_reason') }}</option>
+                                            @foreach (array_keys(\App\Models\OfferPriceChange::REASONS) as $reason)
+                                                <option value="{{ $reason }}">{{ __('company/messages.deal.price_reasons.' . $reason) }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="price_note">{{ __('company/messages.deal.note') }}</label>
+                                        <textarea name="note" id="price_note" class="form-control" rows="3" maxlength="1000"></textarea>
+                                        <small>{{ __('company/messages.deal.note_price_hint') }}</small>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary" style="width:100%">{{ __('company/messages.deal.price_button') }}</button>
+                                </form>
+                            </details>
+                        @endif
+
+                        {{-- Withdraw: right away before work starts, otherwise a request for SunXFinder --}}
+                        <details style="margin-top:12px" @if ($errors->has('reason') || $errors->has('note')) open @endif>
+                            <summary><strong>{{ __('company/messages.deal.withdraw_title') }}</strong></summary>
+                            <p class="project-field-hint">
+                                {{ $withdrawNow
+                                    ? __('company/messages.deal.withdraw_body_now')
+                                    : ($isAccepted ? __('company/messages.deal.withdraw_body_flagged') : __('company/messages.deal.withdraw_body_request')) }}
+                            </p>
+                            <form method="POST" action="{{ route('company.projects.withdraw', $project->id) }}"
+                                @if ($withdrawNow) onsubmit="return confirm(@js(__('company/messages.deal.withdraw_confirm')));" @endif>
+                                @csrf
+                                <div class="form-group">
+                                    <label for="withdraw_reason">{{ __('company/messages.deal.reason') }}</label>
+                                    <select name="reason" id="withdraw_reason" class="form-control" required>
+                                        <option value="">{{ __('company/messages.deal.choose_reason') }}</option>
+                                        @foreach (array_keys(\App\Models\ProjectCancellation::REASONS) as $reason)
+                                            <option value="{{ $reason }}" @selected(old('reason') === $reason)>{{ __('company/messages.deal.reasons.' . $reason) }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="withdraw_note">{{ __('company/messages.deal.note') }}</label>
+                                    <textarea name="note" id="withdraw_note" class="form-control" rows="3" maxlength="1000"
+                                        @unless ($withdrawNow) required minlength="10" @endunless>{{ old('note') }}</textarea>
+                                    <small>{{ __('company/messages.deal.note_withdraw_hint') }}</small>
+                                </div>
+                                <button type="submit" class="btn btn-light" style="width:100%;color:#c92a2a;border-color:#c92a2a">
+                                    {{ $withdrawNow ? __('company/messages.deal.withdraw_button') : __('company/messages.deal.request_button') }}
+                                </button>
+                            </form>
+                        </details>
+                    @endif
+                </section>
+            @endunless
         </aside>
     </div>
 @endsection

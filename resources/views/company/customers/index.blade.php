@@ -7,6 +7,8 @@
 @section('page-description', __('company/messages.customers.page_description'))
 
 @section('content')
+    @include('company.partials.guide', ['page' => 'customers'])
+
     <div class="metrics-strip">
         <div>
             <small>{{ __('company/messages.common.customers') }}</small>

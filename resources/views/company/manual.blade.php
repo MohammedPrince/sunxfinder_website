@@ -22,6 +22,7 @@
             'quotes' => 'company.quote-requests.index',
             'package_offers' => 'company.offers.index',
             'projects' => 'company.projects.index',
+            'withdrawals' => 'company.projects.index',
             'invoices' => 'company.invoices.index',
             'customers' => 'company.customers.index',
             'notifications' => 'company.notifications.index',

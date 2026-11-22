@@ -1,0 +1,13 @@
+{
+  "id": "P010",
+  "buys": false,
+  "purchases_first_month": 0,
+  "reason_code": "habit",
+  "reason": "When I need solar for the shop I will ask my cousin and the neighbour who did his pharmacy, and use the same installer. An app I never heard of is not where I start, and I am not ready to buy this month anyway.",
+  "objection": "The dollar moves every week, so written offers from companies I don't know mean nothing by the time I have the cash. And who is behind this app? Nobody in the market has told me about it.",
+  "would_change_my_mind": "A relative or a shop owner near me telling me they used it and the price they got held, or the check found a fake battery in their installer's quote.",
+  "price_too_cheap": 0.5,
+  "price_cheap": 2,
+  "price_expensive": 5,
+  "price_too_expensive": 10
+}

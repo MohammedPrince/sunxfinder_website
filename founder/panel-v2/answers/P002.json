@@ -1,0 +1,13 @@
+{
+  "id": "P002",
+  "buys": true,
+  "purchases_first_month": 1,
+  "reason_code": "need",
+  "reason": "It's free, and I need real prices for a small starter system before I can plan how much to send home. The labels photos matter to me because I can't be there to see what the installer actually puts on my family's roof.",
+  "objection": "Companies will push a big expensive system when all I can pay for now is a few panels and one battery, and I'm not sure a website can stop an installer in Khartoum from swapping parts once my money is sent.",
+  "would_change_my_mind": "",
+  "price_too_cheap": 0.5,
+  "price_cheap": 2,
+  "price_expensive": 5,
+  "price_too_expensive": 10
+}

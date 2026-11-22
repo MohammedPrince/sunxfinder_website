@@ -1,0 +1,13 @@
+{
+  "id": "P011",
+  "buys": false,
+  "purchases_first_month": 0,
+  "reason_code": "habit",
+  "reason": "I compare prices myself shop by shop in the market and my cousin's electrician already wired his system, so I'd just go to him. An app with companies I don't know doesn't beat walking the market and haggling face to face.",
+  "objection": "These are strangers from an app. I can't haggle with a written offer, and I don't know who is behind SunXFinder or whether the companies are just padding prices because they know you're comparing.",
+  "would_change_my_mind": "If my relative or a neighbour told me they got a cheaper price through it than in the market, I'd send our electrician's quote to get it checked for free.",
+  "price_too_cheap": 0.5,
+  "price_cheap": 1,
+  "price_expensive": 3,
+  "price_too_expensive": 5
+}

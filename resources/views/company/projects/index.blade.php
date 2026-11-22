@@ -12,12 +12,14 @@
         $statusLabels = [
             'accepted' => __('company/messages.common.not_started'),
             'in_progress' => __('company/messages.common.in_progress'),
+            'handover_pending' => __('company/messages.common.handover_pending'),
             'completed' => __('company/messages.common.completed'),
         ];
 
         $statusClasses = [
             'accepted' => 'pill-orange',
             'in_progress' => 'pill-blue',
+            'handover_pending' => 'pill-purple',
             'completed' => 'pill-green',
         ];
     @endphp
@@ -44,6 +46,10 @@
             <strong>{{ number_format($metrics['in_progress']) }}</strong>
         </div>
         <div>
+            <small>{{ __('company/messages.common.handover_pending') }}</small>
+            <strong>{{ number_format($metrics['handover_pending']) }}</strong>
+        </div>
+        <div>
             <small>{{ __('company/messages.common.completed') }}</small>
             <strong>{{ number_format($metrics['completed']) }}</strong>
         </div>
@@ -52,6 +58,15 @@
             <strong>{{ number_format($metrics['total']) }}</strong>
         </div>
     </div>
+
+    {{-- Recent withdrawals from accepted jobs, and what happens at the limit --}}
+    @if (($withdrawals['count'] ?? 0) > 0)
+        <div class="alert {{ $withdrawals['flagged'] ? 'alert-danger' : 'alert-warning' }}" role="alert">
+            {{ $withdrawals['flagged']
+                ? __('company/messages.deal.standing_flagged', ['count' => $withdrawals['count'], 'days' => $withdrawals['window_days']])
+                : __('company/messages.deal.standing_index', ['count' => $withdrawals['count'], 'threshold' => $withdrawals['threshold'], 'days' => $withdrawals['window_days']]) }}
+        </div>
+    @endif
 
     @if (session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
@@ -134,6 +149,7 @@
                                 $project->status === 'accepted' => [__('company/messages.projects.start_installation'), 'pill-orange'],
                                 $project->status === 'in_progress' && $project->progress_percent >= 99 => [__('company/messages.projects.confirm_handover'), 'pill-green'],
                                 $project->status === 'in_progress' => [__('company/messages.projects.update_progress'), 'pill-blue'],
+                                $project->status === 'handover_pending' => [__('company/messages.common.handover_pending'), 'pill-purple'],
                                 default => [__('company/messages.projects.view_project'), 'pill-green'],
                             };
 

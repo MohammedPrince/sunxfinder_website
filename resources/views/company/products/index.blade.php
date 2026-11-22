@@ -21,6 +21,8 @@
         <div class="alert alert-danger">{{ session('error') }}</div>
     @endif
 
+    @include('company.partials.guide', ['page' => 'products'])
+
     <section class="panel table-panel">
         <div class="panel-heading table-toolbar">
             <div>

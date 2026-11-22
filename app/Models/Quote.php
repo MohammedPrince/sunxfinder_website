@@ -66,6 +66,20 @@ class Quote extends Model
         return $this->hasOne(Project::class, 'quote_id', 'id');
     }
 
+    /** The last time a company left this request after the customer accepted its offer. */
+    public function latestWithdrawal(): HasOne
+    {
+        return $this->hasOne(ProjectCancellation::class, 'quote_id')
+            ->ofMany(['id' => 'max'], fn($query) => $query->whereIn('status', ProjectCancellation::DONE_STATUSES));
+    }
+
+    /** A price change on the accepted offer, waiting for the customer. */
+    public function pendingPriceChange(): HasOne
+    {
+        return $this->hasOne(OfferPriceChange::class, 'quote_id')
+            ->ofMany(['id' => 'max'], fn($query) => $query->where('status', OfferPriceChange::PENDING));
+    }
+
     public function rating(): HasOne
     {
         return $this->hasOne(Rating::class, 'quote_id', 'id');
@@ -172,6 +186,7 @@ class Quote extends Model
             $this->status === 'cancelled' => ['key' => 'cancelled', 'label' => 'Cancelled by customer', 'class' => 'pill-purple'],
             $this->status === 'rejected' => ['key' => 'rejected', 'label' => 'Rejected', 'class' => 'pill-red'],
             $this->status === 'completed' || $project?->status === 'completed' => ['key' => 'completed', 'label' => 'Completed', 'class' => 'pill-green'],
+            $project?->status === Project::HANDOVER_PENDING => ['key' => 'handover_pending', 'label' => 'Waiting for customer to confirm handover', 'class' => 'pill-purple'],
             $project?->status === 'in_progress' => ['key' => 'installing', 'label' => 'Installation in progress', 'class' => 'pill-blue'],
             $this->status === 'accepted' || $project !== null => ['key' => 'accepted', 'label' => 'Offer accepted · not started', 'class' => 'pill-orange'],
             $offersCount > 0 => ['key' => 'comparing', 'label' => 'Customer comparing offers', 'class' => 'pill-yellow'],

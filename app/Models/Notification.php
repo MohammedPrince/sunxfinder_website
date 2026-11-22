@@ -16,7 +16,7 @@ class Notification extends Model
 
     /** Types sent from the admin "Customer campaign" composer. */
     public const CAMPAIGN_TYPES = [
-        'offer' => 'Company offer',
+        'offer' => 'Special offer',
         'new_company' => 'New company',
         'promotion' => 'Promotion / news',
     ];

@@ -1,0 +1,13 @@
+{
+  "id": "P003",
+  "buys": true,
+  "purchases_first_month": 1,
+  "reason_code": "convenience",
+  "reason": "I'm paying from abroad and can't see anything myself, so a free size estimate and photos of the actual labels before handover is exactly what I'm missing. It costs me nothing to send one request and add my cousin's installer so I can compare him against the others.",
+  "objection": "I've never heard of SunXFinder and nobody in my family has used it. I don't know if these companies are any good, and if something goes wrong I'm thousands of kilometres away, so I'd still trust my relatives' installer over a website.",
+  "would_change_my_mind": "If no one replies, or the offers come back much higher than what my family's installer quoted, I'd stop and go back to the installer through family.",
+  "price_too_cheap": 1,
+  "price_cheap": 3,
+  "price_expensive": 12,
+  "price_too_expensive": 25
+}

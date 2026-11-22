@@ -2,7 +2,8 @@
     Shared top bar for the admin and company panels.
     Expects: $topbar (attention/today counts, may be null), $userName, $userInitials, $roleLabel,
     $userEmail, $quickActions [[label, url, hint]], $accountLinks [[label, url, external?]], $logoutRoute,
-    optional $accountBadge [label, class] and $greetingName (defaults to the first word of $userName).
+    optional $accountBadge [label, class], $greetingName (defaults to the first word of $userName)
+    and $helpLink [label, url] (button beside Quick actions).
 --}}
 @php
     // Biggest counts first; usort is stable, so ties keep the repository's order.
@@ -44,6 +45,12 @@
             <span class="topbar-date" id="todayDate"></span>
             <span class="topbar-time" id="todayTime"></span>
         </div>
+
+        @if (!empty($helpLink))
+            <a class="topbar-action topbar-help" href="{{ $helpLink['url'] }}" title="{{ $helpLink['label'] }}">
+                <span aria-hidden="true">?</span><span class="topbar-action-label">{{ $helpLink['label'] }}</span>
+            </a>
+        @endif
 
         @if ($quickActions)
             <details class="topbar-menu">

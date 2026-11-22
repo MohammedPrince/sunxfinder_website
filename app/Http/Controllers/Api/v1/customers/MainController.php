@@ -957,6 +957,53 @@ class MainController extends Controller
         ], fn($value) => $value !== null), $httpCode);
     }
 
+    /**
+     * POST /handover-problem {quote_id, message}: the customer reports a problem instead of
+     * confirming the handover. 404 for someone else's quote, 422 when the project is not
+     * waiting for confirmation (reason not_waiting_confirmation) or the message is invalid.
+     */
+    public function reportHandoverProblem(Request $request)
+    {
+        $ar = $this->customerApiLanguage() === 'ar';
+
+        $validator = Validator::make($request->all(), [
+            'quote_id' => ['required', 'integer', 'min:1'],
+            'message' => ['required', 'string', 'min:10', 'max:1000'],
+        ], [
+            'message.required' => $ar ? 'يرجى وصف المشكلة.' : 'Please describe the problem.',
+            'message.min' => $ar ? 'يرجى وصف المشكلة في 10 أحرف على الأقل.' : 'Please describe the problem in at least 10 characters.',
+            'message.max' => $ar ? 'يجب ألا يزيد الوصف عن 1000 حرف.' : 'The description may not be longer than 1000 characters.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'code' => 422,
+                'message' => $validator->errors()->first(),
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $result = $this->customerService->reportHandoverProblem($validator->validated());
+        $httpCode = $result['code'] ?? 500;
+
+        if ($result['success'] ?? false) {
+            return response()->json([
+                'status' => 'success',
+                'message' => $result['message'],
+                'data' => $result['data'],
+            ], 200);
+        }
+
+        return response()->json(array_filter([
+            'status' => 'error',
+            'code' => $httpCode,
+            'message' => $result['message'] ?? 'Unable to report the problem.',
+            'reason' => $result['reason'] ?? null,
+            'errors' => $httpCode === 422 ? ['quote_id' => [$result['message']]] : null,
+        ], fn($value) => $value !== null), $httpCode);
+    }
+
     public function acceptOffer(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -1087,6 +1134,38 @@ class MainController extends Controller
         ], $httpCode);
     }
 
+    /** The customer agrees to the company's new price on the accepted offer. */
+    public function acceptPriceChange(int $changeId)
+    {
+        return $this->priceChangeResponse($this->customerService->acceptPriceChange($changeId));
+    }
+
+    /** The customer declines the new price: the deal ends and the request opens again. */
+    public function declinePriceChange(int $changeId)
+    {
+        return $this->priceChangeResponse($this->customerService->declinePriceChange($changeId));
+    }
+
+    private function priceChangeResponse(array $result)
+    {
+        $httpCode = $result['code'] ?? 500;
+
+        if ($result['success'] ?? false) {
+            return response()->json([
+                'status' => 'success',
+                'message' => $result['message'],
+                'data' => $result['data'],
+            ], 200);
+        }
+
+        return response()->json(array_filter([
+            'status' => 'error',
+            'code' => $httpCode,
+            'message' => $result['message'] ?? 'Unable to save your answer.',
+            'reason' => $result['reason'] ?? null,
+        ], fn($value) => $value !== null), $httpCode);
+    }
+
 
     public function submitRating(Request $request)
     {
@@ -1130,9 +1209,12 @@ class MainController extends Controller
         ], $httpCode);
     }
 
-    public function getRatingForm()
+    /** GET /rating-form[?quote_id=]: with quote_id, 422 until the customer confirmed that handover. */
+    public function getRatingForm(Request $request)
     {
-        $result = $this->customerService->getRatingForm();
+        $quoteId = filter_var($request->query('quote_id'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+
+        $result = $this->customerService->getRatingForm($quoteId ?: null);
 
         $httpCode = $result['code'] ?? 500;
 

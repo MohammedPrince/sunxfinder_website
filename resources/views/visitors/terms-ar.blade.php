@@ -1,5 +1,6 @@
 @extends('visitors.layouts.app')
-@section('title', app()->getLocale() === 'ar' ? 'SunXFinder - الشروط والأحكام' : 'SunXFinder - Terms and Conditions')
+@section('title', __('seo.terms_title', [], 'ar'))
+@section('meta_description', __('seo.terms_description', [], 'ar'))
 @section('content')
 
     <main class="legal-page" dir="rtl" lang="ar">

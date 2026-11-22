@@ -44,6 +44,11 @@ class CompanyService
         return $this->companyRepository->getCompanyReportExport($section, $filters);
     }
 
+    public function markJourneySeen(\App\Models\SolarCompany $company): bool
+    {
+        return $this->companyRepository->markJourneySeen($company);
+    }
+
     public function companyEmailExists(string $email): bool
     {
         return $this->companyRepository->companyEmailExists($email);
@@ -183,6 +188,11 @@ class CompanyService
     public function getCompanyQuotationForQuote(int $quoteId): ?CompanyQuotation
     {
         return $this->companyRepository->getCompanyQuotationForQuote($quoteId);
+    }
+
+    public function getLastOfferTerms(): ?array
+    {
+        return $this->companyRepository->getLastOfferTerms();
     }
 
     public function getQuoteInvoice(int $quoteId): ?Invoice

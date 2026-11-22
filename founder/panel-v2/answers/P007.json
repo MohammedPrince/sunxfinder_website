@@ -1,0 +1,13 @@
+{
+  "id": "P007",
+  "buys": true,
+  "purchases_first_month": 1,
+  "reason_code": "price",
+  "reason": "It costs me nothing and I get several written prices side by side, so I can find the cheapest small system to start with instead of trusting one installer like my neighbour did. Since they only see my name, I'll try one request for a small setup and see what comes back.",
+  "objection": "I only want a few panels and a small battery for now. I'm afraid the companies will ignore a small request like mine or push me toward a big expensive system, and I'm still not sure they won't find a way to keep calling me.",
+  "would_change_my_mind": "If nobody replies to my small request, or a company calls me before I accept anything, I'll stop using it.",
+  "price_too_cheap": 0.5,
+  "price_cheap": 1,
+  "price_expensive": 3,
+  "price_too_expensive": 6
+}

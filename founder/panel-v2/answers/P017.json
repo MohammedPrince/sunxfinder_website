@@ -1,0 +1,13 @@
+{
+  "id": "P017",
+  "buys": false,
+  "purchases_first_month": 0,
+  "reason_code": "habit",
+  "reason": "I buy my panels and batteries the way I always do. I walk the market, compare shop by shop, haggle, and my electrician wires it. Companies quoting full installed systems through an app will price higher than I can get myself, so I don't see why I'd send a request.",
+  "objection": "These companies will quote package prices with their margin built in. The market is cheaper, and I trust my own electrician more than a company I found on an app.",
+  "would_change_my_mind": "Seeing that the offers come in at or below what I get haggling in the market, or a free check telling me whether the parts prices I was quoted at the shops are fair.",
+  "price_too_cheap": 1,
+  "price_cheap": 3,
+  "price_expensive": 10,
+  "price_too_expensive": 20
+}

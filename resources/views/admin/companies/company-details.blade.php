@@ -255,6 +255,31 @@
         </section>
     </div>
 
+    {{-- Backing out of accepted deals --}}
+    @isset($withdrawalSummary)
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>
+                        Withdrawals from accepted jobs
+                        @if ($withdrawalSummary['flagged'])
+                            <span class="pill pill-red">Flagged</span>
+                        @endif
+                    </h2>
+                    <p>
+                        {{ $withdrawalSummary['recent'] }} counted in the last {{ $withdrawalSummary['window_days'] }} days
+                        (flagged at {{ $withdrawalSummary['threshold'] }}: withdrawals then need approval and the company is listed lower in the app)
+                        · {{ $withdrawalSummary['total'] }} in total
+                        @if ($withdrawalSummary['requested'])
+                            · <strong>{{ $withdrawalSummary['requested'] }} waiting for a decision</strong>
+                        @endif
+                    </p>
+                </div>
+                <a class="btn btn-light" href="{{ route('admin.cancellations.index', ['company_id' => $company->id]) }}">View withdrawals</a>
+            </div>
+        </section>
+    @endisset
+
     {{-- Activity --}}
     <section class="panel">
         <div class="panel-heading"><div><h2>Activity by status</h2><p>Current counts for this company</p></div></div>

@@ -27,6 +27,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use App\Models\NotificationScheduleRun;
 
 class MainController extends Controller
@@ -228,9 +229,11 @@ class MainController extends Controller
         $ratingCount = (clone $ratingBase)->count();
         $customerCount = (clone $customersBase)->distinct()->count('id');
         $commissionSummary = $this->adminService->getCompanyCommissionSummary($companyId);
+        $withdrawalSummary = $this->adminService->getCompanyWithdrawalSummary($companyId);
 
         return view('admin.companies.company-details', compact(
             'commissionSummary',
+            'withdrawalSummary',
             'company',
             'quotes',
             'customers',
@@ -326,9 +329,16 @@ class MainController extends Controller
 
     public function updateCompany(Request $request, int $id)
     {
+        // "RE Energy " → "re-energy": spaces and capitals are forgiven, other characters are not.
+        if ($request->filled('slug')) {
+            $request->merge(['slug' => preg_replace('/[\s_]+/', '-', strtolower(trim((string) $request->input('slug'))))]);
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'username' => ['required', 'string', 'max:100'],
+            // Public profile link /companies/{slug}; uniqueness is checked in the repository.
+            'slug' => ['sometimes', 'required', 'string', 'max:191', 'regex:/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/'],
             'email' => ['nullable', 'email', 'max:50'],
             'phone' => ['nullable', 'string', 'max:30'],
             'city' => ['nullable', 'string', 'max:100'],
@@ -360,6 +370,14 @@ class MainController extends Controller
         return redirect()
             ->route('admin.companies.index')
             ->with('success', $result['message']);
+    }
+
+    /** Reset a company's password to "{username}@SUNX09*#" (the company forgot it). */
+    public function resetCompanyPassword(int $id)
+    {
+        $result = $this->adminService->resetCompanyPassword($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
     public function deleteCompany(int $id)
@@ -500,6 +518,14 @@ class MainController extends Controller
             : redirect()->route('admin.customers.index');
 
         return $redirect->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    /** Reset a customer's password to "{username}@SUNX09*#" (the customer forgot it). */
+    public function resetCustomerPassword(int $id)
+    {
+        $result = $this->adminService->resetCustomerPassword($id);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
     // Sign every customer out of the app
@@ -1461,7 +1487,7 @@ class MainController extends Controller
     public function projects(Request $request)
     {
         $filters = $request->validate([
-            'status' => ['nullable', Rule::in(['accepted', 'in_progress', 'completed'])],
+            'status' => ['nullable', Rule::in(['accepted', 'in_progress', 'handover_pending', 'completed'])],
             'company_id' => ['nullable', 'integer', 'min:1'],
             'customer' => ['nullable', 'string', 'max:100'],
             'search' => ['nullable', 'string', 'max:100'],
@@ -1474,8 +1500,39 @@ class MainController extends Controller
         $metrics = $this->adminService->getAdminProjectMetrics();
         $companies = $this->adminService->getAdminProjectCompanies();
         $stalledDays = \App\Support\ReportPeriod::STALLED_DAYS;
+        $remindedAt = $this->adminService->getProjectsRemindedAt(collect($projects->items())->pluck('id')->all());
 
-        return view('admin.projects.index', compact('projects', 'metrics', 'companies', 'filters', 'stalledDays'));
+        return view('admin.projects.index', compact('projects', 'metrics', 'companies', 'filters', 'stalledDays', 'remindedAt'));
+    }
+
+    /** Email the company of one stalled project, with an optional message from the admin. */
+    public function remindStalledProject(Request $request, int $id)
+    {
+        $data = $request->validate(['note' => ['nullable', 'string', 'max:1000']]);
+
+        $result = $this->adminService->remindStalledProjects([$id], $data['note'] ?? null);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    /** Opens WhatsApp to the company of a stalled project with the reminder message filled in. */
+    public function whatsappStalledProject(Request $request, int $id)
+    {
+        $data = $request->validate(['note' => ['nullable', 'string', 'max:1000']]);
+
+        $result = $this->adminService->whatsappStalledProject($id, $data['note'] ?? null);
+
+        return $result['success']
+            ? redirect()->away($result['url'])
+            : redirect()->route('admin.projects.show', $id)->with('error', $result['message']);
+    }
+
+    /** Email the companies of every stalled project (those reminded recently are skipped). */
+    public function remindStalledProjects()
+    {
+        $result = $this->adminService->remindStalledProjects();
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
     public function projectDetails(int $id)
@@ -1488,8 +1545,9 @@ class MainController extends Controller
         $lastActivity = $project->updates->first()?->created_at ?? $project->updated_at;
         $isStalled = in_array($project->status, ['accepted', 'in_progress'], true)
             && $lastActivity?->lt(now()->subDays($stalledDays));
+        $remindedAt = $this->adminService->getProjectRemindedAt($project->id);
 
-        return view('admin.projects.show', compact('project', 'stalledDays', 'lastActivity', 'isStalled'));
+        return view('admin.projects.show', compact('project', 'stalledDays', 'lastActivity', 'isStalled', 'remindedAt'));
     }
 
     public function complaints(Request $request)
@@ -1511,6 +1569,78 @@ class MainController extends Controller
         }
         $complaints = $query->latest()->paginate(20)->withQueryString();
         return view('admin.complaints.index', compact('complaints', 'filters'));
+    }
+
+    /** Companies backing out of accepted deals: requests to decide, and history. */
+    public function cancellations(Request $request)
+    {
+        $filters = $request->validate([
+            'status' => ['nullable', Rule::in([
+                \App\Models\ProjectCancellation::WITHDRAWN, \App\Models\ProjectCancellation::REQUESTED, \App\Models\ProjectCancellation::APPROVED,
+                \App\Models\ProjectCancellation::REJECTED, \App\Models\ProjectCancellation::CANCELLED,
+            ])],
+            'company_id' => ['nullable', 'integer', 'min:1'],
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $cancellations = $this->adminService->getProjectCancellations($filters);
+        $metrics = $this->adminService->getProjectCancellationMetrics();
+
+        return view('admin.cancellations.index', compact('cancellations', 'metrics', 'filters'));
+    }
+
+    public function cancellationDetails(int $id)
+    {
+        $cancellation = $this->adminService->getProjectCancellation($id);
+        $standing = $this->adminService->getCompanyWithdrawalSummary((int) $cancellation->company_id);
+
+        return view('admin.cancellations.show', compact('cancellation', 'standing'));
+    }
+
+    public function approveCancellation(Request $request, int $id)
+    {
+        $data = $request->validate([
+            'counts_against_company' => ['nullable', 'boolean'],
+            'admin_note' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        try {
+            $this->adminService->approveProjectCancellation($id, $request->boolean('counts_against_company'), trim((string) ($data['admin_note'] ?? '')) ?: null);
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors());
+        }
+
+        return redirect()->route('admin.cancellations.show', $id)
+            ->with('success', 'Cancellation approved. The customer was told and the request is open again.');
+    }
+
+    public function rejectCancellation(Request $request, int $id)
+    {
+        $data = $request->validate([
+            'admin_note' => ['required', 'string', 'min:5', 'max:2000'],
+        ]);
+
+        try {
+            $this->adminService->rejectProjectCancellation($id, trim($data['admin_note']));
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors());
+        }
+
+        return redirect()->route('admin.cancellations.show', $id)
+            ->with('success', 'Request rejected. The company was emailed and the project carries on.');
+    }
+
+    public function toggleCancellationCount(Request $request, int $id)
+    {
+        $data = $request->validate(['counts_against_company' => ['required', 'boolean']]);
+
+        try {
+            $this->adminService->setProjectCancellationCounts($id, (bool) $data['counts_against_company']);
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors());
+        }
+
+        return back()->with('success', $data['counts_against_company'] ? 'The withdrawal now counts against the company.' : 'The withdrawal was waived.');
     }
 
     public function complaintDetails(int $id)
@@ -1865,10 +1995,12 @@ class MainController extends Controller
     {
         $data = $request->validate([
             'max_open_quotes' => ['required', 'integer', 'min:1', 'max:50'],
+            'site_design' => ['required', \Illuminate\Validation\Rule::in(\App\Models\Setting::SITE_DESIGNS)],
             'app_offline_enabled' => ['nullable', 'boolean'],
             'app_offline_message_en' => ['nullable', 'required_if:app_offline_enabled,1', 'string', 'max:1000'],
             'app_offline_message_ar' => ['nullable', 'required_if:app_offline_enabled,1', 'string', 'max:1000'],
             'maintenance_enabled' => ['nullable', 'boolean'],
+            'maintenance_prelaunch' => ['nullable', 'boolean'],
             'maintenance_title_en' => ['nullable', 'required_if:maintenance_enabled,1', 'string', 'max:150'],
             'maintenance_title_ar' => ['nullable', 'required_if:maintenance_enabled,1', 'string', 'max:150'],
             'maintenance_message_en' => ['nullable', 'required_if:maintenance_enabled,1', 'string', 'max:2000'],
@@ -1887,6 +2019,7 @@ class MainController extends Controller
         ]);
 
         $data['maintenance_enabled'] = $request->boolean('maintenance_enabled');
+        $data['maintenance_prelaunch'] = $request->boolean('maintenance_prelaunch');
         $data['app_offline_enabled'] = $request->boolean('app_offline_enabled');
 
         $result = $this->adminService->updateSettings($data);

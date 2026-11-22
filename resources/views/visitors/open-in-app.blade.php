@@ -2,6 +2,8 @@
 {{-- Used for a company ($company) or another app screen ($pageName). --}}
 @php($pageName = isset($company) ? $company->name : ($pageName ?? ''))
 @section('title', 'SunXFinder - ' . $pageName)
+{{-- A hand-off page to the app: nothing to index --}}
+@section('meta_robots', 'noindex, follow')
 
 @section('content')
     <div class="open-app-page">

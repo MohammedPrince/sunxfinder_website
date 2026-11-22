@@ -8,6 +8,13 @@
 
 @section('page-actions')
     @if (request('stalled'))
+        @if ($metrics['stalled'])
+            <form method="POST" action="{{ route('admin.projects.remind-stalled') }}" style="display:inline"
+                onsubmit="return confirm('Email the company of every stalled project ({{ $metrics['stalled'] }}) asking for a progress update? Companies reminded in the last {{ \App\Repositories\Admin\AdminRepository::PROJECT_REMINDER_COOLDOWN_HOURS }} hours are skipped.');">
+                @csrf
+                <button type="submit" class="btn btn-primary">✉️ Email all stalled companies</button>
+            </form>
+        @endif
         <a href="{{ route('admin.projects.index') }}" class="btn btn-light">All projects</a>
     @else
         <a href="{{ route('admin.projects.index', ['stalled' => 1]) }}" class="btn btn-light">Stalled projects</a>
@@ -17,8 +24,8 @@
 @section('content')
     @php
         $filterKeys = ['status', 'company_id', 'customer', 'search', 'last_activity_from', 'last_activity_to', 'stalled'];
-        $statusLabels = ['accepted' => 'Accepted', 'in_progress' => 'In progress', 'completed' => 'Completed'];
-        $statusClasses = ['accepted' => 'pill-orange', 'in_progress' => 'pill-blue', 'completed' => 'pill-green'];
+        $statusLabels = ['accepted' => 'Accepted', 'in_progress' => 'In progress', 'handover_pending' => 'Waiting for customer confirmation', 'completed' => 'Completed'];
+        $statusClasses = ['accepted' => 'pill-orange', 'in_progress' => 'pill-blue', 'handover_pending' => 'pill-purple', 'completed' => 'pill-green'];
     @endphp
 
     @include('partials.page-guide', [
@@ -31,13 +38,14 @@
             '<strong>Completed</strong>: the installation was handed over to the customer and the project is closed.',
             '<strong>Stalled</strong>: an accepted or in-progress project with no update for ' . $stalledDays . ' days or more.',
         ],
-        'note' => 'Use "Stalled projects" to find installations that need a follow-up, then open the project to contact the company or customer.',
+        'note' => 'Use "Stalled projects" to find installations that need a follow-up. "Email company" sends the company a reminder in English and Arabic (once every ' . \App\Repositories\Admin\AdminRepository::PROJECT_REMINDER_COOLDOWN_HOURS . ' hours per project), and "WhatsApp" opens a chat with the company with the reminder ready to send. Open a project to add your own message.',
     ])
 
     <div class="metrics-strip">
         <div><small>All projects</small><strong>{{ number_format($metrics['total']) }}</strong></div>
         <div><small>Accepted</small><strong>{{ number_format($metrics['accepted']) }}</strong></div>
         <div><small>In progress</small><strong>{{ number_format($metrics['in_progress']) }}</strong></div>
+        <div><small>Waiting for customer</small><strong>{{ number_format($metrics['handover_pending']) }}</strong></div>
         <div><small>Completed</small><strong>{{ number_format($metrics['completed']) }}</strong></div>
         <div>
             <small>Stalled ({{ $stalledDays }}+ days)</small>
@@ -155,11 +163,39 @@
                             <td>
                                 @if ($isStalled)
                                     <span class="pill pill-red">{{ (int) $activityAt->diffInDays(now()) }} days idle</span>
-                                    <small class="cell-note">Review and contact the company</small>
+                                    @php
+                                        $canEmail = $project->company && !$project->company->trashed() && filled($project->company->email);
+                                        $companyWhatsApp = $project->company && !$project->company->trashed()
+                                            ? \App\Support\WhatsApp::companyNumber($project->company) : null;
+                                    @endphp
+                                    @if (isset($remindedAt[$project->id]))
+                                        <small class="cell-note">✓ Company emailed {{ $remindedAt[$project->id]->diffForHumans() }}</small>
+                                    @elseif (!$canEmail && !$companyWhatsApp)
+                                        <small class="cell-note">No company email or phone</small>
+                                    @endif
+                                    <div class="project-remind-actions">
+                                        @if ($canEmail && !isset($remindedAt[$project->id]))
+                                            <form method="POST" action="{{ route('admin.projects.remind', $project->id) }}"
+                                                onsubmit="return confirm(@js('Email ' . $project->company->name . ' asking for an update on project #' . $project->id . '?'));">
+                                                @csrf
+                                                <button type="submit" class="btn btn-light btn-sm">✉️ Email company</button>
+                                            </form>
+                                        @endif
+                                        @if ($companyWhatsApp)
+                                            <a href="{{ route('admin.projects.whatsapp', $project->id) }}" target="_blank" rel="noopener"
+                                                class="btn btn-sm btn-whatsapp" title="WhatsApp +{{ $companyWhatsApp }}"
+                                                aria-label="Message {{ $project->company->name }} on WhatsApp about project #{{ $project->id }}">
+                                                @include('admin.partials.whatsapp-icon', ['size' => 15]) WhatsApp
+                                            </a>
+                                        @endif
+                                    </div>
                                 @elseif ($project->status === 'accepted')
                                     <span class="pill pill-orange">Waiting to start</span>
                                 @elseif ($project->status === 'in_progress')
                                     <span class="pill pill-blue">In progress</span>
+                                @elseif ($project->status === 'handover_pending')
+                                    <span class="pill pill-purple">Waiting for customer</span>
+                                    <small class="cell-note">Customer confirms the handover in the app</small>
                                 @else
                                     <span class="pill pill-green">Closed</span>
                                 @endif

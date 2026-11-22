@@ -531,4 +531,34 @@ document.addEventListener('DOMContentLoaded', () => {
             save();
         });
     });
+
+    // Keep the menu where it was between pages, and make sure the current page's link is visible.
+    const scroller = document.querySelector('.sidebar-scroll');
+    if (!scroller) return;
+
+    const scrollKey = 'sx-nav-scroll:' + panel;
+
+    try {
+        const saved = parseInt(sessionStorage.getItem(scrollKey) || '', 10);
+        if (!isNaN(saved)) scroller.scrollTop = saved;
+    } catch (e) { /* storage blocked: start at the top */ }
+
+    const active = scroller.querySelector('.nav-link.active');
+    if (active) {
+        const box = scroller.getBoundingClientRect();
+        const link = active.getBoundingClientRect();
+
+        if (link.top < box.top || link.bottom > box.bottom) {
+            scroller.scrollTop += (link.top - box.top) - (box.height - link.height) / 2;
+        }
+    }
+
+    const remember = () => {
+        try {
+            sessionStorage.setItem(scrollKey, String(Math.round(scroller.scrollTop)));
+        } catch (e) { /* storage blocked */ }
+    };
+
+    scroller.addEventListener('scroll', remember, { passive: true });
+    window.addEventListener('pagehide', remember);
 })();

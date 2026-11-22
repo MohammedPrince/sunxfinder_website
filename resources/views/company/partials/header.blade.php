@@ -310,6 +310,7 @@
     'roleLabel' => __('company/messages.navigation.company_account'),
     'userEmail' => $companyUser->email ?? null,
     'accountBadge' => $accountBadge,
+    'helpLink' => ['label' => __('company/messages.navigation.help_guide'), 'url' => route('company.manual')],
     'quickActions' => [
         ['label' => __('company/messages.navigation.find_new_requests'), 'url' => route('company.quote-requests.index', ['status' => 'pending']), 'hint' => __('company/messages.navigation.find_new_requests_hint')],
         ['label' => __('company/messages.navigation.update_project'), 'url' => route('company.projects.index', ['status' => 'in_progress']), 'hint' => __('company/messages.navigation.update_project_hint')],

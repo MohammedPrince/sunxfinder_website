@@ -606,8 +606,9 @@ class Helper
     /**
      * Builds the push title/body for a customer in the app language.
      * Supported types: offer_received, offer_updated, start_installation, project_completed, account_approved,
-     * request_cancelled ($price carries the request reference). $price is shown as given
-     * (e.g. "1,500 SDG").
+     * request_cancelled ($price carries the request reference), offer_withdrawn and
+     * offer_price_changed ($price is an array of named placeholders per language). Otherwise
+     * $price is shown as given (e.g. "1,500 SDG").
      */
     public function notificationsTemplate($customer_id, $lang, $type, $price = null): array
     {
@@ -676,6 +677,52 @@ class Helper
                     'body' => 'تم إلغاء طلب عرض السعر :price من قبل فريق SunXFinder، وتم سحب العروض المنتظرة. يمكنك إرسال طلب جديد من التطبيق في أي وقت، أو التواصل معنا إذا كان لديك أي استفسار.',
                 ],
             ],
+            // The company finished; the customer confirms the handover in the app (or reports a problem).
+            // :price carries the auto-confirm period in days here.
+            'handover_requested' => [
+                'en' => [
+                    'title' => 'Please confirm the handover',
+                    'body' => 'Your installation is finished. Please confirm the handover in the app, or report a problem. If you do neither within :price days, the handover is confirmed automatically.',
+                ],
+                'ar' => [
+                    'title' => 'يرجى تأكيد الاستلام',
+                    'body' => 'اكتمل تركيب منظومتك. يرجى تأكيد الاستلام من التطبيق أو الإبلاغ عن مشكلة. إذا لم تفعل خلال :price أيام، يتم تأكيد الاستلام تلقائياً.',
+                ],
+            ],
+            // Nobody answered within the period: confirmed automatically. :price = the period in days.
+            'handover_auto_confirmed' => [
+                'en' => [
+                    'title' => 'Handover confirmed',
+                    'body' => 'We did not hear from you within :price days, so the handover of your solar system was confirmed automatically. You can now rate the company in the app.',
+                ],
+                'ar' => [
+                    'title' => 'تم تأكيد الاستلام',
+                    'body' => 'لم يصلنا ردّك خلال :price أيام، لذلك تم تأكيد استلام منظومتك تلقائياً. يمكنك الآن تقييم الشركة من التطبيق.',
+                ],
+            ],
+            // The company that won ended the deal (or the customer declined its new price): the
+            // request is open again. $price = ['en' => [':company' => …, ':ref' => …, ':reason' => …], 'ar' => […]].
+            'offer_withdrawn' => [
+                'en' => [
+                    'title' => 'A company withdrew from your request',
+                    'body' => 'Your request :ref is open again. :company can no longer carry it out (:reason). You can choose another offer or wait for new ones.',
+                ],
+                'ar' => [
+                    'title' => 'انسحبت شركة من طلبك',
+                    'body' => 'طلبك :ref مفتوح من جديد. لم تعد :company قادرة على تنفيذه (:reason). يمكنك اختيار عرض آخر أو انتظار عروض جديدة.',
+                ],
+            ],
+            // The company asks to change the price of the accepted offer. Placeholders :company, :ref, :old, :new, :reason.
+            'offer_price_changed' => [
+                'en' => [
+                    'title' => 'Price change on your accepted offer',
+                    'body' => 'The company :company asks to change the price of your request :ref from :old to :new (:reason). Please accept or decline in the app. If you decline, your request opens again for other offers.',
+                ],
+                'ar' => [
+                    'title' => 'طلب تعديل سعر العرض المقبول',
+                    'body' => 'تطلب شركة :company تعديل سعر طلبك :ref من :old إلى :new (:reason). يرجى القبول أو الرفض من التطبيق. إذا رفضت، يُفتح طلبك من جديد لعروض أخرى.',
+                ],
+            ],
             'project_completed' => [
                 'en' => [
                     'title' => 'Your solar system is ready',
@@ -693,7 +740,10 @@ class Helper
             'body' => $lang === 'ar' ? 'لديك إشعار جديد.' : 'You have a new notification.',
         ];
 
-        $body = str_replace(':price', (string) $price, $template['body']);
+        // An array carries named placeholders per language, e.g. ['en' => [':company' => 'X'], 'ar' => [...]].
+        $body = is_array($price)
+            ? strtr($template['body'], array_map('strval', $price[$lang] ?? $price['en'] ?? []))
+            : str_replace(':price', (string) $price, $template['body']);
 
         if ($name !== '') {
             $body = $lang === 'ar'
@@ -723,9 +773,9 @@ class Helper
     }
 
     /**
-     * Push notification to the customer about their project:
-     * start_installation (installation started) or project_completed (handed over).
-     * Skipped when the customer has no device token registered.
+     * Push and in-app notification to the customer about their project, with its quote_id:
+     * start_installation (installation started) or handover_requested (company finished,
+     * the customer must confirm the handover). Saved to the inbox even without a device token.
      */
     public function notifyCustomerAboutProject(Project $project, string $type): void
     {
@@ -733,15 +783,10 @@ class Helper
             return;
         }
 
-        $hasToken = CustomerDeviceToken::query()
-            ->where('customer_id', $project->customer_id)
-            ->exists();
+        // The handover texts name the auto-confirm period.
+        $detail = in_array($type, ['handover_requested', 'handover_auto_confirmed'], true) ? Project::AUTO_CONFIRM_DAYS : null;
 
-        if (!$hasToken) {
-            return;
-        }
-
-        $this->notifyCustomer((int) $project->customer_id, $type);
+        $this->notifyCustomer((int) $project->customer_id, $type, $detail, 'company', $project->quote_id ? (int) $project->quote_id : null);
     }
 
     /**

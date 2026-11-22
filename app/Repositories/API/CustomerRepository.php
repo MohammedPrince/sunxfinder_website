@@ -17,6 +17,7 @@ use App\Support\AdTracker;
 use App\Models\CompanyQuotation;
 use App\Models\Customer;
 use App\Models\CustomerTermsAcceptance;
+use App\Models\CustomerComplaint;
 use App\Models\CustomerDeviceToken;
 use App\Models\HomeSection;
 use App\Repositories\MainRepository;
@@ -25,6 +26,9 @@ use App\Models\CustomerNotification;
 use App\Models\ArchivedItem;
 use App\Models\Invoice;
 use App\Models\LegalSection;
+use App\Models\OfferPriceChange;
+use App\Models\ProjectCancellation;
+use App\Support\OfferWithdrawal;
 use App\Models\PackageOffer;
 use App\Models\PackageOfferResponse;
 use App\Models\Product;
@@ -45,6 +49,8 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
+use App\Support\OfferTerms;
+use App\Support\ProjectHandover;
 use Throwable;
 
 
@@ -902,6 +908,13 @@ class CustomerRepository
             $query->withAvg(['ratings as visible_rating' => fn($q) => $q->where('is_visible', true)], 'stars')
                 ->withCount(['ratings as visible_reviews' => fn($q) => $q->where('is_visible', true)]);
 
+            // Companies that often back out of accepted jobs are listed after the others
+            // (not when sorting by name). See ProjectCancellation::FLAG_THRESHOLD.
+            if ($sort !== 'name') {
+                [$flaggedSql, $flaggedBindings] = ProjectCancellation::flaggedCompanySql();
+                $query->orderByRaw($flaggedSql, $flaggedBindings);
+            }
+
             if ($sort === 'name') {
                 $query->orderBy('name');
             } elseif ($sort === 'rating') {
@@ -1739,11 +1752,19 @@ class CustomerRepository
                             'accepted_at',
                             'started_at',
                             'completed_at',
+                            'handover_requested_at',
+                            'handover_confirmed_at',
+                            'handover_confirmed_by',
+                            'handover_problem_at',
                         ]);
                     },
 
                     // The customer's own rating, so the app hides "Rate Company" once rated.
                     'rating:id,quote_id,customer_id,stars',
+
+                    // A company that left after acceptance, and a new price waiting for an answer.
+                    'latestWithdrawal.company:id,name',
+                    'pendingPriceChange.company:id,name',
                 ]);
 
             // Search quote fields.
@@ -1841,6 +1862,22 @@ class CustomerRepository
                         'project_accepted_at' => $quote->project?->accepted_at?->toISOString(),
                         'project_started_at' => $quote->project?->started_at?->toISOString(),
                         'project_completed_at' => $quote->project?->completed_at?->toISOString(),
+                        // Company finished (status handover_pending) / customer confirmed (completed).
+                        'project_handover_requested_at' => $quote->project?->handover_requested_at?->toISOString(),
+                        'project_handover_confirmed_at' => $quote->project?->handover_confirmed_at?->toISOString(),
+                        // When a waiting handover is confirmed automatically (only while handover_pending).
+                        'project_handover_auto_confirm_at' => $quote->project?->handoverAutoConfirmAt()?->toISOString(),
+                        // "customer" or "auto" once completed.
+                        'project_handover_confirmed_by' => $quote->project?->handover_confirmed_by,
+                        // Last "Report a problem" from the customer.
+                        'project_handover_problem_at' => $quote->project?->handover_problem_at?->toISOString(),
+
+                        // The chosen company left and the request is open again (only while it is pending).
+                        'company_withdrawal' => $quote->status === 'pending' && $quote->latestWithdrawal
+                            ? $this->formatCompanyWithdrawal($quote->latestWithdrawal)
+                            : null,
+                        // The company asks for a new price on the accepted offer; the customer accepts or declines.
+                        'price_change' => $quote->pendingPriceChange?->toApi(),
 
                         // Individual company offers and their statuses.
                         'offers' => $quote->companyQuotations
@@ -1859,6 +1896,11 @@ class CustomerRepository
                                     'currency' => $offer->currency,
                                     'message' => $offer->message,
                                     'ar_message' => $offer->ar_message,
+                                    // Warranty and terms: structured values, plus ready-to-show lines.
+                                    // Both null / [] when the company gave none.
+                                    'terms' => $offer->terms,
+                                    'terms_display' => $offer->termLines(),
+                                    'valid_until' => $offer->validUntil()?->toDateString(),
                                     'status' => $offer->status,
                                     'created_at' => $offer->created_at?->toISOString(),
                                     // Line items and totals for the offer details screen.
@@ -1901,6 +1943,20 @@ class CustomerRepository
      * An offer without an invoice has no line items, so its subtotal
      * and total are the offer price and the other amounts are null.
      */
+    private function formatCompanyWithdrawal(ProjectCancellation $withdrawal): array
+    {
+        return [
+            'company_id' => (int) $withdrawal->company_id,
+            'company_name' => $withdrawal->company?->name,
+            'reason' => $withdrawal->reason,
+            'reason_label_en' => $withdrawal->reasonText('en'),
+            'reason_label_ar' => $withdrawal->reasonText('ar'),
+            'withdrawn_at' => ($withdrawal->decided_at ?? $withdrawal->created_at)?->toISOString(),
+            // Other companies' offers that came back and can be accepted now.
+            'reopened_offers' => (int) $withdrawal->reopened_offers,
+        ];
+    }
+
     private function formatOfferBreakdown(CompanyQuotation $offer): array
     {
         $invoice = $offer->invoice;
@@ -1927,7 +1983,24 @@ class CustomerRepository
             'tax' => $invoice?->tax,
             'shipping' => $invoice?->shipping,
             'total' => $offer->price,
+            // Set when the customer accepted a new price after the invoice was made: the
+            // difference between the total and the invoice lines (e.g. "150000.00" or "-20000.00").
+            'adjustment' => $this->offerAdjustment($offer),
         ];
+    }
+
+    private function offerAdjustment(CompanyQuotation $offer): ?string
+    {
+        $invoice = $offer->invoice;
+
+        if (!$invoice) {
+            return null;
+        }
+
+        $linesTotal = (float) $invoice->subtotal - (float) $invoice->discount + (float) $invoice->tax + (float) $invoice->shipping;
+        $difference = round((float) $offer->price - $linesTotal, 2);
+
+        return abs($difference) >= 0.01 ? number_format($difference, 2, '.', '') : null;
     }
 
     private function formatOfferInvoice(?Invoice $invoice): ?array
@@ -2081,15 +2154,15 @@ class CustomerRepository
                 $done = fn(bool $newlyCompleted) => [
                     'success' => true,
                     'code' => 200,
-                    'message' => $say('Marked as completed.', 'تم تأكيد اكتمال المشروع.'),
+                    'message' => $say('Handover confirmed.', 'تم تأكيد الاستلام.'),
                     'newly_completed' => $newlyCompleted,
                     'offer_id' => (int) $offer->id,
                     'project_id' => (int) $project->id,
                     'data' => ['quote_id' => (int) $quote->id, 'quote_status' => 'completed'],
                 ];
 
-                // Already completed (by the company or an earlier call): safe to repeat.
-                if ($project->status === 'completed') {
+                // Already confirmed (an earlier call): safe to repeat.
+                if ($project->status === Project::COMPLETED) {
                     if ($quote->status !== 'completed') {
                         $quote->status = 'completed';
                         $quote->save();
@@ -2098,67 +2171,21 @@ class CustomerRepository
                     return $done(false);
                 }
 
-                $milestones = ProjectMilestone::query()
-                    ->where('project_id', $project->id)
-                    ->orderBy('sort_order')
-                    ->orderBy('id')
-                    ->lockForUpdate()
-                    ->get();
-
-                $isHandover = fn($milestone) => strtolower(trim((string) $milestone->title)) === 'customer handover';
-                $handover = $milestones->first($isHandover);
-                $installation = $milestones->reject($isHandover)->values();
-
-                // Same rule as the company panel: every installation step must be done first.
-                $installationComplete = $project->status === 'in_progress'
-                    && $installation->isNotEmpty()
-                    && $installation->every(fn($milestone) => $milestone->status === 'completed');
-
-                if (!$installationComplete) {
+                // Only after the company finished the job (all steps and the handover step done).
+                if ($project->status !== Project::HANDOVER_PENDING) {
                     return [
                         'success' => false,
                         'code' => 422,
                         'reason' => 'installation_not_finished',
                         'message' => $say(
-                            'The company has not finished the installation yet. You can confirm once all installation steps are done.',
-                            'لم تُنهِ الشركة التركيب بعد. يمكنك التأكيد بعد اكتمال جميع مراحل التركيب.'
+                            'The company has not finished the installation yet. You can confirm once the company marks it as finished.',
+                            'لم تنتهِ الشركة من التركيب بعد. يمكنك التأكيد بعد أن تعلن الشركة انتهاء العمل.'
                         ),
                     ];
                 }
 
-                if ($handover) {
-                    $handover->status = 'completed';
-                    $handover->started_at ??= now();
-                    $handover->completed_at ??= now();
-                    $handover->save();
-                }
-
-                $oldStatus = $project->status;
-                $project->status = 'completed';
-                $project->progress_percent = 100;
-                $project->completed_at ??= now();
-                $project->save();
-
-                SolarCompany::query()
-                    ->whereKey($project->company_id)
-                    ->update(['number_of_projects' => DB::raw('COALESCE(number_of_projects, 0) + 1')]);
-
-                ProjectUpdate::query()->create([
-                    'project_id' => $project->id,
-                    'updated_by_type' => 'customer',
-                    'updated_by_id' => $customer->id,
-                    'old_status' => $oldStatus,
-                    'new_status' => 'completed',
-                    'progress_percent' => 100,
-                    'message' => 'The customer confirmed the handover in the app. The project is completed.',
-                    'visible_to_customer' => true,
-                ]);
-
-                $quote->status = 'completed';
-                $quote->save();
-
-                // Email the company (queued until commit).
-                SendCompanyOfferDecisionEmail::dispatch($offer->id, CompanyOfferDecisionMail::COMPLETED);
+                // Completes project and request, counts the project, emails the company after commit.
+                ProjectHandover::confirm($project, $quote, Project::CONFIRMED_BY_CUSTOMER, (int) $customer->id);
 
                 return $done(true);
             });
@@ -2180,6 +2207,102 @@ class CustomerRepository
                 'message' => $lang === 'ar'
                     ? 'تعذّر تأكيد الاكتمال. يرجى المحاولة مرة أخرى.'
                     : 'Unable to confirm completion. Please try again.',
+            ];
+        }
+    }
+
+    /**
+     * POST /handover-problem {quote_id, message}: instead of confirming, the customer reports
+     * a problem. The project goes back to in_progress, the company is emailed, and a complaint
+     * is opened so SunXFinder can follow it up.
+     */
+    public function reportHandoverProblem(array $data): array
+    {
+        $lang = 'en';
+
+        try {
+            $customer = $this->helper->isCustomerAuthenticated();
+
+            if (!$customer) {
+                return ['success' => false, 'code' => 401, 'message' => 'Unauthenticated.'];
+            }
+
+            $lang = $this->customerPreferredLanguage($customer->id);
+            $say = fn(string $en, string $ar) => $lang === 'ar' ? $ar : $en;
+            $message = trim((string) $data['message']);
+
+            $result = DB::transaction(function () use ($data, $customer, $say, $message) {
+                $quote = Quote::query()
+                    ->where('customer_id', $customer->id)
+                    ->whereKey($data['quote_id'])
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$quote) {
+                    return ['success' => false, 'code' => 404, 'message' => $say('Quote request not found.', 'طلب عرض السعر غير موجود.')];
+                }
+
+                $project = Project::query()->where('quote_id', $quote->id)->lockForUpdate()->first();
+
+                if (!$project || $project->status !== Project::HANDOVER_PENDING) {
+                    return [
+                        'success' => false,
+                        'code' => 422,
+                        'reason' => 'not_waiting_confirmation',
+                        'message' => $say(
+                            'You can report a problem only while the company is waiting for you to confirm the handover.',
+                            'يمكنك الإبلاغ عن مشكلة فقط عندما تنتظر الشركة تأكيدك للاستلام.'
+                        ),
+                    ];
+                }
+
+                ProjectHandover::reportProblem($project, (int) $customer->id, $message);
+
+                // Also a complaint, so the SunXFinder team sees it in Admin → Complaints.
+                $complaint = CustomerComplaint::query()->create([
+                    'customer_id' => $customer->id,
+                    'company_id' => $project->company_id,
+                    'category' => 'service_issue',
+                    'description' => 'Handover problem on request #Q-' . str_pad((string) $quote->id, 5, '0', STR_PAD_LEFT) . ': ' . $message,
+                    'status' => 'pending',
+                    'company_notified_at' => now(),
+                ]);
+
+                return [
+                    'success' => true,
+                    'code' => 200,
+                    'message' => $say(
+                        'Thank you. We told the company about the problem. The project is back in progress until they fix it.',
+                        'شكرًا لك. أبلغنا الشركة بالمشكلة. عاد المشروع إلى قيد التنفيذ حتى تقوم بحلها.'
+                    ),
+                    'project_id' => (int) $project->id,
+                    'data' => [
+                        'quote_id' => (int) $quote->id,
+                        'quote_status' => $quote->status,
+                        'project_id' => (int) $project->id,
+                        'project_status' => $project->status,
+                        'complaint_id' => (int) $complaint->id,
+                    ],
+                ];
+            });
+
+            if ($result['success'] ?? false) {
+                ActivityLogger::log('handover_problem', 'Customer reported a problem instead of confirming the handover', $customer, [
+                    'quote_id' => $result['data']['quote_id'],
+                    'project_id' => $result['project_id'],
+                ], ActivityLogger::actorFor($customer), 'projects');
+            }
+
+            return $result;
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+                'message' => $lang === 'ar'
+                    ? 'تعذّر إرسال البلاغ. يرجى المحاولة مرة أخرى.'
+                    : 'Unable to report the problem. Please try again.',
             ];
         }
     }
@@ -2251,6 +2374,25 @@ class CustomerRepository
                         'code' => 409,
                         'message' => 'This offer is no longer available for acceptance.',
                         'data' => null,
+                    ];
+                }
+
+                // Past its validity the price may no longer hold: the company renews it by editing the offer.
+                $validUntil = $offer->validUntil();
+
+                if ($validUntil && now()->startOfDay()->gt($validUntil)) {
+                    $ar = $this->customerPreferredLanguage((int) $customer->id) === 'ar';
+
+                    return [
+                        'success' => false,
+                        'code' => 409,
+                        'message' => $ar
+                            ? 'انتهت صلاحية هذا العرض. اطلب من الشركة تحديثه، أو اختر عرضاً آخر.'
+                            : 'This offer has expired. Ask the company to renew it, or choose another offer.',
+                        'data' => [
+                            'reason' => 'offer_expired',
+                            'valid_until' => $validUntil->toDateString(),
+                        ],
                     ];
                 }
 
@@ -2450,6 +2592,184 @@ class CustomerRepository
                 'code' => 500,
                 'message' => 'Unable to reject the offer. Please try again.',
                 'data' => null,
+            ];
+        }
+    }
+
+    /**
+     * POST /price-changes/{id}/accept: the customer agrees to the company's new price.
+     * The offer gets the new price (commission on the same terms) and the project carries on.
+     */
+    public function acceptPriceChange(int $changeId): array
+    {
+        return $this->answerPriceChange($changeId, true);
+    }
+
+    /**
+     * POST /price-changes/{id}/decline: the customer keeps looking. The deal with this company
+     * ends (not counted against it) and the request opens again for other offers.
+     */
+    public function declinePriceChange(int $changeId): array
+    {
+        return $this->answerPriceChange($changeId, false);
+    }
+
+    private function answerPriceChange(int $changeId, bool $accept): array
+    {
+        $lang = 'en';
+
+        try {
+            $customer = $this->helper->isCustomerAuthenticated();
+
+            if (!$customer) {
+                return ['success' => false, 'code' => 401, 'message' => 'Unauthenticated.'];
+            }
+
+            $customerId = (int) $customer->id;
+            $lang = $this->customerPreferredLanguage($customerId);
+            $say = fn(string $en, string $ar) => $lang === 'ar' ? $ar : $en;
+            $reopenedIds = [];
+
+            $result = DB::transaction(function () use ($changeId, $customerId, $accept, $say, &$reopenedIds) {
+                $change = OfferPriceChange::query()
+                    ->whereKey($changeId)
+                    ->where('customer_id', $customerId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$change) {
+                    return ['success' => false, 'code' => 404, 'message' => $say('Price change not found.', 'طلب تعديل السعر غير موجود.')];
+                }
+
+                $project = Project::query()->whereKey($change->project_id)->lockForUpdate()->first();
+
+                if ($change->status !== OfferPriceChange::PENDING || !$project || $project->status !== Project::ACCEPTED) {
+                    return [
+                        'success' => false,
+                        'code' => 422,
+                        'reason' => 'price_change_closed',
+                        'message' => $say(
+                            'This price change is no longer waiting for your answer.',
+                            'لم يعد طلب تعديل السعر هذا بانتظار ردك.'
+                        ),
+                    ];
+                }
+
+                $change->status = $accept ? OfferPriceChange::ACCEPTED : OfferPriceChange::DECLINED;
+                $change->responded_at = now();
+                $change->save();
+
+                if ($accept) {
+                    $offer = CompanyQuotation::query()->whereKey($change->company_quotation_id)->lockForUpdate()->firstOrFail();
+                    OfferWithdrawal::applyPriceChange($offer, $change);
+
+                    ProjectUpdate::query()->create([
+                        'project_id' => $project->id,
+                        'updated_by_type' => 'customer',
+                        'updated_by_id' => $customerId,
+                        'old_status' => $project->status,
+                        'new_status' => $project->status,
+                        'progress_percent' => (int) $project->progress_percent,
+                        'message' => 'The customer accepted the new price: ' . number_format((float) $change->old_price)
+                            . ' → ' . number_format((float) $change->new_price) . ' ' . $change->currency . '.',
+                        'visible_to_customer' => true,
+                    ]);
+
+                    return [
+                        'success' => true,
+                        'code' => 200,
+                        'message' => $say('New price accepted. The company can now start the installation.', 'تم قبول السعر الجديد. يمكن للشركة الآن بدء التركيب.'),
+                        'change' => $change,
+                        'data' => [
+                            'price_change_id' => (int) $change->id,
+                            'quote_id' => (int) $change->quote_id,
+                            'offer_id' => (int) $offer->id,
+                            'price' => (float) $offer->price,
+                            'currency' => $offer->currency,
+                            'quote_status' => 'accepted',
+                            'project_id' => (int) $project->id,
+                            'project_status' => $project->status,
+                        ],
+                    ];
+                }
+
+                // Declined: the customer chose to look elsewhere. Not the company's fault.
+                $cancellation = new ProjectCancellation([
+                    'project_id' => $project->id,
+                    'quote_id' => $project->quote_id,
+                    'company_quotation_id' => $project->company_quotation_id,
+                    'company_id' => $project->company_id,
+                    'customer_id' => $customerId,
+                    'stage' => $project->status,
+                    'progress_percent' => (int) $project->progress_percent,
+                    'reason' => ProjectCancellation::REASON_PRICE_DECLINED,
+                    'note' => 'Proposed ' . number_format((float) $change->new_price) . ' ' . $change->currency
+                        . ' instead of ' . number_format((float) $change->old_price) . '.',
+                    'status' => ProjectCancellation::WITHDRAWN,
+                    'counts_against_company' => false,
+                    'decided_at' => now(),
+                ]);
+                $cancellation->save();
+
+                $reopenedIds = OfferWithdrawal::endDeal($project, $cancellation, 'customer', $customerId);
+
+                return [
+                    'success' => true,
+                    'code' => 200,
+                    'message' => $say(
+                        'You declined the new price. Your request is open again, so you can choose another offer.',
+                        'رفضت السعر الجديد. أصبح طلبك مفتوحاً من جديد، ويمكنك اختيار عرض آخر.'
+                    ),
+                    'change' => $change,
+                    'cancellation' => $cancellation,
+                    'data' => [
+                        'price_change_id' => (int) $change->id,
+                        'quote_id' => (int) $change->quote_id,
+                        'quote_status' => 'pending',
+                        'project_id' => null,
+                        'project_status' => null,
+                        'reopened_offers' => count($reopenedIds),
+                    ],
+                ];
+            });
+
+            if (!($result['success'] ?? false)) {
+                return $result;
+            }
+
+            /** @var OfferPriceChange $change */
+            $change = $result['change'];
+            $money = fn($value) => number_format((float) $value) . ' ' . $change->currency;
+
+            if ($accept) {
+                SendCompanyOfferDecisionEmail::dispatch((int) $change->company_quotation_id, CompanyOfferDecisionMail::PRICE_ACCEPTED, [
+                    'oldPrice' => $money($change->old_price),
+                    'newPrice' => $money($change->new_price),
+                ]);
+                ActivityLogger::log('price_change_accepted', 'Customer accepted the new price on request ' . OfferWithdrawal::reference((int) $change->quote_id), $customer, [
+                    'quote_id' => (int) $change->quote_id,
+                    'price_change_id' => (int) $change->id,
+                ], ActivityLogger::actorFor($customer), 'projects');
+            } else {
+                // The customer did it themselves: no push; the company and the reopened offers are emailed.
+                OfferWithdrawal::notifyDealEnded($result['cancellation'], $reopenedIds, false, CompanyOfferDecisionMail::PRICE_DECLINED, [
+                    'oldPrice' => $money($change->old_price),
+                    'newPrice' => $money($change->new_price),
+                ]);
+            }
+
+            unset($result['change'], $result['cancellation']);
+
+            return $result;
+        } catch (Throwable $e) {
+            report($e);
+
+            return [
+                'success' => false,
+                'code' => 500,
+                'message' => $lang === 'ar'
+                    ? 'تعذّر حفظ ردك. يرجى المحاولة مرة أخرى.'
+                    : 'Unable to save your answer. Please try again.',
             ];
         }
     }
@@ -2973,6 +3293,10 @@ class CustomerRepository
                 ];
             }
 
+            if ($notConfirmed = $this->handoverNotConfirmedResponse($quote)) {
+                return $notConfirmed;
+            }
+
             $alreadyRated = Rating::query()
                 ->where('customer_id', $customer->id)
                 ->where('quote_id', $quote->id)
@@ -3207,9 +3531,25 @@ class CustomerRepository
     }
 
     /** Active questions and the 1-4 answer labels, for the app's rating screen. */
-    public function getRatingForm(): array
+    public function getRatingForm(?int $quoteId = null): array
     {
         try {
+            // With a quote_id, refuse until that handover is confirmed (someone else's quote: 404).
+            if ($quoteId) {
+                $customer = $this->helper->isCustomerAuthenticated();
+                $quote = $customer
+                    ? Quote::query()->where('customer_id', $customer->id)->find($quoteId)
+                    : null;
+
+                if (!$quote) {
+                    return ['success' => false, 'code' => 404, 'message' => 'Quote request not found.', 'data' => null];
+                }
+
+                if ($notConfirmed = $this->handoverNotConfirmedResponse($quote)) {
+                    return $notConfirmed;
+                }
+            }
+
             /** @var \Illuminate\Database\Eloquent\Collection<int, RatingQuestion> $questionRows */
             $questionRows = RatingQuestion::query()
                 ->active()
@@ -3290,6 +3630,30 @@ class CustomerRepository
             ->all();
     }
 
+    /**
+     * Rating is open only after the customer confirmed the handover (project completed).
+     * Returns the 422 response, or null when rating is allowed.
+     */
+    private function handoverNotConfirmedResponse(Quote $quote): ?array
+    {
+        $projectStatus = Project::query()->where('quote_id', $quote->id)->value('status');
+
+        if ($projectStatus === Project::COMPLETED || $quote->status === 'completed') {
+            return null;
+        }
+
+        $ar = $this->customerPreferredLanguage((int) $quote->customer_id) === 'ar';
+
+        return [
+            'success' => false,
+            'code' => 422,
+            'message' => $ar
+                ? 'يمكنك تقييم الشركة بعد تأكيد استلام المنظومة.'
+                : 'You can rate the company after you confirm the handover.',
+            'data' => ['reason' => 'handover_not_confirmed'],
+        ];
+    }
+
     private function alreadyRatedResponse(): array
     {
         return [
@@ -3325,7 +3689,7 @@ class CustomerRepository
             ];
         }
 
-        return Project::query()
+        $project = Project::query()
             ->whereKey($projectId)
             ->where('customer_id', $customerId)
             ->with([
@@ -3340,8 +3704,18 @@ class CustomerRepository
                     $query->where('visible_to_customer', true)
                         ->orderByDesc('created_at');
                 },
+                'pendingPriceChange.company:id,name',
             ])
             ->first();
+
+        if ($project) {
+            // Same shape as "price_change" in My Quotes; null when nothing is waiting.
+            $change = $project->pendingPriceChange;
+            $project->unsetRelation('pendingPriceChange');
+            $project->setAttribute('price_change', $change?->toApi());
+        }
+
+        return $project;
     }
 
     public function saveCustomerDeviceToken(

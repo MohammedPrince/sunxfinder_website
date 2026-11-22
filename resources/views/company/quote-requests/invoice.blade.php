@@ -30,6 +30,8 @@
         <div class="alert alert-danger no-print">{{ session('error') }}</div>
     @endif
 
+    @include('company.partials.guide', ['page' => 'invoice'])
+
     <article class="company-invoice">
         <div class="company-invoice-brand">
             <img src="{{ asset('visitors/images/sunxfinder-logo-email.png') }}" alt="SunXFinder" width="120" height="96">
@@ -70,6 +72,13 @@
                 </tbody>
             </table>
         </div>
+
+        @if ($invoice->quotation?->termLines())
+            <section class="company-invoice-terms">
+                <span>{{ __('company/messages.offer_terms.title') }}</span>
+                @include('partials.offer-terms-list', ['offer' => $invoice->quotation])
+            </section>
+        @endif
 
         <section class="company-invoice-footer">
             <div class="company-invoice-notes">

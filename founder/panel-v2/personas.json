@@ -1,0 +1,222 @@
+[
+ {
+  "id": "P001",
+  "name": "Priya",
+  "age": 60,
+  "segment": "Sudanese working abroad paying for a solar system for family in Sudan",
+  "income": 48000,
+  "behaviour": "Careful researcher",
+  "behaviour_how": "Reads about panels, batteries and inverters, wants brands and models in writing before paying.",
+  "objection": "Is this app even working? I don't want to download something empty",
+  "habit": "the power is cut for about 12 hours a day in your area"
+ },
+ {
+  "id": "P002",
+  "name": "Raj",
+  "age": 41,
+  "segment": "Sudanese working abroad paying for a solar system for family in Sudan",
+  "income": 21000,
+  "behaviour": "Budget stretcher",
+  "behaviour_how": "Wants to start small with what they can afford now and add more later; price decides everything.",
+  "objection": "Solar is simply too expensive for me right now",
+  "habit": "you send money home every month through a relative or a transfer app"
+ },
+ {
+  "id": "P003",
+  "name": "Sofia",
+  "age": 29,
+  "segment": "Sudanese working abroad paying for a solar system for family in Sudan",
+  "income": 34000,
+  "behaviour": "Asks family and friends first",
+  "behaviour_how": "Uses the installer a relative or neighbour used, and trusts word of mouth over any website.",
+  "objection": "I don't know what size system I need, so I can't judge any offer",
+  "habit": "you spend a lot on generator fuel every month and it is not always available"
+ },
+ {
+  "id": "P004",
+  "name": "Isla",
+  "age": 58,
+  "segment": "Homeowner in Khartoum or Port Sudan running a generator or living with long power cuts",
+  "income": 6000,
+  "behaviour": "Asks family and friends first",
+  "behaviour_how": "Uses the installer a relative or neighbour used, and trusts word of mouth over any website.",
+  "objection": "From abroad I can't check that the company actually did the work",
+  "habit": "the power is cut for about 12 hours a day in your area"
+ },
+ {
+  "id": "P005",
+  "name": "Kofi",
+  "age": 36,
+  "segment": "Small shop owner (grocery, pharmacy, phone shop, tailor) losing sales in power cuts",
+  "income": 8000,
+  "behaviour": "Market haggler",
+  "behaviour_how": "Goes to the market, compares parts prices shop by shop, and has a local electrician wire it.",
+  "objection": "Panels and batteries in the market are often fake or weak; how would an app know?",
+  "habit": "you send money home every month through a relative or a transfer app"
+ },
+ {
+  "id": "P006",
+  "name": "Rafael",
+  "age": 41,
+  "segment": "Homeowner in Khartoum or Port Sudan running a generator or living with long power cuts",
+  "income": 9000,
+  "behaviour": "Asks family and friends first",
+  "behaviour_how": "Uses the installer a relative or neighbour used, and trusts word of mouth over any website.",
+  "objection": "From abroad I can't check that the company actually did the work",
+  "habit": "you use WhatsApp all day and Facebook every evening"
+ },
+ {
+  "id": "P007",
+  "name": "Pablo",
+  "age": 30,
+  "segment": "Homeowner in Khartoum or Port Sudan running a generator or living with long power cuts",
+  "income": 3000,
+  "behaviour": "Budget stretcher",
+  "behaviour_how": "Wants to start small with what they can afford now and add more later; price decides everything.",
+  "objection": "I'm worried companies will call me non-stop once they have my number",
+  "habit": "a neighbour installed solar last year and you heard mixed things about it"
+ },
+ {
+  "id": "P008",
+  "name": "Elena",
+  "age": 52,
+  "segment": "Small shop owner (grocery, pharmacy, phone shop, tailor) losing sales in power cuts",
+  "income": 12000,
+  "behaviour": "Facebook group asker",
+  "behaviour_how": "Posts 'who installed yours and how much?' in a city or solar Facebook group and reads the comments.",
+  "objection": "Is this app even working? I don't want to download something empty",
+  "habit": "you send money home every month through a relative or a transfer app"
+ },
+ {
+  "id": "P009",
+  "name": "Lucia",
+  "age": 59,
+  "segment": "Homeowner in Khartoum or Port Sudan running a generator or living with long power cuts",
+  "income": 7000,
+  "behaviour": "Asks family and friends first",
+  "behaviour_how": "Uses the installer a relative or neighbour used, and trusts word of mouth over any website.",
+  "objection": "Prices change with the dollar every week; a quote today is useless next week",
+  "habit": "a neighbour installed solar last year and you heard mixed things about it"
+ },
+ {
+  "id": "P010",
+  "name": "Tomas",
+  "age": 53,
+  "segment": "Small shop owner (grocery, pharmacy, phone shop, tailor) losing sales in power cuts",
+  "income": 12000,
+  "behaviour": "Asks family and friends first",
+  "behaviour_how": "Uses the installer a relative or neighbour used, and trusts word of mouth over any website.",
+  "objection": "Prices change with the dollar every week; a quote today is useless next week",
+  "habit": "you send money home every month through a relative or a transfer app"
+ },
+ {
+  "id": "P011",
+  "name": "Hugo",
+  "age": 30,
+  "segment": "Homeowner in Khartoum or Port Sudan running a generator or living with long power cuts",
+  "income": 6000,
+  "behaviour": "Market haggler",
+  "behaviour_how": "Goes to the market, compares parts prices shop by shop, and has a local electrician wire it.",
+  "objection": "I'd rather use the installer my relative used than a stranger from an app",
+  "habit": "you send money home every month through a relative or a transfer app"
+ },
+ {
+  "id": "P012",
+  "name": "Mateo",
+  "age": 40,
+  "segment": "Homeowner in Khartoum or Port Sudan running a generator or living with long power cuts",
+  "income": 12000,
+  "behaviour": "Careful researcher",
+  "behaviour_how": "Reads about panels, batteries and inverters, wants brands and models in writing before paying.",
+  "objection": "I don't know what size system I need, so I can't judge any offer",
+  "habit": "you send money home every month through a relative or a transfer app"
+ },
+ {
+  "id": "P013",
+  "name": "Finn",
+  "age": 46,
+  "segment": "Homeowner in Khartoum or Port Sudan running a generator or living with long power cuts",
+  "income": 8000,
+  "behaviour": "Facebook group asker",
+  "behaviour_how": "Posts 'who installed yours and how much?' in a city or solar Facebook group and reads the comments.",
+  "objection": "Solar is simply too expensive for me right now",
+  "habit": "you spend a lot on generator fuel every month and it is not always available"
+ },
+ {
+  "id": "P014",
+  "name": "Owen",
+  "age": 36,
+  "segment": "Sudanese working abroad paying for a solar system for family in Sudan",
+  "income": 38000,
+  "behaviour": "Facebook group asker",
+  "behaviour_how": "Posts 'who installed yours and how much?' in a city or solar Facebook group and reads the comments.",
+  "objection": "From abroad I can't check that the company actually did the work",
+  "habit": "you send money home every month through a relative or a transfer app"
+ },
+ {
+  "id": "P015",
+  "name": "Sol",
+  "age": 44,
+  "segment": "Small shop owner (grocery, pharmacy, phone shop, tailor) losing sales in power cuts",
+  "income": 7000,
+  "behaviour": "Already has an installer",
+  "behaviour_how": "Has spoken to one company already and is close to deciding.",
+  "objection": "I'm worried companies will call me non-stop once they have my number",
+  "habit": "a neighbour installed solar last year and you heard mixed things about it"
+ },
+ {
+  "id": "P016",
+  "name": "Farah",
+  "age": 25,
+  "segment": "Homeowner in Khartoum or Port Sudan running a generator or living with long power cuts",
+  "income": 11000,
+  "behaviour": "Facebook group asker",
+  "behaviour_how": "Posts 'who installed yours and how much?' in a city or solar Facebook group and reads the comments.",
+  "objection": "I'd rather use the installer my relative used than a stranger from an app",
+  "habit": "you send money home every month through a relative or a transfer app"
+ },
+ {
+  "id": "P017",
+  "name": "Bilal",
+  "age": 37,
+  "segment": "Homeowner in Khartoum or Port Sudan running a generator or living with long power cuts",
+  "income": 10000,
+  "behaviour": "Market haggler",
+  "behaviour_how": "Goes to the market, compares parts prices shop by shop, and has a local electrician wire it.",
+  "objection": "From abroad I can't check that the company actually did the work",
+  "habit": "the power is cut for about 12 hours a day in your area"
+ },
+ {
+  "id": "P018",
+  "name": "Adrian",
+  "age": 28,
+  "segment": "Small shop owner (grocery, pharmacy, phone shop, tailor) losing sales in power cuts",
+  "income": 7000,
+  "behaviour": "Careful researcher",
+  "behaviour_how": "Reads about panels, batteries and inverters, wants brands and models in writing before paying.",
+  "objection": "I'm worried companies will call me non-stop once they have my number",
+  "habit": "you spend a lot on generator fuel every month and it is not always available"
+ },
+ {
+  "id": "P019",
+  "name": "Aria",
+  "age": 36,
+  "segment": "Sudanese working abroad paying for a solar system for family in Sudan",
+  "income": 58000,
+  "behaviour": "Budget stretcher",
+  "behaviour_how": "Wants to start small with what they can afford now and add more later; price decides everything.",
+  "objection": "Solar is simply too expensive for me right now",
+  "habit": "you send money home every month through a relative or a transfer app"
+ },
+ {
+  "id": "P020",
+  "name": "Maeve",
+  "age": 56,
+  "segment": "Homeowner in Khartoum or Port Sudan running a generator or living with long power cuts",
+  "income": 8000,
+  "behaviour": "Already has an installer",
+  "behaviour_how": "Has spoken to one company already and is close to deciding.",
+  "objection": "Is this app even working? I don't want to download something empty",
+  "habit": "your phone is an Android with limited storage and mobile data"
+ }
+]

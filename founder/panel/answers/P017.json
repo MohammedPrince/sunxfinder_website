@@ -1,0 +1,13 @@
+{
+  "id": "P017",
+  "buys": false,
+  "purchases_first_month": 0,
+  "reason_code": "habit",
+  "reason": "I buy my panels and batteries by walking the market and haggling shop by shop, and my electrician wires it for me. A company sending me a written offer through an app will give me their asking price, and in the souq I always get it lower than the first number.",
+  "objection": "These listed companies will quote high because they know they are competing on an app, and I cannot see whether the ratings are real or from their own friends. Also, if I go through them I lose my own electrician, who I trust.",
+  "would_change_my_mind": "Seeing that the app prices are really lower than what I find in the market for the same brands, for example a neighbour who used it and paid less, or being able to get parts prices only and use my own electrician.",
+  "price_too_cheap": 1,
+  "price_cheap": 3,
+  "price_expensive": 8,
+  "price_too_expensive": 15
+}

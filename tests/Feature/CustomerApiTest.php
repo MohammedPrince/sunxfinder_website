@@ -148,6 +148,25 @@ class CustomerApiTest extends TestCase
             ->update(['status' => 'completed', 'completed_at' => now()]);
     }
 
+    /** The company finishes the job in its panel (handover step too): project becomes handover_pending. */
+    private function finishByCompany(Project $project): void
+    {
+        $this->finishInstallation($project);
+
+        $milestones = $project->milestones()->get()->mapWithKeys(fn($milestone) => [
+            $milestone->id => ['status' => 'completed'],
+        ])->all();
+
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+            ->actingAs($this->company, 'company')
+            ->post(route('company.projects.progress.update', $project->id), [
+                'status' => 'completed',
+                'milestones' => $milestones,
+            ])->assertSessionHasNoErrors();
+
+        Sanctum::actingAs($this->customer);
+    }
+
     private function registerPayload(array $overrides = []): array
     {
         return array_merge([
@@ -376,14 +395,20 @@ class CustomerApiTest extends TestCase
     public function test_customer_confirms_the_handover_and_the_project_completes(): void
     {
         [$quote, $offer, $project] = $this->acceptedQuote($this->customer);
-        $this->finishInstallation($project);
+        $this->finishByCompany($project);
         $projectsBefore = (int) $this->company->fresh()->number_of_projects;
+
+        // Rating waits for the confirmation.
+        $this->postJson(self::API . '/rating', ['quote_id' => $quote->id, 'company_id' => $this->company->id, 'stars' => 5])
+            ->assertStatus(422)
+            ->assertJsonPath('data.reason', 'handover_not_confirmed');
+        $this->getJson(self::API . '/rating-form?quote_id=' . $quote->id)->assertStatus(422);
 
         $this->postJson(self::API . '/quote-complete', ['quote_id' => $quote->id])
             ->assertOk()
             ->assertExactJson([
                 'status' => 'success',
-                'message' => 'Marked as completed.',
+                'message' => 'Handover confirmed.',
                 'data' => ['quote_id' => $quote->id, 'quote_status' => 'completed'],
             ]);
 
@@ -391,6 +416,9 @@ class CustomerApiTest extends TestCase
         $this->assertSame('completed', $project->status);
         $this->assertSame(100, (int) $project->progress_percent);
         $this->assertNotNull($project->completed_at);
+        $this->assertNotNull($project->handover_requested_at);
+        $this->assertNotNull($project->handover_confirmed_at);
+        $this->getJson(self::API . '/rating-form?quote_id=' . $quote->id)->assertOk();
         $this->assertSame('completed', $quote->fresh()->status);
         $this->assertSame(0, $project->milestones()->where('status', '!=', 'completed')->count());
         $this->assertSame($projectsBefore + 1, (int) $this->company->fresh()->number_of_projects);
@@ -414,7 +442,7 @@ class CustomerApiTest extends TestCase
     public function test_confirming_twice_returns_200_both_times(): void
     {
         [$quote, , $project] = $this->acceptedQuote($this->customer);
-        $this->finishInstallation($project);
+        $this->finishByCompany($project);
 
         $this->postJson(self::API . '/quote-complete', ['quote_id' => $quote->id])->assertOk();
         $projects = (int) $this->company->fresh()->number_of_projects;
@@ -440,27 +468,202 @@ class CustomerApiTest extends TestCase
         $this->assertSame('completed', $quote->fresh()->status);
     }
 
-    public function test_company_completing_the_handover_also_completes_the_quote(): void
+    public function test_company_finishing_waits_for_the_customer_and_cannot_complete_it(): void
     {
         [$quote, , $project] = $this->acceptedQuote($this->customer);
-        $this->finishInstallation($project);
+        $projectsBefore = (int) $this->company->fresh()->number_of_projects;
+        $this->finishByCompany($project);
 
-        $milestones = $project->milestones()->get()->mapWithKeys(fn($milestone) => [
-            $milestone->id => ['status' => 'completed'],
-        ])->all();
+        // Not completed: the customer confirms in the app.
+        $project->refresh();
+        $this->assertSame('handover_pending', $project->status);
+        $this->assertSame(100, (int) $project->progress_percent);
+        $this->assertNotNull($project->handover_requested_at);
+        $this->assertNull($project->handover_confirmed_at);
+        $this->assertNull($project->completed_at);
+        $this->assertSame('accepted', $quote->fresh()->status);
+        $this->assertSame($projectsBefore, (int) $this->company->fresh()->number_of_projects);
 
+        // The customer is asked, with the quote id.
+        $notification = $this->getJson(self::API . '/notifications')->json('data.notifications.0');
+        $this->assertSame('handover_requested', $notification['type']);
+        $this->assertSame($quote->id, $notification['quote_id']);
+
+        // The company cannot set it to completed itself.
         $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
             ->actingAs($this->company, 'company')
-            ->post(route('company.projects.progress.update', $project->id), [
-                'status' => 'completed',
-                'milestones' => $milestones,
-            ])->assertSessionHasNoErrors();
+            ->post(route('company.projects.progress.update', $project->id), ['status' => 'completed'])
+            ->assertSessionHasErrors('status');
+        $this->assertSame('handover_pending', $project->fresh()->status);
 
-        $this->assertSame('completed', $project->fresh()->status);
-        $this->assertSame('completed', $quote->fresh()->status);
+        // The company pages show it waiting for the customer.
+        $this->get(route('company.projects.show', $project->id))
+            ->assertOk()
+            ->assertSee('Waiting for customer confirmation')
+            ->assertDontSee('company/messages.');
+        $this->get(route('company.projects.index'))->assertOk()->assertSee('Waiting for customer confirmation');
+
+        // My Quotes and project progress show the new state.
+        Sanctum::actingAs($this->customer);
+        $myQuote = collect($this->postJson(self::API . '/my-quotes')->json('data.quotes'))->firstWhere('id', $quote->id);
+        $this->assertSame('accepted', $myQuote['status']);
+        $this->assertSame('handover_pending', $myQuote['project_status']);
+        $this->assertNotNull($myQuote['project_handover_requested_at']);
+        $this->assertNull($myQuote['project_handover_confirmed_at']);
+
+        $this->getJson(self::API . '/project-progress/' . $project->id)
+            ->assertOk()
+            ->assertJsonPath('data.status', 'handover_pending')
+            ->assertJsonPath('data.handover_confirmed_at', null)
+            ->assertJsonPath('data.milestones.4.ar_title', 'التسليم للعميل');
     }
 
-    public function test_handover_cannot_be_confirmed_before_installation_is_done(): void
+    public function test_unanswered_handover_is_confirmed_automatically_after_seven_days(): void
+    {
+        [$quote, $offer, $project] = $this->acceptedQuote($this->customer);
+        $this->finishByCompany($project);
+        $projectsBefore = (int) $this->company->fresh()->number_of_projects;
+
+        // The app is told when it will happen.
+        $myQuote = collect($this->postJson(self::API . '/my-quotes')->json('data.quotes'))->firstWhere('id', $quote->id);
+        $this->assertSame(
+            $project->fresh()->handover_requested_at->addDays(Project::AUTO_CONFIRM_DAYS)->toISOString(),
+            $myQuote['project_handover_auto_confirm_at']
+        );
+        $this->getJson(self::API . '/project-progress/' . $project->id)
+            ->assertJsonPath('data.handover_auto_confirm_at', $myQuote['project_handover_auto_confirm_at']);
+
+        // Not yet due after 6 days.
+        $this->travel(Project::AUTO_CONFIRM_DAYS - 1)->days();
+        $this->artisan('projects:auto-confirm-handovers')->assertSuccessful();
+        $this->assertSame('handover_pending', $project->fresh()->status);
+
+        // Due after 7 days.
+        $this->travel(1)->days();
+        $this->artisan('projects:auto-confirm-handovers')->assertSuccessful();
+
+        $project->refresh();
+        $this->assertSame('completed', $project->status);
+        $this->assertSame('auto', $project->handover_confirmed_by);
+        $this->assertNotNull($project->handover_confirmed_at);
+        $this->assertNotNull($project->completed_at);
+        $this->assertSame('completed', $quote->fresh()->status);
+        $this->assertSame($projectsBefore + 1, (int) $this->company->fresh()->number_of_projects);
+        $this->assertSame('system', $project->updates()->latest('id')->value('updated_by_type'));
+        Bus::assertDispatched(SendCompanyOfferDecisionEmail::class, fn($job) => $job->offerId === $offer->id
+            && $job->decision === CompanyOfferDecisionMail::AUTO_COMPLETED);
+
+        // The customer is told, and can rate.
+        Sanctum::actingAs($this->customer);
+        $notification = $this->getJson(self::API . '/notifications')->json('data.notifications.0');
+        $this->assertSame('handover_auto_confirmed', $notification['type']);
+        $this->assertSame($quote->id, $notification['quote_id']);
+        $this->assertStringContainsString('7 days', $notification['body']);
+
+        $myQuote = collect($this->postJson(self::API . '/my-quotes')->json('data.quotes'))->firstWhere('id', $quote->id);
+        $this->assertSame('auto', $myQuote['project_handover_confirmed_by']);
+        $this->assertNull($myQuote['project_handover_auto_confirm_at']);
+        $this->postJson(self::API . '/rating', ['quote_id' => $quote->id, 'company_id' => $this->company->id, 'stars' => 4])
+            ->assertCreated();
+
+        // Running again changes nothing.
+        $this->artisan('projects:auto-confirm-handovers')->assertSuccessful();
+        $this->assertSame($projectsBefore + 1, (int) $this->company->fresh()->number_of_projects);
+    }
+
+    public function test_customer_reports_a_problem_and_the_project_goes_back_to_the_company(): void
+    {
+        [$quote, $offer, $project] = $this->acceptedQuote($this->customer);
+        $this->finishByCompany($project);
+
+        $this->postJson(self::API . '/handover-problem', [
+            'quote_id' => $quote->id,
+            'message' => 'Two panels are not connected and the inverter shows an error.',
+        ])->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('data.quote_id', $quote->id)
+            ->assertJsonPath('data.project_status', 'in_progress');
+
+        $project->refresh();
+        $this->assertSame('in_progress', $project->status);
+        $this->assertSame(99, (int) $project->progress_percent);
+        $this->assertNull($project->handover_requested_at);
+        $this->assertNotNull($project->handover_problem_at);
+        $this->assertSame('Two panels are not connected and the inverter shows an error.', $project->handover_problem_message);
+        $this->assertSame('in_progress', $project->milestones()->whereRaw('LOWER(title) = ?', ['customer handover'])->value('status'));
+        $this->assertSame('accepted', $quote->fresh()->status);
+
+        // Admin sees a complaint; the company is emailed with the message.
+        $this->assertSame(1, \App\Models\CustomerComplaint::query()->where('customer_id', $this->customer->id)->where('company_id', $this->company->id)->count());
+        Bus::assertDispatched(SendCompanyOfferDecisionEmail::class, fn($job) => $job->offerId === $offer->id
+            && $job->decision === CompanyOfferDecisionMail::HANDOVER_PROBLEM
+            && str_contains($job->extra['problemMessage'] ?? '', 'inverter'));
+
+        // Nothing to confirm or report now.
+        $this->postJson(self::API . '/quote-complete', ['quote_id' => $quote->id])->assertStatus(422);
+        $this->postJson(self::API . '/handover-problem', ['quote_id' => $quote->id, 'message' => 'Still not working at all.'])
+            ->assertStatus(422)
+            ->assertJsonPath('reason', 'not_waiting_confirmation');
+
+        // My Quotes shows the report.
+        $myQuote = collect($this->postJson(self::API . '/my-quotes')->json('data.quotes'))->firstWhere('id', $quote->id);
+        $this->assertSame('in_progress', $myQuote['project_status']);
+        $this->assertNotNull($myQuote['project_handover_problem_at']);
+        $this->assertNull($myQuote['project_handover_auto_confirm_at']);
+
+        // The company sees the problem, fixes it and finishes again: a new 7-day period.
+        $this->actingAs($this->company, 'company')
+            ->get(route('company.projects.show', $project->id))
+            ->assertOk()
+            ->assertSee('inverter shows an error');
+
+        $this->travel(1)->days();
+        $this->finishByCompany($project);
+        $project->refresh();
+        $this->assertSame('handover_pending', $project->status);
+        $this->assertTrue($project->handover_requested_at->isToday());
+
+        $this->postJson(self::API . '/quote-complete', ['quote_id' => $quote->id])->assertOk();
+        $this->assertSame('customer', $project->fresh()->handover_confirmed_by);
+    }
+
+    public function test_handover_emails_render_for_each_case(): void
+    {
+        $details = ['companyName' => 'Red Sea Solar', 'customerName' => 'Mohamed', 'quote_id' => 12, 'quoteName' => 'Home', 'price' => '1,500,000 SDG', 'actionUrl' => 'https://example.test/p/1'];
+
+        $this->assertStringContainsString('confirmed the handover', (new CompanyOfferDecisionMail(CompanyOfferDecisionMail::COMPLETED, $details))->render());
+        $this->assertStringContainsString('confirmed automatically', (new CompanyOfferDecisionMail(CompanyOfferDecisionMail::AUTO_COMPLETED, $details))->render());
+        $problem = (new CompanyOfferDecisionMail(CompanyOfferDecisionMail::HANDOVER_PROBLEM, $details + ['problemMessage' => 'Inverter error E04']))->render();
+        $this->assertStringContainsString('reported a problem', $problem);
+        $this->assertStringContainsString('Inverter error E04', $problem);
+    }
+
+    public function test_handover_problem_validation_and_someone_elses_quote(): void
+    {
+        [$quote, , $project] = $this->acceptedQuote($this->customer);
+
+        // Not finished by the company yet.
+        $this->postJson(self::API . '/handover-problem', ['quote_id' => $quote->id, 'message' => 'Something is wrong here.'])
+            ->assertStatus(422)
+            ->assertJsonPath('reason', 'not_waiting_confirmation');
+
+        $this->finishByCompany($project);
+
+        $this->postJson(self::API . '/handover-problem', ['quote_id' => $quote->id, 'message' => 'Bad'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('message');
+        $this->postJson(self::API . '/handover-problem', ['quote_id' => $quote->id])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('message');
+
+        Sanctum::actingAs($this->stranger);
+        $this->postJson(self::API . '/handover-problem', ['quote_id' => $quote->id, 'message' => 'Something is wrong here.'])
+            ->assertNotFound();
+
+        $this->assertSame('handover_pending', $project->fresh()->status);
+    }
+
+    public function test_handover_cannot_be_confirmed_before_the_company_finishes(): void
     {
         [$quote, , $project] = $this->acceptedQuote($this->customer);
 
@@ -471,6 +674,11 @@ class CustomerApiTest extends TestCase
 
         $this->assertSame('accepted', $project->fresh()->status);
         $this->assertSame('accepted', $quote->fresh()->status);
+
+        // Installation steps done but the company has not finished the handover step: still 422.
+        $this->finishInstallation($project);
+        $this->postJson(self::API . '/quote-complete', ['quote_id' => $quote->id])->assertStatus(422);
+        $this->assertSame('in_progress', $project->fresh()->status);
     }
 
     public function test_quote_without_an_accepted_offer_cannot_be_completed(): void
@@ -504,7 +712,9 @@ class CustomerApiTest extends TestCase
 
     public function test_rating_create_update_and_delete(): void
     {
-        [$quote] = $this->acceptedQuote($this->customer);
+        [$quote, , $project] = $this->acceptedQuote($this->customer);
+        $this->finishByCompany($project);
+        $this->postJson(self::API . '/quote-complete', ['quote_id' => $quote->id])->assertOk();
 
         $this->postJson(self::API . '/rating', ['quote_id' => $quote->id, 'company_id' => $this->company->id])
             ->assertStatus(422)

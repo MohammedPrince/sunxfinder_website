@@ -49,6 +49,7 @@ return [
                 'حدّد <strong>عمولة SunXFinder (%)</strong>: نسبة من سعر كل عرض تُستحق عند قبول العميل له. ضع 0 لعدم وجود عمولة.',
                 'استخدم <strong>Email in the App</strong> و<strong>Phone in the App</strong> (Show / Hide) لتحديد ما إذا كان العملاء يرون بريد الشركة وهاتفها في صفحتها بالتطبيق. إخفاء الهاتف يخفي واتساب أيضاً. يظهر في القائمة "Hidden in app" بجانب المخفي منها.',
                 'استخدم <strong>Log in as company</strong> لترى لوحة الشركة كما تراها الشركة تماماً، للمساعدة والدعم.',
+                'إذا نسيت الشركة كلمة المرور، اضغط <strong>Reset password</strong> (زر المفتاح). كلمة المرور الجديدة هي اسم مستخدم الشركة متبوعاً بـ <strong>@SUNX09*#</strong> (مثال: <strong>reenergy@SUNX09*#</strong>). تظهر كلمة المرور بعد إعادة التعيين، أرسلها للشركة واطلب منها تغييرها من ملفها الشخصي.',
                 'أضف شركة بنفسك عبر <strong>+ Add New Company</strong>، أو احذفها بزر الحذف.',
             ],
             'tips' => [
@@ -66,6 +67,7 @@ return [
                 'اضغط <strong>Edit customer</strong> لتعديل البيانات أو <strong>Account Status</strong>. يعرض مربع <strong>App access</strong> آخر دخول وهل العميل مسجّل الدخول.',
                 'استخدم قائمة <strong>App access</strong> في الجدول (Active / Stopped) لإيقاف استخدام العميل للتطبيق، مع رسالة بالإنجليزية والعربية.',
                 'اضغط <strong>Send offer or news</strong> لإرسال إشعار لهذا العميل.',
+                'إذا نسي العميل كلمة المرور، اضغط <strong>Reset password</strong> (زر المفتاح). كلمة المرور الجديدة هي اسم مستخدم العميل متبوعاً بـ <strong>@SUNX09*#</strong> (مثال: <strong>mohamed@SUNX09*#</strong>). تظهر كلمة المرور بعد إعادة التعيين، ويُخرج العميل من التطبيق على كل الأجهزة. أرسلها للعميل، ويمكنه لاحقاً اختيار كلمة مرور خاصة به عبر <strong>Forgot password</strong> في التطبيق.',
                 '<strong>Force logout all customers</strong> يُخرج كل العملاء من التطبيق. استخدمه فقط بعد مشكلة أمنية أو تغيير كبير في التطبيق.',
             ],
             'tips' => [
@@ -159,11 +161,14 @@ return [
             'steps' => [
                 'افتح <strong>Quotes ← Projects</strong>. الحالات: <strong>Accepted</strong> (لم يبدأ)، <strong>In progress</strong>، <strong>Completed</strong>.',
                 'استخدم <strong>Stalled projects</strong> للعثور على المشاريع التي لم تُحدَّث منذ عدة أيام.',
+                'اضغط <strong>Email company</strong> على المشروع المتعثر، أو <strong>Email all stalled companies</strong>، لإرسال تذكير بالبريد للشركة بالعربية والإنجليزية مع رابط المشروع. ويمكنك من صفحة المشروع إضافة رسالة خاصة منك.',
+                'اضغط زر <strong>WhatsApp</strong> الأخضر لفتح واتساب على رقم الشركة مع رسالة التذكير جاهزة للإرسال. أرسلها من رقم واتساب SunXFinder.',
                 'افتح المشروع لترى المراحل وكل تحديثات الشركة وبيانات تواصل الشركة والعميل، ثم تابع معهم.',
                 'استخدم <strong>Open quote request</strong> لتغيير الشركة أو اتخاذ إجراء على الطلب الأصلي.',
             ],
             'tips' => [
                 'التحديثات المعلّمة "Internal note" مخفية عن العميل.',
+                'يمكن مراسلة الشركة عن المشروع نفسه مرة كل 24 ساعة، وكل تذكير يُسجَّل في سجل النشاط.',
             ],
         ],
         'complaints' => [

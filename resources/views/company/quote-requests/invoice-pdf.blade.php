@@ -41,6 +41,9 @@
         .brand { padding-bottom: 12pt; text-align: {{ $start }}; }
         .tagline { color: #10366b; font-size: 10pt; font-weight: bold; padding-top: 3pt; }
         .accent { color: #f15b24; }
+        .terms td { border-bottom: 0.5pt solid #e8edf3; font-size: 8.5pt; padding: 5pt 7pt; }
+        .terms td.terms-title { border-bottom: 0; padding-top: 16pt; }
+        .terms td.terms-label { color: #64748b; width: 34%; }
     </style>
 </head>
 
@@ -113,6 +116,25 @@
             @endforeach
         </tbody>
     </table>
+
+    @php $termLines = $invoice->quotation?->termLines() ?? []; @endphp
+    @if ($termLines)
+        <table class="terms">
+            <tr><td colspan="2" class="party-title terms-title">{{ __('company/messages.offer_terms.title') }}</td></tr>
+            @foreach ($termLines as $line)
+                <tr>
+                    <td class="terms-label">{{ $isArabic ? $line['ar_label'] : $line['label'] }}</td>
+                    <td>{{ $isArabic ? $line['ar_value'] : $line['value'] }}</td>
+                </tr>
+            @endforeach
+            @if ($validUntil = $invoice->quotation->validUntil())
+                <tr>
+                    <td class="terms-label"></td>
+                    <td>{{ __('company/messages.offer_terms.valid_until', ['date' => $validUntil->translatedFormat('d M Y')]) }}</td>
+                </tr>
+            @endif
+        </table>
+    @endif
 
     <table>
         <tr>

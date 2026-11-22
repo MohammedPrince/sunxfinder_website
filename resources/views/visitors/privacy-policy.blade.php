@@ -1,5 +1,6 @@
 @extends('visitors.layouts.app')
-@section('title', app()->getLocale() === 'ar' ? 'SunXFinder - سياسة الخصوصية' : 'SunXFinder - Privacy Policy ')
+@section('title', __('seo.privacy_title'))
+@section('meta_description', __('seo.privacy_description'))
 @section('content')
 
     <main class="legal-page" lang="en">

@@ -268,6 +268,7 @@ return [
 
     'Verified company' => 'شركة موثوقة',
     'customer reviews' => 'تقييمات العملاء',
+    'Not rated yet' => 'لا توجد تقييمات بعد',
 
     'Contact company' => 'إفتح التطبيق',
     'View services' => 'خدمات الشركة',

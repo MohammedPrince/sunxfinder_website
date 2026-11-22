@@ -95,8 +95,37 @@ class Setting extends Model
                 'message_en' => $values['maintenance_message_en'] ?? null,
                 'message_ar' => $values['maintenance_message_ar'] ?? null,
                 'until' => $values['maintenance_until'] ?? null,
+                'prelaunch' => (bool) ($values['maintenance_prelaunch'] ?? false),
             ];
         });
+    }
+
+    /**
+     * Not launched yet: the maintenance page is a "coming soon" page that search engines may
+     * index on the home URL (200 instead of 503).
+     */
+    public static function isPrelaunch(): bool
+    {
+        $maintenance = static::maintenance();
+
+        return $maintenance['enabled'] && ($maintenance['prelaunch'] ?? false);
+    }
+
+    /** Cache key for the website design choice (read on every public page). */
+    public const SITE_DESIGN_CACHE_KEY = 'site-design';
+
+    /** Website designs an admin can choose between (Admin → Settings). */
+    public const SITE_DESIGNS = ['new', 'classic'];
+
+    /**
+     * Which design the public website uses: "new" (navy header, phone hero) or "classic"
+     * (the earlier light design). Cached for a minute; cleared when an admin saves the settings.
+     */
+    public static function siteDesign(): string
+    {
+        $design = cache()->remember(self::SITE_DESIGN_CACHE_KEY, 60, fn() => (string) static::get('site_design', 'new'));
+
+        return in_array($design, self::SITE_DESIGNS, true) ? $design : 'new';
     }
 
     /** Cache key for who sees Advertising in the company portal; cleared when settings are saved. */

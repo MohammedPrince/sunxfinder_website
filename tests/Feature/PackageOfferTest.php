@@ -708,7 +708,7 @@ class PackageOfferTest extends TestCase
 
         // Company portal.
         $this->actingAs($this->company, 'company');
-        $this->get(route('company.dashboard'))->assertOk()->assertSee('Package offers accepted')->assertDontSee('company/messages.');
+        $this->get(route('company.dashboard'))->assertOk()->assertSee('Special offers accepted')->assertDontSee('company/messages.');
         $this->get(route('company.reports.index'))->assertOk()->assertSee('id="package-offers"', false)
             ->assertSee('Most accepted offers')->assertSee('5 kW home system')->assertDontSee('company/messages.');
         $csv = $this->get(route('company.reports.export', ['section' => 'package_offers']))->assertOk()->streamedContent();
@@ -724,7 +724,7 @@ class PackageOfferTest extends TestCase
             'is_active' => true,
         ]);
         $this->actingAs($admin, 'admin');
-        $this->get(route('admin.dashboard.page'))->assertOk()->assertSee('Package offers accepted');
+        $this->get(route('admin.dashboard.page'))->assertOk()->assertSee('Special offers accepted');
         $this->get(route('admin.reports.index'))->assertOk()->assertSee('Most accepted offers')->assertSee('Red Sea Solar')
             ->assertSee('1 open now')->assertDontSee(':count');
         $csv = $this->get(route('admin.reports.export', ['section' => 'package_offers']))->assertOk()->streamedContent();

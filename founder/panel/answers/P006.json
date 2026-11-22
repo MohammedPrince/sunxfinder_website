@@ -1,0 +1,13 @@
+{
+  "id": "P006",
+  "buys": false,
+  "purchases_first_month": 0,
+  "reason_code": "trust",
+  "reason": "When I need solar I will call the installer my cousin used and ask my neighbours. I do not know these companies on an app, and ratings on a website I have never heard of do not mean much to me next to someone I can see.",
+  "objection": "Who are these companies and who is checking them? Anyone can write a good rating. If the installer does a bad job, the app cannot come to my house and fix it.",
+  "would_change_my_mind": "If my relative or a neighbour told me they got a good installer through SunXFinder and the price was better than the one we know, then I would send a request, maybe through WhatsApp.",
+  "price_too_cheap": 1,
+  "price_cheap": 3,
+  "price_expensive": 10,
+  "price_too_expensive": 20
+}
