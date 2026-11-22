@@ -2000,6 +2000,7 @@ class MainController extends Controller
             'app_offline_message_en' => ['nullable', 'required_if:app_offline_enabled,1', 'string', 'max:1000'],
             'app_offline_message_ar' => ['nullable', 'required_if:app_offline_enabled,1', 'string', 'max:1000'],
             'maintenance_enabled' => ['nullable', 'boolean'],
+            'maintenance_prelaunch' => ['nullable', 'boolean'],
             'maintenance_title_en' => ['nullable', 'required_if:maintenance_enabled,1', 'string', 'max:150'],
             'maintenance_title_ar' => ['nullable', 'required_if:maintenance_enabled,1', 'string', 'max:150'],
             'maintenance_message_en' => ['nullable', 'required_if:maintenance_enabled,1', 'string', 'max:2000'],
@@ -2018,6 +2019,7 @@ class MainController extends Controller
         ]);
 
         $data['maintenance_enabled'] = $request->boolean('maintenance_enabled');
+        $data['maintenance_prelaunch'] = $request->boolean('maintenance_prelaunch');
         $data['app_offline_enabled'] = $request->boolean('app_offline_enabled');
 
         $result = $this->adminService->updateSettings($data);

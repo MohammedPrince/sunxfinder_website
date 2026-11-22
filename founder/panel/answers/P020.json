@@ -1,0 +1,13 @@
+{
+  "id": "P020",
+  "buys": false,
+  "purchases_first_month": 0,
+  "reason_code": "timing",
+  "reason": "I already have an installer and I have spoken to a company; I am about to decide. I am not going to start over and wait for new offers from people I don't know through an app that just launched.",
+  "objection": "Is this app even working? If I download it with my little storage and data and there are only two or three companies in Khartoum on it, I have wasted my time. And I don't know these companies - how do I know the ratings are real if nobody has finished a project yet?",
+  "would_change_my_mind": "If my son or a neighbour told me they got a cheaper, better written offer through it, or if the free check of my existing quote showed my installer is overcharging me or using weak batteries.",
+  "price_too_cheap": 1,
+  "price_cheap": 3,
+  "price_expensive": 10,
+  "price_too_expensive": 20
+}

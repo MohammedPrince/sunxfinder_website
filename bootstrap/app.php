@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CanonicalUrl;
 use App\Http\Middleware\EnsureAdminAuthenticated;
 use App\Http\Middleware\EnsureCompanyAuthenticated;
 use App\Http\Middleware\JsonRes;
@@ -35,8 +36,10 @@ return Application::configure(basePath: dirname(__DIR__))
             ? route('company.dashboard')
             : route('home'));
 
-        // Apply locale handling to web routes only.
-        $middleware->web(append: [
+        // Apply locale handling to web routes only. CanonicalUrl is first: a redirect starts no session.
+        $middleware->web(prepend: [
+            CanonicalUrl::class,
+        ], append: [
             SetLocale::class,
             SearchEngineHeaders::class,
         ]);

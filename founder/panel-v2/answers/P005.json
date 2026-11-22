@@ -1,0 +1,13 @@
+{
+  "id": "P005",
+  "buys": false,
+  "purchases_first_month": 0,
+  "reason_code": "trust",
+  "reason": "I buy my parts in the market myself, shop by shop, and my electrician wires it; I know these people and I can bargain with them face to face. An app sending me offers from companies I don't know doesn't beat that, and a written price from a company is usually higher than what I get haggling.",
+  "objection": "A photo of a label proves nothing; fake panels and weak batteries in the market come with good-looking labels. How would an app sitting somewhere know if the battery is really the capacity it says?",
+  "would_change_my_mind": "If a shop owner I know in my area told me they used it and the system held up through the cuts, or if the check could actually test that a battery or panel is genuine, not just read the sticker.",
+  "price_too_cheap": 0.5,
+  "price_cheap": 1,
+  "price_expensive": 3,
+  "price_too_expensive": 6
+}

@@ -1,6 +1,7 @@
 @php
     /** Passed by App\Http\Middleware\SiteMaintenance. */
     /** @var bool $isArabic */
+    /** @var bool $comingSoon Before launch: home page, indexable */
     /** @var string|null $title */
     /** @var string|null $message */
     /** @var \Illuminate\Support\Carbon|null $until */
@@ -11,8 +12,12 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="robots" content="noindex">
-    <title>{{ $title ?: 'SunXFinder' }} · SunXFinder</title>
+    @if ($comingSoon)
+        @include('visitors.partials.seo-head')
+    @else
+        <meta name="robots" content="noindex">
+        <title>{{ $title ?: 'SunXFinder' }} · SunXFinder</title>
+    @endif
     <link rel="icon" type="image/png" href="{{ asset_v('visitors/images/logo-128.png') }}">
     {{-- Same fonts as the site (layouts/app.blade.php): Alexandria headings, DM Sans or IBM Plex Sans Arabic body --}}
     <link rel="preconnect" href="https://fonts.googleapis.com">

@@ -5661,6 +5661,7 @@ class AdminRepository
             }
 
             Setting::set('maintenance_enabled', !empty($data['maintenance_enabled']) ? '1' : '0');
+            Setting::set('maintenance_prelaunch', !empty($data['maintenance_prelaunch']) ? '1' : '0');
             foreach (['title_en', 'title_ar', 'message_en', 'message_ar', 'until'] as $field) {
                 Setting::set("maintenance_{$field}", $data["maintenance_{$field}"] ?? null);
             }

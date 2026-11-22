@@ -1,0 +1,90 @@
+{
+ "n": 20,
+ "seed": 315520,
+ "customer": {
+  "business": "SunXFinder: a free website and Android app in Sudan to size a home solar system and compare written offers from several local solar companies",
+  "target": "Adults in Khartoum and Port Sudan who are planning to buy a home or shop solar system in the next 6 months, including Sudanese abroad paying for a family system",
+  "where": "Khartoum and Port Sudan, Sudan (plus Sudanese abroad in Saudi Arabia, UAE, Qatar and Egypt)",
+  "age": [
+   24,
+   60
+  ],
+  "segments": [
+   {
+    "name": "Homeowner in Khartoum or Port Sudan running a generator or living with long power cuts",
+    "share": 0.5,
+    "income": [
+     3000,
+     12000
+    ]
+   },
+   {
+    "name": "Small shop owner (grocery, pharmacy, phone shop, tailor) losing sales in power cuts",
+    "share": 0.25,
+    "income": [
+     4000,
+     15000
+    ]
+   },
+   {
+    "name": "Sudanese working abroad paying for a solar system for family in Sudan",
+    "share": 0.25,
+    "income": [
+     15000,
+     60000
+    ]
+   }
+  ],
+  "behaviours": [
+   {
+    "name": "Asks family and friends first",
+    "share": 0.25,
+    "how": "Uses the installer a relative or neighbour used, and trusts word of mouth over any website."
+   },
+   {
+    "name": "Facebook group asker",
+    "share": 0.2,
+    "how": "Posts 'who installed yours and how much?' in a city or solar Facebook group and reads the comments."
+   },
+   {
+    "name": "Market haggler",
+    "share": 0.15,
+    "how": "Goes to the market, compares parts prices shop by shop, and has a local electrician wire it."
+   },
+   {
+    "name": "Careful researcher",
+    "share": 0.15,
+    "how": "Reads about panels, batteries and inverters, wants brands and models in writing before paying."
+   },
+   {
+    "name": "Already has an installer",
+    "share": 0.1,
+    "how": "Has spoken to one company already and is close to deciding."
+   },
+   {
+    "name": "Budget stretcher",
+    "share": 0.15,
+    "how": "Wants to start small with what they can afford now and add more later; price decides everything."
+   }
+  ],
+  "objections": [
+   "I don't know what size system I need, so I can't judge any offer",
+   "Panels and batteries in the market are often fake or weak; how would an app know?",
+   "I'd rather use the installer my relative used than a stranger from an app",
+   "I'm worried companies will call me non-stop once they have my number",
+   "Prices change with the dollar every week; a quote today is useless next week",
+   "Is this app even working? I don't want to download something empty",
+   "Solar is simply too expensive for me right now",
+   "From abroad I can't check that the company actually did the work"
+  ],
+  "habits": [
+   "the power is cut for about 12 hours a day in your area",
+   "you spend a lot on generator fuel every month and it is not always available",
+   "you use WhatsApp all day and Facebook every evening",
+   "your phone is an Android with limited storage and mobile data",
+   "a neighbour installed solar last year and you heard mixed things about it",
+   "you send money home every month through a relative or a transfer app"
+  ]
+ },
+ "pitch": "**SunXFinder Checked Quotes** (sunxfinder.com, Android app, Arabic and English)\n\n- Enter the appliances you want to run; the free calculator gives a rough system size (panels, batteries, inverter).\n- Send one request. Solar companies in Khartoum or Port Sudan reply with written offers listing brand, model, warranty and price. If fewer than 2 companies reply within 48 hours, we phone companies in your city for you and tell you what we found.\n- Already have a quote or an installer you trust? Send us the quote and we check it for free, or add your installer and we invite them to quote next to the others.\n- Companies see only your name until you accept their offer. If a company you did not choose calls you, tell us and we remove it from SunXFinder.\n- Before you confirm the handover, the company sends photos of the installed panel, battery and inverter labels so you can match them to the offer, even from abroad. If something is wrong, tap \"Report a problem\" and the job goes back to the company. Ratings come only from customers who confirmed a finished job.\n- Free for customers. In launch week we check the first 50 quotes free by hand; after that the check may cost a small fee.\n\n\"Buying\" here means: you would use SunXFinder to send a quote request within the next month. The four price questions are about the quote check: after launch week it may become a paid service. Give those prices in US dollars for one check."
+}

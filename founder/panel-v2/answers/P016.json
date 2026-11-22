@@ -1,0 +1,13 @@
+{
+  "id": "P016",
+  "buys": false,
+  "purchases_first_month": 0,
+  "reason_code": "trust",
+  "reason": "My cousin's installer already did his house and I can see it working, and when I want prices I ask in the Khartoum solar Facebook group where real people answer. An app I've never heard of doesn't feel safer than that, so this month I'd just get a quote from my cousin's guy.",
+  "objection": "I don't know who is behind SunXFinder or how they pick these companies. Anyone can say 'ratings only from real customers', and I worry that once my request is out my number will end up with salesmen anyway.",
+  "would_change_my_mind": "If people in my Facebook group posted that SunXFinder checked their quote and caught a fake battery or an overpriced inverter, I'd send them my cousin's installer's quote to check for free.",
+  "price_too_cheap": 1,
+  "price_cheap": 3,
+  "price_expensive": 8,
+  "price_too_expensive": 15
+}

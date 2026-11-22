@@ -14,7 +14,13 @@ class Seo
 
     public static function indexable(): bool
     {
-        return (bool) config('seo.indexable', true);
+        return (bool) config('seo.indexable', true) && !self::isStagingHost(request()->getHost());
+    }
+
+    /** dev.sunxfinder.com and the like: copies of the site that must never compete with it in search. */
+    public static function isStagingHost(string $host): bool
+    {
+        return (bool) preg_match('/^(www\.)?(dev|staging|stage|test|beta|demo)\./i', $host);
     }
 
     /** The URL of a page in one language (no other query string). */

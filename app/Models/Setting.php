@@ -95,8 +95,20 @@ class Setting extends Model
                 'message_en' => $values['maintenance_message_en'] ?? null,
                 'message_ar' => $values['maintenance_message_ar'] ?? null,
                 'until' => $values['maintenance_until'] ?? null,
+                'prelaunch' => (bool) ($values['maintenance_prelaunch'] ?? false),
             ];
         });
+    }
+
+    /**
+     * Not launched yet: the maintenance page is a "coming soon" page that search engines may
+     * index on the home URL (200 instead of 503).
+     */
+    public static function isPrelaunch(): bool
+    {
+        $maintenance = static::maintenance();
+
+        return $maintenance['enabled'] && ($maintenance['prelaunch'] ?? false);
     }
 
     /** Cache key for the website design choice (read on every public page). */

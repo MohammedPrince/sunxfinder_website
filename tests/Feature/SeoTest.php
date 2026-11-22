@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Setting;
 use App\Models\SolarCompany;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -184,10 +185,112 @@ class SeoTest extends TestCase
     {
         config(['seo.indexable' => false]);
 
-        $this->get('/robots.txt')->assertSee("Disallow: /\n", false)->assertDontSee('Sitemap:');
+        // Crawlable, so search engines can see the noindex on every page.
+        $this->get('/robots.txt')->assertDontSee('Disallow')->assertDontSee('Sitemap:');
         $this->get('/')
             ->assertHeader('X-Robots-Tag', 'noindex, nofollow')
             ->assertSee('<meta name="robots" content="noindex, nofollow">', false)
             ->assertDontSee('rel="canonical"', false);
+    }
+
+    public function test_staging_hosts_are_never_indexed_even_without_the_env_setting(): void
+    {
+        foreach (['dev.sunxfinder.com', 'www.dev.sunxfinder.com'] as $host) {
+            $this->get("https://{$host}/")
+                ->assertOk()
+                ->assertHeader('X-Robots-Tag', 'noindex, nofollow')
+                ->assertSee('<meta name="robots" content="noindex, nofollow">', false);
+        }
+
+        $this->get('https://sunxfinder.com/')->assertOk()->assertHeaderMissing('X-Robots-Tag');
+    }
+
+    public function test_duplicate_addresses_of_the_live_site_redirect_to_one_https_address(): void
+    {
+        foreach ([
+            'http://sunxfinder.com/' => 'https://sunxfinder.com/',
+            'http://www.sunxfinder.com/terms?lang=ar' => 'https://sunxfinder.com/terms?lang=ar',
+            'https://www.sunxfinder.com/terms' => 'https://sunxfinder.com/terms',
+            'http://sunxfinder.com/robots.txt' => 'https://sunxfinder.com/robots.txt',
+        ] as $from => $to) {
+            $this->get($from)->assertStatus(301)->assertHeader('Location', $to);
+        }
+
+        $this->get('https://sunxfinder.com/terms')->assertOk();
+        $this->get('http://localhost/terms')->assertOk();
+        // Android and Apple do not follow redirects for these.
+        $this->assertNotSame(301, $this->get('http://sunxfinder.com/.well-known/assetlinks.json')->status());
+        // Form posts and the mobile app API are never redirected.
+        $this->assertNotSame(301, $this->post('http://sunxfinder.com/contact')->status());
+        $this->assertNotSame(301, $this->get('http://sunxfinder.com/api/v1/customer/unknown')->status());
+    }
+
+    public function test_index_php_addresses_redirect_to_the_clean_address(): void
+    {
+        $server = ['SCRIPT_NAME' => '/index.php', 'SCRIPT_FILENAME' => public_path('index.php')];
+
+        $this->call('GET', 'https://sunxfinder.com/index.php/terms?lang=ar', server: $server)
+            ->assertStatus(301)
+            ->assertHeader('Location', 'https://sunxfinder.com/terms?lang=ar');
+        $this->call('GET', 'https://sunxfinder.com/index.php', server: $server)
+            ->assertStatus(301)
+            ->assertHeader('Location', 'https://sunxfinder.com/');
+        $this->call('GET', 'https://sunxfinder.com/terms', server: $server)->assertOk();
+    }
+
+    public function test_sitemap_urls_follow_the_requested_address(): void
+    {
+        $this->get('http://localhost/sitemap.xml')->assertOk();
+
+        $this->get('https://sunxfinder.com/sitemap.xml')
+            ->assertSee('<loc>https://sunxfinder.com/</loc>', false)
+            ->assertDontSee('localhost');
+    }
+
+    private function maintenance(bool $prelaunch): void
+    {
+        Setting::set('maintenance_enabled', '1');
+        Setting::set('maintenance_prelaunch', $prelaunch ? '1' : '0');
+        Cache::flush();
+    }
+
+    public function test_normal_maintenance_is_a_temporary_outage(): void
+    {
+        $this->maintenance(false);
+
+        $this->get('/')
+            ->assertStatus(503)
+            ->assertHeader('Retry-After', '3600')
+            ->assertSee('<meta name="robots" content="noindex">', false);
+        $this->get('/sitemap.xml')->assertOk()->assertSee('/terms');
+    }
+
+    public function test_coming_soon_home_page_can_be_indexed_before_launch(): void
+    {
+        config(['seo.google_verification' => 'test-code']);
+
+        foreach (['new', 'classic'] as $design) {
+            Setting::set('site_design', $design);
+            $this->maintenance(true);
+
+            $html = $this->get('/')->assertOk()->assertHeaderMissing('Retry-After')->getContent();
+            $this->assertStringContainsString('<title>' . e(__('seo.home_title')) . '</title>', $html);
+            $this->assertStringContainsString('<meta name="robots" content="index, follow', $html);
+            $this->assertStringContainsString('<link rel="canonical" href="' . $this->home() . '">', $html);
+            $this->assertStringContainsString('<meta name="google-site-verification" content="test-code">', $html);
+            $this->assertStringNotContainsString('noindex', $html);
+        }
+
+        $this->get('/terms')->assertStatus(503)->assertSee('noindex');
+        $this->get('/sitemap.xml')
+            ->assertSee('<loc>' . $this->home() . '</loc>', false)
+            ->assertDontSee('/terms');
+    }
+
+    public function test_google_verification_file_is_published(): void
+    {
+        $file = 'googleafbc0ccb2ebc472f.html';
+
+        $this->assertSame("google-site-verification: {$file}", trim(file_get_contents(public_path($file))));
     }
 }

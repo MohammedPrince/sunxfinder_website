@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Setting;
 use App\Models\SolarCompany;
 use App\Support\Seo;
 use Illuminate\Support\Carbon;
@@ -28,9 +29,10 @@ class SeoController extends Controller
                 'Sitemap: ' . route('seo.sitemap'),
             ]
             : [
-                // Test / staging server (SEO_INDEXABLE=false): keep it out of search results.
+                // Test / staging server: every page answers "noindex". Crawling stays allowed, because
+                // a blocked crawler never sees the noindex and can keep the URL in its results.
                 'User-agent: *',
-                'Disallow: /',
+                'Allow: /',
             ];
 
         return response(implode("\n", $lines) . "\n", 200, [
@@ -41,8 +43,13 @@ class SeoController extends Controller
 
     public function sitemap()
     {
-        $xml = Cache::remember(self::SITEMAP_CACHE_KEY, 3600, fn() => view('seo.sitemap', [
-            'pages' => $this->sitemapPages(),
+        // Only the home page is open before launch; the other pages answer 503.
+        $homeOnly = Setting::isPrelaunch();
+        // The URLs inside follow the requested address, so each address has its own copy.
+        $key = self::SITEMAP_CACHE_KEY . ':' . md5(url('/') . ($homeOnly ? '|home' : ''));
+
+        $xml = Cache::remember($key, 3600, fn() => view('seo.sitemap', [
+            'pages' => array_slice($this->sitemapPages(), 0, $homeOnly ? 1 : null),
         ])->render());
 
         return response($xml, 200, [

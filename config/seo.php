@@ -3,9 +3,16 @@
 return [
     /*
     | Search engines may index the public website. Set SEO_INDEXABLE=false on test/staging
-    | servers (e.g. dev.sunxfinder.com): every page then says noindex and robots.txt blocks all.
+    | servers: every page then says noindex. Hosts starting with dev., staging., test., beta. or
+    | demo. (App\Support\Seo) are never indexed, whatever this says.
     */
     'indexable' => (bool) env('SEO_INDEXABLE', true),
+
+    /*
+    | The live domain (no www). http://, www. and /index.php URLs on it redirect to https://<host>/...
+    | Empty = no host or https redirect.
+    */
+    'canonical_host' => env('SEO_CANONICAL_HOST', 'sunxfinder.com'),
 
     'site_name' => 'SunXFinder',
 

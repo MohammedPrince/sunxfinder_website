@@ -1,0 +1,13 @@
+{
+  "id": "P010",
+  "buys": false,
+  "purchases_first_month": 0,
+  "reason_code": "trust",
+  "reason": "My cousin's neighbour did his shop system last year and I will call him first. I don't know these companies on an app, and the quotes will change with the dollar next week anyway, so why collect them.",
+  "objection": "Prices move with the dollar every week, so a written quote from a stranger is worth nothing by the time I have the cash, and I have no way to know if the ratings are real people or the company's friends.",
+  "would_change_my_mind": "If someone I know in the market used it and told me the company it found held the price and did good work, or if my own installer's quote got checked and it found something wrong with it.",
+  "price_too_cheap": 1,
+  "price_cheap": 3,
+  "price_expensive": 10,
+  "price_too_expensive": 20
+}

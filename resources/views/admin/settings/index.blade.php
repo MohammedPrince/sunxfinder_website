@@ -396,6 +396,18 @@
                     <span class="toggle-switch" aria-hidden="true"></span>
                 </label>
 
+                <label class="toggle-card" for="maintenance_prelaunch" style="margin-top:12px">
+                    <span class="toggle-card-copy">
+                        <strong>Coming soon: let Google index the home page</strong>
+                        <small>Only before the first launch. The home page shows this same page, but search engines
+                            can list it. Keep off for normal maintenance.</small>
+                    </span>
+                    <input type="hidden" name="maintenance_prelaunch" value="0">
+                    <input class="toggle-input" type="checkbox" id="maintenance_prelaunch" name="maintenance_prelaunch"
+                        value="1" @checked(old('maintenance_prelaunch', $maintenance['prelaunch'] ?? false))>
+                    <span class="toggle-switch" aria-hidden="true"></span>
+                </label>
+
                 <div class="form-grid" style="margin-top:18px">
                     <div class="form-group">
                         <label for="maintenance_title_en">Title (English)</label>
