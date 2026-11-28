@@ -39,7 +39,7 @@ class CompanyOfferInvoiceTest extends TestCase
         parent::setUp();
 
         Bus::fake();
-        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class);
 
         $this->company = $this->makeCompany('Red Sea Solar', 'redsea');
 

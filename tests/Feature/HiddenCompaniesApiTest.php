@@ -141,7 +141,7 @@ class HiddenCompaniesApiTest extends TestCase
             'is_active' => true,
         ]);
 
-        $toggle = fn() => $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+        $toggle = fn() => $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class)
             ->actingAs($admin, 'admin')
             ->patch(route('admin.company-carousel.toggle', $entry->id))
             ->assertRedirect();

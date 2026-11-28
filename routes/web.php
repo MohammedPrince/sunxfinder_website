@@ -25,7 +25,7 @@ Route::withoutMiddleware([
     \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
     \Illuminate\Session\Middleware\StartSession::class,
     \Illuminate\View\Middleware\ShareErrorsFromSession::class,
-    \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+    \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class,
 ])->group(function () {
     Route::get('/robots.txt', [\App\Http\Controllers\SeoController::class, 'robots'])->name('seo.robots');
     Route::get('/sitemap.xml', [\App\Http\Controllers\SeoController::class, 'sitemap'])->middleware('throttle:60,1')->name('seo.sitemap');

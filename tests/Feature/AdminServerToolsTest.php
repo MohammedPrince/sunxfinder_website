@@ -30,7 +30,7 @@ class AdminServerToolsTest extends TestCase
     {
         parent::setUp();
 
-        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class);
         $this->actingAs(Admin::query()->forceCreate([
             'username' => 'admin',
             'password' => Hash::make('secret123'),

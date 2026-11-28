@@ -13,7 +13,7 @@ use App\Models\Project;
 use App\Models\ProjectCancellation;
 use App\Models\Quote;
 use App\Models\SolarCompany;
-use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
@@ -50,7 +50,7 @@ class OfferWithdrawalTest extends TestCase
 
         Bus::fake();
         $this->mock(Messaging::class)->shouldIgnoreMissing();
-        $this->withoutMiddleware(ValidateCsrfToken::class);
+        $this->withoutMiddleware(PreventRequestForgery::class);
 
         $this->company = $this->makeCompany('Red Sea Solar', 'redsea');
         $this->other = $this->makeCompany('Nile Power', 'nile');

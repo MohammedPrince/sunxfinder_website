@@ -157,7 +157,7 @@ class CustomerApiTest extends TestCase
             $milestone->id => ['status' => 'completed'],
         ])->all();
 
-        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class)
             ->actingAs($this->company, 'company')
             ->post(route('company.projects.progress.update', $project->id), [
                 'status' => 'completed',
@@ -490,7 +490,7 @@ class CustomerApiTest extends TestCase
         $this->assertSame($quote->id, $notification['quote_id']);
 
         // The company cannot set it to completed itself.
-        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class)
             ->actingAs($this->company, 'company')
             ->post(route('company.projects.progress.update', $project->id), ['status' => 'completed'])
             ->assertSessionHasErrors('status');
@@ -902,7 +902,7 @@ class CustomerApiTest extends TestCase
             'is_active' => true,
         ]);
 
-        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class)
             ->actingAs($admin, 'admin')
             ->put(route('admin.companies.update', $this->company->id), [
                 'name' => 'Red Sea Solar',

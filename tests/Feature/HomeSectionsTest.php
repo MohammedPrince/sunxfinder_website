@@ -36,7 +36,7 @@ class HomeSectionsTest extends TestCase
     {
         parent::setUp();
 
-        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class);
 
         $this->customer = Customer::query()->forceCreate([
             'username' => 'mohamed',
