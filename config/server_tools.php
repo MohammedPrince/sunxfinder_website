@@ -9,8 +9,17 @@ return [
     // Force on/off. Empty = on only when the PHP binary below exists and the OS is not Windows.
     'enabled' => env('SERVER_TOOLS_ENABLED'),
 
-    // cPanel's PHP 8.2 command-line binary (the web PHP cannot run artisan/composer itself).
-    'php' => env('SERVER_TOOLS_PHP', '/opt/cpanel/ea-php82/root/usr/bin/php'),
+    // Command-line PHP for artisan/composer (the web PHP cannot run them itself).
+    // Empty = the CLI binary of the same version the website runs, found among php_candidates,
+    // so changing the version in cPanel's PHP selector needs no change here.
+    'php' => env('SERVER_TOOLS_PHP'),
+
+    // {v} = the website's PHP version without the dot (8.4 → 84). First existing file wins.
+    // /opt/alt = CloudLinux PHP selector (what SSH `php` uses), /opt/cpanel = EasyApache.
+    'php_candidates' => [
+        '/opt/alt/php{v}/usr/bin/php',
+        '/opt/cpanel/ea-php{v}/root/usr/bin/php',
+    ],
 
     'composer' => env('SERVER_TOOLS_COMPOSER', '/opt/cpanel/ea-wappspector/composer.phar'),
 

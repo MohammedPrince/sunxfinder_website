@@ -13,7 +13,7 @@ use Throwable;
  *
  *   php artisan optimize:clear | optimize | migrate --force
  *   php artisan queue:work --stop-when-empty   (run waiting jobs now)
- *   php composer.phar install --no-dev --optimize-autoloader --ignore-platform-reqs
+ *   php composer.phar install --no-dev --optimize-autoloader
  *   copy public/{main,admin,company,visitors,sounds,css} to public_html
  *
  * Nothing runs on the local WAMP machine: the cPanel PHP binary does not exist there.
@@ -62,7 +62,7 @@ class ServerTools
         ],
         'composer' => [
             'title' => 'Composer install',
-            'command' => 'php composer.phar install --no-dev --optimize-autoloader --ignore-platform-reqs',
+            'command' => 'php composer.phar install --no-dev --optimize-autoloader',
             'help' => 'Installs the PHP packages from composer.lock (the vendor folder). Run it when composer.json or composer.lock changed. Can take a few minutes.',
             'confirm' => 'Run composer install now? It can take a few minutes.',
             'danger' => true,
@@ -86,7 +86,35 @@ class ServerTools
             return filter_var($forced, FILTER_VALIDATE_BOOLEAN);
         }
 
-        return PHP_OS_FAMILY !== 'Windows' && @is_file((string) config('server_tools.php'));
+        return PHP_OS_FAMILY !== 'Windows' && @is_file(self::phpBinary());
+    }
+
+    /**
+     * The command-line PHP that runs artisan and composer: SERVER_TOOLS_PHP when set, otherwise
+     * the CLI binary of the same version as the website (8.4 site → /opt/alt/php84/usr/bin/php).
+     * Matching versions matter: composer.lock can need a newer PHP than an old default binary.
+     */
+    public static function phpBinary(): string
+    {
+        $configured = (string) config('server_tools.php');
+
+        if ($configured !== '') {
+            return $configured;
+        }
+
+        $candidates = array_map(
+            fn(string $path) => str_replace('{v}', PHP_MAJOR_VERSION . PHP_MINOR_VERSION, $path),
+            (array) config('server_tools.php_candidates', []),
+        );
+
+        foreach ($candidates as $path) {
+            if (@is_file($path)) {
+                return $path;
+            }
+        }
+
+        // Nothing found: show the first candidate in the "not found" message.
+        return $candidates[0] ?? 'php';
     }
 
     /** Why the tools are off, in one sentence (null when they are available). */
@@ -100,7 +128,7 @@ class ServerTools
             return 'This is the local (Windows/WAMP) copy. Server Tools work only on the hosting.';
         }
 
-        return 'The cPanel PHP binary was not found at ' . config('server_tools.php') . '. Set SERVER_TOOLS_PHP in .env.';
+        return 'The cPanel PHP binary was not found at ' . self::phpBinary() . '. Set SERVER_TOOLS_PHP in .env.';
     }
 
     /**
@@ -143,7 +171,7 @@ class ServerTools
             'available' => self::available(),
             'reason' => self::unavailableReason(),
             'processes' => self::canRunProcesses(),
-            'php' => (string) config('server_tools.php'),
+            'php' => self::phpBinary(),
             'composer' => (string) config('server_tools.composer'),
             'composer_found' => @is_file((string) config('server_tools.composer')),
             'base_path' => base_path(),
@@ -255,7 +283,7 @@ class ServerTools
             throw new RuntimeException('This hosting has proc_open turned off, so commands cannot run from the panel. Run them over SSH or ask the host to enable proc_open.');
         }
 
-        $php = (string) config('server_tools.php');
+        $php = self::phpBinary();
         $artisan = base_path('artisan');
 
         $command = match ($action) {
@@ -266,7 +294,9 @@ class ServerTools
             'migrate' => [$php, $artisan, 'migrate', '--force', '--no-interaction'],
             // Stops when the queue is empty, and never runs longer than the page can wait.
             'queue' => [$php, $artisan, 'queue:work', '--stop-when-empty', '--tries=3', '--max-time=' . max(60, (int) config('server_tools.timeout') - 60)],
-            'composer' => [$php, (string) config('server_tools.composer'), 'install', '--no-dev', '--optimize-autoloader', '--ignore-platform-reqs', '--no-interaction', '--no-progress'],
+            // No --ignore-platform-reqs: a missing PHP extension (e.g. sodium) must stop the
+            // install here, not break the live site later.
+            'composer' => [$php, (string) config('server_tools.composer'), 'install', '--no-dev', '--optimize-autoloader', '--no-interaction', '--no-progress'],
         };
 
         if ($action === 'composer' && !@is_file((string) config('server_tools.composer'))) {

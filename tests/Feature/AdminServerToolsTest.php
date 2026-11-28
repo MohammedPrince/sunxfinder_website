@@ -199,6 +199,42 @@ class AdminServerToolsTest extends TestCase
         $this->assertSame(2, ActivityLog::query()->where('action', 'server_tool_run')->count());
     }
 
+    public function test_without_a_set_binary_the_php_matching_the_website_version_is_used(): void
+    {
+        $this->onHosting();
+        $v = PHP_MAJOR_VERSION . PHP_MINOR_VERSION;
+        File::ensureDirectoryExists($this->tmp . "/ea-php{$v}");
+        File::put($this->tmp . "/ea-php{$v}/php", '');
+        config([
+            'server_tools.php' => null,
+            // The first candidate does not exist, so the second one is used.
+            'server_tools.php_candidates' => [$this->tmp . '/alt-php{v}/php', $this->tmp . '/ea-php{v}/php'],
+        ]);
+        Process::fake();
+
+        $this->post(route('admin.server-tools.run'), ['action' => 'composer'])->assertSessionHas('error');
+        $this->post(route('admin.server-tools.run'), ['action' => 'optimize_clear'])->assertSessionHas('success');
+
+        Process::assertRan(fn(PendingProcess $process) => $process->command === [
+            $this->tmp . "/ea-php{$v}/php", base_path('artisan'), 'optimize:clear',
+        ]);
+        $this->assertSame($this->tmp . "/ea-php{$v}/php", \App\Support\ServerTools::phpBinary());
+    }
+
+    public function test_composer_install_checks_php_extensions(): void
+    {
+        $this->onHosting();
+        File::ensureDirectoryExists($this->tmp);
+        File::put($this->tmp . '/composer.phar', '');
+        config(['server_tools.composer' => $this->tmp . '/composer.phar']);
+        Process::fake();
+
+        $this->post(route('admin.server-tools.run'), ['action' => 'composer'])->assertSessionHas('success');
+
+        Process::assertRan(fn(PendingProcess $process) => in_array('install', $process->command, true)
+            && !in_array('--ignore-platform-reqs', $process->command, true));
+    }
+
     public function test_a_failed_command_shows_its_output(): void
     {
         $this->onHosting();
