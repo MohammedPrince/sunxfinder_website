@@ -46,7 +46,7 @@ class PackageOfferTest extends TestCase
         Bus::fake();
         // No real pushes: Firebase is never called.
         $this->mock(Messaging::class)->shouldIgnoreMissing();
-        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class);
 
         $this->company = $this->makeCompany('Red Sea Solar', 'redsea');
         $this->customer = $this->makeCustomer('own');

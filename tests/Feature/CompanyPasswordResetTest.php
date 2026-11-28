@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Models\ActivityLog;
 use App\Models\Admin;
 use App\Models\SolarCompany;
-use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -29,7 +29,7 @@ class CompanyPasswordResetTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->withoutMiddleware(ValidateCsrfToken::class);
+        $this->withoutMiddleware(PreventRequestForgery::class);
     }
 
     private function company(array $extra = []): SolarCompany

@@ -11,7 +11,7 @@ use App\Models\Project;
 use App\Models\Quote;
 use App\Models\SolarCompany;
 use App\Support\WhatsApp;
-use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -42,7 +42,7 @@ class StalledProjectReminderTest extends TestCase
 
         Mail::fake();
         Cache::flush();
-        $this->withoutMiddleware(ValidateCsrfToken::class);
+        $this->withoutMiddleware(PreventRequestForgery::class);
 
         $this->customer = Customer::query()->forceCreate([
             'username' => 'mohamed',
